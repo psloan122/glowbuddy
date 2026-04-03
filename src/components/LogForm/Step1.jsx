@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search } from 'lucide-react';
-import { PROCEDURE_TYPES, TREATMENT_AREAS } from '../../lib/constants';
+import { Search, Check } from 'lucide-react';
+import {
+  PROCEDURE_TYPES,
+  TREATMENT_AREAS,
+  REQUIRES_TREATMENT_AREA,
+  UNITS_PLACEHOLDER,
+  AVG_PRICES,
+} from '../../lib/constants';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -14,16 +20,25 @@ export default function Step1({ formData, setFormData }) {
     type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
+  const avgPrice = AVG_PRICES[formData.procedureType];
+  const unitsPlaceholder =
+    UNITS_PLACEHOLDER[formData.procedureType] || 'e.g. 1 session';
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setSearchOpen(false);
+        // Reset search term to selected value if user clicked away
+        if (formData.procedureType) {
+          setSearchTerm(formData.procedureType);
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [formData.procedureType]);
 
   function selectProcedure(type) {
     setSearchTerm(type);
@@ -41,56 +56,82 @@ export default function Step1({ formData, setFormData }) {
       </p>
 
       <div className="space-y-5">
-        {/* Procedure type — searchable dropdown */}
+        {/* Procedure type — searchable dropdown, selection required */}
         <div ref={wrapperRef} className="relative">
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             Procedure Type <span className="text-rose-accent">*</span>
           </label>
           <div className="relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
-            />
+            {formData.procedureType && !searchOpen ? (
+              <Check
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-verified"
+              />
+            ) : (
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+              />
+            )}
             <input
               type="text"
               placeholder="Search procedures..."
-              value={searchTerm}
+              value={searchOpen ? searchTerm : (formData.procedureType || searchTerm)}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setSearchOpen(true);
-                if (!e.target.value) {
-                  setFormData((prev) => ({ ...prev, procedureType: '' }));
-                }
+                // Always clear selection when typing — force re-selection
+                setFormData((prev) => ({ ...prev, procedureType: '' }));
               }}
-              onFocus={() => setSearchOpen(true)}
-              className={`${INPUT_CLASSES} pl-10`}
+              onFocus={() => {
+                setSearchOpen(true);
+                setSearchTerm(formData.procedureType || searchTerm);
+              }}
+              className={`${INPUT_CLASSES} pl-10 ${
+                formData.procedureType && !searchOpen
+                  ? 'border-verified/30 bg-verified/5'
+                  : ''
+              }`}
             />
           </div>
-          {searchOpen && filteredTypes.length > 0 && (
+          {searchOpen && (
             <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-              {filteredTypes.map((type) => (
-                <li key={type}>
-                  <button
-                    type="button"
-                    onClick={() => selectProcedure(type)}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/50 transition-colors ${
-                      formData.procedureType === type
-                        ? 'bg-rose-light text-rose-dark font-medium'
-                        : 'text-text-primary'
-                    }`}
-                  >
-                    {type}
-                  </button>
+              {filteredTypes.length > 0 ? (
+                filteredTypes.map((type) => (
+                  <li key={type}>
+                    <button
+                      type="button"
+                      onClick={() => selectProcedure(type)}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/50 transition-colors ${
+                        formData.procedureType === type
+                          ? 'bg-rose-light text-rose-dark font-medium'
+                          : 'text-text-primary'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-3 text-sm text-text-secondary">
+                  No matching procedures
                 </li>
-              ))}
+              )}
             </ul>
+          )}
+
+          {/* Avg price helper */}
+          {formData.procedureType && avgPrice && (
+            <p className="text-xs text-text-secondary mt-1.5">
+              Avg price nationally: <span className="font-medium">${avgPrice.avg.toLocaleString()}{avgPrice.unit}</span>
+            </p>
           )}
         </div>
 
         {/* Treatment area */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Treatment Area
+            Treatment Area {needsArea && <span className="text-rose-accent">*</span>}
           </label>
           <select
             value={formData.treatmentArea}
@@ -99,7 +140,9 @@ export default function Step1({ formData, setFormData }) {
             }
             className={INPUT_CLASSES}
           >
-            <option value="">Select area (optional)</option>
+            <option value="">
+              {needsArea ? 'Select area' : 'Select area (optional)'}
+            </option>
             {TREATMENT_AREAS.map((area) => (
               <option key={area} value={area}>
                 {area}
@@ -108,14 +151,14 @@ export default function Step1({ formData, setFormData }) {
           </select>
         </div>
 
-        {/* Units or volume */}
+        {/* How much? — dynamic placeholder */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Units or Volume
+            How much?
           </label>
           <input
             type="text"
-            placeholder="e.g. 20 units, 1 syringe"
+            placeholder={unitsPlaceholder}
             value={formData.unitsOrVolume}
             onChange={(e) =>
               setFormData((prev) => ({
@@ -138,12 +181,12 @@ export default function Step1({ formData, setFormData }) {
             </span>
             <input
               type="number"
-              placeholder="0"
-              min="0"
+              placeholder="0.00"
+              min="1"
               step="1"
               value={formData.pricePaid}
               onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '');
+                const val = e.target.value.replace(/[^\d]/g, '');
                 setFormData((prev) => ({ ...prev, pricePaid: val }));
               }}
               onKeyDown={(e) => {

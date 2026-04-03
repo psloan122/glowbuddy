@@ -6,7 +6,7 @@ import { AuthContext } from '../App';
 import { providerSlug } from '../lib/slugify';
 import { checkOutlier, getAverages } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
-import { procedureToSlug } from '../lib/constants';
+import { procedureToSlug, REQUIRES_TREATMENT_AREA } from '../lib/constants';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -56,7 +56,10 @@ export default function Log() {
   // Validate current step before allowing next
   function canAdvance() {
     if (currentStep === 1) {
-      return formData.procedureType && formData.pricePaid;
+      const hasPrice = formData.pricePaid && parseInt(formData.pricePaid, 10) > 0;
+      const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
+      const hasArea = !needsArea || formData.treatmentArea;
+      return formData.procedureType && hasPrice && hasArea;
     }
     if (currentStep === 2) {
       return formData.providerName && formData.city && formData.state;
@@ -212,9 +215,9 @@ export default function Log() {
 
   // Step labels for progress indicator
   const steps = [
-    { num: 1, label: 'Treatment' },
-    { num: 2, label: 'Provider' },
-    { num: 3, label: 'Details' },
+    { num: 1, label: 'What you got' },
+    { num: 2, label: 'Where you went' },
+    { num: 3, label: 'Final details' },
   ];
 
   return (

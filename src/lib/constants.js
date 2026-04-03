@@ -129,6 +129,60 @@ export const BADGE_DEFINITIONS = {
   },
 };
 
+// Procedures that require treatment area selection
+export const REQUIRES_TREATMENT_AREA = new Set([
+  'Botox / Dysport / Xeomin',
+  'Lip Filler',
+  'Cheek Filler',
+  'Jawline Filler',
+  'Nasolabial Filler',
+  'Under Eye Filler',
+  'Chin Filler',
+  'Kybella',
+  'Botox Lip Flip',
+  'Laser Hair Removal',
+  'CoolSculpting',
+]);
+
+// Dynamic placeholder for "How much?" field
+export const UNITS_PLACEHOLDER = {
+  'Botox / Dysport / Xeomin': 'e.g. 20 units',
+  'Lip Filler': 'e.g. 1 syringe',
+  'Cheek Filler': 'e.g. 2 syringes',
+  'Jawline Filler': 'e.g. 2 syringes',
+  'Nasolabial Filler': 'e.g. 1 syringe',
+  'Under Eye Filler': 'e.g. 1 syringe',
+  'Chin Filler': 'e.g. 1 syringe',
+  'Kybella': 'e.g. 2 vials',
+  'Botox Lip Flip': 'e.g. 4 units',
+  'Semaglutide / Weight Loss': 'e.g. 4-week supply',
+  'IV Therapy': 'e.g. 1 session',
+};
+
+// Reference average prices (national) for helper text
+export const AVG_PRICES = {
+  'Botox / Dysport / Xeomin': { avg: 302, unit: '/area' },
+  'Lip Filler': { avg: 672, unit: '/syringe' },
+  'Cheek Filler': { avg: 750, unit: '/syringe' },
+  'Jawline Filler': { avg: 800, unit: '/syringe' },
+  'Nasolabial Filler': { avg: 685, unit: '/syringe' },
+  'Under Eye Filler': { avg: 750, unit: '/syringe' },
+  'Chin Filler': { avg: 725, unit: '/syringe' },
+  'Kybella': { avg: 1200, unit: '/session' },
+  'RF Microneedling': { avg: 400, unit: '/session' },
+  'Microneedling': { avg: 250, unit: '/session' },
+  'Chemical Peel': { avg: 200, unit: '/session' },
+  'Laser Hair Removal': { avg: 285, unit: '/session' },
+  'IPL / Photofacial': { avg: 350, unit: '/session' },
+  'CoolSculpting': { avg: 750, unit: '/area' },
+  'Semaglutide / Weight Loss': { avg: 400, unit: '/month' },
+  'IV Therapy': { avg: 175, unit: '/session' },
+  'HydraFacial': { avg: 200, unit: '/session' },
+  'Botox Lip Flip': { avg: 100, unit: '' },
+  'Brow Lamination': { avg: 65, unit: '' },
+  'Lash Lift': { avg: 85, unit: '' },
+};
+
 export function procedureToSlug(name) {
   return name
     .toLowerCase()
