@@ -2,9 +2,11 @@ import { useState, useEffect, useContext } from 'react';
 import { X, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
+import { isEmailVerified } from '../lib/auth';
 import { PROCEDURE_TYPES } from '../lib/constants';
 import { assignTrustTier } from '../lib/trustTiers';
 import StarRating from './StarRating';
+import VerifyEmailModal from './VerifyEmailModal';
 
 export default function ReviewModal({ provider, onClose, onSubmitted }) {
   const { user, openAuthModal } = useContext(AuthContext);
@@ -21,6 +23,7 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
   const [error, setError] = useState('');
   const [hasVerifiedReceipt, setHasVerifiedReceipt] = useState(false);
   const [verifiedReceiptId, setVerifiedReceiptId] = useState(null);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
 
   // Fetch injectors for autocomplete
   useEffect(() => {
@@ -67,6 +70,11 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
 
     if (!user) {
       openAuthModal?.();
+      return;
+    }
+
+    if (!isEmailVerified(user)) {
+      setShowVerifyModal(true);
       return;
     }
 
@@ -328,6 +336,12 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
           </form>
         )}
       </div>
+      {showVerifyModal && (
+        <VerifyEmailModal
+          action="write a review"
+          onClose={() => setShowVerifyModal(false)}
+        />
+      )}
     </div>
   );
 }

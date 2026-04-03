@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
+import { isEmailVerified } from '../../lib/auth';
 import { slugify } from '../../lib/slugify';
 import Step1FindPractice from '../../components/ProviderOnboarding/Step1FindPractice';
 import Step2VerifyOwnership from '../../components/ProviderOnboarding/Step2VerifyOwnership';
@@ -118,6 +119,39 @@ export default function Onboarding() {
             className="bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
             Sign In / Sign Up
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Require email verification to claim a listing
+  if (!isEmailVerified(user)) {
+    return (
+      <div className="fixed inset-0 z-50 bg-warm-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center">
+          <div className="flex items-center justify-center w-14 h-14 bg-rose-light rounded-full mx-auto mb-5">
+            <span className="text-2xl">📧</span>
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary mb-2">
+            Verify your email first
+          </h1>
+          <p className="text-text-secondary mb-6">
+            You need to verify your email before you can claim a provider listing.
+            Check your inbox for a verification link.
+          </p>
+          <p className="text-sm text-text-secondary mb-6">
+            Sent to <span className="font-medium text-text-primary">{user?.email}</span>
+          </p>
+          <button
+            onClick={async () => {
+              if (user?.email) {
+                await supabase.auth.resend({ type: 'signup', email: user.email });
+              }
+            }}
+            className="bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
+          >
+            Resend Verification Email
           </button>
         </div>
       </div>

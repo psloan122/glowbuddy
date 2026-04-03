@@ -1,26 +1,52 @@
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import { signInWithEmail, signInWithGoogle } from '../lib/auth';
+import { X, Loader2, Eye, EyeOff } from 'lucide-react';
+import { signUpWithPassword, signInWithPassword, signInWithGoogle } from '../lib/auth';
 
 export default function AuthModal({ mode: initialMode, onClose }) {
   const [mode, setMode] = useState(initialMode || 'signup');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [sending, setSending] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleEmailSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!email || sending) return;
+    if (!email || !password || sending) return;
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setSending(true);
     setError('');
 
-    const { error: authError } = await signInWithEmail(email);
-    if (authError) {
-      setError(authError.message);
+    if (mode === 'signup') {
+      const { data, error: authError } = await signUpWithPassword(email, password);
+      if (authError) {
+        // If user already exists, suggest signing in
+        if (authError.message?.toLowerCase().includes('already registered')) {
+          setError('An account with this email already exists. Try signing in instead.');
+        } else {
+          setError(authError.message);
+        }
+      } else if (data?.user) {
+        // signUp creates a session immediately — onAuthStateChange in App.jsx
+        // will handle the rest (close modal, start onboarding)
+      }
     } else {
-      setEmailSent(true);
+      const { error: authError } = await signInWithPassword(email, password);
+      if (authError) {
+        if (authError.message?.toLowerCase().includes('invalid login')) {
+          setError('Invalid email or password.');
+        } else {
+          setError(authError.message);
+        }
+      }
+      // Success: onAuthStateChange in App.jsx handles the rest
     }
+
     setSending(false);
   }
 
@@ -31,42 +57,6 @@ export default function AuthModal({ mode: initialMode, onClose }) {
       setError(authError.message);
     }
     // OAuth redirects — modal will close on auth state change
-  }
-
-  // Email sent confirmation screen
-  if (emailSent) {
-    return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-        <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl text-center relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-text-secondary hover:text-text-primary transition"
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
-
-          <div className="flex items-center justify-center w-14 h-14 bg-rose-light rounded-full mx-auto mb-5">
-            <span className="text-2xl">✉️</span>
-          </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
-            Check your email
-          </h2>
-          <p className="text-sm text-text-secondary mb-6">
-            We sent a sign in link to <span className="font-medium text-text-primary">{email}</span>
-          </p>
-          <button
-            onClick={() => {
-              setEmailSent(false);
-              setEmail('');
-            }}
-            className="text-sm text-rose-accent hover:text-rose-dark transition font-medium"
-          >
-            Use a different email
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -114,8 +104,8 @@ export default function AuthModal({ mode: initialMode, onClose }) {
           </div>
         )}
 
-        {/* Email form */}
-        <form onSubmit={handleEmailSubmit} className="space-y-3">
+        {/* Email + password form */}
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="email"
             placeholder="Enter your email"
@@ -125,6 +115,28 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             required
             autoFocus
           />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder={mode === 'signup' ? 'Create a password' : 'Enter your password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 pr-11 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent"
+              required
+              minLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {mode === 'signup' && (
+            <p className="text-xs text-text-secondary">At least 6 characters</p>
+          )}
           <button
             type="submit"
             disabled={sending}
@@ -134,10 +146,12 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             {sending ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 size={16} className="animate-spin" />
-                Sending...
+                {mode === 'signup' ? 'Creating account...' : 'Signing in...'}
               </span>
+            ) : mode === 'signup' ? (
+              'Create Account'
             ) : (
-              'Continue with Email'
+              'Sign In'
             )}
           </button>
         </form>
@@ -169,7 +183,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             <p className="text-sm text-text-secondary">
               Already have an account?{' '}
               <button
-                onClick={() => setMode('signin')}
+                onClick={() => { setMode('signin'); setError(''); setPassword(''); }}
                 className="text-rose-accent hover:text-rose-dark font-medium transition"
               >
                 Sign in
@@ -179,7 +193,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             <p className="text-sm text-text-secondary">
               Don't have an account?{' '}
               <button
-                onClick={() => setMode('signup')}
+                onClick={() => { setMode('signup'); setError(''); setPassword(''); }}
                 className="text-rose-accent hover:text-rose-dark font-medium transition"
               >
                 Sign up

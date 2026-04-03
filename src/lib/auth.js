@@ -2,7 +2,33 @@ import { supabase } from './supabase';
 import { getZip, getCity, getState, getInterests } from './gating';
 
 /**
- * Send a magic link to the given email address.
+ * Sign up with email + password. Creates the account and logs in immediately.
+ * Supabase sends a verification email in the background (non-blocking).
+ */
+export async function signUpWithPassword(email, password) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/verified`,
+    },
+  });
+  return { data, error };
+}
+
+/**
+ * Sign in with email + password for existing accounts.
+ */
+export async function signInWithPassword(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  return { data, error };
+}
+
+/**
+ * Send a magic link to the given email address (kept for fallback).
  * Returns { error } or {} on success.
  */
 export async function signInWithEmail(email) {
@@ -19,6 +45,16 @@ export async function signInWithGoogle() {
     options: { redirectTo: window.location.origin },
   });
   return { error };
+}
+
+/**
+ * Check whether a user has verified their email.
+ * Google OAuth users are considered automatically verified.
+ */
+export function isEmailVerified(user) {
+  if (!user) return false;
+  if (user.app_metadata?.provider === 'google') return true;
+  return !!user.email_confirmed_at;
 }
 
 /**

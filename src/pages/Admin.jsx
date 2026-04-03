@@ -13,6 +13,7 @@ import {
   ExternalLink,
   FileText,
   Image,
+  ShieldCheck,
 } from 'lucide-react';
 
 const TABS = [
@@ -23,6 +24,7 @@ const TABS = [
   { key: 'velocity', label: 'Velocity Flagged', icon: Zap },
   { key: 'lowTrust', label: 'Low Trust', icon: ShieldAlert },
   { key: 'duplicates', label: 'Duplicate Clusters', icon: Copy },
+  { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
 ];
 
 export default function Admin() {
@@ -101,6 +103,13 @@ export default function Admin() {
         .eq('status', 'pending_review')
         .order('created_at', { ascending: true });
       setData(rows || []);
+    } else if (activeTab === 'verifications') {
+      const { data: rows } = await supabase
+        .from('verification_submissions')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      setData(rows || []);
     } else if (activeTab === 'duplicates') {
       // Fetch recent submissions from new accounts (< 7 days old)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -131,7 +140,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, receipts, photos, velocity, lowTrust] =
+    const [pending, disputes, receipts, photos, velocity, lowTrust, verifications] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -161,6 +170,10 @@ export default function Admin() {
           .select('*', { count: 'exact', head: true })
           .lt('trust_score', 30)
           .neq('status', 'removed'),
+        supabase
+          .from('verification_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending'),
       ]);
     setCounts({
       pending: pending.count || 0,
@@ -169,6 +182,7 @@ export default function Admin() {
       photos: photos.count || 0,
       velocity: velocity.count || 0,
       lowTrust: lowTrust.count || 0,
+      verifications: verifications.count || 0,
     });
   }
 
@@ -307,6 +321,47 @@ export default function Admin() {
     await supabase
       .from('before_after_photos')
       .update({ status: 'removed' })
+      .eq('id', id);
+    fetchData();
+  }
+
+  async function approveVerification(submission) {
+    await supabase
+      .from('verification_submissions')
+      .update({
+        status: 'approved',
+        verified_at: new Date().toISOString(),
+      })
+      .eq('id', submission.id);
+
+    // Upsert user_verification tier (only upgrade, never downgrade)
+    const tierRank = { self_reported: 0, appointment_confirmed: 1, receipt_verified: 2 };
+    const { data: existing } = await supabase
+      .from('user_verification')
+      .select('verification_tier')
+      .eq('user_id', submission.user_id)
+      .maybeSingle();
+
+    const currentRank = existing ? tierRank[existing.verification_tier] || 0 : -1;
+    const newRank = tierRank[submission.verification_type] || 0;
+
+    if (newRank > currentRank) {
+      await supabase
+        .from('user_verification')
+        .upsert({
+          user_id: submission.user_id,
+          verification_tier: submission.verification_type,
+          updated_at: new Date().toISOString(),
+        });
+    }
+
+    fetchData();
+  }
+
+  async function rejectVerification(id) {
+    await supabase
+      .from('verification_submissions')
+      .update({ status: 'rejected' })
       .eq('id', id);
     fetchData();
   }
@@ -801,6 +856,78 @@ export default function Admin() {
 
     if (activeTab === 'duplicates') {
       return <div className="space-y-6">{renderGrouped(data, true)}</div>;
+    }
+
+    if (activeTab === 'verifications') {
+      if (data.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No pending verifications.
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4">
+          {data.map((sub) => (
+            <div key={sub.id} className="glow-card p-5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-bold text-lg capitalize">
+                      {sub.verification_type.replace(/_/g, ' ')}
+                    </span>
+                    <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">
+                      {sub.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-secondary font-mono mt-1">
+                    User: {sub.user_id.slice(0, 8)}...
+                  </p>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Submitted: {new Date(sub.created_at).toLocaleDateString()}
+                  </p>
+                  {sub.evidence_data && Object.keys(sub.evidence_data).length > 0 && (
+                    <div className="mt-2 bg-warm-gray rounded-lg p-3">
+                      <p className="text-xs font-medium text-text-secondary mb-1">Evidence:</p>
+                      {sub.evidence_data.screenshot_url && (
+                        <a
+                          href={sub.evidence_data.screenshot_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          <FileImage className="w-4 h-4" />
+                          View Screenshot
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {sub.evidence_data.notes && (
+                        <p className="text-sm text-text-secondary mt-1">
+                          {sub.evidence_data.notes}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => approveVerification(sub)}
+                    className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                  >
+                    <Check className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => rejectVerification(sub.id)}
+                    className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
     }
 
     return null;

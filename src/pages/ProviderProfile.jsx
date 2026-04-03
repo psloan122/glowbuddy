@@ -29,6 +29,8 @@ import BeforeAfterTab from '../components/ProviderTabs/BeforeAfterTab';
 import ReviewsTab from '../components/ProviderTabs/ReviewsTab';
 import PricesTab from '../components/ProviderTabs/PricesTab';
 import CompetitorAds from '../components/CompetitorAds';
+import PriceAlertButton from '../components/PriceAlertButton';
+import FairPriceBadge from '../components/FairPriceBadge';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -837,7 +839,15 @@ export default function ProviderProfile() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-text-primary">${avg}</p>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <p className="text-lg font-bold text-text-primary">${avg}</p>
+                      <FairPriceBadge
+                        price={avg}
+                        procedureType={type}
+                        state={providerState}
+                        city={providerCity}
+                      />
+                    </div>
                     <p className="text-xs text-text-secondary">avg</p>
                   </div>
                 </div>
@@ -988,6 +998,11 @@ export default function ProviderProfile() {
           <Plus size={18} />
           Add a price for this provider
         </Link>
+        <PriceAlertButton
+          procedureType={communityData.length > 0 ? communityData[0].procedure_type : undefined}
+          city={providerCity}
+          state={providerState}
+        />
         {website && (
           <a
             href={website}

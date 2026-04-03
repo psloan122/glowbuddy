@@ -4,6 +4,7 @@ import { ShieldCheck, Users, TrendingDown, TrendingUp, BarChart3 } from 'lucide-
 import { supabase } from '../lib/supabase';
 import { slugToProcedure, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 import ProcedureCard from '../components/ProcedureCard';
+import PriceAlertButton from '../components/PriceAlertButton';
 
 export default function ProcedureDetail() {
   const { slug } = useParams();
@@ -161,9 +162,12 @@ export default function ProcedureDetail() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Heading */}
-      <h1 className="text-3xl font-bold text-text-primary mb-6">
-        {procedureName} Prices
-      </h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-text-primary">
+          {procedureName} Prices
+        </h1>
+        <PriceAlertButton procedureType={procedureName} />
+      </div>
 
       {/* Price Stats Card */}
       {stats && (

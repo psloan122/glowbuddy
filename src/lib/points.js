@@ -10,6 +10,8 @@ export const ENTRY_VALUES = {
   fifth_submission: 3,
   tenth_submission: 5,
   referral_submission: 5,
+  appointment_confirmed_bonus: 2,
+  receipt_verified_bonus: 3,
 };
 
 const MAX_ENTRIES_PER_SUBMISSION = 8;
@@ -23,7 +25,8 @@ export function calculateEntriesFromCount(
   hasRating = false,
   hasReview = false,
   hasResultPhoto = false,
-  receiptVerified = false
+  receiptVerified = false,
+  verificationTier = null
 ) {
   let entries = ENTRY_VALUES.base_submission;
 
@@ -36,6 +39,13 @@ export function calculateEntriesFromCount(
   if (hasResultPhoto) entries += ENTRY_VALUES.with_result_photo;
   // Rating alone without review = 0 bonus; must write review to get entry bonus
   if (hasReview) entries += ENTRY_VALUES.with_review;
+
+  // Verification tier bonuses
+  if (verificationTier === 'appointment_confirmed') {
+    entries += ENTRY_VALUES.appointment_confirmed_bonus;
+  } else if (verificationTier === 'receipt_verified') {
+    entries += ENTRY_VALUES.receipt_verified_bonus;
+  }
 
   const newCount = (activeCount || 0) + 1;
 
@@ -55,7 +65,8 @@ export async function calculateEntries(
   hasRating = false,
   hasReview = false,
   hasResultPhoto = false,
-  receiptVerified = false
+  receiptVerified = false,
+  verificationTier = null
 ) {
   let activeCount = 0;
 
@@ -78,7 +89,8 @@ export async function calculateEntries(
     hasRating,
     hasReview,
     hasResultPhoto,
-    receiptVerified
+    receiptVerified,
+    verificationTier
   );
 }
 
@@ -91,7 +103,8 @@ export function getEntryBreakdown(
   hasRating = false,
   hasReview = false,
   hasResultPhoto = false,
-  receiptVerified = false
+  receiptVerified = false,
+  verificationTier = null
 ) {
   const lines = [];
   const newCount = (activeCount || 0) + 1;
@@ -110,6 +123,12 @@ export function getEntryBreakdown(
   }
   if (hasReview) {
     lines.push({ label: 'Written review', value: ENTRY_VALUES.with_review });
+  }
+
+  if (verificationTier === 'appointment_confirmed') {
+    lines.push({ label: 'Appointment confirmed bonus', value: ENTRY_VALUES.appointment_confirmed_bonus });
+  } else if (verificationTier === 'receipt_verified') {
+    lines.push({ label: 'Receipt verified patient bonus', value: ENTRY_VALUES.receipt_verified_bonus });
   }
 
   if (newCount === 1) {

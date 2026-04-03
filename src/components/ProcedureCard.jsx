@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
+import FairPriceBadge from './FairPriceBadge';
 import { providerProfileUrl } from '../lib/slugify';
 
 export default function ProcedureCard({ procedure }) {
@@ -92,8 +93,16 @@ export default function ProcedureCard({ procedure }) {
       )}
 
       {/* Price */}
-      <div className="price-display mb-2">
-        ${Number(procedure.price_paid).toLocaleString()}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="price-display">
+          ${Number(procedure.price_paid).toLocaleString()}
+        </div>
+        <FairPriceBadge
+          price={procedure.price_paid}
+          procedureType={procedure.procedure_type}
+          state={procedure.state}
+          city={procedure.city}
+        />
       </div>
 
       {/* Units / volume */}

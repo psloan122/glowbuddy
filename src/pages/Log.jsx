@@ -17,10 +17,12 @@ import {
 } from '../lib/trustDetection';
 import { calculateEntries, calculateEntriesFromCount } from '../lib/points';
 import { assignTrustTier } from '../lib/trustTiers';
+import { isEmailVerified } from '../lib/auth';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
 import ThankYou from '../components/ThankYou';
+import VerifyEmailModal from '../components/VerifyEmailModal';
 import { format } from 'date-fns';
 
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
@@ -57,9 +59,10 @@ const INITIAL_FORM_DATA = {
 };
 
 export default function Log() {
-  const { user } = useContext(AuthContext);
+  const { user, openAuthModal } = useContext(AuthContext);
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
@@ -234,6 +237,18 @@ export default function Log() {
   async function handleSubmit() {
     if (isSubmitting) return;
     setSubmitError('');
+
+    // Gate: require auth
+    if (!user) {
+      openAuthModal('signup');
+      return;
+    }
+
+    // Gate: require email verification
+    if (!isEmailVerified(user)) {
+      setShowVerifyModal(true);
+      return;
+    }
 
     const price = parseInt(formData.pricePaid, 10);
 
@@ -699,6 +714,13 @@ export default function Log() {
           hasRating={!!formData.rating}
           hasReview={!!formData.reviewBody}
           hasResultPhoto={!!resultPhotoUrl}
+        />
+      )}
+
+      {showVerifyModal && (
+        <VerifyEmailModal
+          action="log a treatment"
+          onClose={() => setShowVerifyModal(false)}
         />
       )}
     </div>

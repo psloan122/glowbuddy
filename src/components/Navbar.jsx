@@ -1,8 +1,9 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, Bell } from 'lucide-react';
 import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
+import { getUnreadCount } from '../lib/priceAlerts';
 
 const NAV_LINKS = [
   { to: '/', label: 'Browse' },
@@ -19,6 +20,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const avatarRef = useRef(null);
 
   // Close avatar dropdown on outside click
@@ -31,6 +33,14 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  // Fetch unread alert count
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    getUnreadCount().then(setUnreadCount);
+    const interval = setInterval(() => getUnreadCount().then(setUnreadCount), 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   function handleNavClick() {
     setMobileOpen(false);
@@ -73,6 +83,14 @@ export default function Navbar() {
 
           {/* Desktop auth */}
           <div className="hidden md:flex items-center gap-3">
+            {user && (
+              <Link to="/alerts" className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-accent rounded-full" />
+                )}
+              </Link>
+            )}
             {user ? (
               /* Avatar dropdown */
               <div ref={avatarRef} className="relative">
@@ -153,6 +171,16 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                   >
                     My Treatments
+                  </Link>
+                  <Link
+                    to="/alerts"
+                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors flex items-center gap-1.5"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Price Alerts
+                    {unreadCount > 0 && (
+                      <span className="w-2 h-2 bg-rose-accent rounded-full" />
+                    )}
                   </Link>
                   <button
                     onClick={handleSignOut}

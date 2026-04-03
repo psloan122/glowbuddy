@@ -21,6 +21,9 @@ import BusinessDashboard from './pages/Business/Dashboard';
 import BusinessOnboarding from './pages/Business/Onboarding';
 import Admin from './pages/Admin';
 import MapView from './pages/MapView';
+import Alerts from './pages/Alerts';
+import Verified from './pages/Verified';
+import SoftVerifyBanner from './components/SoftVerifyBanner';
 
 export const AuthContext = createContext(null);
 
@@ -144,6 +147,7 @@ function App() {
     }}>
       <div className="min-h-screen bg-warm-white">
         <Navbar />
+        <SoftVerifyBanner />
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -159,6 +163,8 @@ function App() {
             <Route path="/business/claim" element={<BusinessClaim />} />
             <Route path="/business/onboarding" element={<BusinessOnboarding />} />
             <Route path="/business/dashboard" element={<BusinessDashboard />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/verified" element={<Verified />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
