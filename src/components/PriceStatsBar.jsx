@@ -2,21 +2,15 @@ export default function PriceStatsBar({ stats }) {
   const items = [
     {
       label: 'Total Submissions',
-      value: stats.totalSubmissions != null
-        ? Number(stats.totalSubmissions).toLocaleString()
-        : '--',
+      value: Number(stats.totalSubmissions).toLocaleString(),
     },
     {
-      label: 'Avg Botox Price',
-      value: stats.avgBotox != null
-        ? `$${Number(stats.avgBotox).toLocaleString()}`
-        : '--',
+      label: 'Avg Botox / Unit',
+      value: `$${Number(stats.avgBotoxUnit).toFixed(2)}`,
     },
     {
-      label: 'Avg Lip Filler Price',
-      value: stats.avgLipFiller != null
-        ? `$${Number(stats.avgLipFiller).toLocaleString()}`
-        : '--',
+      label: 'Avg Lip Filler',
+      value: `$${Number(stats.avgLipFiller).toLocaleString()}`,
     },
   ];
 

@@ -150,9 +150,11 @@ export default function Community() {
               <p className="text-sm text-text-secondary mb-3">
                 {badge.description}
               </p>
-              <p className="text-xs text-text-secondary">
-                {badgeCounts[key] || 0} {badgeCounts[key] === 1 ? 'user' : 'users'} earned
-              </p>
+              {badgeCounts[key] > 0 && (
+                <p className="text-xs text-text-secondary">
+                  {badgeCounts[key]} {badgeCounts[key] === 1 ? 'user' : 'users'} earned
+                </p>
+              )}
             </div>
           ))}
         </div>

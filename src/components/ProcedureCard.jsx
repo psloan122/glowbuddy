@@ -1,15 +1,11 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-export default function ProcedureCard({ procedure, index }) {
-  useEffect(() => {
-    const views = parseInt(localStorage.getItem('gb_views') || '0', 10);
-    localStorage.setItem('gb_views', String(views + 1));
-  }, []);
-
+export default function ProcedureCard({ procedure, blurProvider }) {
   const isVerified = procedure.source === 'verified';
+  const unlocked = localStorage.getItem('gb_unlocked') === 'true';
+  const shouldBlur = blurProvider && !unlocked;
 
   return (
     <Link
@@ -52,24 +48,19 @@ export default function ProcedureCard({ procedure, index }) {
 
       {/* Price */}
       <div className="price-display mb-2">
-        ${Number(procedure.price).toLocaleString()}
+        ${Number(procedure.price_paid).toLocaleString()}
       </div>
 
       {/* Units / volume */}
-      {procedure.units && (
+      {procedure.units_or_volume && (
         <p className="text-sm text-text-secondary mb-3">
-          {procedure.units} units
-        </p>
-      )}
-      {procedure.volume && (
-        <p className="text-sm text-text-secondary mb-3">
-          {procedure.volume} mL
+          {procedure.units_or_volume}
         </p>
       )}
 
-      {/* Provider name + location */}
+      {/* Provider name + location — blurred until user contributes */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-text-primary">
+        <p className={`text-sm text-text-primary ${shouldBlur ? 'blur-sm select-none' : ''}`}>
           {procedure.provider_name}
           {procedure.city && procedure.state && (
             <span className="text-text-secondary">
@@ -80,8 +71,14 @@ export default function ProcedureCard({ procedure, index }) {
         </p>
       </div>
 
+      {shouldBlur && (
+        <p className="text-xs text-rose-accent font-medium">
+          Log a treatment to see provider details
+        </p>
+      )}
+
       {/* Provider type badge */}
-      {procedure.provider_type && (
+      {procedure.provider_type && !shouldBlur && (
         <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-3">
           {procedure.provider_type}
         </span>

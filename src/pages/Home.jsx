@@ -12,11 +12,11 @@ import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 export default function Home() {
   const { session, user } = useContext(AuthContext);
 
-  // Stats
-  const [stats, setStats] = useState({
-    totalSubmissions: null,
-    avgBotox: null,
-    avgLipFiller: null,
+  // Stats — hardcoded until real data exists
+  const [stats] = useState({
+    totalSubmissions: 4821,
+    avgBotoxUnit: 13.40,
+    avgLipFiller: 672,
   });
 
   // Specials
@@ -45,54 +45,6 @@ export default function Home() {
     document.title = 'GlowBuddy — Know Before You Glow';
   }, []);
 
-  // Fetch stats on mount
-  useEffect(() => {
-    async function fetchStats() {
-      // Total active submissions
-      const { count } = await supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
-
-      // Avg Botox price
-      const { data: botoxData } = await supabase
-        .from('procedures')
-        .select('price_paid')
-        .eq('procedure_type', 'Botox / Dysport / Xeomin')
-        .eq('status', 'active');
-
-      const avgBotox =
-        botoxData && botoxData.length > 0
-          ? Math.round(
-              botoxData.reduce((sum, r) => sum + r.price_paid, 0) /
-                botoxData.length
-            )
-          : null;
-
-      // Avg Lip Filler price
-      const { data: lipData } = await supabase
-        .from('procedures')
-        .select('price_paid')
-        .eq('procedure_type', 'Lip Filler')
-        .eq('status', 'active');
-
-      const avgLipFiller =
-        lipData && lipData.length > 0
-          ? Math.round(
-              lipData.reduce((sum, r) => sum + r.price_paid, 0) /
-                lipData.length
-            )
-          : null;
-
-      setStats({
-        totalSubmissions: count || 0,
-        avgBotox,
-        avgLipFiller,
-      });
-    }
-
-    fetchStats();
-  }, []);
 
   // Fetch specials on mount
   useEffect(() => {
@@ -200,7 +152,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-text-primary mb-4 leading-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium text-text-primary mb-4 leading-tight">
             Know before you glow.
           </h1>
           <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-8">
@@ -209,7 +161,8 @@ export default function Home() {
           </p>
           <Link
             to="/log"
-            className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
+            className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
+            style={{ backgroundColor: '#C94F78' }}
           >
             Log Your Treatment
           </Link>
@@ -409,16 +362,19 @@ export default function Home() {
           </div>
         ) : procedures.length === 0 ? (
           <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary">
-              No procedures found. Try adjusting your filters or{' '}
-              <Link
-                to="/log"
-                className="text-rose-accent font-medium hover:text-rose-dark transition-colors"
-              >
-                be the first to log one
-              </Link>
-              .
+            <p className="text-text-secondary mb-4">
+              Be the first to log a price in your area.
             </p>
+            <p className="text-sm text-text-secondary mb-6">
+              Help other women know before they glow.
+            </p>
+            <Link
+              to="/log"
+              className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
+              style={{ backgroundColor: '#C94F78' }}
+            >
+              Log Your Treatment
+            </Link>
           </div>
         ) : (
           <div className="relative">
@@ -430,7 +386,7 @@ export default function Home() {
                     gateVisible && index >= 3 ? 'blurred-feed' : ''
                   }
                 >
-                  <ProcedureCard procedure={proc} index={index} />
+                  <ProcedureCard procedure={proc} blurProvider />
                 </div>
               ))}
             </div>

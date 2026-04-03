@@ -62,7 +62,7 @@ export default function ProcedureDetail() {
 
       // Compute stats
       const communityPrices = communityItems
-        .map((p) => Number(p.price))
+        .map((p) => Number(p.price_paid))
         .filter((p) => p > 0);
       const verifiedPrices = verifiedItems
         .map((p) => Number(p.price))
@@ -81,11 +81,11 @@ export default function ProcedureDetail() {
         procedureName.toLowerCase().includes('filler');
       if (isUnitBased) {
         const withUnits = communityItems.filter(
-          (p) => p.units && Number(p.units) > 0 && Number(p.price) > 0
+          (p) => p.units_or_volume && /^\d+/.test(p.units_or_volume) && Number(p.price_paid) > 0
         );
         if (withUnits.length > 0) {
           const perUnits = withUnits.map(
-            (p) => Number(p.price) / Number(p.units)
+            (p) => Number(p.price_paid) / parseInt(p.units_or_volume, 10)
           );
           avgPerUnit = Math.round(
             perUnits.reduce((a, b) => a + b, 0) / perUnits.length
@@ -314,11 +314,11 @@ export default function ProcedureDetail() {
       {activeTab === 'community' ? (
         filteredCommunity.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCommunity.map((procedure, index) => (
+            {filteredCommunity.map((procedure) => (
               <ProcedureCard
                 key={procedure.id}
                 procedure={procedure}
-                index={index}
+                blurProvider
               />
             ))}
           </div>
