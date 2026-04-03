@@ -26,6 +26,7 @@ import OverviewTab from '../components/ProviderTabs/OverviewTab';
 import BeforeAfterTab from '../components/ProviderTabs/BeforeAfterTab';
 import ReviewsTab from '../components/ProviderTabs/ReviewsTab';
 import PricesTab from '../components/ProviderTabs/PricesTab';
+import CompetitorAds from '../components/CompetitorAds';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -48,6 +49,7 @@ export default function ProviderProfile() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [googleData, setGoogleData] = useState(null);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [competitorCount, setCompetitorCount] = useState(0);
 
   const isClaimed = provider?.is_claimed === true;
 
@@ -443,7 +445,7 @@ export default function ProviderProfile() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Unclaimed Banner */}
       {!isClaimed && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-amber-900">
               Is this your business?
@@ -451,13 +453,23 @@ export default function ProviderProfile() {
             <p className="text-sm text-amber-700">
               Claim this listing to manage your profile, respond to reviews, and publish your prices.
             </p>
+            {competitorCount > 0 && (
+              <p className="text-xs font-medium mt-2" style={{ color: '#B45309' }}>
+                &#9888;&#65039; Competitor listings are currently appearing on your profile page.
+              </p>
+            )}
           </div>
-          <Link
-            to={claimUrl}
-            className="inline-flex items-center gap-1.5 whitespace-nowrap bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-amber-700 transition shrink-0"
-          >
-            Claim This Listing &rarr;
-          </Link>
+          <div className="shrink-0 text-right">
+            <Link
+              to={claimUrl}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-amber-700 transition"
+            >
+              Claim This Listing &rarr;
+            </Link>
+            <p className="text-[11px] text-amber-600 mt-1.5">
+              Claim free to remove competitor ads and manage your listing
+            </p>
+          </div>
         </div>
       )}
 
@@ -730,6 +742,21 @@ export default function ProviderProfile() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Competitor Ads — unclaimed only */}
+      {!isClaimed && providerCity && providerState && (
+        <CompetitorAds
+          providerSlug={slug}
+          providerId={provider?.id}
+          city={providerCity}
+          state={providerState}
+          procedureTypes={[
+            ...new Set(communityData.map((p) => p.procedure_type).filter(Boolean)),
+          ]}
+          claimUrl={claimUrl}
+          onCompetitorsLoaded={setCompetitorCount}
+        />
       )}
 
       {/* Tab Navigation — full tabs for claimed, simplified for unclaimed */}
