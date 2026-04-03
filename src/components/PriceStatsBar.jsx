@@ -35,7 +35,7 @@ function AnimatedStat({ label, rawValue, prefix = '', decimals = 0 }) {
 
   return (
     <div ref={ref} className="flex flex-col items-center text-center">
-      <span className="text-xs uppercase tracking-wide text-text-secondary mb-1">
+      <span className="text-[11px] tracking-[0.5px] text-text-secondary/70 mb-1">
         {label}
       </span>
       <span className="text-2xl font-bold text-text-primary tabular-nums">
@@ -47,26 +47,34 @@ function AnimatedStat({ label, rawValue, prefix = '', decimals = 0 }) {
 
 export default function PriceStatsBar({ stats, city, localCount }) {
   return (
-    <div className="bg-rose-light/50 rounded-xl p-4">
+    <div
+      className="bg-rose-light/50 rounded-xl p-4"
+      style={{ borderTop: '0.5px solid rgba(201, 79, 120, 0.15)' }}
+    >
       <div className="flex flex-wrap items-center justify-around gap-4">
         <AnimatedStat
-          label="Total Submissions"
+          label="total submissions"
           rawValue={stats.totalSubmissions}
         />
         <AnimatedStat
-          label="Avg Botox / Unit"
+          label="avg botox / unit"
           rawValue={stats.avgBotoxUnit}
           prefix="$"
           decimals={2}
         />
         <AnimatedStat
-          label="Avg Lip Filler"
+          label="avg lip filler"
           rawValue={stats.avgLipFiller}
+          prefix="$"
+        />
+        <AnimatedStat
+          label="avg RF microneedling"
+          rawValue={stats.avgRfMicroneedling || 400}
           prefix="$"
         />
         {city && localCount != null && (
           <AnimatedStat
-            label={`Near ${city}`}
+            label={`near ${city}`}
             rawValue={localCount}
           />
         )}

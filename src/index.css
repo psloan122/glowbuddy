@@ -100,23 +100,28 @@ body::after {
 
 @keyframes gentleFloat {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-8px); }
 }
 
 .hero-icon-float {
-  animation: gentleFloat 5s ease-in-out infinite;
+  animation: gentleFloat var(--float-duration, 5s) ease-in-out infinite;
   animation-delay: var(--float-delay, 0s);
 }
 
 @media (max-width: 768px) {
   .hero-icon-desktop { display: none; }
-  .hero-pattern { opacity: 0.55; }
+  .hero-pattern { opacity: 0.78; }
   .hero-icon-float { animation: none; }
 }
 
 /* Scrollbar hide utility */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Map container — full viewport minus navbar */
+.map-container {
+  height: calc(100vh - 64px);
+}
 
 /* Badge icon circle */
 .badge-icon {

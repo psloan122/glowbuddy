@@ -6,6 +6,7 @@ import { signOut } from '../lib/auth';
 
 const NAV_LINKS = [
   { to: '/', label: 'Browse' },
+  { to: '/map', label: 'Map' },
   { to: '/log', label: 'Log a Treatment' },
   { to: '/insights', label: 'Insights' },
   { to: '/specials', label: 'Specials' },

@@ -20,6 +20,7 @@ import BusinessClaim from './pages/Business/Claim';
 import BusinessDashboard from './pages/Business/Dashboard';
 import BusinessOnboarding from './pages/Business/Onboarding';
 import Admin from './pages/Admin';
+import MapView from './pages/MapView';
 
 export const AuthContext = createContext(null);
 
@@ -146,6 +147,7 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/map" element={<MapView />} />
             <Route path="/log" element={<Log />} />
             <Route path="/procedure/:slug" element={<ProcedureDetail />} />
             <Route path="/provider/:slug" element={<ProviderProfile />} />

@@ -1,79 +1,85 @@
 /**
- * Scattered aesthetic medicine illustration pattern for the hero background.
- * Thin-stroke SVG icons at low opacity, creating a soft watercolor-style backdrop.
+ * Illustrated backdrop pattern for the hero section.
+ * Icons placed in intentional clusters — dense on right, sparse on left.
+ * Three size tiers with counterintuitive opacity (small = more visible).
  */
 
-// Icon path data, each centered at (0,0)
 const ICONS = {
   syringe:
-    'M0,-18 L0,-13 M-4,-13 L4,-13 M-3,-13 L-3,8 L3,8 L3,-13 M-6,-9 L-3,-9 M3,-9 L6,-9 M0,8 L0,16',
+    'M-16,-3 L-13,-3 L-13,-5 L-11,-5 L-11,5 L-13,5 L-13,3 L-16,3 Z M-11,0 L-8,0 M-8,-5 Q-8,-6.5 -6,-6.5 L6,-6.5 Q8,-6.5 8,-5 L8,5 Q8,6.5 6,6.5 L-6,6.5 Q-8,6.5 -8,5 Z M8,0 L15,0 M-2,-6.5 L-2,-4.5 M3,-6.5 L3,-4.5',
   lips:
-    'M-16,1 C-12,-7 -4,-9 0,-4 C4,-9 12,-7 16,1 M-16,1 C-12,7 -4,10 0,6 C4,10 12,7 16,1',
+    'M-14,0 C-10,-7 -5,-9 0,-4 C5,-9 10,-7 14,0 M-14,0 C-10,8 10,8 14,0 M0,-4 L0,0',
   sparkle:
-    'M0,-10 C1,-1 1,-1 10,0 C1,1 1,1 0,10 C-1,1 -1,1 -10,0 C-1,-1 -1,-1 0,-10 Z',
+    'M0,-10 L1.8,-1.8 L10,0 L1.8,1.8 L0,10 L-1.8,1.8 L-10,0 L-1.8,-1.8 Z',
   droplet:
-    'M0,-10 C6,-3 7,4 0,10 C-7,4 -6,-3 0,-10 Z',
-  face:
-    'M0,-14 C3,-14 5,-10 5,-7 C5,-4 2,-2 3,0 C4,1 3,3 2,5 C1,7 -1,10 -2,14',
-  flower:
-    'M0,-10 C4,-7 4,-3 0,0 C-4,-3 -4,-7 0,-10 Z M9,-3 C7,1 3,3 0,0 C2,-4 6,-6 9,-3 Z M6,8 C3,7 1,3 0,0 C3,2 6,5 6,8 Z M-6,8 C-6,5 -3,2 0,0 C-1,3 -3,7 -6,8 Z M-9,-3 C-6,-6 -2,-4 0,0 C-3,1 -7,1 -9,-3 Z',
+    'M0,-10 C0,-10 -7,0 -7,4 C-7,8.5 -3.8,11 0,11 C3.8,11 7,8.5 7,4 C7,0 0,-10 0,-10 Z M-2.5,5 C-3,3.5 -2,2.5 -1,3.5',
   diamond:
-    'M-7,-6 L7,-6 L0,10 Z M-3,0 L3,0',
+    'M-5,-5 L5,-5 L9,0 L0,10 L-9,0 Z M-5,-5 L0,3 L5,-5 M-9,0 L9,0',
   cross:
-    'M0,-7 L0,7 M-7,0 L7,0',
+    'M-2,-7 Q-2,-7.5 -1.5,-7.5 L1.5,-7.5 Q2,-7.5 2,-7 L2,-2 L7,-2 Q7.5,-2 7.5,-1.5 L7.5,1.5 Q7.5,2 7,2 L2,2 L2,7 Q2,7.5 1.5,7.5 L-1.5,7.5 Q-2,7.5 -2,7 L-2,2 L-7,2 Q-7.5,2 -7.5,1.5 L-7.5,-1.5 Q-7.5,-2 -7,2 L-2,-2 Z',
+  flower:
+    'M0,-11 C3,-7 3,-3 0,0 C-3,-3 -3,-7 0,-11 M10.5,-3.4 C7,-0.5 3.5,0.5 0,0 C2,-3.5 6.5,-6.5 10.5,-3.4 M6.5,8.9 C3,7.5 1,4 0,0 C3.5,1 6.5,4.5 6.5,8.9 M-6.5,8.9 C-6.5,4.5 -3.5,1 0,0 C-1,4 -3,7.5 -6.5,8.9 M-10.5,-3.4 C-6.5,-6.5 -2,-3.5 0,0 C-3.5,0.5 -7,-0.5 -10.5,-3.4 M0,-2.5 A2.5,2.5 0 1 0 0,2.5 A2.5,2.5 0 1 0 0,-2.5',
+  face:
+    'M0,-14 C4,-14 6,-10 6,-6 C6,-3 5.5,0 6.5,2 C7,3 6,5 5,7 C3.5,9.5 1.5,12 0,14',
 };
 
-// prettier-ignore
+// s = scale tier: L=1.6, M=1.0, S=0.5
+// o derived from tier: L=0.07, M=0.11, S=0.14
+// fl = float animation, fd = float duration, fld = float delay
+// dO = desktop only
+
+// Positions as % of hero container converted to viewBox(0 0 1400 500):
+// x% * 14 = x, y% * 5 = y
 const PLACEMENTS = [
-  // LEFT ZONE — sparse for text readability
-  { t: 'sparkle',  x: 80,   y: 60,   s: 0.65, r: 15,  o: 0.14 },
-  { t: 'cross',    x: 180,  y: 400,  s: 1.0,  r: 0,   o: 0.12 },
-  { t: 'droplet',  x: 320,  y: 120,  s: 0.65, r: -15, o: 0.16, fl: true, dl: 0 },
-  { t: 'syringe',  x: 120,  y: 280,  s: 0.65, r: 30,  o: 0.14 },
-  { t: 'sparkle',  x: 400,  y: 320,  s: 1.0,  r: -30, o: 0.12 },
-  { t: 'flower',   x: 60,   y: 440,  s: 0.65, r: 45,  o: 0.14, fl: true, dl: 0.5 },
-  { t: 'diamond',  x: 350,  y: 80,   s: 0.65, r: -45, o: 0.16 },
-  { t: 'sparkle',  x: 240,  y: 200,  s: 0.65, r: 0,   o: 0.12 },
-  { t: 'lips',     x: 440,  y: 460,  s: 0.65, r: 15,  o: 0.14, fl: true, dl: 1.0 },
-  { t: 'cross',    x: 160,  y: 100,  s: 0.65, r: 45,  o: 0.14 },
+  // ── TOP AREA (y 0–25%) ──
+  { t: 'syringe', x: 1008, y: 25,  s: 1.6, o: 0.07, r: -20, fl: true, fd: 7,   fld: 1.4 },
+  { t: 'sparkle', x: 1190, y: 40,  s: 0.5, o: 0.14, r: 15,  fl: true, fd: 4.5, fld: 2.1 },
+  { t: 'sparkle', x: 910,  y: 15,  s: 0.5, o: 0.14, r: -35 },
+  { t: 'diamond', x: 1260, y: 75,  s: 1.0, o: 0.11, r: 30 },
+  { t: 'cross',   x: 770,  y: 60,  s: 0.5, o: 0.14, r: 10 },
 
-  // MIDDLE ZONE
-  { t: 'syringe',  x: 500,  y: 80,   s: 1.0,  r: -15, o: 0.12 },
-  { t: 'lips',     x: 620,  y: 340,  s: 1.4,  r: 0,   o: 0.10, fl: true, dl: 1.5 },
-  { t: 'sparkle',  x: 700,  y: 120,  s: 1.0,  r: 30,  o: 0.14 },
-  { t: 'face',     x: 560,  y: 440,  s: 1.0,  r: 0,   o: 0.12, dOnly: true },
-  { t: 'droplet',  x: 780,  y: 260,  s: 1.0,  r: -30, o: 0.14, fl: true, dl: 2.0 },
-  { t: 'flower',   x: 850,  y: 80,   s: 1.0,  r: 15,  o: 0.12, dOnly: true },
-  { t: 'diamond',  x: 480,  y: 240,  s: 1.0,  r: -60, o: 0.14 },
-  { t: 'sparkle',  x: 920,  y: 380,  s: 0.65, r: 45,  o: 0.16, fl: true, dl: 2.5, dOnly: true },
-  { t: 'cross',    x: 640,  y: 180,  s: 0.65, r: 0,   o: 0.14, dOnly: true },
-  { t: 'syringe',  x: 760,  y: 440,  s: 0.65, r: 60,  o: 0.14, dOnly: true },
-  { t: 'sparkle',  x: 540,  y: 160,  s: 1.4,  r: -15, o: 0.10, fl: true, dl: 3.0 },
-  { t: 'flower',   x: 680,  y: 460,  s: 0.65, r: -30, o: 0.16, dOnly: true },
-  { t: 'droplet',  x: 880,  y: 200,  s: 0.65, r: 15,  o: 0.16, dOnly: true },
-  { t: 'lips',     x: 460,  y: 380,  s: 0.65, r: 30,  o: 0.14, dOnly: true },
+  // ── RIGHT SIDE (x 60–100%, y 20–80%) ──
+  { t: 'lips',    x: 1092, y: 150, s: 1.6, o: 0.07, r: 10,  fl: true, fd: 5,   fld: 0 },
+  { t: 'droplet', x: 952,  y: 210, s: 1.0, o: 0.11, r: -15, fl: true, fd: 6,   fld: 0.8 },
+  { t: 'flower',  x: 1232, y: 175, s: 0.5, o: 0.14, r: 25,  fl: true, fd: 6.5, fld: 3.2 },
+  { t: 'syringe', x: 1288, y: 250, s: 1.0, o: 0.11, r: 45 },
+  { t: 'sparkle', x: 1050, y: 275, s: 0.5, o: 0.14, r: 0 },
+  { t: 'face',    x: 1148, y: 325, s: 1.6, o: 0.07, r: -10, fl: true, fd: 5,   fld: 4.5 },
+  { t: 'diamond', x: 980,  y: 340, s: 0.5, o: 0.14, r: 40 },
+  { t: 'cross',   x: 1330, y: 300, s: 0.5, o: 0.14, r: 20 },
 
-  // RIGHT ZONE — dense (where phone was)
-  { t: 'syringe',  x: 960,  y: 60,   s: 1.4,  r: -30, o: 0.10, fl: true, dl: 3.5 },
-  { t: 'lips',     x: 1080, y: 180,  s: 1.4,  r: 15,  o: 0.10 },
-  { t: 'sparkle',  x: 1200, y: 320,  s: 1.4,  r: 0,   o: 0.10, fl: true, dl: 4.0 },
-  { t: 'face',     x: 1300, y: 100,  s: 1.4,  r: -15, o: 0.10, dOnly: true },
-  { t: 'diamond',  x: 980,  y: 280,  s: 1.4,  r: 45,  o: 0.10, fl: true, dl: 4.5, dOnly: true },
-  { t: 'flower',   x: 1140, y: 440,  s: 1.4,  r: -45, o: 0.10, dOnly: true },
-  { t: 'droplet',  x: 1260, y: 60,   s: 1.0,  r: 30,  o: 0.12, dOnly: true },
-  { t: 'cross',    x: 1040, y: 380,  s: 1.0,  r: -60, o: 0.14, fl: true, dl: 5.0 },
-  { t: 'syringe',  x: 1180, y: 260,  s: 1.0,  r: 0,   o: 0.12, dOnly: true },
-  { t: 'sparkle',  x: 1340, y: 200,  s: 1.0,  r: 60,  o: 0.14, dOnly: true },
-  { t: 'lips',     x: 980,  y: 440,  s: 1.0,  r: -15, o: 0.12, dOnly: true },
-  { t: 'sparkle',  x: 1100, y: 100,  s: 0.65, r: 30,  o: 0.16, fl: true, dl: 5.5 },
-  { t: 'cross',    x: 1240, y: 420,  s: 0.65, r: 0,   o: 0.16, dOnly: true },
-  { t: 'droplet',  x: 1340, y: 340,  s: 0.65, r: -30, o: 0.16, dOnly: true },
-  { t: 'syringe',  x: 1060, y: 160,  s: 0.65, r: 45,  o: 0.16, dOnly: true },
-  { t: 'sparkle',  x: 1160, y: 360,  s: 0.65, r: -45, o: 0.16 },
-  { t: 'flower',   x: 1300, y: 460,  s: 0.65, r: 15,  o: 0.14, fl: true, dl: 6.0, dOnly: true },
-  { t: 'face',     x: 1020, y: 60,   s: 1.0,  r: 0,   o: 0.12, dOnly: true },
-  { t: 'diamond',  x: 1260, y: 180,  s: 0.65, r: -15, o: 0.16, dOnly: true },
-  { t: 'cross',    x: 1380, y: 440,  s: 0.65, r: 30,  o: 0.16, dOnly: true },
+  // ── LEFT SIDE — sparse (x 0–35%) ──
+  { t: 'sparkle', x: 70,   y: 50,  s: 0.5, o: 0.14, r: 20,  dO: true },
+  { t: 'cross',   x: 168,  y: 175, s: 0.5, o: 0.14, r: -15, dO: true },
+  { t: 'droplet', x: 112,  y: 325, s: 0.5, o: 0.14, r: 10,  dO: true },
+  { t: 'flower',  x: 42,   y: 400, s: 0.5, o: 0.14, r: 30,  dO: true },
+
+  // ── BOTTOM AREA (y 75–100%) ──
+  { t: 'lips',    x: 630,  y: 440, s: 1.0, o: 0.11, r: -20 },
+  { t: 'sparkle', x: 840,  y: 460, s: 0.5, o: 0.14, r: 15,  fl: true, fd: 4,   fld: 3.9 },
+  { t: 'diamond', x: 1120, y: 425, s: 1.0, o: 0.11, r: -30, fl: true, fd: 5.5, fld: 2.7 },
+  { t: 'syringe', x: 350,  y: 475, s: 0.5, o: 0.14, r: 35 },
+  { t: 'sparkle', x: 1008, y: 480, s: 0.5, o: 0.14, r: 0 },
+
+  // ── ADDITIONAL desktop-only density fills ──
+  { t: 'face',    x: 700,  y: 350, s: 1.0, o: 0.11, r: 5,   dO: true },
+  { t: 'sparkle', x: 490,  y: 250, s: 1.0, o: 0.11, r: -20, dO: true },
+  { t: 'flower',  x: 868,  y: 375, s: 1.0, o: 0.11, r: -10, dO: true },
+  { t: 'cross',   x: 1190, y: 375, s: 1.0, o: 0.11, r: 35,  dO: true },
+  { t: 'sparkle', x: 280,  y: 75,  s: 1.0, o: 0.11, r: -45, dO: true },
+  { t: 'droplet', x: 560,  y: 475, s: 1.0, o: 0.11, r: 20,  dO: true },
+  { t: 'diamond', x: 140,  y: 450, s: 1.6, o: 0.07, r: 15,  dO: true },
+  { t: 'sparkle', x: 1372, y: 210, s: 1.6, o: 0.07, r: -25, dO: true },
+  { t: 'flower',  x: 812,  y: 50,  s: 1.6, o: 0.07, r: 20,  dO: true },
+  { t: 'face',    x: 420,  y: 125, s: 0.5, o: 0.14, r: 0,   dO: true },
+  { t: 'syringe', x: 1288, y: 460, s: 0.5, o: 0.14, r: -40, dO: true },
+  { t: 'lips',    x: 700,  y: 25,  s: 0.5, o: 0.14, r: 10,  dO: true },
+  { t: 'droplet', x: 1092, y: 400, s: 0.5, o: 0.14, r: -20, dO: true },
+  { t: 'flower',  x: 910,  y: 250, s: 0.5, o: 0.14, r: 15,  dO: true },
+  { t: 'sparkle', x: 1372, y: 100, s: 0.5, o: 0.14, r: -10, dO: true },
+  { t: 'syringe', x: 672,  y: 140, s: 1.0, o: 0.11, r: -25, dO: true },
+  { t: 'cross',   x: 560,  y: 400, s: 0.5, o: 0.14, r: 10,  dO: true },
+  { t: 'diamond', x: 728,  y: 275, s: 0.5, o: 0.14, r: -20, dO: true },
 ];
 
 export default function HeroPattern() {
@@ -94,7 +100,7 @@ export default function HeroPattern() {
               d={ICONS[p.t]}
               fill="none"
               stroke="#C94F78"
-              strokeWidth={1.5}
+              strokeWidth={1.2}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -102,16 +108,21 @@ export default function HeroPattern() {
         );
 
         const className = [
-          p.dOnly ? 'hero-icon-desktop' : '',
+          p.dO ? 'hero-icon-desktop' : '',
           p.fl ? 'hero-icon-float' : '',
-        ].filter(Boolean).join(' ') || undefined;
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined;
 
         if (p.fl) {
           return (
             <g
               key={i}
               className={className}
-              style={{ '--float-delay': `${p.dl}s` }}
+              style={{
+                '--float-delay': `${p.fld}s`,
+                '--float-duration': `${p.fd}s`,
+              }}
             >
               {icon}
             </g>

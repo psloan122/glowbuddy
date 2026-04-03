@@ -21,6 +21,7 @@ export default function Home() {
     totalSubmissions: 4821,
     avgBotoxUnit: 13.40,
     avgLipFiller: 672,
+    avgRfMicroneedling: 400,
   });
 
   // Specials
@@ -327,25 +328,49 @@ export default function Home() {
       {/* Hero Section */}
       <section
         className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(120deg, #FDF6F0, #FBE8EF)' }}
+        style={{ background: 'linear-gradient(135deg, #FDF6F0 0%, #FBE8EF 100%)' }}
       >
         <HeroPattern />
 
-        <div className="relative z-10 max-w-[680px] mx-auto px-6 md:px-10 py-16 md:py-20">
-          <h1 className="text-4xl md:text-[56px] md:leading-[1.1] font-medium text-text-primary mb-4 leading-tight">
-            Know before you glow.
-          </h1>
-          <p className="text-lg md:text-xl text-text-secondary max-w-[600px] mb-8">
-            Real prices for Botox, fillers, and med spa treatments — reported by
-            patients like you.
-          </p>
-          <Link
-            to="/log"
-            className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
-            style={{ backgroundColor: '#C94F78' }}
-          >
-            Log Your Treatment
-          </Link>
+        <div className="relative z-10 py-16 md:py-[100px] md:pb-[80px] px-5 md:px-0">
+          <div className="max-w-[580px] ml-[max(5vw,40px)]">
+            <h1 className="text-[32px] md:text-[52px] leading-[1.15] font-normal tracking-[-0.5px] text-text-primary mb-4">
+              Know before you glow.
+            </h1>
+            <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mb-6">
+              Real prices for Botox, fillers, and med spa treatments — reported by
+              patients like you.
+            </p>
+
+            {/* Bullet points */}
+            <ul className="space-y-2.5 mb-6">
+              {[
+                'Real prices from real patients — not what spas advertise',
+                'Search by city, procedure, or zip code',
+                'Free forever — no account needed to browse',
+              ].map((text) => (
+                <li key={text} className="flex items-start gap-2 text-sm text-text-secondary">
+                  <span
+                    className="mt-[7px] shrink-0 rounded-full"
+                    style={{ width: 4, height: 4, backgroundColor: '#C94F78' }}
+                  />
+                  {text}
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              to="/log"
+              className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition mb-4"
+              style={{ backgroundColor: '#C94F78' }}
+            >
+              Log Your Treatment
+            </Link>
+
+            <p className="text-[13px] italic" style={{ color: '#9CA3AF' }}>
+              Join the women who refused to overpay.
+            </p>
+          </div>
         </div>
       </section>
 
