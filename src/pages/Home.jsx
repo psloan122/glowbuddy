@@ -1,22 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, Crosshair, SlidersHorizontal, Loader2, Star } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getCity, setCity, getState as getGatingState, setState as setGatingState } from '../lib/gating';
+import {
+  getCity, setCity as persistCity,
+  getState as getGatingState, setState as persistState,
+  setZip as persistZip,
+} from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
 import HeroPattern from '../components/HeroPattern';
-import StarRating from '../components/StarRating';
-import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
-
-// Build a lookup map for state abbreviations → full names
-const STATE_ABBR_MAP = Object.fromEntries(
-  US_STATES.map((s) => [s.value.toLowerCase(), s])
-);
+import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 
 export default function Home() {
-  // Stats — hardcoded until real data exists
+  // Stats
   const [stats] = useState({
     totalSubmissions: 4821,
     avgBotoxUnit: 13.40,
@@ -31,12 +29,20 @@ export default function Home() {
   const [procedures, setProcedures] = useState([]);
   const [loadingProcedures, setLoadingProcedures] = useState(true);
 
-  // Smart search
-  const [smartQuery, setSmartQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeFilters, setActiveFilters] = useState([]);
-  // { type: 'procedure' | 'city' | 'zip' | 'state', value: string, label: string }
-  const searchRef = useRef(null);
+  // --- Procedure search ---
+  const [procQuery, setProcQuery] = useState('');
+  const [procOpen, setProcOpen] = useState(false);
+  const [selectedProc, setSelectedProc] = useState('');
+  const procRef = useRef(null);
+
+  // --- Location search ---
+  const [locQuery, setLocQuery] = useState('');
+  const [locOpen, setLocOpen] = useState(false);
+  const [locResults, setLocResults] = useState([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [selectedLoc, setSelectedLoc] = useState(null); // { city, state, zip? }
+  const locRef = useRef(null);
+  const locDebounce = useRef(null);
 
   // Sort & extra filters
   const [sortBy, setSortBy] = useState('most_recent');
@@ -44,17 +50,12 @@ export default function Home() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
-
-  // Min rating filter
   const [minRating, setMinRating] = useState('');
 
   // Recent reviews
   const [recentReviews, setRecentReviews] = useState([]);
 
-  // Near me
-  const [locating, setLocating] = useState(false);
-
-  // Location personalization (from localStorage, no account needed)
+  // Location personalization
   const [userCity, setUserCity] = useState(() => getCity());
   const [userState] = useState(() => getGatingState());
   const [localCount, setLocalCount] = useState(null);
@@ -64,67 +65,159 @@ export default function Home() {
     document.title = 'GlowBuddy \u2014 Know Before You Glow';
   }, []);
 
-  // Close suggestions on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e) {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSuggestions(false);
-      }
+      if (procRef.current && !procRef.current.contains(e.target)) setProcOpen(false);
+      if (locRef.current && !locRef.current.contains(e.target)) setLocOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Fetch local count when userState is known
+  // Fetch local count
   useEffect(() => {
     if (!userState) return;
-    async function fetchLocalCount() {
-      const { count } = await supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .eq('state', userState);
-      setLocalCount(count);
-    }
-    fetchLocalCount();
+    supabase
+      .from('procedures')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .eq('state', userState)
+      .then(({ count }) => setLocalCount(count));
   }, [userState]);
 
-  // Fetch specials on mount
+  // Fetch specials
   useEffect(() => {
-    async function fetchSpecials() {
-      const { data } = await supabase
-        .from('specials')
-        .select('*, providers(*)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(6);
-
-      setSpecials(data || []);
-    }
-
-    fetchSpecials();
+    supabase
+      .from('specials')
+      .select('*, providers(*)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data }) => setSpecials(data || []));
   }, []);
 
   // Fetch recent 5-star reviews
   useEffect(() => {
-    async function fetchRecentReviews() {
-      const { data } = await supabase
-        .from('reviews')
-        .select('*, providers(name, slug)')
-        .eq('status', 'active')
-        .eq('rating', 5)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      setRecentReviews(data || []);
-    }
-    fetchRecentReviews();
+    supabase
+      .from('reviews')
+      .select('*, providers(name, slug)')
+      .eq('status', 'active')
+      .eq('rating', 5)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => setRecentReviews(data || []));
   }, []);
 
-  // Derive filter values from activeFilters for the query
-  const filterProcedureType = activeFilters.find((f) => f.type === 'procedure')?.value || '';
-  const filterState = activeFilters.find((f) => f.type === 'state')?.value || '';
-  const filterCity = activeFilters.find((f) => f.type === 'city')?.value || '';
-  const filterZip = activeFilters.find((f) => f.type === 'zip')?.value || '';
+  // ── Procedure search helpers ──
+  const procMatches = procQuery.trim()
+    ? PROCEDURE_TYPES.filter((p) =>
+        p.toLowerCase().includes(procQuery.trim().toLowerCase())
+      )
+    : [];
+
+  function selectProcedure(proc) {
+    setSelectedProc(proc);
+    setProcQuery('');
+    setProcOpen(false);
+  }
+
+  function clearProcedure() {
+    setSelectedProc('');
+    setProcQuery('');
+  }
+
+  // ── Location search helpers ──
+  const searchCities = useCallback(async (q) => {
+    const trimmed = q.trim();
+    if (!trimmed) { setLocResults([]); return; }
+
+    // Zip code path
+    if (/^\d{5}$/.test(trimmed)) {
+      setLocLoading(true);
+      try {
+        const res = await fetch(`https://api.zippopotam.us/us/${trimmed}`);
+        if (res.ok) {
+          const data = await res.json();
+          const place = data.places?.[0];
+          if (place) {
+            setLocResults([{
+              city: place['place name'],
+              state: place['state abbreviation'],
+              zip: trimmed,
+            }]);
+          } else {
+            setLocResults([]);
+          }
+        } else {
+          setLocResults([]);
+        }
+      } catch {
+        setLocResults([]);
+      } finally {
+        setLocLoading(false);
+      }
+      return;
+    }
+
+    // City name path — query Supabase distinct cities
+    if (trimmed.length < 2) { setLocResults([]); return; }
+    setLocLoading(true);
+    try {
+      const { data } = await supabase
+        .from('procedures')
+        .select('city, state')
+        .eq('status', 'active')
+        .ilike('city', `%${trimmed}%`)
+        .limit(50);
+
+      // Deduplicate city+state pairs
+      const seen = new Set();
+      const unique = [];
+      for (const row of data || []) {
+        if (!row.city) continue;
+        const key = `${row.city}|${row.state}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push({ city: row.city, state: row.state });
+        }
+        if (unique.length >= 8) break;
+      }
+      setLocResults(unique);
+    } catch {
+      setLocResults([]);
+    } finally {
+      setLocLoading(false);
+    }
+  }, []);
+
+  function handleLocInput(val) {
+    setLocQuery(val);
+    setLocOpen(true);
+    if (locDebounce.current) clearTimeout(locDebounce.current);
+    locDebounce.current = setTimeout(() => searchCities(val), 300);
+  }
+
+  function selectLocation(loc) {
+    setSelectedLoc(loc);
+    setLocQuery('');
+    setLocOpen(false);
+    // Persist to localStorage for personalization
+    if (loc.city) { persistCity(loc.city); setUserCity(loc.city); }
+    if (loc.state) persistState(loc.state);
+    if (loc.zip) persistZip(loc.zip);
+  }
+
+  function clearLocation() {
+    setSelectedLoc(null);
+    setLocQuery('');
+  }
+
+  // ── Derive filter values ──
+  const filterProcedureType = selectedProc;
+  const filterCity = selectedLoc?.city || '';
+  const filterState = selectedLoc?.state || '';
+  const filterZip = selectedLoc?.zip || '';
 
   // Fetch procedures (with filters)
   useEffect(() => {
@@ -136,37 +229,15 @@ export default function Home() {
         .select('*')
         .eq('status', 'active');
 
-      // Filter from pills
-      if (filterProcedureType) {
-        query = query.eq('procedure_type', filterProcedureType);
-      }
-      if (filterState) {
-        query = query.eq('state', filterState);
-      }
-      if (filterCity) {
-        query = query.ilike('city', `%${filterCity}%`);
-      }
-      if (filterZip) {
-        query = query.eq('zip_code', filterZip);
-      }
+      if (filterProcedureType) query = query.eq('procedure_type', filterProcedureType);
+      if (filterState) query = query.eq('state', filterState);
+      if (filterCity) query = query.ilike('city', `%${filterCity}%`);
+      if (filterZip) query = query.eq('zip_code', filterZip);
+      if (filterProviderType) query = query.eq('provider_type', filterProviderType);
+      if (priceMin) query = query.gte('price_paid', parseInt(priceMin, 10));
+      if (priceMax) query = query.lte('price_paid', parseInt(priceMax, 10));
+      if (minRating) query = query.gte('rating', parseInt(minRating, 10));
 
-      // Extra dropdown filters
-      if (filterProviderType) {
-        query = query.eq('provider_type', filterProviderType);
-      }
-      if (priceMin) {
-        query = query.gte('price_paid', parseInt(priceMin, 10));
-      }
-      if (priceMax) {
-        query = query.lte('price_paid', parseInt(priceMax, 10));
-      }
-
-      // Min rating filter
-      if (minRating) {
-        query = query.gte('rating', parseInt(minRating, 10));
-      }
-
-      // Sort
       if (sortBy === 'lowest_price') {
         query = query.order('price_paid', { ascending: true });
       } else if (sortBy === 'highest_price') {
@@ -178,7 +249,6 @@ export default function Home() {
       }
 
       query = query.limit(20);
-
       const { data } = await query;
       setProcedures(data || []);
       setLoadingProcedures(false);
@@ -203,125 +273,7 @@ export default function Home() {
     : [];
   const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
 
-  // --- Smart search helpers ---
-  function getSuggestions(query) {
-    if (!query.trim()) return [];
-    const q = query.trim().toLowerCase();
-    const suggestions = [];
-
-    // Match procedure types
-    for (const p of PROCEDURE_TYPES) {
-      if (p.toLowerCase().includes(q)) {
-        suggestions.push({ type: 'procedure', value: p, label: p });
-      }
-    }
-
-    // Match state names or abbreviations
-    if (q.length >= 2) {
-      // Check abbreviation first
-      if (STATE_ABBR_MAP[q]) {
-        const s = STATE_ABBR_MAP[q];
-        suggestions.push({ type: 'state', value: s.value, label: s.label });
-      }
-      // Check state name match
-      for (const s of US_STATES) {
-        if (s.label.toLowerCase().includes(q) && s.value.toLowerCase() !== q) {
-          suggestions.push({ type: 'state', value: s.value, label: s.label });
-        }
-      }
-    }
-
-    // If 5 digits, suggest zip
-    if (/^\d{5}$/.test(query.trim())) {
-      suggestions.push({ type: 'zip', value: query.trim(), label: `Zip: ${query.trim()}` });
-    }
-
-    // City search fallback
-    if (query.trim().length >= 2 && !/^\d+$/.test(query.trim()) && suggestions.length < 8) {
-      suggestions.push({ type: 'city', value: query.trim(), label: `City: "${query.trim()}"` });
-    }
-
-    return suggestions.slice(0, 8);
-  }
-
-  function addFilter(filter) {
-    setActiveFilters((prev) => [
-      ...prev.filter((f) => f.type !== filter.type),
-      filter,
-    ]);
-    setSmartQuery('');
-    setShowSuggestions(false);
-  }
-
-  function removeFilter(type) {
-    setActiveFilters((prev) => prev.filter((f) => f.type !== type));
-  }
-
-  function handleSearchKeyDown(e) {
-    if (e.key === 'Enter' && smartQuery.trim()) {
-      const suggestions = getSuggestions(smartQuery);
-      if (suggestions.length > 0) {
-        addFilter(suggestions[0]);
-      }
-    }
-    if (e.key === 'Escape') {
-      setShowSuggestions(false);
-    }
-  }
-
-  // Near me — use browser geolocation + Google Maps reverse geocoding
-  async function handleNearMe() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 10000,
-          enableHighAccuracy: false,
-        });
-      });
-
-      const { latitude, longitude } = position.coords;
-
-      // Use Google Maps Geocoder if available
-      if (window.google?.maps?.Geocoder) {
-        const geocoder = new window.google.maps.Geocoder();
-        const result = await new Promise((resolve, reject) => {
-          geocoder.geocode(
-            { location: { lat: latitude, lng: longitude } },
-            (results, status) => {
-              if (status === 'OK' && results?.[0]) resolve(results[0]);
-              else reject(new Error('Geocode failed'));
-            }
-          );
-        });
-
-        let city = '';
-        let state = '';
-        for (const comp of result.address_components) {
-          if (comp.types.includes('locality')) city = comp.long_name;
-          if (comp.types.includes('administrative_area_level_1')) state = comp.short_name;
-        }
-
-        if (city) {
-          setCity(city);
-          setUserCity(city);
-          addFilter({ type: 'city', value: city, label: `Near: ${city}` });
-        }
-        if (state) {
-          setGatingState(state);
-          addFilter({ type: 'state', value: state, label: US_STATES.find((s) => s.value === state)?.label || state });
-        }
-      }
-    } catch {
-      // Geolocation denied or failed — silently ignore
-    } finally {
-      setLocating(false);
-    }
-  }
-
-  const suggestions = getSuggestions(smartQuery);
-  const hasActiveFilters = activeFilters.length > 0 || filterProviderType || priceMin || priceMax || minRating;
+  const hasActiveFilters = selectedProc || selectedLoc || filterProviderType || priceMin || priceMax || minRating;
 
   return (
     <div>
@@ -342,7 +294,6 @@ export default function Home() {
               patients like you.
             </p>
 
-            {/* Bullet points */}
             <ul className="space-y-2.5 mb-6">
               {[
                 'Real prices from real patients — not what spas advertise',
@@ -472,102 +423,139 @@ export default function Home() {
           Recent Prices
         </h2>
 
-        {/* "Showing prices near" banner */}
-        {userCity && activeFilters.length === 0 && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-gradient-to-r from-rose-light to-warm-gray rounded-xl text-sm text-text-primary">
-            <MapPin size={16} className="text-rose-accent flex-shrink-0" />
-            Showing prices near <span className="font-medium">{userCity}</span>
-            <button
-              onClick={() => { setUserCity(null); setCity(''); }}
-              className="ml-auto text-text-secondary hover:text-text-primary transition-colors"
-              aria-label="Dismiss location banner"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* Smart search bar */}
-        <div className="flex gap-2 mb-3" ref={searchRef}>
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
-            />
-            <input
-              type="text"
-              placeholder="Search Botox, your city, zip, or state..."
-              value={smartQuery}
-              onChange={(e) => {
-                setSmartQuery(e.target.value);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => smartQuery.trim() && setShowSuggestions(true)}
-              onKeyDown={handleSearchKeyDown}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
-            />
-
-            {/* Suggestions dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
-                {suggestions.map((s, i) => (
+        {/* Two search inputs */}
+        <div className="flex flex-col md:flex-row gap-2 mb-3">
+          {/* Procedure search */}
+          <div ref={procRef} className="relative md:w-[60%]">
+            {selectedProc ? (
+              <div className="flex items-center gap-2 px-3 py-3 rounded-xl border border-gray-200 bg-white">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                  {selectedProc}
                   <button
-                    key={`${s.type}-${s.value}-${i}`}
-                    onClick={() => addFilter(s)}
-                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors flex items-center gap-2"
+                    onClick={clearProcedure}
+                    className="hover:text-rose-accent transition-colors"
+                    aria-label="Clear procedure filter"
                   >
-                    <span className="text-xs uppercase tracking-wide text-text-secondary w-16 shrink-0">
-                      {s.type}
-                    </span>
-                    <span className="text-text-primary">{s.label}</span>
+                    <X size={14} />
                   </button>
-                ))}
+                </span>
+              </div>
+            ) : (
+              <>
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                />
+                <input
+                  type="text"
+                  placeholder="Search procedures..."
+                  value={procQuery}
+                  onChange={(e) => {
+                    setProcQuery(e.target.value);
+                    setProcOpen(true);
+                  }}
+                  onFocus={() => procQuery.trim() && setProcOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && procMatches.length > 0) selectProcedure(procMatches[0]);
+                    if (e.key === 'Escape') setProcOpen(false);
+                  }}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                />
+              </>
+            )}
+
+            {/* Procedure dropdown */}
+            {procOpen && procQuery.trim() && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                {procMatches.length > 0 ? (
+                  procMatches.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => selectProcedure(p)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary"
+                    >
+                      {p}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-text-secondary">
+                    No procedures found
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Near me button */}
-          <button
-            onClick={handleNearMe}
-            disabled={locating}
-            className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary hover:text-rose-accent hover:border-rose-accent/40 transition shrink-0 disabled:opacity-50"
-            title="Use my location"
-          >
-            {locating ? (
-              <Loader2 size={16} className="animate-spin" />
+          {/* Location search */}
+          <div ref={locRef} className="relative md:w-[40%]">
+            {selectedLoc ? (
+              <div className="flex items-center gap-2 px-3 py-3 rounded-xl border border-gray-200 bg-white">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                  <MapPin size={12} />
+                  {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
+                  {selectedLoc.zip ? ` (${selectedLoc.zip})` : ''}
+                  <button
+                    onClick={clearLocation}
+                    className="hover:text-rose-accent transition-colors"
+                    aria-label="Clear location filter"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              </div>
             ) : (
-              <Crosshair size={16} />
+              <>
+                <MapPin
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                />
+                <input
+                  type="text"
+                  placeholder="City or zip code"
+                  value={locQuery}
+                  onChange={(e) => handleLocInput(e.target.value)}
+                  onFocus={() => locQuery.trim() && setLocOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && locResults.length > 0) selectLocation(locResults[0]);
+                    if (e.key === 'Escape') setLocOpen(false);
+                  }}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                />
+              </>
             )}
-            <span className="hidden sm:inline">Near me</span>
-          </button>
-        </div>
 
-        {/* Active filter pills */}
-        {activeFilters.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            {activeFilters.map((f) => (
-              <span
-                key={f.type}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20"
-              >
-                {f.label}
-                <button
-                  onClick={() => removeFilter(f.type)}
-                  className="ml-0.5 hover:text-rose-accent transition-colors"
-                  aria-label={`Remove ${f.label} filter`}
-                >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-            <button
-              onClick={() => setActiveFilters([])}
-              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
-            >
-              Clear all
-            </button>
+            {/* Location dropdown */}
+            {locOpen && locQuery.trim() && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                {locLoading ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">
+                    Searching...
+                  </div>
+                ) : locResults.length > 0 ? (
+                  locResults.map((loc, i) => (
+                    <button
+                      key={`${loc.city}-${loc.state}-${i}`}
+                      onClick={() => selectLocation(loc)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors flex items-center gap-2 text-text-primary"
+                    >
+                      <MapPin size={14} className="text-text-secondary shrink-0" />
+                      {loc.city}{loc.state ? `, ${loc.state}` : ''}
+                      {loc.zip ? ` (${loc.zip})` : ''}
+                    </button>
+                  ))
+                ) : /^\d{5}$/.test(locQuery.trim()) ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary">
+                    Enter a valid US zip
+                  </div>
+                ) : locQuery.trim().length >= 2 ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary">
+                    No cities found
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Sort & more filters */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -620,7 +608,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* Expanded extra filters (provider type + price range) */}
+        {/* Expanded extra filters */}
         {showMoreFilters && (
           <div className="glow-card p-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
