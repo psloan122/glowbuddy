@@ -31,22 +31,8 @@ const styles = {
     fontWeight: 700,
     color: '#1A1A2E',
   },
-  ratingWrap: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-  },
-  star: {
-    color: '#FDB71A',
+  count: {
     fontSize: 13,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: '#1A1A2E',
-  },
-  reviewCount: {
-    fontSize: 12,
     color: '#6B7280',
   },
   link: {
@@ -59,33 +45,46 @@ const styles = {
 };
 
 export default function MapInfoCard({ provider }) {
-  const { name, city, state, slug, avgPrice, avg_rating, review_count } = provider;
+  const {
+    provider_name,
+    provider_slug,
+    city,
+    state,
+    avg_price,
+    submission_count,
+    provider_type,
+  } = provider;
 
   return (
     <div style={styles.container}>
-      <div style={styles.name}>{name}</div>
+      <div style={styles.name}>{provider_name}</div>
       {(city || state) && (
         <div style={styles.location}>
           {[city, state].filter(Boolean).join(', ')}
         </div>
       )}
       <div style={styles.statsRow}>
-        {avgPrice != null && (
-          <span style={styles.price}>${Math.round(avgPrice)}</span>
+        {avg_price > 0 && (
+          <span style={styles.price}>${avg_price} avg</span>
         )}
-        {avg_rating > 0 && (
-          <span style={styles.ratingWrap}>
-            <span style={styles.star}>★</span>
-            <span style={styles.ratingText}>{avg_rating.toFixed(1)}</span>
-            {review_count > 0 && (
-              <span style={styles.reviewCount}>({review_count})</span>
-            )}
-          </span>
-        )}
+        <span style={styles.count}>
+          {submission_count} {submission_count === 1 ? 'price' : 'prices'}
+        </span>
       </div>
-      <Link to={`/provider/${slug}`} style={styles.link}>
-        View Profile →
-      </Link>
+      {provider_type && (
+        <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
+          {provider_type}
+        </div>
+      )}
+      {provider_slug ? (
+        <Link to={`/provider/${provider_slug}`} style={styles.link}>
+          View Profile →
+        </Link>
+      ) : (
+        <Link to="/log" style={styles.link}>
+          Log a Treatment →
+        </Link>
+      )}
     </div>
   );
 }

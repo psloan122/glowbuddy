@@ -58,7 +58,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
       {expanded && (
         <div className="overflow-y-auto px-2 pb-6" style={{ height: 'calc(60vh - 64px)' }}>
           {providers.map((p) => (
-            <MapProviderCard key={p.slug} provider={p} />
+            <MapProviderCard key={p.key} provider={p} />
           ))}
           {providers.length === 0 && (
             <p className="text-sm text-text-secondary text-center py-6">
@@ -74,7 +74,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
           <p className="text-xs text-text-secondary truncate">
             {providers
               .slice(0, 2)
-              .map((p) => p.name)
+              .map((p) => p.provider_name)
               .join(' · ')}
             {providers.length > 2 ? ` +${providers.length - 2} more` : ''}
           </p>

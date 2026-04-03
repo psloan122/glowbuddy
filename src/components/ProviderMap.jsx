@@ -22,11 +22,11 @@ export default function ProviderMap({
   selectedProvider,
   onSelectProvider,
   onBoundsChanged,
+  procedureFilter,
 }) {
   const [mapsReady, setMapsReady] = useState(false);
   const [mapRef, setMapRef] = useState(null);
 
-  // Poll for google.maps (same pattern as PlacesSearch.jsx)
   useEffect(() => {
     if (window.google?.maps?.Map) {
       setMapsReady(true);
@@ -67,6 +67,23 @@ export default function ProviderMap({
     );
   }
 
+  function getMarkerLabel(p) {
+    if (procedureFilter) {
+      return {
+        text: `$${p.avg_price}`,
+        color: '#1A1A2E',
+        fontSize: '11px',
+        fontWeight: '600',
+      };
+    }
+    return {
+      text: p.submission_count === 1 ? '1 price' : `${p.submission_count} prices`,
+      color: '#1A1A2E',
+      fontSize: '10px',
+      fontWeight: '500',
+    };
+  }
+
   return (
     <GoogleMap
       mapContainerStyle={MAP_STYLES}
@@ -78,9 +95,10 @@ export default function ProviderMap({
     >
       {providers.map((p) => (
         <MarkerF
-          key={p.slug}
+          key={p.key}
           position={{ lat: p.lat, lng: p.lng }}
-          title={p.name}
+          title={p.provider_name}
+          label={getMarkerLabel(p)}
           onClick={() => onSelectProvider(p)}
         />
       ))}
