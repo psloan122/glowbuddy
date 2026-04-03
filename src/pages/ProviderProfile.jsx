@@ -437,6 +437,8 @@ export default function ProviderProfile() {
   const googleMapsUrl = googleData?.googleMapsUrl || provider?.google_maps_url;
   const hoursText = googleData?.hoursText || provider?.hours_text;
   const photos = googleData?.googlePhotos || [];
+  const providerLat = googleData?.lat || provider?.lat || null;
+  const providerLng = googleData?.lng || provider?.lng || null;
 
   // Claim URL with pre-filled params
   const claimUrl =
@@ -461,8 +463,13 @@ export default function ProviderProfile() {
               Claim this listing to manage your profile, respond to reviews, and publish your prices.
             </p>
             {competitorCount > 0 && (
-              <p className="text-xs font-medium mt-2" style={{ color: '#9B2C5E' }}>
-                &#9888;&#65039; Competitor listings are appearing on your profile &middot; Claim to remove them
+              <p
+                className="text-xs font-medium mt-2 pt-2"
+                style={{ color: '#92400E', borderTop: '0.5px solid #F4C0D1' }}
+              >
+                &#9888;&#65039; {competitorCount} verified competitor{' '}
+                {competitorCount === 1 ? 'practice is' : 'practices are'} appearing on
+                your page.
               </p>
             )}
           </div>
@@ -876,11 +883,13 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* Competitor Ads — unclaimed only */}
-      {!isClaimed && providerCity && providerState && (
+      {/* Competitor Ads — unclaimed only, after What Patients Paid */}
+      {!isClaimed && (providerCity || providerState) && (
         <CompetitorAds
           providerSlug={slug}
           providerId={provider?.id}
+          lat={providerLat}
+          lng={providerLng}
           city={providerCity}
           state={providerState}
           procedureTypes={[

@@ -1,12 +1,43 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, CheckCircle } from 'lucide-react';
+import { Star, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ProviderAvatar from './ProviderAvatar';
+
+const GRADIENTS = [
+  'from-rose-light to-rose-accent/30',
+  'from-purple-100 to-purple-300/30',
+  'from-amber-100 to-amber-300/30',
+  'from-emerald-100 to-emerald-300/30',
+  'from-sky-100 to-sky-300/30',
+];
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3959;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(miles, city, state) {
+  if (miles < 1) return `${miles.toFixed(1)} mi away`;
+  if (miles < 10) return `${miles.toFixed(1)} mi away`;
+  if (miles < 25) return `${Math.round(miles)} mi away`;
+  if (miles < 50) return `${Math.round(miles)} mi away \u00b7 ${city}`;
+  return [city, state].filter(Boolean).join(', ');
+}
 
 export default function CompetitorAds({
   providerSlug,
   providerId,
+  lat,
+  lng,
   city,
   state,
   procedureTypes,
@@ -16,234 +47,349 @@ export default function CompetitorAds({
   const [competitors, setCompetitors] = useState([]);
 
   useEffect(() => {
-    if (!city || !state || procedureTypes.length === 0) return;
+    if (!state || procedureTypes.length === 0) return;
     fetchCompetitors();
-  }, [city, state, JSON.stringify(procedureTypes)]);
+  }, [lat, lng, city, state, JSON.stringify(procedureTypes)]);
 
   async function fetchCompetitors() {
-    // Try same city first
-    let results = await queryCompetitors(city, state, 'city');
+    let results = [];
 
-    // Expand to state if fewer than 3
-    if (results.length < 3) {
+    // Try proximity-based if we have coordinates
+    if (lat && lng) {
+      results = await queryByProximity(25);
+      if (results.length < 2) {
+        results = await queryByProximity(50);
+      }
+    }
+
+    // Fallback: same state, no radius
+    if (results.length < 2) {
       const existing = new Set(results.map((r) => r.slug));
-      const stateResults = await queryCompetitors(null, state, 'state');
+      const stateResults = await queryByState();
       const extras = stateResults.filter((r) => !existing.has(r.slug));
-      results = [...results, ...extras].slice(0, 3);
+      results = [...results, ...extras];
+    }
+
+    // Max 4
+    results = results.slice(0, 4);
+
+    // Drop 4th if it's > 40 miles away
+    if (results.length === 4 && results[3].distanceMiles > 40) {
+      results = results.slice(0, 3);
     }
 
     setCompetitors(results);
     onCompetitorsLoaded?.(results.length);
 
-    // Fire impression event
     if (results.length > 0) {
+      const eventData = {
+        unclaimed_slug: providerSlug,
+        competitor_count: results.length,
+        closest_miles: results[0]?.distanceMiles
+          ? Number(results[0].distanceMiles.toFixed(1))
+          : null,
+        city,
+      };
+
       window.dispatchEvent(
-        new CustomEvent('competitor_impression', {
-          detail: {
-            unclaimed_provider: providerSlug,
-            competitor_count: results.length,
-            city,
-            state,
-          },
-        })
+        new CustomEvent('competitor_section_shown', { detail: eventData })
       );
 
       supabase
         .from('custom_events')
-        .insert({
-          event_name: 'competitor_impression',
-          properties: {
-            unclaimed_provider: providerSlug,
-            competitor_count: results.length,
-            city,
-            state,
-          },
-        })
+        .insert({ event_name: 'competitor_section_shown', properties: eventData })
         .then(() => {});
     }
   }
 
-  async function queryCompetitors(filterCity, filterState, scope) {
+  async function queryByProximity(radiusMiles) {
+    const latDelta = radiusMiles / 69;
+    const lngDelta = radiusMiles / (69 * Math.cos((lat * Math.PI) / 180));
+
     let query = supabase
       .from('providers')
       .select(
-        'id, name, slug, city, state, weighted_rating, review_count, logo_url, tagline'
+        `id, name, slug, city, state, lat, lng,
+         weighted_rating, review_count, verified_review_count,
+         is_claimed, logo_url, tagline, provider_type,
+         google_rating, google_review_count`
       )
-      .eq('state', filterState)
       .eq('is_claimed', true)
-      .order('weighted_rating', { ascending: false })
-      .limit(6);
+      .gte('lat', lat - latDelta)
+      .lte('lat', lat + latDelta)
+      .gte('lng', lng - lngDelta)
+      .lte('lng', lng + lngDelta)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .limit(20);
 
-    if (scope === 'city' && filterCity) {
-      query = query.eq('city', filterCity);
-    } else if (filterCity) {
-      // State scope — exclude providers already found in city
-      query = query.neq('city', filterCity);
-    }
-
-    if (providerId) {
-      query = query.neq('id', providerId);
-    }
+    if (providerId) query = query.neq('id', providerId);
 
     const { data: providers } = await query;
     if (!providers || providers.length === 0) return [];
 
+    return await enrichAndSort(providers, radiusMiles);
+  }
+
+  async function queryByState() {
+    let query = supabase
+      .from('providers')
+      .select(
+        `id, name, slug, city, state, lat, lng,
+         weighted_rating, review_count, verified_review_count,
+         is_claimed, logo_url, tagline, provider_type,
+         google_rating, google_review_count`
+      )
+      .eq('state', state)
+      .eq('is_claimed', true)
+      .order('weighted_rating', { ascending: false })
+      .limit(10);
+
+    if (providerId) query = query.neq('id', providerId);
+
+    const { data: providers } = await query;
+    if (!providers || providers.length === 0) return [];
+
+    return await enrichAndSort(providers, null);
+  }
+
+  async function enrichAndSort(providers, radiusMiles) {
     const slugs = providers.map((p) => p.slug).filter(Boolean);
     if (slugs.length === 0) return [];
 
-    // Get matching procedures for these providers
-    const { data: procedures } = await supabase
-      .from('procedures')
-      .select('provider_slug, procedure_type, price_paid')
-      .in('provider_slug', slugs)
-      .in('procedure_type', procedureTypes)
-      .eq('status', 'active');
+    // Fetch procedures + photos in parallel
+    const [procRes, photoRes] = await Promise.all([
+      supabase
+        .from('procedures')
+        .select('provider_slug, procedure_type, price_paid, trust_tier')
+        .in('provider_slug', slugs)
+        .eq('status', 'active'),
+      supabase
+        .from('provider_photos')
+        .select('provider_id, public_url')
+        .in(
+          'provider_id',
+          providers.map((p) => p.id)
+        )
+        .order('display_order'),
+    ]);
 
-    // Get first photo per provider
-    const ids = providers.map((p) => p.id);
-    const { data: photos } = await supabase
-      .from('provider_photos')
-      .select('provider_id, public_url')
-      .in('provider_id', ids)
-      .order('display_order');
-
-    // Index procedures by slug
     const procBySlug = {};
-    for (const proc of procedures || []) {
+    for (const proc of procRes.data || []) {
       if (!procBySlug[proc.provider_slug]) procBySlug[proc.provider_slug] = [];
       procBySlug[proc.provider_slug].push(proc);
     }
 
-    // First photo per provider
     const photoById = {};
-    for (const photo of photos || []) {
+    for (const photo of photoRes.data || []) {
       if (!photoById[photo.provider_id]) photoById[photo.provider_id] = photo.public_url;
     }
 
-    return providers
-      .filter((p) => procBySlug[p.slug]?.length > 0)
-      .slice(0, 3)
-      .map((p) => {
-        const procs = procBySlug[p.slug];
-        // Best match: first procedure type that this competitor offers
-        const bestMatch = procedureTypes.find((t) =>
-          procs.some((pr) => pr.procedure_type === t)
-        );
-        const matchingPrices = procs
-          .filter((pr) => pr.procedure_type === bestMatch)
-          .map((pr) => Number(pr.price_paid));
-        const minPrice = Math.min(...matchingPrices);
+    // Calculate distance, find best procedure match
+    const enriched = providers.map((p) => {
+      const dist =
+        lat && lng && p.lat && p.lng ? haversine(lat, lng, p.lat, p.lng) : Infinity;
+      const procs = procBySlug[p.slug] || [];
 
-        return {
-          ...p,
-          photoUrl: photoById[p.id] || null,
-          relevantProcedure: bestMatch,
-          fromPrice: minPrice,
-        };
-      });
+      // Best matching procedure type
+      const bestMatch = procedureTypes.find((t) =>
+        procs.some((pr) => pr.procedure_type === t)
+      );
+      const matchingProcs = procs.filter((pr) => pr.procedure_type === bestMatch);
+      const prices = matchingProcs.map((pr) => Number(pr.price_paid));
+      const avgPrice = prices.length
+        ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+        : null;
+      const hasVerified = matchingProcs.some(
+        (pr) => pr.trust_tier && pr.trust_tier.includes('receipt')
+      );
+
+      return {
+        ...p,
+        distanceMiles: dist,
+        photoUrl: photoById[p.id] || null,
+        relevantProcedure: bestMatch || null,
+        avgPrice,
+        hasVerifiedPrices: hasVerified,
+        hasProcedureMatch: !!bestMatch,
+      };
+    });
+
+    // Filter by radius if specified
+    const filtered = radiusMiles
+      ? enriched.filter((p) => p.distanceMiles <= radiusMiles)
+      : enriched;
+
+    // Sort: procedure match first, then by distance
+    const sameProcedure = filtered
+      .filter((p) => p.hasProcedureMatch)
+      .sort((a, b) => a.distanceMiles - b.distanceMiles);
+    const others = filtered
+      .filter((p) => !p.hasProcedureMatch)
+      .sort((a, b) => a.distanceMiles - b.distanceMiles);
+
+    return [...sameProcedure, ...others];
   }
 
-  function handleCardClick(competitor) {
+  function handleCardClick(competitor, index) {
+    const eventData = {
+      from_slug: providerSlug,
+      to_slug: competitor.slug,
+      distance_miles: competitor.distanceMiles !== Infinity
+        ? Number(competitor.distanceMiles.toFixed(1))
+        : null,
+      rank: index + 1,
+    };
+
     window.dispatchEvent(
-      new CustomEvent('competitor_click', {
-        detail: {
-          from_provider: providerSlug,
-          to_provider: competitor.slug,
-        },
-      })
+      new CustomEvent('competitor_card_clicked', { detail: eventData })
     );
 
     supabase
       .from('custom_events')
-      .insert({
-        event_name: 'competitor_click',
-        properties: {
-          from_provider: providerSlug,
-          to_provider: competitor.slug,
-        },
-      })
+      .insert({ event_name: 'competitor_card_clicked', properties: eventData })
       .then(() => {});
   }
 
   if (competitors.length === 0) return null;
 
   return (
-    <div
-      className="mt-8 pt-8 pb-8 bg-warm-gray"
-      style={{ borderTop: '0.5px solid #E5E7EB' }}
-    >
+    <div className="bg-warm-gray" style={{ padding: '40px 0', marginTop: 40 }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <span className="text-[13px] font-medium text-gray-400 tracking-[0.3px]">
-            Other providers near you
-          </span>
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <p className="text-base font-medium text-text-primary">
+              Verified providers near {city || state}
+            </p>
+            <p className="text-[13px] text-gray-400 mt-0.5">
+              These practices have claimed their listings and publish verified prices.
+            </p>
+          </div>
           <Link
             to={claimUrl}
-            className="text-[11px] text-gray-400 hover:text-gray-500 transition-colors"
+            className="text-[11px] text-gray-400 hover:text-gray-500 transition-colors shrink-0 ml-4 mt-1"
           >
-            Ad &middot; Claim this listing to remove
+            Ad &middot; Claim this listing to remove &rarr;
           </Link>
         </div>
 
-        {/* Cards — horizontal scroll on mobile, 3-col grid on desktop */}
-        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
-          {competitors.map((c) => (
+        {/* Cards — scroll on mobile, grid on desktop */}
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide md:grid md:grid-cols-4 md:overflow-visible md:pb-0 lg:grid-cols-4">
+          {competitors.map((c, i) => (
             <Link
               key={c.slug}
               to={`/provider/${c.slug}`}
-              onClick={() => handleCardClick(c)}
-              className="block shrink-0 w-[200px] md:w-auto rounded-xl bg-white hover:shadow-md transition-shadow"
-              style={{ border: '0.5px solid #E5E7EB' }}
+              onClick={() => handleCardClick(c, i)}
+              className="block shrink-0 w-[240px] md:w-auto rounded-xl bg-white overflow-hidden transition-all duration-150 hover:-translate-y-0.5"
+              style={{
+                border: '0.5px solid #E5E7EB',
+                boxShadow: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
-              {/* Photo / Avatar fallback */}
-              {c.photoUrl ? (
-                <div
-                  className="h-20 rounded-t-xl bg-gray-100 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${c.photoUrl})` }}
-                />
-              ) : (
-                <div className="h-20 rounded-t-xl bg-gradient-to-br from-rose-light to-rose-accent/20 flex items-center justify-center">
-                  <ProviderAvatar name={c.name} size={40} />
-                </div>
-              )}
+              {/* Photo */}
+              <div className="relative h-[120px]">
+                {c.photoUrl ? (
+                  <div
+                    className="w-full h-full bg-gray-100 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${c.photoUrl})` }}
+                  />
+                ) : (
+                  <div
+                    className={`w-full h-full bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center`}
+                  >
+                    <ProviderAvatar name={c.name} size={48} />
+                  </div>
+                )}
+                {/* Distance badge */}
+                {c.distanceMiles !== Infinity && (
+                  <span
+                    className="absolute bottom-2 left-2 text-[11px] text-white px-2 py-0.5 rounded"
+                    style={{ background: 'rgba(0,0,0,0.55)' }}
+                  >
+                    {formatDistance(c.distanceMiles, c.city, c.state)}
+                  </span>
+                )}
+              </div>
 
-              <div className="p-4">
-                <p className="text-sm font-medium text-text-primary truncate mb-0.5">
+              {/* Body */}
+              <div className="p-3.5">
+                <p className="text-sm font-semibold text-text-primary truncate mb-0.5">
                   {c.name}
                 </p>
-                <p className="text-xs text-gray-400 mb-2">
+                <p className="text-[11px] text-gray-400 mb-2 truncate">
                   {[c.city, c.state].filter(Boolean).join(', ')}
+                  {c.provider_type && ` \u00b7 ${c.provider_type}`}
                 </p>
 
                 {/* Rating */}
-                {c.weighted_rating && (
+                {(c.weighted_rating || c.google_rating) && (
                   <div className="flex items-center gap-1 text-xs text-text-secondary mb-2">
-                    <Star size={11} className="text-amber-400 fill-amber-400" />
-                    <span>{c.weighted_rating}</span>
-                    {c.review_count > 0 && (
+                    <Star size={11} style={{ color: '#F59E0B', fill: '#F59E0B' }} />
+                    <span>
+                      {Number(c.weighted_rating || c.google_rating).toFixed(1)}
+                    </span>
+                    {c.weighted_rating && c.verified_review_count > 0 ? (
                       <span>
-                        &middot; {c.review_count} review
+                        &middot; {c.review_count} verified review
                         {c.review_count !== 1 ? 's' : ''}
                       </span>
-                    )}
+                    ) : c.google_review_count ? (
+                      <span>
+                        &middot; {c.google_review_count} Google review
+                        {c.google_review_count !== 1 ? 's' : ''}
+                      </span>
+                    ) : null}
                   </div>
                 )}
 
                 {/* Relevant procedure + price */}
-                {c.relevantProcedure && (
-                  <p className="text-[13px] font-medium text-text-primary mb-2 truncate">
-                    {c.relevantProcedure} from ${c.fromPrice}
+                {c.relevantProcedure && c.avgPrice && (
+                  <p className="text-[13px] font-medium text-text-primary mb-1.5 truncate">
+                    {c.relevantProcedure} &middot; avg ${c.avgPrice}
                   </p>
                 )}
 
-                {/* Verified badge */}
+                {/* Trust badge */}
+                {c.hasVerifiedPrices ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-medium px-[7px] py-0.5 rounded-lg"
+                    style={{ backgroundColor: '#E1F5EE', color: '#0F6E56' }}
+                  >
+                    <CheckCircle size={10} />
+                    Verified prices
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-medium px-[7px] py-0.5 rounded-lg"
+                    style={{ backgroundColor: '#EFF6FF', color: '#1E40AF' }}
+                  >
+                    <Users size={10} />
+                    Community reported
+                  </span>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div
+                className="flex items-center justify-between px-3.5 py-2.5"
+                style={{ borderTop: '0.5px solid #F3F4F6' }}
+              >
+                <span className="text-xs font-medium" style={{ color: '#C94F78' }}>
+                  View Profile &rarr;
+                </span>
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-[10px]"
+                  className="inline-flex items-center gap-1 text-[10px] font-medium px-[7px] py-0.5 rounded-lg"
                   style={{ backgroundColor: '#E1F5EE', color: '#0F6E56' }}
                 >
-                  <CheckCircle size={10} />
-                  Verified listing
+                  <CheckCircle size={9} />
+                  Claimed
                 </span>
               </div>
             </Link>
