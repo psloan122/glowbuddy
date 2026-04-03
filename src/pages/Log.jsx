@@ -5,12 +5,14 @@ import { AuthContext } from '../App';
 import { providerSlug } from '../lib/slugify';
 import { checkOutlier } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
-import { REQUIRES_TREATMENT_AREA } from '../lib/constants';
+import { REQUIRES_TREATMENT_AREA, PROCEDURE_TYPES, VALID_STATE_CODES } from '../lib/constants';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
 import ThankYou from '../components/ThankYou';
 import { format } from 'date-fns';
+
+const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const INITIAL_FORM_DATA = {
   procedureType: '',
@@ -43,6 +45,11 @@ export default function Log() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
   const [outlierFlagged, setOutlierFlagged] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  // Bot protection state
+  const [honeypot, setHoneypot] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   // SEO
   useEffect(() => {
@@ -72,8 +79,77 @@ export default function Log() {
     setCurrentStep((prev) => prev - 1);
   }
 
+  // --- Validation helpers ---
+
+  function validateSubmission(price) {
+    if (!price || isNaN(price) || price <= 0) return false;
+    if (price > 50000) return false;
+    if (!PROCEDURE_TYPES.includes(formData.procedureType)) return false;
+    if (!formData.providerName || formData.providerName.trim().length < 2) return false;
+    if (!formData.city || formData.city.trim().length < 2) return false;
+    if (!VALID_STATE_CODES.has(formData.state)) return false;
+
+    // Date validation
+    if (formData.treatmentDate) {
+      const treatmentDate = new Date(formData.treatmentDate);
+      if (treatmentDate > new Date()) return false;
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      if (treatmentDate < twoYearsAgo) return false;
+    }
+
+    return true;
+  }
+
+  function checkRateLimit() {
+    const raw = localStorage.getItem('gb_submission_log');
+    const submissions = raw ? JSON.parse(raw) : [];
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentSubmissions = submissions.filter((ts) => ts > oneDayAgo);
+
+    if (recentSubmissions.length >= 10) {
+      return false;
+    }
+
+    // Log this submission timestamp
+    recentSubmissions.push(Date.now());
+    localStorage.setItem('gb_submission_log', JSON.stringify(recentSubmissions));
+    return true;
+  }
+
+  // --- Submit handler ---
+
   async function handleSubmit() {
     if (isSubmitting) return;
+    setSubmitError('');
+
+    const price = parseInt(formData.pricePaid, 10);
+
+    // 1. Honeypot check — silent fake success
+    if (honeypot !== '') {
+      setSubmissionResult({ id: 'fake', procedure_type: formData.procedureType });
+      setCurrentStep('success');
+      return;
+    }
+
+    // 2. Client-side validation
+    if (!validateSubmission(price)) {
+      setSubmitError('Please check your submission and try again.');
+      return;
+    }
+
+    // 3. Rate limit check
+    if (!checkRateLimit()) {
+      setSubmitError('You\u2019ve submitted a lot today. Please try again tomorrow.');
+      return;
+    }
+
+    // 4. Turnstile check (only if key is configured)
+    if (TURNSTILE_KEY && !turnstileToken) {
+      setSubmitError('Please complete the verification challenge.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -82,9 +158,8 @@ export default function Log() {
         formData.city,
         formData.googlePlaceId
       );
-      const price = parseInt(formData.pricePaid, 10);
 
-      // Check for outlier
+      // 5. Check for outlier
       const isOutlier = await checkOutlier(
         formData.procedureType,
         formData.state,
@@ -168,11 +243,12 @@ export default function Log() {
 
       if (error) {
         console.error('Insert error:', error);
+        setSubmitError('Something went wrong. Please try again.');
         setIsSubmitting(false);
         return;
       }
 
-      // Save to localStorage for claiming after email confirmation
+      // 6. Save to localStorage for claiming after email confirmation
       localStorage.setItem('gb_last_submission_id', inserted.id);
       localStorage.setItem(
         'gb_pending_submission',
@@ -197,13 +273,19 @@ export default function Log() {
         await checkAndAwardBadges(user.id);
       }
 
+      // 7. Show ThankYou screen
       setCurrentStep('success');
     } catch (err) {
       console.error('Submission error:', err);
+      setSubmitError('Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  // Determine if submit should be disabled
+  const submitDisabled =
+    isSubmitting || (!!TURNSTILE_KEY && !turnstileToken);
 
   // Step labels for progress indicator
   const steps = [
@@ -265,7 +347,20 @@ export default function Log() {
               <Step2 formData={formData} setFormData={setFormData} />
             )}
             {currentStep === 3 && (
-              <Step3 formData={formData} setFormData={setFormData} />
+              <Step3
+                formData={formData}
+                setFormData={setFormData}
+                honeypot={honeypot}
+                setHoneypot={setHoneypot}
+                onTurnstileSuccess={setTurnstileToken}
+              />
+            )}
+
+            {/* Validation error */}
+            {submitError && (
+              <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                {submitError}
+              </div>
             )}
 
             {/* Navigation buttons */}
@@ -294,7 +389,7 @@ export default function Log() {
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={submitDisabled}
                   className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (

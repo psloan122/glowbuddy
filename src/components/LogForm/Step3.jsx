@@ -1,7 +1,11 @@
+import { Turnstile } from '@marsidev/react-turnstile';
+
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-export default function Step3({ formData, setFormData }) {
+const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+export default function Step3({ formData, setFormData, honeypot, setHoneypot, onTurnstileSuccess }) {
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
@@ -77,6 +81,29 @@ export default function Step3({ formData, setFormData }) {
             Optional. We only use this for the giveaway drawing.
           </p>
         </div>
+
+        {/* Honeypot — hidden from real users, bots fill it */}
+        <input
+          type="text"
+          name="hp_field"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          style={{ display: 'none' }}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+        />
+
+        {/* Cloudflare Turnstile — only renders if site key is configured */}
+        {TURNSTILE_KEY && (
+          <div className="flex justify-center pt-2">
+            <Turnstile
+              siteKey={TURNSTILE_KEY}
+              onSuccess={onTurnstileSuccess}
+              options={{ theme: 'light', size: 'normal' }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

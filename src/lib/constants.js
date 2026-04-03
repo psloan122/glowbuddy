@@ -183,6 +183,9 @@ export const AVG_PRICES = {
   'Lash Lift': { avg: 85, unit: '' },
 };
 
+// Set of valid 2-letter state codes for validation
+export const VALID_STATE_CODES = new Set(US_STATES.map((s) => s.value));
+
 export function procedureToSlug(name) {
   return name
     .toLowerCase()
