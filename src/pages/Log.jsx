@@ -1,17 +1,15 @@
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
 import { Check, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { providerSlug } from '../lib/slugify';
-import { checkOutlier, getAverages } from '../lib/outlierDetection';
+import { checkOutlier } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
-import { procedureToSlug, REQUIRES_TREATMENT_AREA } from '../lib/constants';
+import { REQUIRES_TREATMENT_AREA } from '../lib/constants';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
-import PriceReportCard from '../components/PriceReportCard';
-import BadgeToast from '../components/BadgeToast';
+import ThankYou from '../components/ThankYou';
 import { format } from 'date-fns';
 
 const INITIAL_FORM_DATA = {
@@ -38,14 +36,12 @@ const INITIAL_FORM_DATA = {
 };
 
 export default function Log() {
-  const { user, openAuthModal } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
-  const [priceComparison, setPriceComparison] = useState(null);
-  const [newBadges, setNewBadges] = useState([]);
   const [outlierFlagged, setOutlierFlagged] = useState(false);
 
   // SEO
@@ -78,13 +74,6 @@ export default function Log() {
 
   async function handleSubmit() {
     if (isSubmitting) return;
-
-    // Auth gate: only trigger at submit time
-    if (!user) {
-      openAuthModal('signup', '/log');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -137,6 +126,14 @@ export default function Log() {
         }
       }
 
+      // Determine status based on auth and outlier
+      let status;
+      if (user) {
+        status = isOutlier ? 'pending' : 'active';
+      } else {
+        status = 'pending_confirmation';
+      }
+
       // Build the procedure row to insert
       const row = {
         procedure_type: formData.procedureType,
@@ -152,7 +149,7 @@ export default function Log() {
         date_of_treatment: formData.treatmentDate || null,
         notes: formData.notes || null,
         is_anonymous: formData.anonymous,
-        status: isOutlier ? 'pending' : 'active',
+        status,
         outlier_flagged: isOutlier,
         user_id: user?.id || null,
         google_place_id: formData.googlePlaceId || null,
@@ -175,29 +172,29 @@ export default function Log() {
         return;
       }
 
+      // Save to localStorage for claiming after email confirmation
+      localStorage.setItem('gb_last_submission_id', inserted.id);
+      localStorage.setItem(
+        'gb_pending_submission',
+        JSON.stringify({ ...inserted, timestamp: Date.now() })
+      );
+
       setSubmissionResult(inserted);
 
-      // Giveaway entry
+      // Giveaway entry from Step 3 email field (if provided)
       if (formData.giveawayEmail) {
         const month = format(new Date(), 'yyyy-MM');
         await supabase.from('giveaway_entries').insert({
           email: formData.giveawayEmail,
           procedure_id: inserted.id,
           month,
+          user_id: user?.id || null,
         });
       }
 
-      // Price comparison
-      const averages = await getAverages(
-        formData.procedureType,
-        formData.state
-      );
-      setPriceComparison(averages);
-
-      // Badges
+      // If already authenticated, award badges immediately
       if (user?.id) {
-        const badges = await checkAndAwardBadges(user.id);
-        setNewBadges(badges);
+        await checkAndAwardBadges(user.id);
       }
 
       setCurrentStep('success');
@@ -206,15 +203,6 @@ export default function Log() {
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  function handleReset() {
-    setCurrentStep(1);
-    setFormData(INITIAL_FORM_DATA);
-    setSubmissionResult(null);
-    setPriceComparison(null);
-    setNewBadges([]);
-    setOutlierFlagged(false);
   }
 
   // Step labels for progress indicator
@@ -315,7 +303,7 @@ export default function Log() {
                       Submitting...
                     </>
                   ) : (
-                    'Submit'
+                    'Share my price'
                   )}
                 </button>
               )}
@@ -324,43 +312,13 @@ export default function Log() {
         </>
       )}
 
-      {/* Success state */}
+      {/* Thank You screen */}
       {currentStep === 'success' && submissionResult && (
-        <div className="space-y-6">
-          {outlierFlagged && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-              Thanks! Your submission is under review and will appear shortly.
-            </div>
-          )}
-
-          <PriceReportCard
-            procedure={submissionResult}
-            stateAvg={priceComparison?.stateAvg}
-            nationalAvg={priceComparison?.nationalAvg}
-            stateCount={priceComparison?.stateCount}
-            nationalCount={priceComparison?.nationalCount}
-          />
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-            <Link
-              to={`/procedure/${procedureToSlug(submissionResult.procedure_type)}`}
-              className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors"
-            >
-              See all {submissionResult.procedure_type} prices near you
-            </Link>
-            <button
-              onClick={handleReset}
-              className="bg-rose-accent text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
-            >
-              Submit Another
-            </button>
-          </div>
-
-          {/* Badge toasts */}
-          {newBadges.map((badge, i) => (
-            <BadgeToast key={badge.label} badge={badge} delay={i * 1500} />
-          ))}
-        </div>
+        <ThankYou
+          procedure={submissionResult}
+          user={user}
+          outlierFlagged={outlierFlagged}
+        />
       )}
     </div>
   );

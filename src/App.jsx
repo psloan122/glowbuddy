@@ -2,7 +2,8 @@ import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, createContext, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded } from './lib/gating';
-import { syncLocalPrefsToProfile } from './lib/auth';
+import { syncLocalPrefsToProfile, claimPendingSubmission } from './lib/auth';
+import { checkAndAwardBadges } from './lib/badgeLogic';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import Onboarding from './components/Onboarding';
@@ -35,6 +36,7 @@ function App() {
 
   // Welcome toast
   const [welcomeToast, setWelcomeToast] = useState(false);
+  const [welcomeToastMessage, setWelcomeToastMessage] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -53,17 +55,40 @@ function App() {
           // Close auth modal
           setAuthModal({ open: false, mode: 'signup' });
 
+          const userId = newSession.user?.id;
+
           // Sync localStorage prefs to profile
-          if (newSession.user?.id) {
-            syncLocalPrefsToProfile(newSession.user.id);
+          if (userId) {
+            syncLocalPrefsToProfile(userId);
           }
 
-          // Show onboarding if first time
-          if (!isOnboarded()) {
-            setShowOnboarding(true);
+          // Claim any pending submission from the log form
+          if (userId) {
+            claimPendingSubmission(userId).then(async (claimedId) => {
+              if (claimedId) {
+                // Award badges for the new submission
+                await checkAndAwardBadges(userId);
+                // Navigate to my-treatments and show welcome toast
+                navigate('/my-treatments');
+                setWelcomeToast(true);
+                setWelcomeToastMessage('Your submission is now live! Welcome to GlowBuddy.');
+                setTimeout(() => setWelcomeToast(false), 5000);
+                return;
+              }
+              // No pending submission — normal post-auth flow
+              if (!isOnboarded()) {
+                setShowOnboarding(true);
+              } else {
+                handlePostAuth();
+              }
+            });
           } else {
-            // Handle pending redirect or show welcome toast
-            handlePostAuth();
+            // No user id — normal flow
+            if (!isOnboarded()) {
+              setShowOnboarding(true);
+            } else {
+              handlePostAuth();
+            }
           }
         }
       }
@@ -79,6 +104,7 @@ function App() {
       navigate(redirect);
     } else {
       // Show welcome toast on browse
+      setWelcomeToastMessage('');
       setWelcomeToast(true);
       setTimeout(() => setWelcomeToast(false), 5000);
     }
@@ -151,8 +177,12 @@ function App() {
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3 animate-fade-in">
             <span className="text-lg">✨</span>
             <div>
-              <p className="text-sm font-medium text-text-primary">Welcome to GlowBuddy!</p>
-              <p className="text-xs text-text-secondary">You're all set to log your first treatment.</p>
+              <p className="text-sm font-medium text-text-primary">
+                {welcomeToastMessage || 'Welcome to GlowBuddy!'}
+              </p>
+              {!welcomeToastMessage && (
+                <p className="text-xs text-text-secondary">You're all set to log your first treatment.</p>
+              )}
             </div>
             <button
               onClick={() => setWelcomeToast(false)}
