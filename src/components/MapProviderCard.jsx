@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import ProviderAvatar from './ProviderAvatar';
+import { providerProfileUrl } from '../lib/slugify';
 
 export default function MapProviderCard({ provider }) {
   const {
@@ -12,10 +13,9 @@ export default function MapProviderCard({ provider }) {
     provider_type,
   } = provider;
 
-  const Wrapper = provider_slug ? Link : 'div';
-  const wrapperProps = provider_slug
-    ? { to: `/provider/${provider_slug}` }
-    : {};
+  const profileUrl = providerProfileUrl(provider_slug, provider_name, city, state);
+  const Wrapper = profileUrl ? Link : 'div';
+  const wrapperProps = profileUrl ? { to: profileUrl } : {};
 
   return (
     <Wrapper

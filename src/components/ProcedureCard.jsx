@@ -5,14 +5,24 @@ import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
+import { providerProfileUrl } from '../lib/slugify';
 
 export default function ProcedureCard({ procedure }) {
   const isVerified = procedure.source === 'verified';
   const [responseExpanded, setResponseExpanded] = useState(false);
 
+  const profileUrl = providerProfileUrl(
+    procedure.provider_slug,
+    procedure.provider_name,
+    procedure.city,
+    procedure.state,
+  );
+  const Wrapper = profileUrl ? Link : 'div';
+  const wrapperProps = profileUrl ? { to: profileUrl } : {};
+
   return (
-    <Link
-      to={`/provider/${procedure.provider_slug}`}
+    <Wrapper
+      {...wrapperProps}
       className="block glow-card p-5 hover:no-underline"
     >
       {/* Top row: badge */}
@@ -169,6 +179,6 @@ export default function ProcedureCard({ procedure }) {
           )}
         </div>
       )}
-    </Link>
+    </Wrapper>
   );
 }

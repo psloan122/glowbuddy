@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { providerProfileUrl } from '../lib/slugify';
 
 // Inline styles only — Google Maps InfoWindow strips className/Tailwind
 const styles = {
@@ -76,15 +77,18 @@ export default function MapInfoCard({ provider }) {
           {provider_type}
         </div>
       )}
-      {provider_slug ? (
-        <Link to={`/provider/${provider_slug}`} style={styles.link}>
-          View Profile →
-        </Link>
-      ) : (
-        <Link to="/log" style={styles.link}>
-          Log a Treatment →
-        </Link>
-      )}
+      {(() => {
+        const profileUrl = providerProfileUrl(provider_slug, provider_name, city, state);
+        return profileUrl ? (
+          <Link to={profileUrl} style={styles.link}>
+            View Profile →
+          </Link>
+        ) : (
+          <Link to="/log" style={styles.link}>
+            Log a Treatment →
+          </Link>
+        );
+      })()}
     </div>
   );
 }
