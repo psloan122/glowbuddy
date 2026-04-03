@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users } from 'lucide-react';
+import { ShieldCheck, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ProcedureCard({ procedure }) {
   const isVerified = procedure.source === 'verified';
+  const [responseExpanded, setResponseExpanded] = useState(false);
 
   return (
     <Link
@@ -81,6 +83,35 @@ export default function ProcedureCard({ procedure }) {
         <p className="text-sm italic text-text-secondary line-clamp-2 mt-2">
           {procedure.notes}
         </p>
+      )}
+
+      {/* Provider response */}
+      {procedure.provider_response && (
+        <div
+          className="mt-3 pt-3 border-t border-gray-100"
+          onClick={(e) => e.preventDefault()}
+        >
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setResponseExpanded(!responseExpanded);
+            }}
+            className="flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Provider response
+            {responseExpanded ? (
+              <ChevronUp size={12} />
+            ) : (
+              <ChevronDown size={12} />
+            )}
+          </button>
+          {responseExpanded && (
+            <p className="text-xs text-text-secondary mt-1.5 bg-warm-gray rounded-lg px-3 py-2">
+              {procedure.provider_response}
+            </p>
+          )}
+        </div>
       )}
     </Link>
   );

@@ -6,6 +6,7 @@ import { providerSlug } from '../lib/slugify';
 import { checkOutlier } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
 import { REQUIRES_TREATMENT_AREA, PROCEDURE_TYPES, VALID_STATE_CODES } from '../lib/constants';
+import { checkVelocity, calculateTrustScore, checkDuplicate } from '../lib/trustDetection';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -50,6 +51,10 @@ export default function Log() {
   // Bot protection state
   const [honeypot, setHoneypot] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+
+  // Duplicate detection
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
 
   // SEO
   useEffect(() => {
@@ -150,6 +155,19 @@ export default function Log() {
       return;
     }
 
+    // 5. Duplicate detection (only for authenticated users)
+    if (user?.id && !duplicateConfirmed) {
+      const { isDuplicate } = await checkDuplicate(
+        user.id,
+        formData.providerName,
+        formData.procedureType
+      );
+      if (isDuplicate) {
+        setDuplicateWarning(true);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -159,7 +177,7 @@ export default function Log() {
         formData.googlePlaceId
       );
 
-      // 5. Check for outlier
+      // 6. Check for outlier
       const isOutlier = await checkOutlier(
         formData.procedureType,
         formData.state,
@@ -167,6 +185,9 @@ export default function Log() {
       );
 
       setOutlierFlagged(isOutlier);
+
+      // Calculate trust score
+      const trustScore = await calculateTrustScore(user?.id || null);
 
       // Auto-create or update provider if we have a google_place_id
       if (formData.googlePlaceId) {
@@ -226,6 +247,7 @@ export default function Log() {
         is_anonymous: formData.anonymous,
         status,
         outlier_flagged: isOutlier,
+        trust_score: trustScore,
         user_id: user?.id || null,
         google_place_id: formData.googlePlaceId || null,
         provider_address: formData.providerAddress || null,
@@ -248,7 +270,7 @@ export default function Log() {
         return;
       }
 
-      // 6. Save to localStorage for claiming after email confirmation
+      // 7. Save to localStorage for claiming after email confirmation
       localStorage.setItem('gb_last_submission_id', inserted.id);
       localStorage.setItem(
         'gb_pending_submission',
@@ -273,7 +295,12 @@ export default function Log() {
         await checkAndAwardBadges(user.id);
       }
 
-      // 7. Show ThankYou screen
+      // 8. Run velocity check in background (silent, never blocks UI)
+      checkVelocity(formData.providerName, formData.city, formData.state);
+
+      // 9. Show ThankYou screen
+      setDuplicateWarning(false);
+      setDuplicateConfirmed(false);
       setCurrentStep('success');
     } catch (err) {
       console.error('Submission error:', err);
@@ -354,6 +381,34 @@ export default function Log() {
                 setHoneypot={setHoneypot}
                 onTurnstileSuccess={setTurnstileToken}
               />
+            )}
+
+            {/* Duplicate warning */}
+            {duplicateWarning && (
+              <div className="mt-4 px-4 py-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-sm text-amber-800 mb-3">
+                  Looks like you&apos;ve already logged this treatment recently.
+                  Are you submitting a new visit?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setDuplicateWarning(false);
+                      setDuplicateConfirmed(true);
+                      handleSubmit();
+                    }}
+                    className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
+                  >
+                    Yes, new visit
+                  </button>
+                  <button
+                    onClick={() => setDuplicateWarning(false)}
+                    className="px-4 py-2 border border-amber-300 text-amber-800 text-sm font-medium rounded-lg hover:bg-amber-100 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* Validation error */}
