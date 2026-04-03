@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { isUnlocked } from '../lib/gating';
 
 export default function ProcedureCard({ procedure, blurProvider }) {
   const isVerified = procedure.source === 'verified';
-  const unlocked = localStorage.getItem('gb_unlocked') === 'true';
+  const unlocked = isUnlocked();
   const shouldBlur = blurProvider && !unlocked;
 
   return (

@@ -6,9 +6,22 @@ import PlacesSearch from '../PlacesSearch';
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const hasPlaces = typeof window !== 'undefined' && !!window.google?.maps?.places;
-
 export default function Step2({ formData, setFormData }) {
+  // Reactive check: detect Google Maps even if it loads after mount
+  const [hasPlaces, setHasPlaces] = useState(
+    () => !!window.google?.maps?.places
+  );
+
+  useEffect(() => {
+    if (hasPlaces) return;
+    const interval = setInterval(() => {
+      if (window.google?.maps?.places) {
+        setHasPlaces(true);
+        clearInterval(interval);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [hasPlaces]);
   const [selectedPlace, setSelectedPlace] = useState(
     formData.googlePlaceId
       ? {

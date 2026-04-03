@@ -7,6 +7,7 @@ import {
   UNITS_PLACEHOLDER,
   AVG_PRICES,
 } from '../../lib/constants';
+import { getState } from '../../lib/gating';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -181,7 +182,7 @@ export default function Step1({ formData, setFormData }) {
             </span>
             <input
               type="number"
-              placeholder="0.00"
+              placeholder="e.g. 450"
               min="1"
               step="1"
               value={formData.pricePaid}
@@ -197,6 +198,11 @@ export default function Step1({ formData, setFormData }) {
               className={`${INPUT_CLASSES} pl-8`}
             />
           </div>
+          {formData.procedureType && avgPrice && getState() && (
+            <p className="text-xs text-text-secondary mt-1.5">
+              Avg in {getState()}: <span className="font-medium">${avgPrice.avg.toLocaleString()}{avgPrice.unit}</span>
+            </p>
+          )}
         </div>
       </div>
     </div>

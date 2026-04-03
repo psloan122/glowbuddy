@@ -7,6 +7,7 @@ import { providerSlug } from '../lib/slugify';
 import { checkOutlier, getAverages } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
 import { procedureToSlug, REQUIRES_TREATMENT_AREA } from '../lib/constants';
+import { unlock } from '../lib/gating';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -194,7 +195,7 @@ export default function Log() {
       }
 
       // Unlock soft gate
-      localStorage.setItem('gb_unlocked', 'true');
+      unlock();
 
       setCurrentStep('success');
     } catch (err) {
@@ -217,7 +218,7 @@ export default function Log() {
   const steps = [
     { num: 1, label: 'What you got' },
     { num: 2, label: 'Where you went' },
-    { num: 3, label: 'Final details' },
+    { num: 3, label: 'Last step' },
   ];
 
   return (

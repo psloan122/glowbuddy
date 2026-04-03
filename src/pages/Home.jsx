@@ -1,12 +1,14 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown, Lock, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
+import { isUnlocked, isOnboarded, getCity, getState as getGatingState } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
 import SoftGate from '../components/SoftGate';
+import Onboarding from '../components/Onboarding';
 import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
 export default function Home() {
@@ -37,14 +39,31 @@ export default function Home() {
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Access gate
-  const [gateVisible, setGateVisible] = useState(false);
+  // Onboarding & gating
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
+  const [unlocked, setUnlocked] = useState(() => isUnlocked());
+  const [userCity, setUserCity] = useState(() => getCity());
+  const [userState, setUserState] = useState(() => getGatingState());
+  const [localCount, setLocalCount] = useState(null);
 
   // SEO
   useEffect(() => {
     document.title = 'GlowBuddy — Know Before You Glow';
   }, []);
 
+  // Fetch local count when userState is known
+  useEffect(() => {
+    if (!userState) return;
+    async function fetchLocalCount() {
+      const { count } = await supabase
+        .from('procedures')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .eq('state', userState);
+      setLocalCount(count);
+    }
+    fetchLocalCount();
+  }, [userState]);
 
   // Fetch specials on mount
   useEffect(() => {
@@ -132,23 +151,72 @@ export default function Home() {
     priceMax,
   ]);
 
-  // Access gate check after procedures load
-  useEffect(() => {
-    if (!loadingProcedures && procedures.length > 3) {
-      const unlocked = localStorage.getItem('gb_unlocked');
-      if (!unlocked) {
-        setGateVisible(true);
-      }
+  function handleOnboardingComplete() {
+    setShowOnboarding(false);
+    // Re-read city/state that onboarding may have set
+    const city = getCity();
+    const state = getGatingState();
+    setUserCity(city);
+    setUserState(state);
+    if (state) {
+      setFilterState(state);
     }
-  }, [loadingProcedures, procedures]);
+  }
 
   function handleGateUnlock() {
-    localStorage.setItem('gb_unlocked', 'true');
-    setGateVisible(false);
+    setUnlocked(true);
+  }
+
+  // Filter specials by user state client-side
+  const filteredSpecials = userState
+    ? specials.filter((s) => s.providers?.state === userState)
+    : [];
+  const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
+
+  // Render procedure grid with inline gate and blur
+  function renderProcedureGrid() {
+    const items = [];
+
+    procedures.forEach((proc, index) => {
+      if (!unlocked && index === 3) {
+        // Inject SoftGate after card 2 (at position 3)
+        items.push(
+          <SoftGate key="soft-gate" onUnlock={handleGateUnlock} city={userCity} />
+        );
+      }
+
+      if (!unlocked && index >= 3) {
+        // Locked cards: blurred with lock overlay
+        items.push(
+          <div key={proc.id} className="relative">
+            <div className="blur-sm opacity-60 pointer-events-none select-none">
+              <ProcedureCard procedure={proc} blurProvider />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center shadow-sm">
+                <Lock size={18} className="text-text-secondary" />
+              </div>
+            </div>
+          </div>
+        );
+      } else {
+        // Free cards (0-2) or all cards when unlocked
+        items.push(
+          <ProcedureCard key={proc.id} procedure={proc} blurProvider />
+        );
+      }
+    });
+
+    return items;
   }
 
   return (
     <div>
+      {/* Onboarding overlay */}
+      {showOnboarding && (
+        <Onboarding onComplete={handleOnboardingComplete} />
+      )}
+
       {/* Hero Section */}
       <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24">
         <div className="max-w-4xl mx-auto px-4 text-center">
@@ -171,7 +239,7 @@ export default function Home() {
 
       {/* Stats Bar */}
       <section className="max-w-4xl mx-auto px-4 -mt-6 relative z-10">
-        <PriceStatsBar stats={stats} />
+        <PriceStatsBar stats={stats} city={userCity} localCount={localCount} />
       </section>
 
       {/* Specials Near You */}
@@ -179,9 +247,9 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-text-primary mb-6">
           Specials Near You
         </h2>
-        {specials.length > 0 ? (
+        {displaySpecials.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {specials.map((special) => (
+            {displaySpecials.map((special) => (
               <SpecialCard
                 key={special.id}
                 special={special}
@@ -209,6 +277,14 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-text-primary mb-6">
           Recent Prices
         </h2>
+
+        {/* "Showing prices near" banner */}
+        {userCity && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-rose-light/40 rounded-xl text-sm text-text-primary">
+            <MapPin size={16} className="text-rose-accent flex-shrink-0" />
+            Showing prices near <span className="font-medium">{userCity}</span>
+          </div>
+        )}
 
         {/* Search bar row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -377,24 +453,8 @@ export default function Home() {
             </Link>
           </div>
         ) : (
-          <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {procedures.map((proc, index) => (
-                <div
-                  key={proc.id}
-                  className={
-                    gateVisible && index >= 3 ? 'blurred-feed' : ''
-                  }
-                >
-                  <ProcedureCard procedure={proc} blurProvider />
-                </div>
-              ))}
-            </div>
-
-            {/* Soft Gate overlay */}
-            {gateVisible && (
-              <SoftGate onUnlock={handleGateUnlock} />
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {renderProcedureGrid()}
           </div>
         )}
       </section>

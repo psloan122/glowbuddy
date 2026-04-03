@@ -1,4 +1,4 @@
-export default function PriceStatsBar({ stats }) {
+export default function PriceStatsBar({ stats, city, localCount }) {
   const items = [
     {
       label: 'Total Submissions',
@@ -14,9 +14,16 @@ export default function PriceStatsBar({ stats }) {
     },
   ];
 
+  if (city && localCount != null) {
+    items.push({
+      label: `Near ${city}`,
+      value: Number(localCount).toLocaleString(),
+    });
+  }
+
   return (
     <div className="bg-rose-light/50 rounded-xl p-4">
-      <div className="flex items-center justify-around gap-4">
+      <div className="flex flex-wrap items-center justify-around gap-4">
         {items.map((item) => (
           <div key={item.label} className="flex flex-col items-center text-center">
             <span className="text-xs uppercase tracking-wide text-text-secondary mb-1">

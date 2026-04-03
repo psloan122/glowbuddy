@@ -1,7 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import usePlacesAutocomplete, {
-  getDetails,
-} from 'use-places-autocomplete';
 import { MapPin, X, CheckCircle, ExternalLink, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { extractPlaceData } from '../lib/places';
@@ -12,32 +9,48 @@ const INPUT_CLASSES =
 
 export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
   const wrapperRef = useRef(null);
+  const serviceRef = useRef(null);
+  const detailsServiceRef = useRef(null);
+  const sessionTokenRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const [ready, setReady] = useState(false);
+  const [value, setValue] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
   const [existingProvider, setExistingProvider] = useState(null);
 
-  const {
-    ready,
-    value,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      types: ['establishment'],
-      componentRestrictions: { country: 'us' },
-    },
-    debounce: 300,
-  });
+  // Initialize AutocompleteService when Google Maps loads
+  useEffect(() => {
+    function init() {
+      const places = window.google?.maps?.places;
+      if (!places?.AutocompleteService) return false;
+
+      serviceRef.current = new places.AutocompleteService();
+      sessionTokenRef.current = new places.AutocompleteSessionToken();
+      setReady(true);
+      return true;
+    }
+
+    if (init()) return;
+
+    // Poll until the async-loaded Google Maps script is ready
+    const interval = setInterval(() => {
+      if (init()) clearInterval(interval);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        clearSuggestions();
+        setSuggestions([]);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [clearSuggestions]);
+  }, []);
 
   // Check if selected place already exists in providers table
   useEffect(() => {
@@ -54,7 +67,6 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
         .maybeSingle();
 
       if (provider) {
-        // Count submissions
         const { count } = await supabase
           .from('procedures')
           .select('*', { count: 'exact', head: true })
@@ -70,51 +82,93 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     checkExisting();
   }, [selectedPlace?.placeId]);
 
+  // Fetch predictions from native AutocompleteService
+  function handleInputChange(input) {
+    setValue(input);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (input.length < 2 || !serviceRef.current) {
+      setSuggestions([]);
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      serviceRef.current.getPlacePredictions(
+        {
+          input,
+          componentRestrictions: { country: 'us' },
+          sessionToken: sessionTokenRef.current,
+        },
+        (predictions, status) => {
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            predictions
+          ) {
+            setSuggestions(predictions);
+          } else {
+            setSuggestions([]);
+          }
+        }
+      );
+    }, 300);
+  }
+
+  // On selection: call getDetails for full address_components
   const handleSelect = useCallback(
-    async (suggestion) => {
-      setValue(suggestion.description, false);
-      clearSuggestions();
+    (suggestion) => {
+      setValue(suggestion.description);
+      setSuggestions([]);
+
+      // Lazily create a PlacesService (needs a DOM node)
+      if (!detailsServiceRef.current) {
+        const el = document.createElement('div');
+        detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
+      }
 
       try {
-        const details = await getDetails({
-          placeId: suggestion.place_id,
-          fields: [
-            'name',
-            'address_components',
-            'formatted_address',
-            'formatted_phone_number',
-            'website',
-            'place_id',
-            'geometry',
-          ],
-        });
+        detailsServiceRef.current.getDetails(
+          {
+            placeId: suggestion.place_id,
+            fields: [
+              'name',
+              'address_components',
+              'formatted_address',
+              'formatted_phone_number',
+              'website',
+              'place_id',
+              'geometry',
+            ],
+            sessionToken: sessionTokenRef.current,
+          },
+          (place, status) => {
+            // Rotate session token for next autocomplete session
+            sessionTokenRef.current =
+              new window.google.maps.places.AutocompleteSessionToken();
 
-        const placeData = extractPlaceData(details);
-        onSelect(placeData);
+            if (
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              place
+            ) {
+              const placeData = extractPlaceData(place);
+              onSelect(placeData);
+            } else {
+              // Fallback: pass what we have from the suggestion
+              onSelect(fallbackFromSuggestion(suggestion));
+            }
+          }
+        );
       } catch (err) {
         console.error('Places detail error:', err);
-        // Fallback: use what we have from the suggestion
-        onSelect({
-          name: suggestion.structured_formatting?.main_text || suggestion.description,
-          formattedAddress: suggestion.description,
-          city: '',
-          state: '',
-          zipCode: '',
-          address: suggestion.description,
-          phone: '',
-          website: '',
-          placeId: suggestion.place_id,
-          lat: null,
-          lng: null,
-        });
+        onSelect(fallbackFromSuggestion(suggestion));
       }
     },
-    [setValue, clearSuggestions, onSelect]
+    [onSelect]
   );
 
   function handleClear() {
     setValue('');
-    clearSuggestions();
+    setSuggestions([]);
     setExistingProvider(null);
     onClear();
   }
@@ -205,9 +259,8 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
         <input
           type="text"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={!ready}
-          placeholder="Search clinic or spa name..."
+          onChange={(e) => handleInputChange(e.target.value)}
+          placeholder={ready ? 'Search clinic or spa name...' : 'Loading places...'}
           className={INPUT_CLASSES}
         />
         {value.length >= 2 && (
@@ -215,7 +268,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
             type="button"
             onClick={() => {
               setValue('');
-              clearSuggestions();
+              setSuggestions([]);
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-0.5"
             aria-label="Clear search"
@@ -226,9 +279,9 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
       </div>
 
       {/* Suggestions dropdown */}
-      {status === 'OK' && data.length > 0 && (
+      {suggestions.length > 0 && (
         <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {data.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <li key={suggestion.place_id}>
               <button
                 type="button"
@@ -258,4 +311,21 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
       </p>
     </div>
   );
+}
+
+function fallbackFromSuggestion(suggestion) {
+  return {
+    name:
+      suggestion.structured_formatting?.main_text || suggestion.description,
+    formattedAddress: suggestion.description,
+    city: '',
+    state: '',
+    zipCode: '',
+    address: suggestion.description,
+    phone: '',
+    website: '',
+    placeId: suggestion.place_id,
+    lat: null,
+    lng: null,
+  };
 }
