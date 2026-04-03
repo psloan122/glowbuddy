@@ -12,6 +12,8 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -50,6 +52,8 @@ export default function ProviderProfile() {
   const [googleData, setGoogleData] = useState(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [competitorCount, setCompetitorCount] = useState(0);
+  const [hoursExpanded, setHoursExpanded] = useState(false);
+  const carouselRef = useRef(null);
 
   const isClaimed = provider?.is_claimed === true;
 
@@ -445,29 +449,37 @@ export default function ProviderProfile() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Unclaimed Banner */}
       {!isClaimed && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div
+          className="mb-6 rounded-xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+          style={{ background: '#FBE8EF', border: '0.5px solid #F4C0D1' }}
+        >
           <div>
-            <p className="text-sm font-semibold text-amber-900">
+            <p className="font-semibold" style={{ color: '#9B2C5E', fontSize: 14 }}>
               Is this your business?
             </p>
-            <p className="text-sm text-amber-700">
+            <p className="text-sm" style={{ color: '#C94F78' }}>
               Claim this listing to manage your profile, respond to reviews, and publish your prices.
             </p>
             {competitorCount > 0 && (
-              <p className="text-xs font-medium mt-2" style={{ color: '#B45309' }}>
-                &#9888;&#65039; Competitor listings are currently appearing on your profile page.
+              <p className="text-xs font-medium mt-2" style={{ color: '#9B2C5E' }}>
+                &#9888;&#65039; Competitor listings are appearing on your profile &middot; Claim to remove them
               </p>
             )}
           </div>
           <div className="shrink-0 text-right">
             <Link
               to={claimUrl}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-amber-700 transition"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap text-white px-4 py-2 rounded-xl text-sm font-semibold transition"
+              style={{ background: '#C94F78' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
             >
               Claim This Listing &rarr;
             </Link>
-            <p className="text-[11px] text-amber-600 mt-1.5">
-              Claim free to remove competitor ads and manage your listing
+            <p className="mt-1.5" style={{ fontSize: 11, color: '#9B2C5E' }}>
+              {competitorCount > 0
+                ? 'Claim free to remove competitor ads'
+                : 'Free forever \u00b7 Takes 2 minutes'}
             </p>
           </div>
         </div>
@@ -475,37 +487,50 @@ export default function ProviderProfile() {
 
       {/* Google Photos Carousel */}
       {photos.length > 0 && (
-        <div className="relative mb-6 rounded-xl overflow-hidden h-48 sm:h-64 bg-gray-100">
-          <img
-            src={photos[photoIndex].displayUrl}
-            alt={`${providerName} photo ${photoIndex + 1}`}
-            className="w-full h-full object-cover"
-          />
-          {photos.length > 1 && (
-            <>
-              <button
-                onClick={() => setPhotoIndex((i) => (i - 1 + photos.length) % photos.length)}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={() => setPhotoIndex((i) => (i + 1) % photos.length)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
-              >
-                <ChevronRight size={18} />
-              </button>
-              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-                {photoIndex + 1} / {photos.length}
-              </div>
-            </>
-          )}
-          {photos[photoIndex].attribution && (
-            <div
-              className="absolute bottom-2 left-2 text-[10px] text-white/70"
-              dangerouslySetInnerHTML={{ __html: photos[photoIndex].attribution }}
+        <div className="mb-6">
+          <div
+            ref={carouselRef}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
+              if (e.key === 'ArrowRight') setPhotoIndex((i) => (i + 1) % photos.length);
+            }}
+            className="relative rounded-xl overflow-hidden h-48 sm:h-64 bg-gray-100 outline-none"
+          >
+            <img
+              src={photos[photoIndex].displayUrl}
+              alt={`${providerName} photo ${photoIndex + 1}`}
+              className="w-full h-full object-cover"
             />
-          )}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={() => setPhotoIndex((i) => (i - 1 + photos.length) % photos.length)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={() => setPhotoIndex((i) => (i + 1) % photos.length)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                  {photoIndex + 1} / {photos.length}
+                </div>
+              </>
+            )}
+            {photos[photoIndex].attribution && (
+              <div
+                className="absolute bottom-2 left-2 text-[10px] text-white/70"
+                dangerouslySetInnerHTML={{ __html: photos[photoIndex].attribution }}
+              />
+            )}
+          </div>
+          <p className="text-[10px] text-gray-400 text-right pr-2 mt-1">
+            Powered by Google
+          </p>
         </div>
       )}
 
@@ -513,7 +538,7 @@ export default function ProviderProfile() {
       <div className="glow-card p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            <ProviderAvatar name={providerName} size={64} />
+            {photos.length === 0 && <ProviderAvatar name={providerName} size={64} />}
             <div>
               <h1 className="text-3xl font-bold text-text-primary mb-2">
                 {providerName}
@@ -586,8 +611,10 @@ export default function ProviderProfile() {
               {/* Google Rating */}
               {googleRating && (
                 <div className="flex items-center gap-1.5 text-sm text-text-secondary mb-2">
-                  <Star size={14} className="text-amber-400 fill-amber-400" />
-                  <span className="font-medium text-text-primary">{googleRating}</span>
+                  <Star size={14} style={{ color: '#F59E0B', fill: '#F59E0B' }} />
+                  <span className="font-medium text-text-primary">
+                    {Number(googleRating).toFixed(1)}
+                  </span>
                   {googleReviewCount && (
                     <span>
                       &middot; {googleReviewCount.toLocaleString()} Google reviews
@@ -611,12 +638,117 @@ export default function ProviderProfile() {
               )}
 
               {/* Hours */}
-              {hoursText && (
-                <div className="flex items-start gap-1.5 text-xs text-text-secondary mt-1">
-                  <Clock size={12} className="mt-0.5 shrink-0" />
-                  <span className="line-clamp-2">{hoursText}</span>
-                </div>
-              )}
+              {hoursText && (() => {
+                const DAY_ABBREV = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+                const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                const rows = hoursText.split(',').map((s) => s.trim()).filter(Boolean).map((entry) => {
+                  const colonIdx = entry.indexOf(':');
+                  if (colonIdx === -1) return null;
+                  const day = entry.slice(0, colonIdx).trim();
+                  const hours = entry.slice(colonIdx + 1).trim();
+                  return { day, abbrev: DAY_ABBREV[day] || day.slice(0, 3), hours, isToday: day === today };
+                }).filter(Boolean);
+
+                const todayRow = rows.find((r) => r.isToday);
+                const isClosed = (h) => /closed/i.test(h);
+                const isOpenNow = todayRow && !isClosed(todayRow.hours);
+
+                return (
+                  <div className="mt-2">
+                    {/* Mobile: collapsed by default */}
+                    <div className="md:hidden">
+                      <button
+                        onClick={() => setHoursExpanded(!hoursExpanded)}
+                        className="flex items-center gap-1.5 text-[13px] text-text-secondary"
+                      >
+                        <Clock size={12} className="shrink-0" />
+                        {todayRow && (
+                          <>
+                            <span
+                              className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"
+                              style={{ background: isOpenNow ? '#10B981' : '#9CA3AF' }}
+                            />
+                            <span className="font-medium text-text-primary">
+                              {todayRow.hours}
+                            </span>
+                          </>
+                        )}
+                        <span className="text-text-secondary">
+                          {hoursExpanded ? 'Hide hours' : 'See all hours'}
+                        </span>
+                        {hoursExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                      {hoursExpanded && (
+                        <div className="mt-2 ml-5 grid grid-cols-[40px_1fr] gap-y-1 text-[13px]">
+                          {rows.map((r) => [
+                            <span
+                              key={`${r.day}-label`}
+                              className="text-text-secondary flex items-center gap-1"
+                              style={r.isToday ? { fontWeight: 500 } : undefined}
+                            >
+                              {r.isToday && (
+                                <span
+                                  className="inline-block w-1.5 h-1.5 rounded-full"
+                                  style={{ background: isClosed(r.hours) ? '#9CA3AF' : '#10B981' }}
+                                />
+                              )}
+                              {r.abbrev}
+                            </span>,
+                            <span
+                              key={`${r.day}-hours`}
+                              style={
+                                isClosed(r.hours)
+                                  ? { color: '#9CA3AF' }
+                                  : r.isToday
+                                    ? { fontWeight: 500, color: 'var(--color-text-primary)' }
+                                    : { color: 'var(--color-text-primary)' }
+                              }
+                            >
+                              {r.hours}
+                            </span>,
+                          ])}
+                        </div>
+                      )}
+                    </div>
+                    {/* Desktop: always visible */}
+                    <div className="hidden md:block">
+                      <div className="flex items-center gap-1.5 text-[13px] text-text-secondary mb-2">
+                        <Clock size={12} className="shrink-0" />
+                        <span>Hours</span>
+                      </div>
+                      <div className="ml-5 grid grid-cols-[40px_1fr] gap-y-1 text-[13px]">
+                        {rows.map((r) => [
+                          <span
+                            key={`${r.day}-label`}
+                            className="text-text-secondary flex items-center gap-1"
+                            style={r.isToday ? { fontWeight: 500 } : undefined}
+                          >
+                            {r.isToday && (
+                              <span
+                                className="inline-block w-1.5 h-1.5 rounded-full"
+                                style={{ background: isClosed(r.hours) ? '#9CA3AF' : '#10B981' }}
+                              />
+                            )}
+                            {r.abbrev}
+                          </span>,
+                          <span
+                            key={`${r.day}-hours`}
+                            style={
+                              isClosed(r.hours)
+                                ? { color: '#9CA3AF' }
+                                : r.isToday
+                                  ? { fontWeight: 500, color: 'var(--color-text-primary)' }
+                                  : { color: 'var(--color-text-primary)' }
+                            }
+                          >
+                            {r.hours}
+                          </span>,
+                        ])}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
