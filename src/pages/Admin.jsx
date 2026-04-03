@@ -12,12 +12,14 @@ import {
   FileImage,
   ExternalLink,
   FileText,
+  Image,
 } from 'lucide-react';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
   { key: 'disputes', label: 'Disputes', icon: Eye },
   { key: 'receipts', label: 'Receipts', icon: FileImage },
+  { key: 'photos', label: 'Photo Review', icon: Image },
   { key: 'velocity', label: 'Velocity Flagged', icon: Zap },
   { key: 'lowTrust', label: 'Low Trust', icon: ShieldAlert },
   { key: 'duplicates', label: 'Duplicate Clusters', icon: Copy },
@@ -92,6 +94,13 @@ export default function Admin() {
         .neq('status', 'removed')
         .order('trust_score', { ascending: true });
       setData(rows || []);
+    } else if (activeTab === 'photos') {
+      const { data: rows } = await supabase
+        .from('before_after_photos')
+        .select('*, providers(name, slug)')
+        .eq('status', 'pending_review')
+        .order('created_at', { ascending: true });
+      setData(rows || []);
     } else if (activeTab === 'duplicates') {
       // Fetch recent submissions from new accounts (< 7 days old)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -122,7 +131,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, receipts, velocity, lowTrust] =
+    const [pending, disputes, receipts, photos, velocity, lowTrust] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -140,6 +149,10 @@ export default function Admin() {
           .eq('receipt_verified', false)
           .neq('status', 'removed'),
         supabase
+          .from('before_after_photos')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending_review'),
+        supabase
           .from('procedures')
           .select('*', { count: 'exact', head: true })
           .eq('flagged_reason', 'velocity_check'),
@@ -153,6 +166,7 @@ export default function Admin() {
       pending: pending.count || 0,
       disputes: disputes.count || 0,
       receipts: receipts.count || 0,
+      photos: photos.count || 0,
       velocity: velocity.count || 0,
       lowTrust: lowTrust.count || 0,
     });
@@ -264,6 +278,36 @@ export default function Admin() {
         .update({ status: 'active' })
         .eq('id', procedureId);
     }
+    fetchData();
+  }
+
+  async function approvePhoto(id, providerId) {
+    await supabase
+      .from('before_after_photos')
+      .update({ status: 'active' })
+      .eq('id', id);
+    // Increment provider before_after_count
+    if (providerId) {
+      const { data: prov } = await supabase
+        .from('providers')
+        .select('before_after_count')
+        .eq('id', providerId)
+        .single();
+      if (prov) {
+        await supabase
+          .from('providers')
+          .update({ before_after_count: (prov.before_after_count || 0) + 1 })
+          .eq('id', providerId);
+      }
+    }
+    fetchData();
+  }
+
+  async function removePhoto(id) {
+    await supabase
+      .from('before_after_photos')
+      .update({ status: 'removed' })
+      .eq('id', id);
     fetchData();
   }
 
@@ -635,6 +679,96 @@ export default function Admin() {
                     className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
                   >
                     <X className="w-4 h-4" /> Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeTab === 'photos') {
+      if (data.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No photos pending review.
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4">
+          {data.map((photo) => (
+            <div key={photo.id} className="glow-card p-5">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                <div className="flex-1">
+                  {/* Side-by-side images */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="relative">
+                      <img
+                        src={photo.before_url}
+                        alt="Before"
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
+                        Before
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <img
+                        src={photo.after_url}
+                        alt="After"
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
+                        After
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        photo.uploaded_by === 'provider'
+                          ? 'bg-verified/10 text-verified'
+                          : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      Uploaded by {photo.uploaded_by}
+                    </span>
+                    {photo.procedure_type && (
+                      <span className="text-xs bg-rose-light text-rose-dark px-2 py-0.5 rounded-full">
+                        {photo.procedure_type}
+                      </span>
+                    )}
+                    {photo.consent_confirmed && (
+                      <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
+                        Consent confirmed
+                      </span>
+                    )}
+                  </div>
+                  {photo.providers && (
+                    <p className="text-sm text-text-secondary">
+                      Provider: {photo.providers.name}
+                    </p>
+                  )}
+                  {photo.caption && (
+                    <p className="text-sm text-text-secondary italic mt-1">
+                      &ldquo;{photo.caption}&rdquo;
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => approvePhoto(photo.id, photo.provider_id)}
+                    className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                  >
+                    <Check className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => removePhoto(photo.id)}
+                    className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
+                  >
+                    <X className="w-4 h-4" /> Remove
                   </button>
                 </div>
               </div>

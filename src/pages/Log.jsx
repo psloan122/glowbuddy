@@ -16,6 +16,7 @@ import {
   checkDuplicate,
 } from '../lib/trustDetection';
 import { calculateEntries, calculateEntriesFromCount } from '../lib/points';
+import { assignTrustTier } from '../lib/trustTiers';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -45,6 +46,14 @@ const INITIAL_FORM_DATA = {
   providerWebsite: '',
   lat: null,
   lng: null,
+  // Rating & review fields
+  rating: null,
+  reviewTitle: '',
+  reviewBody: '',
+  wouldReturn: null,
+  injectorName: '',
+  resultPhotoUrl: null,
+  resultPhotoConsent: false,
 };
 
 export default function Log() {
@@ -92,10 +101,22 @@ export default function Log() {
     }
   }, [user]);
 
-  // Recalculate entries when receipt changes
+  // Result photo state
+  const [resultPhotoUrl, setResultPhotoUrl] = useState(null);
+
+  // Recalculate entries when receipt or rating/review/photo changes
   useEffect(() => {
-    setEntryCount(calculateEntriesFromCount(activeCount, hasReceipt));
-  }, [hasReceipt, activeCount]);
+    setEntryCount(
+      calculateEntriesFromCount(
+        activeCount,
+        hasReceipt,
+        !!formData.rating,
+        !!formData.reviewBody,
+        !!resultPhotoUrl,
+        false // receiptVerified — always false at submission time, admin verifies later
+      )
+    );
+  }, [hasReceipt, activeCount, formData.rating, formData.reviewBody, resultPhotoUrl]);
 
   // Receipt handlers
   function handleReceiptUpload(path) {
@@ -351,6 +372,14 @@ export default function Log() {
         receipt_path: receiptPath || null,
         receipt_verified: false,
         receipt_parsed: receiptParsed,
+        // Rating & review fields
+        rating: formData.rating || null,
+        review_title: formData.reviewTitle || null,
+        review_body: formData.reviewBody || null,
+        would_return: formData.wouldReturn,
+        injector_name: formData.injectorName || null,
+        result_photo_url: resultPhotoUrl || null,
+        result_photo_consent: formData.resultPhotoConsent,
       };
 
       const { data: inserted, error } = await supabase
@@ -375,9 +404,92 @@ export default function Log() {
 
       setSubmissionResult(inserted);
 
+      // 7a. If user left a rating, create a review record and update provider stats
+      if (formData.rating && user?.id) {
+        try {
+          // Find the provider record for this slug
+          const { data: providerForReview } = await supabase
+            .from('providers')
+            .select('id')
+            .eq('slug', slug)
+            .maybeSingle();
+
+          if (providerForReview) {
+            // Check if user has a receipt-verified procedure at this provider
+            let receiptLinked = false;
+            let linkedReceiptId = null;
+            const { data: verifiedProc } = await supabase
+              .from('procedures')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('provider_slug', slug)
+              .eq('receipt_verified', true)
+              .limit(1);
+
+            if (verifiedProc && verifiedProc.length > 0) {
+              receiptLinked = true;
+              linkedReceiptId = verifiedProc[0].id;
+            }
+
+            // Calculate trust tier
+            const hasPhoto = !!resultPhotoUrl;
+            const trustData = assignTrustTier({
+              receipt_verified: receiptLinked,
+              has_result_photo: hasPhoto,
+            });
+
+            await supabase.from('reviews').insert({
+              user_id: user.id,
+              provider_id: providerForReview.id,
+              procedure_id: inserted.id,
+              rating: formData.rating,
+              title: formData.reviewTitle || null,
+              body: formData.reviewBody || null,
+              procedure_type: formData.procedureType,
+              would_return: formData.wouldReturn,
+              status: 'active',
+              receipt_verified: receiptLinked,
+              has_result_photo: hasPhoto,
+              receipt_id: linkedReceiptId,
+              trust_tier: trustData.trust_tier,
+              trust_weight: trustData.trust_weight,
+            });
+
+            // Trigger handles provider rating update automatically,
+            // but also update avg_rating for backward compat
+            const { data: allReviews } = await supabase
+              .from('reviews')
+              .select('rating')
+              .eq('provider_id', providerForReview.id)
+              .eq('status', 'active');
+
+            if (allReviews && allReviews.length > 0) {
+              const avg =
+                allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+              await supabase
+                .from('providers')
+                .update({
+                  avg_rating: Math.round(avg * 10) / 10,
+                  review_count: allReviews.length,
+                })
+                .eq('id', providerForReview.id);
+            }
+          }
+        } catch (reviewErr) {
+          console.error('Review insert error (non-blocking):', reviewErr);
+        }
+      }
+
       // Giveaway entry from Step 3 email field (if provided)
       if (formData.giveawayEmail) {
-        const entries = await calculateEntries(user?.id || null, hasReceipt);
+        const entries = await calculateEntries(
+          user?.id || null,
+          hasReceipt,
+          !!formData.rating,
+          !!formData.reviewBody,
+          !!resultPhotoUrl,
+          false // receiptVerified — pending admin review
+        );
         const month = format(new Date(), 'yyyy-MM');
         await supabase.from('giveaway_entries').insert({
           email: formData.giveawayEmail,
@@ -491,6 +603,8 @@ export default function Log() {
                 onReceiptParsed={handleReceiptParsed}
                 onReceiptRemove={handleReceiptRemove}
                 entryCount={entryCount}
+                onResultPhotoUpload={(url) => setResultPhotoUrl(url)}
+                onResultPhotoRemove={() => setResultPhotoUrl(null)}
               />
             )}
 
@@ -582,6 +696,9 @@ export default function Log() {
           entries={entryCount}
           hasReceipt={hasReceipt}
           activeCount={activeCount}
+          hasRating={!!formData.rating}
+          hasReview={!!formData.reviewBody}
+          hasResultPhoto={!!resultPhotoUrl}
         />
       )}
     </div>

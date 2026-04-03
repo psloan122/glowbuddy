@@ -1,6 +1,9 @@
+import { useState, useRef } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { Trophy } from 'lucide-react';
+import { Trophy, Upload, CheckCircle, X, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import ReceiptUpload from '../ReceiptUpload';
+import StarRating from '../StarRating';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -19,7 +22,63 @@ export default function Step3({
   onReceiptParsed,
   onReceiptRemove,
   entryCount,
+  // Result photo props
+  onResultPhotoUpload,
+  onResultPhotoRemove,
 }) {
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoDragOver, setPhotoDragOver] = useState(false);
+  const photoInputRef = useRef(null);
+
+  async function handlePhotoFile(f) {
+    if (!f) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(f.type)) return;
+    if (f.size > 15 * 1024 * 1024) return;
+
+    if (!formData.resultPhotoConsent) return;
+
+    setPhotoUploading(true);
+    try {
+      const ext = f.name.split('.').pop().toLowerCase();
+      const folder = userId || `anonymous/${crypto.randomUUID()}`;
+      const path = `${folder}/${Date.now()}-result.${ext}`;
+
+      const { error } = await supabase.storage
+        .from('before-after-photos')
+        .upload(path, f, { contentType: f.type, upsert: false });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('before-after-photos')
+        .getPublicUrl(path);
+
+      setFormData((prev) => ({ ...prev, resultPhotoUrl: publicUrl }));
+      onResultPhotoUpload?.(publicUrl);
+    } catch (err) {
+      console.error('Result photo upload error:', err);
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function handlePhotoRemove() {
+    setFormData((prev) => ({ ...prev, resultPhotoUrl: null }));
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    onResultPhotoRemove?.();
+  }
+
+  // Auto-default wouldReturn based on rating
+  function handleRatingChange(rating) {
+    setFormData((prev) => {
+      const updates = { rating };
+      if (rating >= 4) updates.wouldReturn = true;
+      else if (rating <= 2) updates.wouldReturn = false;
+      return { ...prev, ...updates };
+    });
+  }
+
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
@@ -44,6 +103,115 @@ export default function Step3({
             }
             className={`${INPUT_CLASSES} resize-none`}
           />
+        </div>
+
+        {/* ===== Rating & Review Section ===== */}
+        <div className="border-t border-gray-100 pt-5">
+          <p className="text-sm font-semibold text-text-primary mb-3">
+            How was your experience?
+          </p>
+
+          {/* Star Rating */}
+          <div className="mb-4">
+            <StarRating
+              value={formData.rating || 0}
+              onChange={handleRatingChange}
+              size={28}
+              showLabel
+            />
+          </div>
+
+          {/* Would Return Toggle */}
+          {formData.rating > 0 && (
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <label
+                  htmlFor="would-return-toggle"
+                  className="text-sm font-medium text-text-primary"
+                >
+                  Would you return?
+                </label>
+              </div>
+              <button
+                id="would-return-toggle"
+                type="button"
+                role="switch"
+                aria-checked={formData.wouldReturn === true}
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    wouldReturn: prev.wouldReturn === true ? false : true,
+                  }))
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  formData.wouldReturn === true ? 'bg-verified' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    formData.wouldReturn === true ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Review Title */}
+          <div className="mb-3">
+            <input
+              type="text"
+              value={formData.reviewTitle}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  reviewTitle: e.target.value.slice(0, 60),
+                }))
+              }
+              placeholder="Sum it up in one line..."
+              maxLength={60}
+              className={`${INPUT_CLASSES} text-sm`}
+            />
+          </div>
+
+          {/* Review Body */}
+          <div className="mb-3">
+            <textarea
+              value={formData.reviewBody}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  reviewBody: e.target.value.slice(0, 500),
+                }))
+              }
+              placeholder="How was the experience? Skill of the injector, results, value for money..."
+              rows={3}
+              className={`${INPUT_CLASSES} text-sm resize-none`}
+            />
+            {formData.reviewBody.length > 0 && (
+              <p className="text-xs text-text-secondary mt-1 text-right">
+                {formData.reviewBody.length}/500
+              </p>
+            )}
+          </div>
+
+          {/* Injector Name */}
+          <div>
+            <input
+              type="text"
+              value={formData.injectorName}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  injectorName: e.target.value,
+                }))
+              }
+              placeholder="Who did your treatment?"
+              className={`${INPUT_CLASSES} text-sm`}
+            />
+            <p className="text-xs text-text-secondary mt-1">
+              Helps others find the right person
+            </p>
+          </div>
         </div>
 
         {/* Receipt Upload Section */}
@@ -86,6 +254,99 @@ export default function Step3({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* ===== Result Photo Section ===== */}
+        <div className="border-t border-gray-100 pt-5">
+          <p className="text-sm font-semibold text-text-primary mb-1">
+            Show your results
+          </p>
+          <p className="text-xs text-text-secondary mb-3">
+            +2 giveaway entries for photo upload
+          </p>
+
+          {/* Consent checkbox */}
+          <label className="flex items-start gap-2 mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.resultPhotoConsent}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  resultPhotoConsent: e.target.checked,
+                }))
+              }
+              className="mt-0.5 rounded border-gray-300 text-rose-accent focus:ring-rose-accent/20"
+            />
+            <span className="text-xs text-text-secondary">
+              I confirm this is a photo of myself, I consent to public display, I can delete it anytime, and no other person&apos;s face is visible.
+            </span>
+          </label>
+
+          {/* Photo upload or preview */}
+          {formData.resultPhotoUrl ? (
+            <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+              <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-800">
+                  Photo uploaded
+                </p>
+                <p className="text-xs text-green-600">
+                  Thanks! Your photo will appear after a quick review.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handlePhotoRemove}
+                className="text-green-600 hover:text-green-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : photoUploading ? (
+            <div className="flex items-center gap-3 px-4 py-4 border border-gray-200 rounded-xl">
+              <Loader2 className="w-5 h-5 text-rose-accent animate-spin shrink-0" />
+              <p className="text-sm font-medium text-text-primary">Uploading...</p>
+            </div>
+          ) : (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setPhotoDragOver(true); }}
+              onDragLeave={() => setPhotoDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setPhotoDragOver(false);
+                const f = e.dataTransfer.files[0];
+                if (f) handlePhotoFile(f);
+              }}
+              onClick={() => formData.resultPhotoConsent && photoInputRef.current?.click()}
+              className={`cursor-pointer border-2 border-dashed rounded-xl px-4 py-5 text-center transition-colors ${
+                !formData.resultPhotoConsent ? 'opacity-50 cursor-not-allowed' : ''
+              } ${
+                photoDragOver
+                  ? 'border-rose-accent bg-rose-accent/5'
+                  : 'border-gray-200 hover:border-rose-accent/50'
+              }`}
+            >
+              <Upload className={`w-6 h-6 mx-auto mb-2 ${photoDragOver ? 'text-rose-accent' : 'text-text-secondary'}`} />
+              <p className="text-sm font-medium text-text-primary">
+                Drop result photo here
+              </p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                or tap to browse &middot; JPG, PNG or WebP
+              </p>
+            </div>
+          )}
+
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const f = e.target.files[0];
+              if (f) handlePhotoFile(f);
+            }}
+            className="hidden"
+          />
         </div>
 
         {/* Anonymous toggle */}

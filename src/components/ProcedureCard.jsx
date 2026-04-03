@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck } from 'lucide-react';
+import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck, RotateCcw, CheckCircle, Camera } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
+import StarRating from './StarRating';
 
 export default function ProcedureCard({ procedure }) {
   const isVerified = procedure.source === 'verified';
@@ -53,6 +54,26 @@ export default function ProcedureCard({ procedure }) {
         {procedure.procedure_type}
       </h3>
 
+      {/* Rating + would return */}
+      {procedure.rating && (
+        <div className="flex items-center gap-2 mb-1">
+          <StarRating value={procedure.rating} readOnly size={14} />
+          {procedure.would_return && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] bg-verified/10 text-verified px-1.5 py-0.5 rounded-full">
+              <RotateCcw size={8} />
+              Would return
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Review snippet */}
+      {procedure.review_body && (
+        <p className="text-xs italic text-text-secondary mb-2 line-clamp-1">
+          &ldquo;{procedure.review_body}&rdquo;
+        </p>
+      )}
+
       {/* Treatment area */}
       {procedure.treatment_area && (
         <p className="text-sm text-text-secondary mb-3">
@@ -90,6 +111,26 @@ export default function ProcedureCard({ procedure }) {
       {procedure.provider_type && (
         <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-3">
           {procedure.provider_type}
+        </span>
+      )}
+
+      {/* Trust indicators */}
+      {procedure.receipt_verified && (
+        <span
+          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2"
+          style={{ backgroundColor: '#E1F5EE', color: '#0F6E56' }}
+        >
+          <CheckCircle size={11} />
+          Verified Purchase
+        </span>
+      )}
+      {!procedure.receipt_verified && procedure.result_photo_url && (
+        <span
+          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2"
+          style={{ backgroundColor: '#E6F1FB', color: '#185FA5' }}
+        >
+          <Camera size={11} />
+          Has result photo
         </span>
       )}
 

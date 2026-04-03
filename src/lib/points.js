@@ -2,20 +2,40 @@ import { supabase } from './supabase';
 
 export const ENTRY_VALUES = {
   base_submission: 1,
-  receipt_upload: 3, // replaces base, not additive
-  first_submission: 2, // bonus on top
+  receipt_upload: 2, // pending verification
+  receipt_verified: 3, // after admin verifies (+1 bonus on approval)
+  with_result_photo: 2,
+  with_review: 1,
+  first_submission: 2,
   fifth_submission: 3,
   tenth_submission: 5,
   referral_submission: 5,
 };
 
+const MAX_ENTRIES_PER_SUBMISSION = 8;
+
 /**
  * Calculate entries synchronously given a known active count.
  */
-export function calculateEntriesFromCount(activeCount, hasReceipt) {
-  let entries = hasReceipt
-    ? ENTRY_VALUES.receipt_upload
-    : ENTRY_VALUES.base_submission;
+export function calculateEntriesFromCount(
+  activeCount,
+  hasReceipt,
+  hasRating = false,
+  hasReview = false,
+  hasResultPhoto = false,
+  receiptVerified = false
+) {
+  let entries = ENTRY_VALUES.base_submission;
+
+  if (receiptVerified) {
+    entries += ENTRY_VALUES.receipt_verified;
+  } else if (hasReceipt) {
+    entries += ENTRY_VALUES.receipt_upload;
+  }
+
+  if (hasResultPhoto) entries += ENTRY_VALUES.with_result_photo;
+  // Rating alone without review = 0 bonus; must write review to get entry bonus
+  if (hasReview) entries += ENTRY_VALUES.with_review;
 
   const newCount = (activeCount || 0) + 1;
 
@@ -23,13 +43,20 @@ export function calculateEntriesFromCount(activeCount, hasReceipt) {
   if (newCount === 5) entries += ENTRY_VALUES.fifth_submission;
   if (newCount === 10) entries += ENTRY_VALUES.tenth_submission;
 
-  return entries;
+  return Math.min(entries, MAX_ENTRIES_PER_SUBMISSION);
 }
 
 /**
  * Calculate entries with a Supabase query for the user's active count.
  */
-export async function calculateEntries(userId, hasReceipt) {
+export async function calculateEntries(
+  userId,
+  hasReceipt,
+  hasRating = false,
+  hasReview = false,
+  hasResultPhoto = false,
+  receiptVerified = false
+) {
   let activeCount = 0;
 
   if (userId) {
@@ -45,23 +72,44 @@ export async function calculateEntries(userId, hasReceipt) {
     }
   }
 
-  return calculateEntriesFromCount(activeCount, hasReceipt);
+  return calculateEntriesFromCount(
+    activeCount,
+    hasReceipt,
+    hasRating,
+    hasReview,
+    hasResultPhoto,
+    receiptVerified
+  );
 }
 
 /**
  * Get the entry breakdown for display on ThankYou screen.
  */
-export function getEntryBreakdown(activeCount, hasReceipt) {
+export function getEntryBreakdown(
+  activeCount,
+  hasReceipt,
+  hasRating = false,
+  hasReview = false,
+  hasResultPhoto = false,
+  receiptVerified = false
+) {
   const lines = [];
   const newCount = (activeCount || 0) + 1;
 
-  if (hasReceipt) {
+  lines.push({ label: 'Base entry', value: ENTRY_VALUES.base_submission });
+
+  if (receiptVerified) {
+    lines.push({ label: 'Receipt verified', value: ENTRY_VALUES.receipt_verified });
+  } else if (hasReceipt) {
     lines.push({ label: 'Receipt upload', value: ENTRY_VALUES.receipt_upload });
-  } else {
-    lines.push({
-      label: 'Price submission',
-      value: ENTRY_VALUES.base_submission,
-    });
+    lines.push({ label: '+1 more when verified by our team', value: 0, pending: true });
+  }
+
+  if (hasResultPhoto) {
+    lines.push({ label: 'Result photo', value: ENTRY_VALUES.with_result_photo });
+  }
+  if (hasReview) {
+    lines.push({ label: 'Written review', value: ENTRY_VALUES.with_review });
   }
 
   if (newCount === 1) {
@@ -83,6 +131,7 @@ export function getEntryBreakdown(activeCount, hasReceipt) {
     });
   }
 
-  const total = lines.reduce((sum, l) => sum + l.value, 0);
+  const rawTotal = lines.reduce((sum, l) => sum + l.value, 0);
+  const total = Math.min(rawTotal, MAX_ENTRIES_PER_SUBMISSION);
   return { lines, total };
 }

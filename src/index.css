@@ -88,14 +88,30 @@ body::after {
   animation: float 6s ease-in-out infinite;
 }
 
-/* Phone mockup card scroll */
-@keyframes phone-scroll {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-50%); }
+/* Hero illustrated pattern */
+.hero-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
 }
 
-.phone-scroll-container {
-  animation: phone-scroll 16s linear infinite;
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.hero-icon-float {
+  animation: gentleFloat 5s ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
+@media (max-width: 768px) {
+  .hero-icon-desktop { display: none; }
+  .hero-pattern { opacity: 0.55; }
+  .hero-icon-float { animation: none; }
 }
 
 /* Scrollbar hide utility */

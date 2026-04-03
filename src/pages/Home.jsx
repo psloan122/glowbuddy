@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, Crosshair, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, Crosshair, SlidersHorizontal, Loader2, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity, setCity, getState as getGatingState, setState as setGatingState } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
-import PhoneMockup from '../components/PhoneMockup';
+import HeroPattern from '../components/HeroPattern';
+import StarRating from '../components/StarRating';
 import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
 // Build a lookup map for state abbreviations → full names
@@ -42,6 +43,12 @@ export default function Home() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Min rating filter
+  const [minRating, setMinRating] = useState('');
+
+  // Recent reviews
+  const [recentReviews, setRecentReviews] = useState([]);
 
   // Near me
   const [locating, setLocating] = useState(false);
@@ -97,6 +104,21 @@ export default function Home() {
     fetchSpecials();
   }, []);
 
+  // Fetch recent 5-star reviews
+  useEffect(() => {
+    async function fetchRecentReviews() {
+      const { data } = await supabase
+        .from('reviews')
+        .select('*, providers(name, slug)')
+        .eq('status', 'active')
+        .eq('rating', 5)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      setRecentReviews(data || []);
+    }
+    fetchRecentReviews();
+  }, []);
+
   // Derive filter values from activeFilters for the query
   const filterProcedureType = activeFilters.find((f) => f.type === 'procedure')?.value || '';
   const filterState = activeFilters.find((f) => f.type === 'state')?.value || '';
@@ -138,11 +160,18 @@ export default function Home() {
         query = query.lte('price_paid', parseInt(priceMax, 10));
       }
 
+      // Min rating filter
+      if (minRating) {
+        query = query.gte('rating', parseInt(minRating, 10));
+      }
+
       // Sort
       if (sortBy === 'lowest_price') {
         query = query.order('price_paid', { ascending: true });
       } else if (sortBy === 'highest_price') {
         query = query.order('price_paid', { ascending: false });
+      } else if (sortBy === 'highest_rated') {
+        query = query.not('rating', 'is', null).order('rating', { ascending: false });
       } else {
         query = query.order('created_at', { ascending: false });
       }
@@ -164,6 +193,7 @@ export default function Home() {
     sortBy,
     priceMin,
     priceMax,
+    minRating,
   ]);
 
   // Filter specials by user state client-side
@@ -290,45 +320,32 @@ export default function Home() {
   }
 
   const suggestions = getSuggestions(smartQuery);
-  const hasActiveFilters = activeFilters.length > 0 || filterProviderType || priceMin || priceMax;
+  const hasActiveFilters = activeFilters.length > 0 || filterProviderType || priceMin || priceMax || minRating;
 
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24 overflow-hidden">
-        {/* Floating blush blobs */}
-        <div
-          className="blush-blob"
-          style={{ width: 300, height: 300, background: 'var(--color-rose-accent)', top: '-60px', left: '-80px' }}
-        />
-        <div
-          className="blush-blob"
-          style={{ width: 250, height: 250, background: 'var(--color-rose-light)', bottom: '-40px', right: '-60px', animationDelay: '-3s' }}
-        />
+      <section
+        className="relative overflow-hidden"
+        style={{ background: 'linear-gradient(120deg, #FDF6F0, #FBE8EF)' }}
+      >
+        <HeroPattern />
 
-        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center gap-12 relative z-10">
-          {/* Left column: text */}
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium text-text-primary mb-4 leading-tight">
-              Know before you glow.
-            </h1>
-            <p className="text-lg md:text-xl text-text-secondary max-w-2xl mb-8">
-              Real prices for Botox, fillers, and med spa treatments — reported by
-              patients like you.
-            </p>
-            <Link
-              to="/log"
-              className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
-              style={{ backgroundColor: '#C94F78' }}
-            >
-              Log Your Treatment
-            </Link>
-          </div>
-
-          {/* Right column: phone mockup (desktop only) */}
-          <div className="hidden md:block flex-shrink-0">
-            <PhoneMockup />
-          </div>
+        <div className="relative z-10 max-w-[680px] mx-auto px-6 md:px-10 py-16 md:py-20">
+          <h1 className="text-4xl md:text-[56px] md:leading-[1.1] font-medium text-text-primary mb-4 leading-tight">
+            Know before you glow.
+          </h1>
+          <p className="text-lg md:text-xl text-text-secondary max-w-[600px] mb-8">
+            Real prices for Botox, fillers, and med spa treatments — reported by
+            patients like you.
+          </p>
+          <Link
+            to="/log"
+            className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
+            style={{ backgroundColor: '#C94F78' }}
+          >
+            Log Your Treatment
+          </Link>
         </div>
       </section>
 
@@ -336,6 +353,60 @@ export default function Home() {
       <section className="max-w-4xl mx-auto px-4 -mt-6 relative z-10">
         <PriceStatsBar stats={stats} city={userCity} localCount={localCount} />
       </section>
+
+      {/* What Patients Are Saying */}
+      {recentReviews.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 mt-12">
+          <h2 className="text-2xl font-bold text-text-primary mb-6">
+            What Patients Are Saying
+          </h2>
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+            {recentReviews.map((review) => (
+              <Link
+                key={review.id}
+                to={review.providers ? `/provider/${review.providers.slug}` : '#'}
+                className="block min-w-[280px] max-w-[320px] glow-card p-4 shrink-0 hover:no-underline"
+              >
+                <div className="flex items-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      className={
+                        s <= review.rating
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-gray-300'
+                      }
+                    />
+                  ))}
+                </div>
+                {review.title && (
+                  <h4 className="font-bold text-text-primary text-sm mb-1 line-clamp-1">
+                    {review.title}
+                  </h4>
+                )}
+                {review.body && (
+                  <p className="text-xs text-text-secondary line-clamp-2 mb-2">
+                    {review.body}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  {review.procedure_type && (
+                    <span className="text-[10px] bg-rose-light text-rose-dark px-1.5 py-0.5 rounded-full">
+                      {review.procedure_type}
+                    </span>
+                  )}
+                  {review.providers?.name && (
+                    <span className="text-[10px] text-text-secondary">
+                      {review.providers.name}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Specials Near You */}
       <section className="max-w-7xl mx-auto px-4 mt-12">
@@ -484,6 +555,24 @@ export default function Home() {
               <option value="most_recent">Most Recent</option>
               <option value="lowest_price">Lowest Price</option>
               <option value="highest_price">Highest Price</option>
+              <option value="highest_rated">Highest Rated</option>
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
+            />
+          </div>
+
+          <div className="relative">
+            <select
+              value={minRating}
+              onChange={(e) => setMinRating(e.target.value)}
+              className="appearance-none pl-4 pr-10 py-2 rounded-xl border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition cursor-pointer"
+            >
+              <option value="">Min Rating</option>
+              <option value="3">3+ Stars</option>
+              <option value="4">4+ Stars</option>
+              <option value="5">5 Stars Only</option>
             </select>
             <ChevronDown
               size={16}

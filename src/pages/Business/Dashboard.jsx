@@ -27,11 +27,14 @@ import {
   TREATMENT_AREAS,
   DISCOUNT_TYPES,
 } from '../../lib/constants';
+import InjectorsTab from '../../components/DashboardTabs/InjectorsTab';
+import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterTab';
+import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Specials', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Menu', 'Specials', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -73,6 +76,11 @@ export default function Dashboard() {
 
   // Community procedures state
   const [communityProcedures, setCommunityProcedures] = useState([]);
+
+  // New tab states
+  const [dashInjectors, setDashInjectors] = useState([]);
+  const [dashBAPhotos, setDashBAPhotos] = useState([]);
+  const [dashReviews, setDashReviews] = useState([]);
 
   // Settings state
   const [refreshing, setRefreshing] = useState(false);
@@ -155,14 +163,47 @@ export default function Dashboard() {
     setCommunityProcedures(data || []);
   }, [provider]);
 
+  const fetchInjectors = useCallback(async () => {
+    if (!provider) return;
+    const { data } = await supabase
+      .from('injectors')
+      .select('*')
+      .eq('provider_id', provider.id)
+      .order('created_at', { ascending: false });
+    setDashInjectors(data || []);
+  }, [provider]);
+
+  const fetchBAPhotos = useCallback(async () => {
+    if (!provider) return;
+    const { data } = await supabase
+      .from('before_after_photos')
+      .select('*, injectors(name)')
+      .eq('provider_id', provider.id)
+      .order('created_at', { ascending: false });
+    setDashBAPhotos(data || []);
+  }, [provider]);
+
+  const fetchDashReviews = useCallback(async () => {
+    if (!provider) return;
+    const { data } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('provider_id', provider.id)
+      .order('created_at', { ascending: false });
+    setDashReviews(data || []);
+  }, [provider]);
+
   useEffect(() => {
     if (provider) {
       fetchPricing();
       fetchSpecials();
       fetchDisputes();
       fetchCommunityProcedures();
+      fetchInjectors();
+      fetchBAPhotos();
+      fetchDashReviews();
     }
-  }, [provider, fetchPricing, fetchSpecials, fetchDisputes, fetchCommunityProcedures]);
+  }, [provider, fetchPricing, fetchSpecials, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews]);
 
   // --- Menu Handlers ---
 
@@ -600,15 +641,19 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="glow-card p-5">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-rose-light flex items-center justify-center">
-                  <Eye size={18} className="text-rose-accent" />
+                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Star size={18} className="text-amber-500" />
                 </div>
                 <span className="text-sm text-text-secondary">
-                  Profile Views
+                  GlowBuddy Rating
                 </span>
               </div>
-              <p className="text-2xl font-bold text-text-primary">--</p>
-              <p className="text-xs text-text-secondary mt-1">Coming soon</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {provider.avg_rating || '--'}
+              </p>
+              <p className="text-xs text-text-secondary mt-1">
+                {dashReviews.length} review{dashReviews.length !== 1 ? 's' : ''}
+              </p>
             </div>
 
             <div className="glow-card p-5">
@@ -1092,6 +1137,34 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ===== INJECTORS TAB ===== */}
+      {activeTab === 'Injectors' && (
+        <InjectorsTab
+          provider={provider}
+          injectors={dashInjectors}
+          onRefresh={fetchInjectors}
+        />
+      )}
+
+      {/* ===== BEFORE & AFTERS TAB ===== */}
+      {activeTab === 'Before & Afters' && (
+        <DashboardBeforeAfterTab
+          provider={provider}
+          photos={dashBAPhotos}
+          injectors={dashInjectors}
+          onRefresh={fetchBAPhotos}
+        />
+      )}
+
+      {/* ===== REVIEWS TAB ===== */}
+      {activeTab === 'Reviews' && (
+        <DashboardReviewsTab
+          reviews={dashReviews}
+          provider={provider}
+          onRefresh={fetchDashReviews}
+        />
       )}
 
       {/* ===== DISPUTES TAB ===== */}

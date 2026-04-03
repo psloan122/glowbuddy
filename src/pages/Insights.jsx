@@ -13,6 +13,9 @@ import {
   PieChart,
   Pie,
   Cell,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from 'recharts';
 
 const COLORS = ['#F4A7B9', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6'];
@@ -75,6 +78,9 @@ export default function Insights() {
   const [mostSubmitted, setMostSubmitted] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
   const [trendProcedures, setTrendProcedures] = useState([]);
+  const [avgRatingByProvType, setAvgRatingByProvType] = useState([]);
+  const [ratingVsPrice, setRatingVsPrice] = useState([]);
+  const [trustBreakdown, setTrustBreakdown] = useState([]);
 
   useEffect(() => {
     document.title = 'Price Insights & Trends | GlowBuddy';
@@ -86,7 +92,7 @@ export default function Insights() {
 
       const { data, error } = await supabase
         .from('procedures')
-        .select('procedure_type, provider_type, city, state, price_paid, created_at')
+        .select('procedure_type, provider_type, city, state, price_paid, created_at, rating')
         .eq('status', 'active');
 
       if (error || !data) {
@@ -184,6 +190,63 @@ export default function Insights() {
         return entry;
       });
       setMonthlyTrends(trendsArr);
+
+      // --- Average Rating by Provider Type ---
+      const ratingByProv = {};
+      data.forEach((row) => {
+        if (!row.provider_type || !row.rating) return;
+        if (!ratingByProv[row.provider_type]) ratingByProv[row.provider_type] = [];
+        ratingByProv[row.provider_type].push(row.rating);
+      });
+
+      const avgRatingByProv = Object.entries(ratingByProv)
+        .map(([name, ratings]) => ({
+          name,
+          avgRating: Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10,
+          count: ratings.length,
+        }))
+        .filter((x) => x.count >= 2)
+        .sort((a, b) => b.avgRating - a.avgRating);
+      setAvgRatingByProvType(avgRatingByProv);
+
+      // --- Rating vs Price scatter ---
+      const scatter = data
+        .filter((row) => row.rating && row.price_paid)
+        .map((row) => ({
+          rating: row.rating,
+          price: row.price_paid,
+          procedure: row.procedure_type,
+        }));
+      setRatingVsPrice(scatter);
+
+      // --- Trust breakdown from reviews ---
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('trust_tier')
+        .eq('status', 'active');
+
+      if (reviewData && reviewData.length > 0) {
+        const tierCounts = { receipt_verified: 0, has_photo: 0, unverified: 0 };
+        reviewData.forEach((r) => {
+          const tier = r.trust_tier || 'unverified';
+          if (tier === 'receipt_verified' || tier === 'receipt_and_photo') {
+            tierCounts.receipt_verified++;
+          } else if (tier === 'has_photo') {
+            tierCounts.has_photo++;
+          } else {
+            tierCounts.unverified++;
+          }
+        });
+
+        const breakdown = [];
+        if (tierCounts.receipt_verified > 0)
+          breakdown.push({ name: 'Receipt Verified', value: tierCounts.receipt_verified });
+        if (tierCounts.has_photo > 0)
+          breakdown.push({ name: 'Photo Reviews', value: tierCounts.has_photo });
+        if (tierCounts.unverified > 0)
+          breakdown.push({ name: 'Unverified', value: tierCounts.unverified });
+        setTrustBreakdown(breakdown);
+      }
 
       setLoading(false);
     }
@@ -384,6 +447,130 @@ export default function Insights() {
           <p className="text-text-secondary text-center py-8">No submission data yet.</p>
         )}
       </div>
+
+      {/* Chart 6: Average Rating by Provider Type */}
+      {avgRatingByProvType.length > 0 && (
+        <div className="glow-card p-6 mb-8">
+          <h2 className="text-2xl font-bold text-text-primary mb-6">
+            Average Rating by Provider Type
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={avgRatingByProvType}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+            >
+              <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={180}
+                tick={{ fontSize: 12 }}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div className="bg-white rounded-lg shadow px-4 py-2">
+                      <p className="text-sm font-medium text-text-primary mb-1">{label}</p>
+                      <p className="text-sm" style={{ color: payload[0].color }}>
+                        Avg Rating: {payload[0].value} ({payload[0].payload.count} reviews)
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Bar
+                dataKey="avgRating"
+                name="Avg Rating"
+                fill="#F59E0B"
+                barSize={20}
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Chart 7: Rating vs Price */}
+      {ratingVsPrice.length >= 5 && (
+        <div className="glow-card p-6 mb-8">
+          <h2 className="text-2xl font-bold text-text-primary mb-6">
+            Rating vs Price
+          </h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <ScatterChart margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+              <XAxis
+                type="number"
+                dataKey="rating"
+                name="Rating"
+                domain={[1, 5]}
+                tick={{ fontSize: 12 }}
+                label={{ value: 'Rating', position: 'bottom', fontSize: 12 }}
+              />
+              <YAxis
+                type="number"
+                dataKey="price"
+                name="Price"
+                tickFormatter={dollarFormatter}
+                tick={{ fontSize: 12 }}
+                label={{ value: 'Price', angle: -90, position: 'insideLeft', fontSize: 12 }}
+              />
+              <ZAxis range={[30, 30]} />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload;
+                  return (
+                    <div className="bg-white rounded-lg shadow px-4 py-2">
+                      <p className="text-sm font-medium text-text-primary">{d.procedure}</p>
+                      <p className="text-sm text-text-secondary">
+                        {d.rating} stars &middot; ${Number(d.price).toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Scatter data={ratingVsPrice} fill="#F4A7B9" />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Chart 8: Trust Breakdown Donut */}
+      {trustBreakdown.length > 0 && (
+        <div className="glow-card p-6 mb-8">
+          <h2 className="text-2xl font-bold text-text-primary mb-2">
+            Review Quality Across GlowBuddy
+          </h2>
+          <p className="text-sm text-text-secondary mb-6">
+            Higher verified percentages mean more trustworthy data.
+          </p>
+          <ResponsiveContainer width="100%" height={350}>
+            <PieChart>
+              <Pie
+                data={trustBreakdown}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={120}
+                label={renderPieLabel}
+              >
+                {trustBreakdown.map((entry, index) => {
+                  const trustColors = ['#10B981', '#3B82F6', '#9CA3AF'];
+                  return (
+                    <Cell key={`trust-${index}`} fill={trustColors[index % trustColors.length]} />
+                  );
+                })}
+              </Pie>
+              <Tooltip content={<CountTooltip />} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Footer note */}
       <p className="italic text-sm text-text-secondary text-center">

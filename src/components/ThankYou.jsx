@@ -13,6 +13,10 @@ export default function ThankYou({
   entries = 1,
   hasReceipt = false,
   activeCount = null,
+  hasRating = false,
+  hasReview = false,
+  hasResultPhoto = false,
+  receiptVerified = false,
 }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -22,7 +26,11 @@ export default function ThankYou({
 
   const { lines: entryLines, total: totalEntries } = getEntryBreakdown(
     activeCount,
-    hasReceipt
+    hasReceipt,
+    hasRating,
+    hasReview,
+    hasResultPhoto,
+    receiptVerified
   );
 
   async function handleCreateAccount(e) {
@@ -107,10 +115,16 @@ export default function ThankYou({
         </div>
         <div className="space-y-1">
           {entryLines.map((line, i) => (
-            <p key={i} className="text-xs text-text-secondary">
-              {i > 0 ? '+ ' : ''}
-              {line.value} {line.value === 1 ? 'entry' : 'entries'} for{' '}
-              {line.label.toLowerCase()}
+            <p key={i} className={`text-xs ${line.pending ? 'text-text-secondary/60 italic' : 'text-text-secondary'}`}>
+              {line.pending ? (
+                line.label
+              ) : (
+                <>
+                  {i > 0 ? '+ ' : ''}
+                  {line.value} {line.value === 1 ? 'entry' : 'entries'} for{' '}
+                  {line.label.toLowerCase()}
+                </>
+              )}
             </p>
           ))}
           {entryLines.length > 1 && (
