@@ -193,7 +193,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
 
   // Search input
   return (
-    <div ref={wrapperRef}>
+    <div ref={wrapperRef} className="relative">
       <label className="block text-sm font-medium text-text-primary mb-1.5">
         Provider / Clinic <span className="text-rose-accent">*</span>
       </label>
@@ -227,7 +227,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
 
       {/* Suggestions dropdown */}
       {status === 'OK' && data.length > 0 && (
-        <ul className="absolute z-20 w-[calc(100%-2rem)] mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+        <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
           {data.map((suggestion) => (
             <li key={suggestion.place_id}>
               <button

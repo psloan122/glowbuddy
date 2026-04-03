@@ -6,7 +6,7 @@ import PlacesSearch from '../PlacesSearch';
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const hasPlacesKey = !!import.meta.env.VITE_GOOGLE_PLACES_KEY;
+const hasPlaces = typeof window !== 'undefined' && !!window.google?.maps?.places;
 
 export default function Step2({ formData, setFormData }) {
   const [selectedPlace, setSelectedPlace] = useState(
@@ -31,7 +31,7 @@ export default function Step2({ formData, setFormData }) {
 
   // Close dropdown on outside click (fallback mode)
   useEffect(() => {
-    if (hasPlacesKey) return;
+    if (hasPlaces) return;
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setShowSuggestions(false);
@@ -43,7 +43,7 @@ export default function Step2({ formData, setFormData }) {
 
   // Fallback autocomplete from Supabase
   useEffect(() => {
-    if (hasPlacesKey) return;
+    if (hasPlaces) return;
     async function fetchProviders() {
       if (formData.providerName.length < 2) {
         setProviderSuggestions([]);
@@ -119,7 +119,7 @@ export default function Step2({ formData, setFormData }) {
 
       <div className="space-y-5">
         {/* Provider search — Google Places or fallback */}
-        {hasPlacesKey ? (
+        {hasPlaces ? (
           <div className="relative">
             <PlacesSearch
               onSelect={handlePlaceSelect}
