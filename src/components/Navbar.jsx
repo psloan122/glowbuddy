@@ -1,12 +1,12 @@
-import { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { useState, useContext, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { AuthContext } from '../App';
-import { supabase } from '../lib/supabase';
+import { signOut } from '../lib/auth';
 
 const NAV_LINKS = [
   { to: '/', label: 'Browse' },
-  { to: '/log', label: 'Log a Treatment' },
+  { to: '/log', label: 'Log a Treatment', requiresAuth: true },
   { to: '/insights', label: 'Insights' },
   { to: '/specials', label: 'Specials' },
   { to: '/community', label: 'Community' },
@@ -14,31 +14,41 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const { user } = useContext(AuthContext);
+  const { user, openAuthModal } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [email, setEmail] = useState('');
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInMsg, setSignInMsg] = useState('');
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const avatarRef = useRef(null);
 
-  async function handleSignIn(e) {
-    e.preventDefault();
-    if (!email) return;
-    setSigningIn(true);
-    setSignInMsg('');
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) {
-      setSignInMsg(error.message);
-    } else {
-      setSignInMsg('Check your email for a magic link!');
-      setEmail('');
+  // Close avatar dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (avatarRef.current && !avatarRef.current.contains(e.target)) {
+        setAvatarOpen(false);
+      }
     }
-    setSigningIn(false);
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  function handleNavClick(link, e) {
+    if (link.requiresAuth && !user) {
+      e.preventDefault();
+      openAuthModal('signup', '/log');
+    }
+    setMobileOpen(false);
+  }
+
+  function getInitials() {
+    const email = user?.email || '';
+    return email.charAt(0).toUpperCase();
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await signOut();
+    setAvatarOpen(false);
     setMobileOpen(false);
+    navigate('/');
   }
 
   return (
@@ -57,6 +67,7 @@ export default function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
+                onClick={(e) => handleNavClick(link, e)}
                 className="text-sm text-text-secondary hover:text-text-primary transition-colors"
               >
                 {link.label}
@@ -65,29 +76,53 @@ export default function Navbar() {
           </div>
 
           {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             {user ? (
-              <>
-                <Link
-                  to="/my-treatments"
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
-                >
-                  My Treatments
-                </Link>
+              /* Avatar dropdown */
+              <div ref={avatarRef} className="relative">
                 <button
-                  onClick={handleSignOut}
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                  onClick={() => setAvatarOpen(!avatarOpen)}
+                  className="flex items-center gap-1.5"
                 >
-                  Sign Out
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white" style={{ backgroundColor: '#C94F78' }}>
+                    {getInitials()}
+                  </div>
+                  <ChevronDown size={14} className="text-text-secondary" />
+                </button>
+                {avatarOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                    <Link
+                      to="/my-treatments"
+                      onClick={() => setAvatarOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-text-primary hover:bg-rose-light/50 transition-colors"
+                    >
+                      My Treatments
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => openAuthModal('signin')}
+                  className="px-4 py-2 text-sm font-medium text-text-primary border border-gray-200 rounded-full hover:border-gray-300 transition"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => openAuthModal('signup')}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:opacity-90 transition"
+                  style={{ backgroundColor: '#C94F78' }}
+                >
+                  Sign Up
                 </button>
               </>
-            ) : (
-              <button
-                onClick={() => setShowSignIn(true)}
-                className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors"
-              >
-                Sign In
-              </button>
             )}
           </div>
 
@@ -110,7 +145,7 @@ export default function Navbar() {
                   key={link.to}
                   to={link.to}
                   className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
-                  onClick={() => setMobileOpen(false)}
+                  onClick={(e) => handleNavClick(link, e)}
                 >
                   {link.label}
                 </Link>
@@ -132,62 +167,32 @@ export default function Navbar() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => {
-                    setShowSignIn(true);
-                    setMobileOpen(false);
-                  }}
-                  className="px-3 py-2 text-sm text-left font-medium text-rose-accent hover:text-rose-dark hover:bg-rose-light/50 rounded-lg transition-colors"
-                >
-                  Sign In
-                </button>
+                <div className="flex items-center gap-2 px-3 pt-2">
+                  <button
+                    onClick={() => {
+                      openAuthModal('signin');
+                      setMobileOpen(false);
+                    }}
+                    className="flex-1 py-2 text-sm font-medium text-text-primary border border-gray-200 rounded-full hover:border-gray-300 transition text-center"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => {
+                      openAuthModal('signup');
+                      setMobileOpen(false);
+                    }}
+                    className="flex-1 py-2 text-sm font-semibold text-white rounded-full hover:opacity-90 transition text-center"
+                    style={{ backgroundColor: '#C94F78' }}
+                  >
+                    Sign Up
+                  </button>
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
-
-      {/* Sign-in modal */}
-      {showSignIn && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-text-primary">Sign In</h2>
-              <button
-                onClick={() => {
-                  setShowSignIn(false);
-                  setSignInMsg('');
-                }}
-                className="text-text-secondary hover:text-text-primary"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
-              <input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent"
-                required
-              />
-              <button
-                type="submit"
-                disabled={signingIn}
-                className="w-full py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors disabled:opacity-50"
-              >
-                {signingIn ? 'Sending...' : 'Send Magic Link'}
-              </button>
-              {signInMsg && (
-                <p className="text-sm text-center text-text-secondary">
-                  {signInMsg}
-                </p>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

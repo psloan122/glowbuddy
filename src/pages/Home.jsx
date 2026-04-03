@@ -1,18 +1,16 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, SlidersHorizontal, ChevronDown, Lock, MapPin } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
-import { isUnlocked, isOnboarded, getCity, getState as getGatingState } from '../lib/gating';
+import { getCity, getState as getGatingState } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
-import SoftGate from '../components/SoftGate';
-import Onboarding from '../components/Onboarding';
 import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
 export default function Home() {
-  const { session, user } = useContext(AuthContext);
+  const { user, openAuthModal } = useContext(AuthContext);
 
   // Stats — hardcoded until real data exists
   const [stats] = useState({
@@ -39,11 +37,9 @@ export default function Home() {
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Onboarding & gating
-  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
-  const [unlocked, setUnlocked] = useState(() => isUnlocked());
-  const [userCity, setUserCity] = useState(() => getCity());
-  const [userState, setUserState] = useState(() => getGatingState());
+  // Location personalization (from localStorage, no account needed)
+  const [userCity] = useState(() => getCity());
+  const [userState] = useState(() => getGatingState());
   const [localCount, setLocalCount] = useState(null);
 
   // SEO
@@ -151,72 +147,21 @@ export default function Home() {
     priceMax,
   ]);
 
-  function handleOnboardingComplete() {
-    setShowOnboarding(false);
-    // Re-read city/state that onboarding may have set
-    const city = getCity();
-    const state = getGatingState();
-    setUserCity(city);
-    setUserState(state);
-    if (state) {
-      setFilterState(state);
-    }
-  }
-
-  function handleGateUnlock() {
-    setUnlocked(true);
-  }
-
   // Filter specials by user state client-side
   const filteredSpecials = userState
     ? specials.filter((s) => s.providers?.state === userState)
     : [];
   const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
 
-  // Render procedure grid with inline gate and blur
-  function renderProcedureGrid() {
-    const items = [];
-
-    procedures.forEach((proc, index) => {
-      if (!unlocked && index === 3) {
-        // Inject SoftGate after card 2 (at position 3)
-        items.push(
-          <SoftGate key="soft-gate" onUnlock={handleGateUnlock} city={userCity} />
-        );
-      }
-
-      if (!unlocked && index >= 3) {
-        // Locked cards: blurred with lock overlay
-        items.push(
-          <div key={proc.id} className="relative">
-            <div className="blur-sm opacity-60 pointer-events-none select-none">
-              <ProcedureCard procedure={proc} blurProvider />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center shadow-sm">
-                <Lock size={18} className="text-text-secondary" />
-              </div>
-            </div>
-          </div>
-        );
-      } else {
-        // Free cards (0-2) or all cards when unlocked
-        items.push(
-          <ProcedureCard key={proc.id} procedure={proc} blurProvider />
-        );
-      }
-    });
-
-    return items;
+  function handleLogCTA(e) {
+    if (!user) {
+      e.preventDefault();
+      openAuthModal('signup', '/log');
+    }
   }
 
   return (
     <div>
-      {/* Onboarding overlay */}
-      {showOnboarding && (
-        <Onboarding onComplete={handleOnboardingComplete} />
-      )}
-
       {/* Hero Section */}
       <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24">
         <div className="max-w-4xl mx-auto px-4 text-center">
@@ -229,6 +174,7 @@ export default function Home() {
           </p>
           <Link
             to="/log"
+            onClick={handleLogCTA}
             className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
             style={{ backgroundColor: '#C94F78' }}
           >
@@ -446,6 +392,7 @@ export default function Home() {
             </p>
             <Link
               to="/log"
+              onClick={handleLogCTA}
               className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
               style={{ backgroundColor: '#C94F78' }}
             >
@@ -454,7 +401,9 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderProcedureGrid()}
+            {procedures.map((proc) => (
+              <ProcedureCard key={proc.id} procedure={proc} />
+            ))}
           </div>
         )}
       </section>

@@ -318,7 +318,6 @@ export default function ProcedureDetail() {
               <ProcedureCard
                 key={procedure.id}
                 procedure={procedure}
-                blurProvider
               />
             ))}
           </div>

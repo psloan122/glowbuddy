@@ -1,34 +1,12 @@
-// Centralized localStorage helpers for gating, onboarding, and user location
+// Centralized localStorage helpers for onboarding and user location personalization
 
 const KEYS = {
-  VIEWS: 'gb_views',
-  UNLOCKED: 'gb_unlocked',
   ZIP: 'gb_zip',
   CITY: 'gb_city',
   STATE: 'gb_state',
   INTERESTS: 'gb_interests',
   ONBOARDED: 'gb_onboarded',
 };
-
-// --- Card view count ---
-export function getViews() {
-  return parseInt(localStorage.getItem(KEYS.VIEWS) || '0', 10);
-}
-
-export function incrementViews() {
-  const next = getViews() + 1;
-  localStorage.setItem(KEYS.VIEWS, String(next));
-  return next;
-}
-
-// --- Gate state ---
-export function isUnlocked() {
-  return localStorage.getItem(KEYS.UNLOCKED) === 'true';
-}
-
-export function unlock() {
-  localStorage.setItem(KEYS.UNLOCKED, 'true');
-}
 
 // --- Zip / City / State ---
 export function getZip() {

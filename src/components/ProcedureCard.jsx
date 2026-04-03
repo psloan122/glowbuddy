@@ -1,12 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { isUnlocked } from '../lib/gating';
 
-export default function ProcedureCard({ procedure, blurProvider }) {
+export default function ProcedureCard({ procedure }) {
   const isVerified = procedure.source === 'verified';
-  const unlocked = isUnlocked();
-  const shouldBlur = blurProvider && !unlocked;
 
   return (
     <Link
@@ -59,9 +56,9 @@ export default function ProcedureCard({ procedure, blurProvider }) {
         </p>
       )}
 
-      {/* Provider name + location — blurred until user contributes */}
+      {/* Provider name + location */}
       <div className="flex items-center justify-between mb-2">
-        <p className={`text-sm text-text-primary ${shouldBlur ? 'blur-sm select-none' : ''}`}>
+        <p className="text-sm text-text-primary">
           {procedure.provider_name}
           {procedure.city && procedure.state && (
             <span className="text-text-secondary">
@@ -72,14 +69,8 @@ export default function ProcedureCard({ procedure, blurProvider }) {
         </p>
       </div>
 
-      {shouldBlur && (
-        <p className="text-xs text-rose-accent font-medium">
-          Log a treatment to see provider details
-        </p>
-      )}
-
       {/* Provider type badge */}
-      {procedure.provider_type && !shouldBlur && (
+      {procedure.provider_type && (
         <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-3">
           {procedure.provider_type}
         </span>

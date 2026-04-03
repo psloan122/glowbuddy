@@ -7,7 +7,6 @@ import { providerSlug } from '../lib/slugify';
 import { checkOutlier, getAverages } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
 import { procedureToSlug, REQUIRES_TREATMENT_AREA } from '../lib/constants';
-import { unlock } from '../lib/gating';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -39,7 +38,7 @@ const INITIAL_FORM_DATA = {
 };
 
 export default function Log() {
-  const { session, user } = useContext(AuthContext);
+  const { session, user, openAuthModal } = useContext(AuthContext);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -53,6 +52,13 @@ export default function Log() {
   useEffect(() => {
     document.title = 'Log a Treatment | GlowBuddy';
   }, []);
+
+  // Auth gate: if not signed in, show auth modal with redirect back here
+  useEffect(() => {
+    if (!user) {
+      openAuthModal('signup', '/log');
+    }
+  }, [user, openAuthModal]);
 
   // Validate current step before allowing next
   function canAdvance() {
@@ -194,9 +200,6 @@ export default function Log() {
         setNewBadges(badges);
       }
 
-      // Unlock soft gate
-      unlock();
-
       setCurrentStep('success');
     } catch (err) {
       console.error('Submission error:', err);
@@ -212,6 +215,15 @@ export default function Log() {
     setPriceComparison(null);
     setNewBadges([]);
     setOutlierFlagged(false);
+  }
+
+  // If not authenticated, show a placeholder while auth modal is open
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <p className="text-text-secondary">Sign in to log your treatment...</p>
+      </div>
+    );
   }
 
   // Step labels for progress indicator
