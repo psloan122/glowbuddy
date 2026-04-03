@@ -5,6 +5,9 @@ export function slugify(text) {
     .replace(/(^-|-$)/g, '');
 }
 
-export function providerSlug(name, city) {
+export function providerSlug(name, city, googlePlaceId) {
+  if (googlePlaceId) {
+    return slugify(googlePlaceId);
+  }
   return slugify(`${name} ${city}`);
 }

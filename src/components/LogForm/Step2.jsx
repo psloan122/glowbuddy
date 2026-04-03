@@ -1,17 +1,37 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PROVIDER_TYPES, US_STATES } from '../../lib/constants';
+import PlacesSearch from '../PlacesSearch';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
+const hasPlacesKey = !!import.meta.env.VITE_GOOGLE_PLACES_KEY;
+
 export default function Step2({ formData, setFormData }) {
+  const [selectedPlace, setSelectedPlace] = useState(
+    formData.googlePlaceId
+      ? {
+          name: formData.providerName,
+          formattedAddress: formData.providerAddress || '',
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          phone: formData.providerPhone || '',
+          website: formData.providerWebsite || '',
+          placeId: formData.googlePlaceId,
+        }
+      : null
+  );
+
+  // Fallback state for when Places API is not available
   const [providerSuggestions, setProviderSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef(null);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click (fallback mode)
   useEffect(() => {
+    if (hasPlacesKey) return;
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setShowSuggestions(false);
@@ -21,8 +41,9 @@ export default function Step2({ formData, setFormData }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Autocomplete provider name
+  // Fallback autocomplete from Supabase
   useEffect(() => {
+    if (hasPlacesKey) return;
     async function fetchProviders() {
       if (formData.providerName.length < 2) {
         setProviderSuggestions([]);
@@ -43,7 +64,7 @@ export default function Step2({ formData, setFormData }) {
     return () => clearTimeout(timeout);
   }, [formData.providerName]);
 
-  function selectProvider(provider) {
+  function selectFallbackProvider(provider) {
     setFormData((prev) => ({
       ...prev,
       providerName: provider.name,
@@ -51,6 +72,40 @@ export default function Step2({ formData, setFormData }) {
       state: provider.state || prev.state,
     }));
     setShowSuggestions(false);
+  }
+
+  function handlePlaceSelect(placeData) {
+    setSelectedPlace(placeData);
+    setFormData((prev) => ({
+      ...prev,
+      providerName: placeData.name,
+      providerAddress: placeData.address || placeData.formattedAddress,
+      city: placeData.city || prev.city,
+      state: placeData.state || prev.state,
+      zipCode: placeData.zipCode || prev.zipCode,
+      providerPhone: placeData.phone || '',
+      providerWebsite: placeData.website || '',
+      googlePlaceId: placeData.placeId || '',
+      lat: placeData.lat,
+      lng: placeData.lng,
+    }));
+  }
+
+  function handlePlaceClear() {
+    setSelectedPlace(null);
+    setFormData((prev) => ({
+      ...prev,
+      providerName: '',
+      providerAddress: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      providerPhone: '',
+      providerWebsite: '',
+      googlePlaceId: '',
+      lat: null,
+      lng: null,
+    }));
   }
 
   return (
@@ -63,51 +118,61 @@ export default function Step2({ formData, setFormData }) {
       </p>
 
       <div className="space-y-5">
-        {/* Provider name with autocomplete */}
-        <div ref={wrapperRef} className="relative">
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Provider Name <span className="text-rose-accent">*</span>
-          </label>
-          <input
-            type="text"
-            placeholder="Clinic or provider name"
-            value={formData.providerName}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                providerName: e.target.value,
-              }))
-            }
-            onFocus={() => {
-              if (providerSuggestions.length > 0) setShowSuggestions(true);
-            }}
-            className={INPUT_CLASSES}
-          />
-          {showSuggestions && providerSuggestions.length > 0 && (
-            <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-              {providerSuggestions.map((provider, i) => (
-                <li key={`${provider.name}-${i}`}>
-                  <button
-                    type="button"
-                    onClick={() => selectProvider(provider)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-rose-light/50 transition-colors"
-                  >
-                    <span className="text-sm text-text-primary font-medium">
-                      {provider.name}
-                    </span>
-                    {provider.city && provider.state && (
-                      <span className="text-xs text-text-secondary ml-2">
-                        {provider.city}, {provider.state}
+        {/* Provider search — Google Places or fallback */}
+        {hasPlacesKey ? (
+          <div className="relative">
+            <PlacesSearch
+              onSelect={handlePlaceSelect}
+              onClear={handlePlaceClear}
+              selectedPlace={selectedPlace}
+            />
+          </div>
+        ) : (
+          <div ref={wrapperRef} className="relative">
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Provider Name <span className="text-rose-accent">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Clinic or provider name"
+              value={formData.providerName}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  providerName: e.target.value,
+                }))
+              }
+              onFocus={() => {
+                if (providerSuggestions.length > 0) setShowSuggestions(true);
+              }}
+              className={INPUT_CLASSES}
+            />
+            {showSuggestions && providerSuggestions.length > 0 && (
+              <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {providerSuggestions.map((provider, i) => (
+                  <li key={`${provider.name}-${i}`}>
+                    <button
+                      type="button"
+                      onClick={() => selectFallbackProvider(provider)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-rose-light/50 transition-colors"
+                    >
+                      <span className="text-sm text-text-primary font-medium">
+                        {provider.name}
                       </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                      {provider.city && provider.state && (
+                        <span className="text-xs text-text-secondary ml-2">
+                          {provider.city}, {provider.state}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
-        {/* Provider type */}
+        {/* Provider type — always manual */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             Provider Type
@@ -131,7 +196,7 @@ export default function Step2({ formData, setFormData }) {
           </select>
         </div>
 
-        {/* City */}
+        {/* City — auto-filled by Places, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             City <span className="text-rose-accent">*</span>
@@ -147,7 +212,7 @@ export default function Step2({ formData, setFormData }) {
           />
         </div>
 
-        {/* State */}
+        {/* State — auto-filled by Places, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             State <span className="text-rose-accent">*</span>
@@ -168,7 +233,7 @@ export default function Step2({ formData, setFormData }) {
           </select>
         </div>
 
-        {/* Zip code */}
+        {/* Zip code — auto-filled by Places, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             Zip Code

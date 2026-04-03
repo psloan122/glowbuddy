@@ -28,6 +28,13 @@ const INITIAL_FORM_DATA = {
   notes: '',
   anonymous: true,
   giveawayEmail: '',
+  // Google Places fields
+  googlePlaceId: '',
+  providerAddress: '',
+  providerPhone: '',
+  providerWebsite: '',
+  lat: null,
+  lng: null,
 };
 
 export default function Log() {
@@ -71,7 +78,11 @@ export default function Log() {
     setIsSubmitting(true);
 
     try {
-      const slug = providerSlug(formData.providerName, formData.city);
+      const slug = providerSlug(
+        formData.providerName,
+        formData.city,
+        formData.googlePlaceId
+      );
       const price = parseInt(formData.pricePaid, 10);
 
       // Check for outlier
@@ -83,7 +94,40 @@ export default function Log() {
 
       setOutlierFlagged(isOutlier);
 
-      // Build the row to insert
+      // Auto-create or update provider if we have a google_place_id
+      if (formData.googlePlaceId) {
+        const { data: existingProvider } = await supabase
+          .from('providers')
+          .select('id')
+          .eq('google_place_id', formData.googlePlaceId)
+          .maybeSingle();
+
+        const providerRow = {
+          name: formData.providerName,
+          slug,
+          provider_type: formData.providerType || 'Other',
+          city: formData.city,
+          state: formData.state,
+          zip_code: formData.zipCode || '',
+          address: formData.providerAddress || null,
+          phone: formData.providerPhone || null,
+          website: formData.providerWebsite || null,
+          google_place_id: formData.googlePlaceId,
+          lat: formData.lat,
+          lng: formData.lng,
+        };
+
+        if (existingProvider) {
+          await supabase
+            .from('providers')
+            .update(providerRow)
+            .eq('id', existingProvider.id);
+        } else {
+          await supabase.from('providers').insert(providerRow);
+        }
+      }
+
+      // Build the procedure row to insert
       const row = {
         procedure_type: formData.procedureType,
         treatment_area: formData.treatmentArea || null,
@@ -95,13 +139,18 @@ export default function Log() {
         city: formData.city,
         state: formData.state,
         zip_code: formData.zipCode || null,
-        treatment_date: formData.treatmentDate || null,
+        date_of_treatment: formData.treatmentDate || null,
         notes: formData.notes || null,
-        anonymous: formData.anonymous,
+        is_anonymous: formData.anonymous,
         status: isOutlier ? 'pending' : 'active',
         outlier_flagged: isOutlier,
         user_id: user?.id || null,
-        source: 'community',
+        google_place_id: formData.googlePlaceId || null,
+        provider_address: formData.providerAddress || null,
+        provider_phone: formData.providerPhone || null,
+        provider_website: formData.providerWebsite || null,
+        lat: formData.lat || null,
+        lng: formData.lng || null,
       };
 
       const { data: inserted, error } = await supabase
