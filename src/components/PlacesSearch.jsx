@@ -22,7 +22,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     clearSuggestions,
   } = usePlacesAutocomplete({
     requestOptions: {
-      types: ['health', 'spa', 'beauty_salon', 'establishment'],
+      types: ['establishment'],
       componentRestrictions: { country: 'us' },
     },
     debounce: 300,
