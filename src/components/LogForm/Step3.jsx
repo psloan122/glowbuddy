@@ -1,11 +1,25 @@
 import { Turnstile } from '@marsidev/react-turnstile';
+import { Trophy } from 'lucide-react';
+import ReceiptUpload from '../ReceiptUpload';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-export default function Step3({ formData, setFormData, honeypot, setHoneypot, onTurnstileSuccess }) {
+export default function Step3({
+  formData,
+  setFormData,
+  honeypot,
+  setHoneypot,
+  onTurnstileSuccess,
+  // Receipt props
+  userId,
+  onReceiptUpload,
+  onReceiptParsed,
+  onReceiptRemove,
+  entryCount,
+}) {
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
@@ -30,6 +44,48 @@ export default function Step3({ formData, setFormData, honeypot, setHoneypot, on
             }
             className={`${INPUT_CLASSES} resize-none`}
           />
+        </div>
+
+        {/* Receipt Upload Section */}
+        <div>
+          <p className="text-sm font-semibold text-text-primary mb-3">
+            Boost your giveaway entries
+          </p>
+          <div className="bg-rose-light/30 rounded-xl p-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="sm:flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy className="w-4 h-4 text-rose-accent shrink-0" />
+                  <p className="text-sm font-semibold text-text-primary">
+                    Upload your receipt
+                  </p>
+                </div>
+                <p className="text-sm text-rose-dark mb-0.5">
+                  Earn 3 entries instead of 1
+                </p>
+                <p className="text-xs text-text-secondary">
+                  Receipt stays private — never shown publicly
+                </p>
+              </div>
+              <div className="sm:flex-1">
+                <ReceiptUpload
+                  userId={userId}
+                  onUploadComplete={onReceiptUpload}
+                  onParsedData={onReceiptParsed}
+                  onRemove={onReceiptRemove}
+                />
+              </div>
+            </div>
+            {/* Entry counter */}
+            <div className="mt-3 pt-3 border-t border-rose-accent/10">
+              <p className="text-xs font-medium text-text-primary">
+                Your entries this submission:{' '}
+                <span className="text-rose-accent font-bold">
+                  {entryCount}
+                </span>
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Anonymous toggle */}

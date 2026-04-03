@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ProcedureCard({ procedure }) {
@@ -25,13 +25,24 @@ export default function ProcedureCard({ procedure }) {
             Community
           </span>
         )}
-        {procedure.created_at && (
-          <span className="text-xs text-text-secondary">
-            {formatDistanceToNow(new Date(procedure.created_at), {
-              addSuffix: true,
-            })}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {procedure.has_receipt && procedure.receipt_verified && (
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full"
+              title="This price was verified with an uploaded receipt"
+            >
+              <FileCheck size={12} />
+              Receipt verified
+            </span>
+          )}
+          {procedure.created_at && (
+            <span className="text-xs text-text-secondary">
+              {formatDistanceToNow(new Date(procedure.created_at), {
+                addSuffix: true,
+              })}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Procedure type */}

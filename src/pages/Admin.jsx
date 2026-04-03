@@ -9,11 +9,15 @@ import {
   Zap,
   ShieldAlert,
   Copy,
+  FileImage,
+  ExternalLink,
+  FileText,
 } from 'lucide-react';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
   { key: 'disputes', label: 'Disputes', icon: Eye },
+  { key: 'receipts', label: 'Receipts', icon: FileImage },
   { key: 'velocity', label: 'Velocity Flagged', icon: Zap },
   { key: 'lowTrust', label: 'Low Trust', icon: ShieldAlert },
   { key: 'duplicates', label: 'Duplicate Clusters', icon: Copy },
@@ -63,6 +67,15 @@ export default function Admin() {
         .select('*, procedures(*), providers(*)')
         .order('created_at', { ascending: false });
       setData(rows || []);
+    } else if (activeTab === 'receipts') {
+      const { data: rows } = await supabase
+        .from('procedures')
+        .select('*')
+        .eq('has_receipt', true)
+        .eq('receipt_verified', false)
+        .neq('status', 'removed')
+        .order('created_at', { ascending: false });
+      setData(rows || []);
     } else if (activeTab === 'velocity') {
       const { data: rows } = await supabase
         .from('procedures')
@@ -109,29 +122,37 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, velocity, lowTrust] = await Promise.all([
-      supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'flagged'])
-        .is('flagged_reason', null),
-      supabase
-        .from('disputes')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending'),
-      supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .eq('flagged_reason', 'velocity_check'),
-      supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .lt('trust_score', 30)
-        .neq('status', 'removed'),
-    ]);
+    const [pending, disputes, receipts, velocity, lowTrust] =
+      await Promise.all([
+        supabase
+          .from('procedures')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['pending', 'flagged'])
+          .is('flagged_reason', null),
+        supabase
+          .from('disputes')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        supabase
+          .from('procedures')
+          .select('*', { count: 'exact', head: true })
+          .eq('has_receipt', true)
+          .eq('receipt_verified', false)
+          .neq('status', 'removed'),
+        supabase
+          .from('procedures')
+          .select('*', { count: 'exact', head: true })
+          .eq('flagged_reason', 'velocity_check'),
+        supabase
+          .from('procedures')
+          .select('*', { count: 'exact', head: true })
+          .lt('trust_score', 30)
+          .neq('status', 'removed'),
+      ]);
     setCounts({
       pending: pending.count || 0,
       disputes: disputes.count || 0,
+      receipts: receipts.count || 0,
       velocity: velocity.count || 0,
       lowTrust: lowTrust.count || 0,
     });
@@ -167,6 +188,51 @@ export default function Admin() {
       .update({ status: 'removed' })
       .in('id', ids);
     fetchData();
+  }
+
+  async function verifyReceipt(id) {
+    await supabase
+      .from('procedures')
+      .update({ receipt_verified: true })
+      .eq('id', id);
+    // Bump trust score by 20
+    const proc = data.find((p) => p.id === id);
+    if (proc) {
+      await supabase
+        .from('procedures')
+        .update({ trust_score: Math.min((proc.trust_score || 50) + 20, 100) })
+        .eq('id', id);
+    }
+    fetchData();
+  }
+
+  async function rejectReceipt(id) {
+    await supabase
+      .from('procedures')
+      .update({
+        has_receipt: false,
+        receipt_path: null,
+        receipt_verified: false,
+      })
+      .eq('id', id);
+    // Reduce giveaway entries back to base (1)
+    await supabase
+      .from('giveaway_entries')
+      .update({ entries: 1, has_receipt: false })
+      .eq('procedure_id', id);
+    fetchData();
+  }
+
+  async function viewReceipt(path) {
+    try {
+      const res = await fetch(
+        `/api/receipt-url?path=${encodeURIComponent(path)}`
+      );
+      const { url } = await res.json();
+      if (url) window.open(url, '_blank');
+    } catch {
+      alert('Could not load receipt.');
+    }
   }
 
   async function resolveDispute(disputeId, procedureId, action) {
@@ -502,6 +568,75 @@ export default function Admin() {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeTab === 'receipts') {
+      if (data.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No receipts pending review.
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4">
+          {data.map((proc) => (
+            <div key={proc.id} className="glow-card p-5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-bold text-lg">
+                      {proc.procedure_type}
+                    </span>
+                    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
+                      Receipt pending
+                    </span>
+                    {proc.receipt_parsed && (
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
+                        AI parsed
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-2xl font-bold mt-1">
+                    ${Number(proc.price_paid).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-text-secondary mt-1">
+                    {proc.provider_name} &middot; {proc.city}, {proc.state}
+                  </p>
+                  {proc.receipt_path && (
+                    <button
+                      onClick={() => viewReceipt(proc.receipt_path)}
+                      className="inline-flex items-center gap-1 mt-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      {proc.receipt_path.endsWith('.pdf') ? (
+                        <FileText className="w-4 h-4" />
+                      ) : (
+                        <FileImage className="w-4 h-4" />
+                      )}
+                      View Receipt
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => verifyReceipt(proc.id)}
+                    className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                  >
+                    <Check className="w-4 h-4" /> Verify
+                  </button>
+                  <button
+                    onClick={() => rejectReceipt(proc.id)}
+                    className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </div>
               </div>
             </div>
           ))}

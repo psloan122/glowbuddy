@@ -1,16 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowRight } from 'lucide-react';
+import { Check, ArrowRight, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { getEntryBreakdown } from '../lib/points';
 import EmailConfirmation from './EmailConfirmation';
 
-export default function ThankYou({ procedure, user, outlierFlagged }) {
+export default function ThankYou({
+  procedure,
+  user,
+  outlierFlagged,
+  entries = 1,
+  hasReceipt = false,
+  activeCount = null,
+}) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [skipToast, setSkipToast] = useState(false);
+
+  const { lines: entryLines, total: totalEntries } = getEntryBreakdown(
+    activeCount,
+    hasReceipt
+  );
 
   async function handleCreateAccount(e) {
     e.preventDefault();
@@ -27,6 +40,8 @@ export default function ThankYou({ procedure, user, outlierFlagged }) {
       procedure_id: procedure.id,
       month,
       user_id: null,
+      entries: totalEntries,
+      has_receipt: hasReceipt,
     });
 
     setSending(false);
@@ -34,7 +49,6 @@ export default function ThankYou({ procedure, user, outlierFlagged }) {
   }
 
   function handleSignIn() {
-    // Trigger sign in with existing account — use the same OTP flow
     if (!email) return;
     handleCreateAccount({ preventDefault: () => {} });
   }
@@ -65,19 +79,52 @@ export default function ThankYou({ procedure, user, outlierFlagged }) {
       )}
 
       {/* Checkmark */}
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ backgroundColor: '#C94F78' }}>
+      <div
+        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+        style={{ backgroundColor: '#C94F78' }}
+      >
         <Check size={32} className="text-white" />
       </div>
 
       {/* Headline */}
       <h2 className="text-2xl font-bold text-text-primary mb-2">
-        You're officially a GlowBuddy.
+        You&apos;re officially a GlowBuddy.
       </h2>
 
-      <p className="text-sm text-text-secondary mb-8 max-w-md mx-auto">
+      <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
         Thank you for helping women know what things actually cost. Your
         submission has been saved.
       </p>
+
+      {/* Entry count card */}
+      <div className="bg-rose-light/30 rounded-xl p-4 mb-8 text-left">
+        <div className="flex items-center gap-2 mb-2">
+          <Trophy className="w-4 h-4 text-rose-accent" />
+          <p className="text-sm font-semibold text-text-primary">
+            You earned {totalEntries} giveaway{' '}
+            {totalEntries === 1 ? 'entry' : 'entries'}
+          </p>
+        </div>
+        <div className="space-y-1">
+          {entryLines.map((line, i) => (
+            <p key={i} className="text-xs text-text-secondary">
+              {i > 0 ? '+ ' : ''}
+              {line.value} {line.value === 1 ? 'entry' : 'entries'} for{' '}
+              {line.label.toLowerCase()}
+            </p>
+          ))}
+          {entryLines.length > 1 && (
+            <p className="text-xs font-semibold text-rose-accent pt-1 border-t border-rose-accent/10">
+              = {totalEntries} total entries this month
+            </p>
+          )}
+        </div>
+        {!hasReceipt && (
+          <p className="text-xs text-text-secondary mt-2 pt-2 border-t border-rose-accent/10">
+            Upload a receipt next time to earn 3x more entries
+          </p>
+        )}
+      </div>
 
       {/* Divider */}
       <div className="border-t border-gray-100 mb-8" />
@@ -108,7 +155,9 @@ export default function ThankYou({ procedure, user, outlierFlagged }) {
               className="w-full inline-flex items-center justify-center gap-2 py-3 text-white font-semibold rounded-xl hover:opacity-90 transition text-sm disabled:opacity-50"
               style={{ backgroundColor: '#C94F78' }}
             >
-              {sending ? 'Sending...' : (
+              {sending ? (
+                'Sending...'
+              ) : (
                 <>
                   Create My Account
                   <ArrowRight size={16} />
@@ -174,9 +223,9 @@ export default function ThankYou({ procedure, user, outlierFlagged }) {
       {/* Skip toast (rendered briefly before navigation) */}
       {skipToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3 animate-fade-in">
-          <span className="text-lg">✓</span>
+          <span className="text-lg">&check;</span>
           <p className="text-sm text-text-primary">
-            Price submitted! It'll appear once our team reviews it.
+            Price submitted! It&apos;ll appear once our team reviews it.
           </p>
         </div>
       )}

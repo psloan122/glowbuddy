@@ -5,8 +5,17 @@ import { AuthContext } from '../App';
 import { providerSlug } from '../lib/slugify';
 import { checkOutlier } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
-import { REQUIRES_TREATMENT_AREA, PROCEDURE_TYPES, VALID_STATE_CODES } from '../lib/constants';
-import { checkVelocity, calculateTrustScore, checkDuplicate } from '../lib/trustDetection';
+import {
+  REQUIRES_TREATMENT_AREA,
+  PROCEDURE_TYPES,
+  VALID_STATE_CODES,
+} from '../lib/constants';
+import {
+  checkVelocity,
+  calculateTrustScore,
+  checkDuplicate,
+} from '../lib/trustDetection';
+import { calculateEntries, calculateEntriesFromCount } from '../lib/points';
 import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
@@ -56,15 +65,88 @@ export default function Log() {
   const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
 
+  // Receipt state
+  const [receiptPath, setReceiptPath] = useState(null);
+  const [hasReceipt, setHasReceipt] = useState(false);
+  const [receiptParsed, setReceiptParsed] = useState(false);
+  const [parsedBanner, setParsedBanner] = useState(false);
+
+  // Entry tracking
+  const [activeCount, setActiveCount] = useState(null);
+  const [entryCount, setEntryCount] = useState(1);
+
   // SEO
   useEffect(() => {
     document.title = 'Log a Treatment | GlowBuddy';
   }, []);
 
+  // Fetch user's active submission count for entry calculation
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('procedures')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .then(({ count }) => setActiveCount(count || 0));
+    }
+  }, [user]);
+
+  // Recalculate entries when receipt changes
+  useEffect(() => {
+    setEntryCount(calculateEntriesFromCount(activeCount, hasReceipt));
+  }, [hasReceipt, activeCount]);
+
+  // Receipt handlers
+  function handleReceiptUpload(path) {
+    setReceiptPath(path);
+    setHasReceipt(true);
+  }
+
+  function handleReceiptParsed(data) {
+    setReceiptParsed(true);
+    // Pre-fill any empty form fields with parsed values
+    setFormData((prev) => {
+      const updates = {};
+      if (data.price_paid && !prev.pricePaid) {
+        updates.pricePaid = String(data.price_paid);
+      }
+      if (data.provider_name && !prev.providerName) {
+        updates.providerName = data.provider_name;
+      }
+      if (data.date && !prev.treatmentDate) {
+        updates.treatmentDate = data.date;
+      }
+      if (data.units && !prev.unitsOrVolume) {
+        updates.unitsOrVolume = data.units;
+      }
+      // Only set procedure_name if it matches a valid type
+      if (
+        data.procedure_name &&
+        !prev.procedureType &&
+        PROCEDURE_TYPES.includes(data.procedure_name)
+      ) {
+        updates.procedureType = data.procedure_name;
+      }
+      if (Object.keys(updates).length > 0) {
+        setParsedBanner(true);
+      }
+      return { ...prev, ...updates };
+    });
+  }
+
+  function handleReceiptRemove() {
+    setReceiptPath(null);
+    setHasReceipt(false);
+    setReceiptParsed(false);
+    setParsedBanner(false);
+  }
+
   // Validate current step before allowing next
   function canAdvance() {
     if (currentStep === 1) {
-      const hasPrice = formData.pricePaid && parseInt(formData.pricePaid, 10) > 0;
+      const hasPrice =
+        formData.pricePaid && parseInt(formData.pricePaid, 10) > 0;
       const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
       const hasArea = !needsArea || formData.treatmentArea;
       return formData.procedureType && hasPrice && hasArea;
@@ -90,7 +172,8 @@ export default function Log() {
     if (!price || isNaN(price) || price <= 0) return false;
     if (price > 50000) return false;
     if (!PROCEDURE_TYPES.includes(formData.procedureType)) return false;
-    if (!formData.providerName || formData.providerName.trim().length < 2) return false;
+    if (!formData.providerName || formData.providerName.trim().length < 2)
+      return false;
     if (!formData.city || formData.city.trim().length < 2) return false;
     if (!VALID_STATE_CODES.has(formData.state)) return false;
 
@@ -118,7 +201,10 @@ export default function Log() {
 
     // Log this submission timestamp
     recentSubmissions.push(Date.now());
-    localStorage.setItem('gb_submission_log', JSON.stringify(recentSubmissions));
+    localStorage.setItem(
+      'gb_submission_log',
+      JSON.stringify(recentSubmissions)
+    );
     return true;
   }
 
@@ -132,7 +218,10 @@ export default function Log() {
 
     // 1. Honeypot check — silent fake success
     if (honeypot !== '') {
-      setSubmissionResult({ id: 'fake', procedure_type: formData.procedureType });
+      setSubmissionResult({
+        id: 'fake',
+        procedure_type: formData.procedureType,
+      });
       setCurrentStep('success');
       return;
     }
@@ -145,7 +234,9 @@ export default function Log() {
 
     // 3. Rate limit check
     if (!checkRateLimit()) {
-      setSubmitError('You\u2019ve submitted a lot today. Please try again tomorrow.');
+      setSubmitError(
+        'You\u2019ve submitted a lot today. Please try again tomorrow.'
+      );
       return;
     }
 
@@ -255,6 +346,11 @@ export default function Log() {
         provider_website: formData.providerWebsite || null,
         lat: formData.lat || null,
         lng: formData.lng || null,
+        // Receipt fields
+        has_receipt: hasReceipt,
+        receipt_path: receiptPath || null,
+        receipt_verified: false,
+        receipt_parsed: receiptParsed,
       };
 
       const { data: inserted, error } = await supabase
@@ -281,12 +377,15 @@ export default function Log() {
 
       // Giveaway entry from Step 3 email field (if provided)
       if (formData.giveawayEmail) {
+        const entries = await calculateEntries(user?.id || null, hasReceipt);
         const month = format(new Date(), 'yyyy-MM');
         await supabase.from('giveaway_entries').insert({
           email: formData.giveawayEmail,
           procedure_id: inserted.id,
           month,
           user_id: user?.id || null,
+          entries,
+          has_receipt: hasReceipt,
         });
       }
 
@@ -365,6 +464,13 @@ export default function Log() {
             ))}
           </div>
 
+          {/* Receipt parsed banner */}
+          {parsedBanner && (
+            <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+              We read your receipt! Please verify the details are correct.
+            </div>
+          )}
+
           {/* Form steps */}
           <div className="glow-card p-6 sm:p-8">
             {currentStep === 1 && (
@@ -380,6 +486,11 @@ export default function Log() {
                 honeypot={honeypot}
                 setHoneypot={setHoneypot}
                 onTurnstileSuccess={setTurnstileToken}
+                userId={user?.id}
+                onReceiptUpload={handleReceiptUpload}
+                onReceiptParsed={handleReceiptParsed}
+                onReceiptRemove={handleReceiptRemove}
+                entryCount={entryCount}
               />
             )}
 
@@ -468,6 +579,9 @@ export default function Log() {
           procedure={submissionResult}
           user={user}
           outlierFlagged={outlierFlagged}
+          entries={entryCount}
+          hasReceipt={hasReceipt}
+          activeCount={activeCount}
         />
       )}
     </div>
