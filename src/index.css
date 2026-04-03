@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-rose-accent: #F4A7B9;
+  --color-rose-light: #FFF0F3;
+  --color-rose-dark: #D4849A;
+  --color-warm-white: #FDFBF9;
+  --color-warm-gray: #F7F5F3;
+  --color-text-primary: #1A1A2E;
+  --color-text-secondary: #6B7280;
+  --color-verified: #10B981;
+  --color-community: #8B5CF6;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-warm-white);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.price-display {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.price-display-sm {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.glow-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.glow-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.blurred-feed {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
