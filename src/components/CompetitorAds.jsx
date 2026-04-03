@@ -220,15 +220,40 @@ export default function CompetitorAds({
       ? enriched.filter((p) => p.distanceMiles <= radiusMiles)
       : enriched;
 
-    // Sort: procedure match first, then by distance
-    const sameProcedure = filtered
-      .filter((p) => p.hasProcedureMatch)
-      .sort((a, b) => a.distanceMiles - b.distanceMiles);
-    const others = filtered
-      .filter((p) => !p.hasProcedureMatch)
-      .sort((a, b) => a.distanceMiles - b.distanceMiles);
+    // Weighted relevance score
+    const maxDist = Math.max(...filtered.map((p) => p.distanceMiles).filter(isFinite), 1);
 
-    return [...sameProcedure, ...others];
+    const scored = filtered.map((p) => {
+      // Proximity: 40% — closer = higher
+      const proximityScore =
+        p.distanceMiles !== Infinity ? (1 - p.distanceMiles / maxDist) * 40 : 0;
+
+      // Rating: 30% — higher = better
+      const rating = p.weighted_rating || p.google_rating || 0;
+      const ratingScore = (rating / 5) * 30;
+
+      // Data quality: 20% — more verified reviews = higher
+      const verifiedCount = p.verified_review_count || 0;
+      const totalCount = p.review_count || 1;
+      const qualityScore = Math.min((verifiedCount / totalCount) * 20, 20);
+
+      // Procedure match: 10%
+      const procedureScore = p.hasProcedureMatch ? 10 : 0;
+
+      const totalScore = proximityScore + ratingScore + qualityScore + procedureScore;
+
+      return { ...p, _score: totalScore };
+    });
+
+    // Sort by score descending; tiebreak on price (cheaper first) when within 5 pts
+    scored.sort((a, b) => {
+      if (Math.abs(a._score - b._score) <= 5 && a.avgPrice && b.avgPrice) {
+        return a.avgPrice - b.avgPrice;
+      }
+      return b._score - a._score;
+    });
+
+    return scored;
   }
 
   function handleCardClick(competitor, index) {
