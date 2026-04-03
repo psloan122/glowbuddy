@@ -6,6 +6,7 @@ import { getCity, setCity, getState as getGatingState, setState as setGatingStat
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
+import PhoneMockup from '../components/PhoneMockup';
 import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
 // Build a lookup map for state abbreviations → full names
@@ -294,22 +295,40 @@ export default function Home() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium text-text-primary mb-4 leading-tight">
-            Know before you glow.
-          </h1>
-          <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-8">
-            Real prices for Botox, fillers, and med spa treatments — reported by
-            patients like you.
-          </p>
-          <Link
-            to="/log"
-            className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
-            style={{ backgroundColor: '#C94F78' }}
-          >
-            Log Your Treatment
-          </Link>
+      <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24 overflow-hidden">
+        {/* Floating blush blobs */}
+        <div
+          className="blush-blob"
+          style={{ width: 300, height: 300, background: 'var(--color-rose-accent)', top: '-60px', left: '-80px' }}
+        />
+        <div
+          className="blush-blob"
+          style={{ width: 250, height: 250, background: 'var(--color-rose-light)', bottom: '-40px', right: '-60px', animationDelay: '-3s' }}
+        />
+
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center gap-12 relative z-10">
+          {/* Left column: text */}
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium text-text-primary mb-4 leading-tight">
+              Know before you glow.
+            </h1>
+            <p className="text-lg md:text-xl text-text-secondary max-w-2xl mb-8">
+              Real prices for Botox, fillers, and med spa treatments — reported by
+              patients like you.
+            </p>
+            <Link
+              to="/log"
+              className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
+              style={{ backgroundColor: '#C94F78' }}
+            >
+              Log Your Treatment
+            </Link>
+          </div>
+
+          {/* Right column: phone mockup (desktop only) */}
+          <div className="hidden md:block flex-shrink-0">
+            <PhoneMockup />
+          </div>
         </div>
       </section>
 
@@ -336,14 +355,17 @@ export default function Home() {
         ) : (
           <div className="glow-card p-8 text-center">
             <p className="text-text-secondary mb-2">
-              No specials posted yet. Are you a provider?{' '}
-              <Link
-                to="/business"
-                className="text-rose-accent font-medium hover:text-rose-dark transition-colors"
-              >
-                Post yours free.
-              </Link>
+              No specials near you yet.
             </p>
+            <p className="text-sm text-text-secondary mb-3">
+              Are you a provider? Post specials to reach patients in your area.
+            </p>
+            <Link
+              to="/business"
+              className="text-rose-accent font-medium hover:text-rose-dark transition-colors text-sm"
+            >
+              See provider plans &rarr;
+            </Link>
           </div>
         )}
       </section>
@@ -356,9 +378,16 @@ export default function Home() {
 
         {/* "Showing prices near" banner */}
         {userCity && activeFilters.length === 0 && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-rose-light/40 rounded-xl text-sm text-text-primary">
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-gradient-to-r from-rose-light to-warm-gray rounded-xl text-sm text-text-primary">
             <MapPin size={16} className="text-rose-accent flex-shrink-0" />
             Showing prices near <span className="font-medium">{userCity}</span>
+            <button
+              onClick={() => { setUserCity(null); setCity(''); }}
+              className="ml-auto text-text-secondary hover:text-text-primary transition-colors"
+              aria-label="Dismiss location banner"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 

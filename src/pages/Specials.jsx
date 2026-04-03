@@ -132,7 +132,7 @@ export default function Specials() {
             <Tag size={40} className="text-text-secondary/30" />
           </div>
           <p className="text-text-secondary mb-4">
-            No specials posted yet. Are you a provider? Post yours free.
+            No specials posted in this area yet.
           </p>
           <Link
             to="/business"

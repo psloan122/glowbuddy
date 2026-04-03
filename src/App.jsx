@@ -18,6 +18,7 @@ import MyTreatments from './pages/MyTreatments';
 import BusinessLanding from './pages/Business/Landing';
 import BusinessClaim from './pages/Business/Claim';
 import BusinessDashboard from './pages/Business/Dashboard';
+import BusinessOnboarding from './pages/Business/Onboarding';
 import Admin from './pages/Admin';
 
 export const AuthContext = createContext(null);
@@ -154,6 +155,7 @@ function App() {
             <Route path="/my-treatments" element={<MyTreatments />} />
             <Route path="/business" element={<BusinessLanding />} />
             <Route path="/business/claim" element={<BusinessClaim />} />
+            <Route path="/business/onboarding" element={<BusinessOnboarding />} />
             <Route path="/business/dashboard" element={<BusinessDashboard />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>

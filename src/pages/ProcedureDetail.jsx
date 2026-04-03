@@ -171,7 +171,7 @@ export default function ProcedureDetail() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <div>
               <span className="text-xs uppercase tracking-wide text-text-secondary">
-                Avg Community Price
+                Avg Patient-Reported Price
               </span>
               <p className="text-2xl font-bold text-text-primary mt-1">
                 {stats.avgCommunity != null
@@ -181,7 +181,7 @@ export default function ProcedureDetail() {
             </div>
             <div>
               <span className="text-xs uppercase tracking-wide text-text-secondary">
-                Avg Verified Price
+                Avg Provider-Listed Price
               </span>
               <p className="text-2xl font-bold text-text-primary mt-1">
                 {stats.avgVerified != null
@@ -255,7 +255,7 @@ export default function ProcedureDetail() {
           }`}
         >
           <Users size={16} />
-          Community Prices
+          Patient Reported
         </button>
         <button
           onClick={() => setActiveTab('verified')}
@@ -266,7 +266,7 @@ export default function ProcedureDetail() {
           }`}
         >
           <ShieldCheck size={16} />
-          Verified Prices
+          Provider-Listed Prices
         </button>
       </div>
 
@@ -345,7 +345,7 @@ export default function ProcedureDetail() {
               <div className="flex items-center justify-between mb-3">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
                   <ShieldCheck size={14} />
-                  Verified
+                  Provider-listed price
                 </span>
               </div>
 

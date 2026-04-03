@@ -106,6 +106,27 @@ export const DISCOUNT_TYPES = [
   { value: 'percentage', label: 'Percentage Off' },
   { value: 'fixed', label: 'Fixed Price' },
   { value: 'free_add_on', label: 'Free Add-On' },
+  { value: 'new_patient', label: 'New Patient Special' },
+];
+
+export const PRICE_LABEL_OPTIONS = [
+  'per unit',
+  'per syringe',
+  'per session',
+  'per area',
+  'per vial',
+  'starting from',
+];
+
+export const ONBOARDING_PROVIDER_TYPES = [
+  'Board-Certified Dermatologist',
+  'Plastic Surgeon',
+  'PA / NP Injector Practice',
+  'RN Injector Practice',
+  'Med Spa (Physician-Owned)',
+  'Med Spa (Non-Physician)',
+  'Multi-Location Group Practice',
+  'Other',
 ];
 
 export const BADGE_DEFINITIONS = {

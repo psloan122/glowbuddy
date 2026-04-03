@@ -387,7 +387,7 @@ export default function Insights() {
 
       {/* Footer note */}
       <p className="italic text-sm text-text-secondary text-center">
-        All data is crowdsourced and self-reported. Verified prices are provider-submitted.
+        All data is crowdsourced and self-reported. Provider-listed prices are submitted by providers.
       </p>
     </div>
   );

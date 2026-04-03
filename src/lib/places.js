@@ -45,6 +45,20 @@ export function parseAddressComponents(components) {
 }
 
 /**
+ * Extract photo data from a Google Places result.
+ * Returns up to 5 photos with display URLs and attribution.
+ */
+export function extractGooglePhotos(place) {
+  if (!place.photos || place.photos.length === 0) return [];
+
+  return place.photos.slice(0, 5).map((photo, index) => ({
+    displayUrl: photo.getUrl({ maxWidth: 800 }),
+    attribution: photo.html_attributions?.[0] || null,
+    index,
+  }));
+}
+
+/**
  * Extract all relevant fields from a Google Places detail result.
  */
 export function extractPlaceData(place) {
@@ -62,5 +76,12 @@ export function extractPlaceData(place) {
     placeId: place.place_id || '',
     lat: place.geometry?.location?.lat() ?? null,
     lng: place.geometry?.location?.lng() ?? null,
+    googleRating: place.rating ?? null,
+    googleReviewCount: place.user_ratings_total ?? null,
+    googleMapsUrl: place.url || null,
+    googlePriceLevel: place.price_level ?? null,
+    googleTypes: place.types || [],
+    hoursText: place.opening_hours?.weekday_text?.join(', ') || '',
+    googlePhotos: extractGooglePhotos(place),
   };
 }

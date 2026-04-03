@@ -90,12 +90,17 @@ export default function Step3({
 
         {/* Anonymous toggle */}
         <div className="flex items-center justify-between">
-          <label
-            htmlFor="anonymous-toggle"
-            className="text-sm font-medium text-text-primary"
-          >
-            Submit anonymously
-          </label>
+          <div>
+            <label
+              htmlFor="anonymous-toggle"
+              className="text-sm font-medium text-text-primary"
+            >
+              Keep my submission anonymous
+            </label>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Your name will never appear publicly. Only the procedure, price, and location are shown.
+            </p>
+          </div>
           <button
             id="anonymous-toggle"
             type="button"

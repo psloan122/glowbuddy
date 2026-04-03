@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Clock, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import ProcedureIcon from './ProcedureIcon';
 
 export default function SpecialCard({ special, provider }) {
   const hasDiscount = special.original_price && special.special_price;
@@ -53,7 +54,8 @@ export default function SpecialCard({ special, provider }) {
 
       {/* Procedure type badge */}
       {special.procedure_type && (
-        <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-4">
+        <span className="inline-flex items-center gap-1.5 bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-4">
+          <ProcedureIcon type={special.procedure_type} size={14} className="text-rose-dark" />
           {special.procedure_type}
         </span>
       )}

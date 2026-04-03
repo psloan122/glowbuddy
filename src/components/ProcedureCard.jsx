@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import ProcedureIcon from './ProcedureIcon';
+import ProviderAvatar from './ProviderAvatar';
 
 export default function ProcedureCard({ procedure }) {
   const isVerified = procedure.source === 'verified';
@@ -17,12 +19,12 @@ export default function ProcedureCard({ procedure }) {
         {isVerified ? (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
             <ShieldCheck size={14} />
-            Verified
+            Provider-listed price
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-community bg-community/10 px-2 py-0.5 rounded-full">
             <Users size={14} />
-            Community
+            Patient reported
           </span>
         )}
         <div className="flex items-center gap-2">
@@ -46,7 +48,8 @@ export default function ProcedureCard({ procedure }) {
       </div>
 
       {/* Procedure type */}
-      <h3 className="text-lg font-bold text-text-primary mb-1">
+      <h3 className="flex items-center gap-2 text-lg font-bold text-text-primary mb-1">
+        <ProcedureIcon type={procedure.procedure_type} size={28} className="text-rose-dark" />
         {procedure.procedure_type}
       </h3>
 
@@ -70,7 +73,8 @@ export default function ProcedureCard({ procedure }) {
       )}
 
       {/* Provider name + location */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2 mb-2">
+        <ProviderAvatar name={procedure.provider_name} size={28} />
         <p className="text-sm text-text-primary">
           {procedure.provider_name}
           {procedure.city && procedure.state && (

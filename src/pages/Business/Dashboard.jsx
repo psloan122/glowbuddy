@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback } from 'react';
+import { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
@@ -13,9 +13,15 @@ import {
   Loader2,
   AlertTriangle,
   ArrowUpRight,
+  Lock,
+  RefreshCw,
+  Star,
+  Settings as SettingsIcon,
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
+import { extractPlaceData } from '../../lib/places';
 import {
   PROCEDURE_TYPES,
   TREATMENT_AREAS,
@@ -25,7 +31,7 @@ import {
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Specials', 'Disputes'];
+const TABS = ['Overview', 'Menu', 'Specials', 'Disputes', 'Settings'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -68,6 +74,10 @@ export default function Dashboard() {
   // Community procedures state
   const [communityProcedures, setCommunityProcedures] = useState([]);
 
+  // Settings state
+  const [refreshing, setRefreshing] = useState(false);
+  const detailsServiceRef = useRef(null);
+
   useEffect(() => {
     document.title = 'Provider Dashboard | GlowBuddy';
   }, []);
@@ -75,7 +85,7 @@ export default function Dashboard() {
   // Auth redirect
   useEffect(() => {
     if (!session) {
-      navigate('/business/claim');
+      navigate('/business/onboarding');
     }
   }, [session, navigate]);
 
@@ -278,6 +288,83 @@ export default function Dashboard() {
     fetchSpecials();
   }
 
+  // --- Settings: Refresh from Google ---
+
+  async function handleRefreshFromGoogle() {
+    if (!provider?.google_place_id) return;
+    setRefreshing(true);
+
+    try {
+      if (!detailsServiceRef.current) {
+        const el = document.createElement('div');
+        detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
+      }
+
+      const place = await new Promise((resolve, reject) => {
+        detailsServiceRef.current.getDetails(
+          {
+            placeId: provider.google_place_id,
+            fields: [
+              'name', 'address_components', 'formatted_address', 'formatted_phone_number',
+              'website', 'place_id', 'geometry',
+              'opening_hours', 'photos', 'rating', 'user_ratings_total', 'price_level', 'types', 'url',
+            ],
+          },
+          (result, status) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && result) {
+              resolve(result);
+            } else {
+              reject(new Error('Places lookup failed'));
+            }
+          }
+        );
+      });
+
+      const placeData = extractPlaceData(place);
+
+      // Update Google metadata only (don't overwrite custom fields)
+      const { data } = await supabase
+        .from('providers')
+        .update({
+          google_rating: placeData.googleRating,
+          google_review_count: placeData.googleReviewCount,
+          google_maps_url: placeData.googleMapsUrl,
+          google_price_level: placeData.googlePriceLevel,
+          hours_text: placeData.hoursText || null,
+          google_synced_at: new Date().toISOString(),
+        })
+        .eq('id', provider.id)
+        .select()
+        .single();
+
+      if (data) setProvider(data);
+
+      // Import photos if none exist yet
+      if (!provider.photos_imported && placeData.googlePhotos.length > 0) {
+        try {
+          await fetch('/api/import-google-photos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              providerId: provider.id,
+              photos: placeData.googlePhotos,
+            }),
+          });
+          await supabase
+            .from('providers')
+            .update({ photos_imported: true })
+            .eq('id', provider.id);
+        } catch (err) {
+          console.error('Photo import during refresh failed:', err);
+        }
+      }
+    } catch (err) {
+      console.error('Refresh from Google failed:', err);
+    }
+
+    setRefreshing(false);
+  }
+
   // --- Computed Stats ---
 
   const communityAvgPrice =
@@ -448,10 +535,10 @@ export default function Dashboard() {
             dashboard.
           </p>
           <Link
-            to="/business/claim"
+            to="/business/onboarding"
             className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
-            Claim Your Listing
+            Set Up Your Practice
           </Link>
         </div>
       </div>
@@ -487,12 +574,12 @@ export default function Dashboard() {
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-8">
-        <nav className="flex gap-6 -mb-px">
+        <nav className="flex gap-6 -mb-px overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium transition ${
+              className={`pb-3 text-sm font-medium transition whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-b-2 border-rose-accent text-text-primary'
                   : 'text-text-secondary hover:text-text-primary'
@@ -711,284 +798,299 @@ export default function Dashboard() {
       {/* ===== SPECIALS TAB ===== */}
       {activeTab === 'Specials' && (
         <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-text-primary">
-              Your Specials
-            </h2>
-            {!showAddSpecial && (
-              <button
-                onClick={() => {
-                  resetSpecialForm();
-                  setShowAddSpecial(true);
-                }}
-                className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
-              >
-                <Plus size={16} /> Create Special
-              </button>
-            )}
-          </div>
-
-          {/* Add special form */}
-          {showAddSpecial && (
-            <div className="glow-card p-5 mb-6">
-              <form onSubmit={handleSaveSpecial} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={specialForm.title}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          title: e.target.value,
-                        }))
-                      }
-                      required
-                      placeholder="e.g. Summer Botox Special"
-                      className={INPUT_CLASS + ' text-sm'}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Procedure Type (optional)
-                    </label>
-                    <select
-                      value={specialForm.procedure_type}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          procedure_type: e.target.value,
-                        }))
-                      }
-                      className={INPUT_CLASS + ' text-sm'}
-                    >
-                      <option value="">Select...</option>
-                      {PROCEDURE_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={specialForm.description}
-                    onChange={(e) =>
-                      setSpecialForm((f) => ({
-                        ...f,
-                        description: e.target.value,
-                      }))
-                    }
-                    rows={3}
-                    placeholder="Describe your special offer..."
-                    className={INPUT_CLASS + ' text-sm'}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Discount Type
-                    </label>
-                    <select
-                      value={specialForm.discount_type}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          discount_type: e.target.value,
-                        }))
-                      }
-                      className={INPUT_CLASS + ' text-sm'}
-                    >
-                      <option value="">Select...</option>
-                      {DISCOUNT_TYPES.map((dt) => (
-                        <option key={dt.value} value={dt.value}>
-                          {dt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Original Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={specialForm.original_price}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          original_price: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className={INPUT_CLASS + ' text-sm'}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Special Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={specialForm.special_price}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          special_price: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className={INPUT_CLASS + ' text-sm'}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">
-                      Expires At
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={specialForm.expires_at}
-                      onChange={(e) =>
-                        setSpecialForm((f) => ({
-                          ...f,
-                          expires_at: e.target.value,
-                        }))
-                      }
-                      className={INPUT_CLASS + ' text-sm'}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
+          {provider.tier === 'pro' || provider.tier === 'pro_trial' ? (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-text-primary">
+                  Your Specials
+                </h2>
+                {!showAddSpecial && (
                   <button
-                    type="submit"
-                    disabled={specialSaving}
-                    className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
-                  >
-                    {specialSaving ? 'Saving...' : 'Create Special'}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => {
-                      setShowAddSpecial(false);
                       resetSpecialForm();
+                      setShowAddSpecial(true);
                     }}
-                    className="text-text-secondary hover:text-text-primary transition text-sm"
+                    className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
                   >
-                    Cancel
+                    <Plus size={16} /> Create Special
+                  </button>
+                )}
+              </div>
+
+              {/* Add special form */}
+              {showAddSpecial && (
+                <div className="glow-card p-5 mb-6">
+                  <form onSubmit={handleSaveSpecial} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Title
+                        </label>
+                        <input
+                          type="text"
+                          value={specialForm.title}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              title: e.target.value,
+                            }))
+                          }
+                          required
+                          placeholder="e.g. Summer Botox Special"
+                          className={INPUT_CLASS + ' text-sm'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Procedure Type (optional)
+                        </label>
+                        <select
+                          value={specialForm.procedure_type}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              procedure_type: e.target.value,
+                            }))
+                          }
+                          className={INPUT_CLASS + ' text-sm'}
+                        >
+                          <option value="">Select...</option>
+                          {PROCEDURE_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={specialForm.description}
+                        onChange={(e) =>
+                          setSpecialForm((f) => ({
+                            ...f,
+                            description: e.target.value,
+                          }))
+                        }
+                        rows={3}
+                        placeholder="Describe your special offer..."
+                        className={INPUT_CLASS + ' text-sm'}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Discount Type
+                        </label>
+                        <select
+                          value={specialForm.discount_type}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              discount_type: e.target.value,
+                            }))
+                          }
+                          className={INPUT_CLASS + ' text-sm'}
+                        >
+                          <option value="">Select...</option>
+                          {DISCOUNT_TYPES.map((dt) => (
+                            <option key={dt.value} value={dt.value}>
+                              {dt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Original Price ($)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={specialForm.original_price}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              original_price: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={INPUT_CLASS + ' text-sm'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Special Price ($)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={specialForm.special_price}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              special_price: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={INPUT_CLASS + ' text-sm'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-text-secondary mb-1">
+                          Expires At
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={specialForm.expires_at}
+                          onChange={(e) =>
+                            setSpecialForm((f) => ({
+                              ...f,
+                              expires_at: e.target.value,
+                            }))
+                          }
+                          className={INPUT_CLASS + ' text-sm'}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="submit"
+                        disabled={specialSaving}
+                        className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
+                      >
+                        {specialSaving ? 'Saving...' : 'Create Special'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddSpecial(false);
+                          resetSpecialForm();
+                        }}
+                        className="text-text-secondary hover:text-text-primary transition text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Specials list */}
+              {specials.length === 0 && !showAddSpecial ? (
+                <div className="glow-card p-8 text-center">
+                  <p className="text-text-secondary mb-3">
+                    No specials created yet.
+                  </p>
+                  <button
+                    onClick={() => {
+                      resetSpecialForm();
+                      setShowAddSpecial(true);
+                    }}
+                    className="text-rose-accent font-medium hover:text-rose-dark transition"
+                  >
+                    Create your first special
                   </button>
                 </div>
-              </form>
-            </div>
-          )}
-
-          {/* Specials list */}
-          {specials.length === 0 && !showAddSpecial ? (
-            <div className="glow-card p-8 text-center">
-              <p className="text-text-secondary mb-3">
-                No specials created yet.
+              ) : (
+                <div className="space-y-3">
+                  {specials.map((special) => (
+                    <div key={special.id} className="glow-card p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-text-primary">
+                              {special.title}
+                            </h3>
+                            <span
+                              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                special.is_active
+                                  ? 'bg-verified/10 text-verified'
+                                  : 'bg-gray-100 text-text-secondary'
+                              }`}
+                            >
+                              {special.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          {special.description && (
+                            <p className="text-sm text-text-secondary mb-2">
+                              {special.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-3 text-sm">
+                            {special.procedure_type && (
+                              <span className="bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full text-xs">
+                                {special.procedure_type}
+                              </span>
+                            )}
+                            {special.original_price != null && (
+                              <span className="text-text-secondary line-through">
+                                ${special.original_price}
+                              </span>
+                            )}
+                            {special.special_price != null && (
+                              <span className="font-bold text-rose-accent">
+                                ${special.special_price}
+                              </span>
+                            )}
+                            {special.expires_at && (
+                              <span className="text-text-secondary text-xs">
+                                Expires:{' '}
+                                {new Date(special.expires_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleToggleSpecialActive(special)}
+                            className={`text-xs font-medium px-3 py-1.5 rounded-full transition ${
+                              special.is_active
+                                ? 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                                : 'bg-verified/10 text-verified hover:bg-verified/20'
+                            }`}
+                          >
+                            {special.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSpecial(special.id)}
+                            className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="glow-card p-10 text-center">
+              <Lock size={40} className="text-text-secondary/30 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-text-primary mb-2">
+                Posting specials is a Pro feature
+              </h3>
+              <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
+                Reach patients searching near your zip code with time-limited deals.
               </p>
               <button
-                onClick={() => {
-                  resetSpecialForm();
-                  setShowAddSpecial(true);
-                }}
-                className="text-rose-accent font-medium hover:text-rose-dark transition"
+                onClick={() => alert('Stripe integration coming soon')}
+                className="inline-block bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
               >
-                Create your first special
+                Upgrade to Pro — $149/mo
               </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {specials.map((special) => (
-                <div key={special.id} className="glow-card p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-text-primary">
-                          {special.title}
-                        </h3>
-                        <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            special.is_active
-                              ? 'bg-verified/10 text-verified'
-                              : 'bg-gray-100 text-text-secondary'
-                          }`}
-                        >
-                          {special.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      {special.description && (
-                        <p className="text-sm text-text-secondary mb-2">
-                          {special.description}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-3 text-sm">
-                        {special.procedure_type && (
-                          <span className="bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full text-xs">
-                            {special.procedure_type}
-                          </span>
-                        )}
-                        {special.original_price != null && (
-                          <span className="text-text-secondary line-through">
-                            ${special.original_price}
-                          </span>
-                        )}
-                        {special.special_price != null && (
-                          <span className="font-bold text-rose-accent">
-                            ${special.special_price}
-                          </span>
-                        )}
-                        {special.expires_at && (
-                          <span className="text-text-secondary text-xs">
-                            Expires:{' '}
-                            {new Date(special.expires_at).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => handleToggleSpecialActive(special)}
-                        className={`text-xs font-medium px-3 py-1.5 rounded-full transition ${
-                          special.is_active
-                            ? 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                            : 'bg-verified/10 text-verified hover:bg-verified/20'
-                        }`}
-                      >
-                        {special.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSpecial(special.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
-
-          {/* Upgrade CTA */}
-          <div className="mt-8">
-            <UpgradeCTA />
-          </div>
         </div>
       )}
 
@@ -1098,6 +1200,69 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* ===== SETTINGS TAB ===== */}
+      {activeTab === 'Settings' && (
+        <div>
+          <h2 className="text-xl font-bold text-text-primary mb-6">
+            Settings
+          </h2>
+
+          {/* Google Places Data */}
+          {provider.google_place_id && (
+            <div className="glow-card p-5 mb-6">
+              <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <SettingsIcon size={16} className="text-text-secondary" />
+                Google Places Data
+              </h3>
+
+              <div className="space-y-3">
+                {provider.google_synced_at && (
+                  <p className="text-sm text-text-secondary">
+                    Last synced from Google:{' '}
+                    <span className="text-text-primary font-medium">
+                      {formatDistanceToNow(new Date(provider.google_synced_at), { addSuffix: true })}
+                    </span>
+                  </p>
+                )}
+
+                {provider.google_rating && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Star size={14} className="text-amber-400 fill-amber-400" />
+                    <span className="font-medium text-text-primary">{provider.google_rating}</span>
+                    {provider.google_review_count && (
+                      <span className="text-text-secondary">
+                        &middot; {provider.google_review_count.toLocaleString()} reviews
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleRefreshFromGoogle}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-2 bg-white border border-gray-200 text-text-primary px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                  {refreshing ? 'Refreshing...' : 'Refresh from Google'}
+                </button>
+
+                <p className="text-xs text-text-secondary">
+                  Updates your Google rating, review count, and hours. Does not overwrite your tagline, about, or Instagram.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!provider.google_place_id && (
+            <div className="glow-card p-5">
+              <p className="text-sm text-text-secondary">
+                No Google Places data linked to this profile. Google sync is available for practices found via Google search during onboarding.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1108,7 +1273,7 @@ function UpgradeCTA() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-text-primary">
-            Upgrade to Pro for analytics, specials, and featured placement
+            Upgrade to Pro for analytics, deals, and featured placement
           </p>
           <p className="text-sm text-text-secondary">$149/mo</p>
         </div>

@@ -9,6 +9,7 @@ import {
   Users,
   Flag,
   Plus,
+  Star,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -16,6 +17,7 @@ import { AuthContext } from '../App';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import DisputeModal from '../components/DisputeModal';
+import ProviderAvatar from '../components/ProviderAvatar';
 
 export default function ProviderProfile() {
   const { slug } = useParams();
@@ -25,6 +27,7 @@ export default function ProviderProfile() {
   const [communityData, setCommunityData] = useState([]);
   const [verifiedPricing, setVerifiedPricing] = useState([]);
   const [specials, setSpecials] = useState([]);
+  const [providerPhotos, setProviderPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isProviderOwner, setIsProviderOwner] = useState(false);
   const [disputeTarget, setDisputeTarget] = useState(null);
@@ -71,6 +74,15 @@ export default function ProviderProfile() {
           .order('created_at', { ascending: false });
 
         setSpecials(activeSpecials || []);
+
+        // Fetch provider photos
+        const { data: photos } = await supabase
+          .from('provider_photos')
+          .select('*')
+          .eq('provider_id', providerRow.id)
+          .order('display_order');
+
+        setProviderPhotos(photos || []);
       }
 
       setLoading(false);
@@ -154,12 +166,16 @@ export default function ProviderProfile() {
     provider?.state ||
     (communityData.length > 0 ? communityData[0].state : null);
 
+  const hasGoogleAttribution = providerPhotos.some((p) => p.source === 'google');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Provider Header */}
       <div className="glow-card p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
+          <div className="flex items-start gap-4">
+            <ProviderAvatar name={providerName} size={64} />
+            <div>
             <h1 className="text-3xl font-bold text-text-primary mb-2">
               {providerName}
             </h1>
@@ -183,6 +199,32 @@ export default function ProviderProfile() {
                   Verified Provider
                 </span>
               )}
+            </div>
+
+            {/* Google Rating */}
+            {provider?.google_rating && (
+              <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                <Star size={14} className="text-amber-400 fill-amber-400" />
+                <span className="font-medium text-text-primary">{provider.google_rating}</span>
+                {provider.google_review_count && (
+                  <span>&middot; {provider.google_review_count.toLocaleString()} Google reviews</span>
+                )}
+                {provider.google_maps_url && (
+                  <>
+                    <span>&middot;</span>
+                    <a
+                      href={provider.google_maps_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-rose-accent hover:text-rose-dark transition inline-flex items-center gap-0.5"
+                    >
+                      View on Google Maps
+                      <ExternalLink size={12} />
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
             </div>
           </div>
 
@@ -225,6 +267,57 @@ export default function ProviderProfile() {
         </div>
       </div>
 
+      {/* Photo Gallery */}
+      {providerPhotos.length > 0 && (
+        <div className="mb-6">
+          {/* Desktop: 3-column grid */}
+          <div className="hidden md:grid grid-cols-3 gap-3">
+            {providerPhotos.map((photo) => (
+              <img
+                key={photo.id}
+                src={photo.public_url}
+                alt={`${providerName}`}
+                className="w-full h-48 object-cover rounded-xl"
+              />
+            ))}
+          </div>
+          {/* Mobile: horizontal scroll strip */}
+          <div className="md:hidden flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+            {providerPhotos.map((photo) => (
+              <img
+                key={photo.id}
+                src={photo.public_url}
+                alt={`${providerName}`}
+                className="w-[200px] h-[140px] object-cover rounded-xl flex-shrink-0"
+              />
+            ))}
+          </div>
+          {hasGoogleAttribution && (
+            <p className="text-[10px] text-text-secondary/50 mt-1.5">Photos from Google &middot; Powered by Google</p>
+          )}
+        </div>
+      )}
+
+      {/* Claim banner for unclaimed providers */}
+      {provider && !provider.is_claimed && (
+        <div className="bg-gradient-to-r from-rose-light to-warm-gray border border-rose-accent/20 rounded-xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-text-primary">
+              Is this your practice?
+            </p>
+            <p className="text-sm text-text-secondary">
+              Claim this listing to manage your prices, post specials, and respond to patient submissions.
+            </p>
+          </div>
+          <Link
+            to={`/business/onboarding?place_id=${provider.google_place_id || ''}`}
+            className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-rose-dark transition shrink-0"
+          >
+            Claim This Listing
+          </Link>
+        </div>
+      )}
+
       {/* Active Specials */}
       {specials.length > 0 && (
         <div className="mb-8">
@@ -245,11 +338,11 @@ export default function ProviderProfile() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left column: Verified Menu */}
+        {/* Left column: Provider's Listed Prices */}
         <div>
           <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
             <ShieldCheck size={20} className="text-verified" />
-            Their Menu
+            Provider's Listed Prices
           </h2>
 
           {verifiedPricing.length > 0 ? (
@@ -297,7 +390,7 @@ export default function ProviderProfile() {
         <div>
           <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
             <Users size={20} className="text-community" />
-            What Patients Paid
+            What Patients Actually Paid
           </h2>
 
           {communityData.length > 0 ? (

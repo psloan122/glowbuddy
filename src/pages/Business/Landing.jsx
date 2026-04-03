@@ -3,19 +3,20 @@ import { Link } from 'react-router-dom';
 import { Check, Search, FileText, Users, Sparkles } from 'lucide-react';
 
 const FREE_FEATURES = [
-  'Claim your auto-generated profile',
-  'Upload your procedure menu',
-  'Verified badge on all listings',
-  'Respond to patient submissions',
+  'Claim your listing',
+  'Upload your price menu',
+  'Verified badge on your profile',
+  'Flag inaccurate patient submissions',
 ];
 
 const PRO_FEATURES = [
   'Everything in Free',
-  'Post specials pushed to local patients',
-  'Featured placement in browse feed',
-  'Analytics dashboard (views, volume, competitor pricing)',
-  'Dispute dashboard for patient submissions',
-  'Priority support',
+  'Post deals pushed to patients near you',
+  'Featured placement above organic results',
+  'Analytics: profile views, submission volume, and local price benchmarks',
+  'Priority dispute review — 24hr response',
+  'Priority email support',
+  'Monthly performance report — emailed to you',
 ];
 
 const STEPS = [
@@ -53,7 +54,7 @@ export default function Landing() {
             Get found by patients already researching your prices.
           </h1>
           <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-10">
-            Claim your free listing, upload your menu, and reach patients
+            Create your free provider profile, upload your menu, and reach patients
             comparing prices in your area.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -148,6 +149,11 @@ export default function Landing() {
             </button>
           </div>
         </div>
+        <p className="text-xs text-text-secondary text-center mt-6 max-w-2xl mx-auto">
+          Free providers can claim their listing, upload their menu, and flag inaccurate submissions.
+          Pro providers can additionally post deals, appear in featured placements, and access
+          analytics. Specials require a Pro plan.
+        </p>
       </section>
 
       {/* How It Works */}
