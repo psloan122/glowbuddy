@@ -6,7 +6,7 @@ import { signOut } from '../lib/auth';
 
 const NAV_LINKS = [
   { to: '/', label: 'Browse' },
-  { to: '/log', label: 'Log a Treatment', requiresAuth: true },
+  { to: '/log', label: 'Log a Treatment' },
   { to: '/insights', label: 'Insights' },
   { to: '/specials', label: 'Specials' },
   { to: '/community', label: 'Community' },
@@ -31,11 +31,7 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  function handleNavClick(link, e) {
-    if (link.requiresAuth && !user) {
-      e.preventDefault();
-      openAuthModal('signup', '/log');
-    }
+  function handleNavClick() {
     setMobileOpen(false);
   }
 
@@ -67,8 +63,7 @@ export default function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                onClick={(e) => handleNavClick(link, e)}
-                className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                className="text-sm font-medium text-text-primary hover:text-rose-accent transition-colors"
               >
                 {link.label}
               </Link>
@@ -111,16 +106,15 @@ export default function Navbar() {
               <>
                 <button
                   onClick={() => openAuthModal('signin')}
-                  className="px-4 py-2 text-sm font-medium text-text-primary border border-gray-200 rounded-full hover:border-gray-300 transition"
+                  className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
                 >
-                  Log In
+                  Log in
                 </button>
                 <button
                   onClick={() => openAuthModal('signup')}
-                  className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:opacity-90 transition"
-                  style={{ backgroundColor: '#C94F78' }}
+                  className="px-4 py-1.5 text-sm font-medium text-rose-accent border border-rose-accent/30 rounded-full hover:bg-rose-light/50 transition"
                 >
-                  Sign Up
+                  Sign up
                 </button>
               </>
             )}
@@ -144,8 +138,8 @@ export default function Navbar() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
-                  onClick={(e) => handleNavClick(link, e)}
+                  className="px-3 py-2 text-sm font-medium text-text-primary hover:text-rose-accent hover:bg-rose-light/50 rounded-lg transition-colors"
+                  onClick={handleNavClick}
                 >
                   {link.label}
                 </Link>
@@ -173,19 +167,18 @@ export default function Navbar() {
                       openAuthModal('signin');
                       setMobileOpen(false);
                     }}
-                    className="flex-1 py-2 text-sm font-medium text-text-primary border border-gray-200 rounded-full hover:border-gray-300 transition text-center"
+                    className="flex-1 py-2 text-sm text-text-secondary hover:text-text-primary transition text-center"
                   >
-                    Log In
+                    Log in
                   </button>
                   <button
                     onClick={() => {
                       openAuthModal('signup');
                       setMobileOpen(false);
                     }}
-                    className="flex-1 py-2 text-sm font-semibold text-white rounded-full hover:opacity-90 transition text-center"
-                    style={{ backgroundColor: '#C94F78' }}
+                    className="flex-1 py-2 text-sm font-medium text-rose-accent border border-rose-accent/30 rounded-full hover:bg-rose-light/50 transition text-center"
                   >
-                    Sign Up
+                    Sign up
                   </button>
                 </div>
               )}

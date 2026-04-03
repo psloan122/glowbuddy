@@ -38,7 +38,7 @@ const INITIAL_FORM_DATA = {
 };
 
 export default function Log() {
-  const { session, user, openAuthModal } = useContext(AuthContext);
+  const { user, openAuthModal } = useContext(AuthContext);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -52,13 +52,6 @@ export default function Log() {
   useEffect(() => {
     document.title = 'Log a Treatment | GlowBuddy';
   }, []);
-
-  // Auth gate: if not signed in, show auth modal with redirect back here
-  useEffect(() => {
-    if (!user) {
-      openAuthModal('signup', '/log');
-    }
-  }, [user, openAuthModal]);
 
   // Validate current step before allowing next
   function canAdvance() {
@@ -85,6 +78,13 @@ export default function Log() {
 
   async function handleSubmit() {
     if (isSubmitting) return;
+
+    // Auth gate: only trigger at submit time
+    if (!user) {
+      openAuthModal('signup', '/log');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -215,15 +215,6 @@ export default function Log() {
     setPriceComparison(null);
     setNewBadges([]);
     setOutlierFlagged(false);
-  }
-
-  // If not authenticated, show a placeholder while auth modal is open
-  if (!user) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <p className="text-text-secondary">Sign in to log your treatment...</p>
-      </div>
-    );
   }
 
   // Step labels for progress indicator

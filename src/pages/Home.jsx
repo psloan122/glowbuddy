@@ -1,17 +1,19 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, SlidersHorizontal, ChevronDown, MapPin } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, Crosshair, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { AuthContext } from '../App';
-import { getCity, getState as getGatingState } from '../lib/gating';
+import { getCity, setCity, getState as getGatingState, setState as setGatingState } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import PriceStatsBar from '../components/PriceStatsBar';
 import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
-export default function Home() {
-  const { user, openAuthModal } = useContext(AuthContext);
+// Build a lookup map for state abbreviations → full names
+const STATE_ABBR_MAP = Object.fromEntries(
+  US_STATES.map((s) => [s.value.toLowerCase(), s])
+);
 
+export default function Home() {
   // Stats — hardcoded until real data exists
   const [stats] = useState({
     totalSubmissions: 4821,
@@ -26,25 +28,42 @@ export default function Home() {
   const [procedures, setProcedures] = useState([]);
   const [loadingProcedures, setLoadingProcedures] = useState(true);
 
-  // Search & filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cityZip, setCityZip] = useState('');
+  // Smart search
+  const [smartQuery, setSmartQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeFilters, setActiveFilters] = useState([]);
+  // { type: 'procedure' | 'city' | 'zip' | 'state', value: string, label: string }
+  const searchRef = useRef(null);
+
+  // Sort & extra filters
   const [sortBy, setSortBy] = useState('most_recent');
-  const [filterProcedureType, setFilterProcedureType] = useState('');
   const [filterProviderType, setFilterProviderType] = useState('');
-  const [filterState, setFilterState] = useState('');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Near me
+  const [locating, setLocating] = useState(false);
 
   // Location personalization (from localStorage, no account needed)
-  const [userCity] = useState(() => getCity());
+  const [userCity, setUserCity] = useState(() => getCity());
   const [userState] = useState(() => getGatingState());
   const [localCount, setLocalCount] = useState(null);
 
   // SEO
   useEffect(() => {
-    document.title = 'GlowBuddy — Know Before You Glow';
+    document.title = 'GlowBuddy \u2014 Know Before You Glow';
+  }, []);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   // Fetch local count when userState is known
@@ -77,6 +96,12 @@ export default function Home() {
     fetchSpecials();
   }, []);
 
+  // Derive filter values from activeFilters for the query
+  const filterProcedureType = activeFilters.find((f) => f.type === 'procedure')?.value || '';
+  const filterState = activeFilters.find((f) => f.type === 'state')?.value || '';
+  const filterCity = activeFilters.find((f) => f.type === 'city')?.value || '';
+  const filterZip = activeFilters.find((f) => f.type === 'zip')?.value || '';
+
   // Fetch procedures (with filters)
   useEffect(() => {
     async function fetchProcedures() {
@@ -87,30 +112,23 @@ export default function Home() {
         .select('*')
         .eq('status', 'active');
 
-      // Text search on procedure type
-      if (searchQuery.trim()) {
-        query = query.ilike('procedure_type', `%${searchQuery.trim()}%`);
-      }
-
-      // City / zip filter
-      if (cityZip.trim()) {
-        const term = cityZip.trim();
-        if (/^\d{5}$/.test(term)) {
-          query = query.eq('zip_code', term);
-        } else {
-          query = query.ilike('city', `%${term}%`);
-        }
-      }
-
-      // Dropdown filters
+      // Filter from pills
       if (filterProcedureType) {
         query = query.eq('procedure_type', filterProcedureType);
       }
-      if (filterProviderType) {
-        query = query.eq('provider_type', filterProviderType);
-      }
       if (filterState) {
         query = query.eq('state', filterState);
+      }
+      if (filterCity) {
+        query = query.ilike('city', `%${filterCity}%`);
+      }
+      if (filterZip) {
+        query = query.eq('zip_code', filterZip);
+      }
+
+      // Extra dropdown filters
+      if (filterProviderType) {
+        query = query.eq('provider_type', filterProviderType);
       }
       if (priceMin) {
         query = query.gte('price_paid', parseInt(priceMin, 10));
@@ -137,12 +155,12 @@ export default function Home() {
 
     fetchProcedures();
   }, [
-    searchQuery,
-    cityZip,
-    sortBy,
     filterProcedureType,
-    filterProviderType,
     filterState,
+    filterCity,
+    filterZip,
+    filterProviderType,
+    sortBy,
     priceMin,
     priceMax,
   ]);
@@ -153,12 +171,125 @@ export default function Home() {
     : [];
   const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
 
-  function handleLogCTA(e) {
-    if (!user) {
-      e.preventDefault();
-      openAuthModal('signup', '/log');
+  // --- Smart search helpers ---
+  function getSuggestions(query) {
+    if (!query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    const suggestions = [];
+
+    // Match procedure types
+    for (const p of PROCEDURE_TYPES) {
+      if (p.toLowerCase().includes(q)) {
+        suggestions.push({ type: 'procedure', value: p, label: p });
+      }
+    }
+
+    // Match state names or abbreviations
+    if (q.length >= 2) {
+      // Check abbreviation first
+      if (STATE_ABBR_MAP[q]) {
+        const s = STATE_ABBR_MAP[q];
+        suggestions.push({ type: 'state', value: s.value, label: s.label });
+      }
+      // Check state name match
+      for (const s of US_STATES) {
+        if (s.label.toLowerCase().includes(q) && s.value.toLowerCase() !== q) {
+          suggestions.push({ type: 'state', value: s.value, label: s.label });
+        }
+      }
+    }
+
+    // If 5 digits, suggest zip
+    if (/^\d{5}$/.test(query.trim())) {
+      suggestions.push({ type: 'zip', value: query.trim(), label: `Zip: ${query.trim()}` });
+    }
+
+    // City search fallback
+    if (query.trim().length >= 2 && !/^\d+$/.test(query.trim()) && suggestions.length < 8) {
+      suggestions.push({ type: 'city', value: query.trim(), label: `City: "${query.trim()}"` });
+    }
+
+    return suggestions.slice(0, 8);
+  }
+
+  function addFilter(filter) {
+    setActiveFilters((prev) => [
+      ...prev.filter((f) => f.type !== filter.type),
+      filter,
+    ]);
+    setSmartQuery('');
+    setShowSuggestions(false);
+  }
+
+  function removeFilter(type) {
+    setActiveFilters((prev) => prev.filter((f) => f.type !== type));
+  }
+
+  function handleSearchKeyDown(e) {
+    if (e.key === 'Enter' && smartQuery.trim()) {
+      const suggestions = getSuggestions(smartQuery);
+      if (suggestions.length > 0) {
+        addFilter(suggestions[0]);
+      }
+    }
+    if (e.key === 'Escape') {
+      setShowSuggestions(false);
     }
   }
+
+  // Near me — use browser geolocation + Google Maps reverse geocoding
+  async function handleNearMe() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 10000,
+          enableHighAccuracy: false,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // Use Google Maps Geocoder if available
+      if (window.google?.maps?.Geocoder) {
+        const geocoder = new window.google.maps.Geocoder();
+        const result = await new Promise((resolve, reject) => {
+          geocoder.geocode(
+            { location: { lat: latitude, lng: longitude } },
+            (results, status) => {
+              if (status === 'OK' && results?.[0]) resolve(results[0]);
+              else reject(new Error('Geocode failed'));
+            }
+          );
+        });
+
+        let city = '';
+        let state = '';
+        for (const comp of result.address_components) {
+          if (comp.types.includes('locality')) city = comp.long_name;
+          if (comp.types.includes('administrative_area_level_1')) state = comp.short_name;
+        }
+
+        if (city) {
+          setCity(city);
+          setUserCity(city);
+          addFilter({ type: 'city', value: city, label: `Near: ${city}` });
+        }
+        if (state) {
+          setGatingState(state);
+          addFilter({ type: 'state', value: state, label: US_STATES.find((s) => s.value === state)?.label || state });
+        }
+      }
+    } catch {
+      // Geolocation denied or failed — silently ignore
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  const suggestions = getSuggestions(smartQuery);
+  const hasActiveFilters = activeFilters.length > 0 || filterProviderType || priceMin || priceMax;
 
   return (
     <div>
@@ -174,7 +305,6 @@ export default function Home() {
           </p>
           <Link
             to="/log"
-            onClick={handleLogCTA}
             className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
             style={{ backgroundColor: '#C94F78' }}
           >
@@ -225,15 +355,15 @@ export default function Home() {
         </h2>
 
         {/* "Showing prices near" banner */}
-        {userCity && (
+        {userCity && activeFilters.length === 0 && (
           <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-rose-light/40 rounded-xl text-sm text-text-primary">
             <MapPin size={16} className="text-rose-accent flex-shrink-0" />
             Showing prices near <span className="font-medium">{userCity}</span>
           </div>
         )}
 
-        {/* Search bar row */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        {/* Smart search bar */}
+        <div className="flex gap-2 mb-3" ref={searchRef}>
           <div className="relative flex-1">
             <Search
               size={18}
@@ -241,26 +371,81 @@ export default function Home() {
             />
             <input
               type="text"
-              placeholder="Search procedure type..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition"
+              placeholder="Search Botox, your city, zip, or state..."
+              value={smartQuery}
+              onChange={(e) => {
+                setSmartQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => smartQuery.trim() && setShowSuggestions(true)}
+              onKeyDown={handleSearchKeyDown}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
             />
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={`${s.type}-${s.value}-${i}`}
+                    onClick={() => addFilter(s)}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors flex items-center gap-2"
+                  >
+                    <span className="text-xs uppercase tracking-wide text-text-secondary w-16 shrink-0">
+                      {s.type}
+                    </span>
+                    <span className="text-text-primary">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="relative sm:w-48">
-            <input
-              type="text"
-              placeholder="City or zip code"
-              value={cityZip}
-              onChange={(e) => setCityZip(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition"
-            />
-          </div>
+
+          {/* Near me button */}
+          <button
+            onClick={handleNearMe}
+            disabled={locating}
+            className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary hover:text-rose-accent hover:border-rose-accent/40 transition shrink-0 disabled:opacity-50"
+            title="Use my location"
+          >
+            {locating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Crosshair size={16} />
+            )}
+            <span className="hidden sm:inline">Near me</span>
+          </button>
         </div>
 
-        {/* Sort & filter controls */}
+        {/* Active filter pills */}
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {activeFilters.map((f) => (
+              <span
+                key={f.type}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20"
+              >
+                {f.label}
+                <button
+                  onClick={() => removeFilter(f.type)}
+                  className="ml-0.5 hover:text-rose-accent transition-colors"
+                  aria-label={`Remove ${f.label} filter`}
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={() => setActiveFilters([])}
+              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Sort & more filters */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          {/* Sort dropdown */}
           <div className="relative">
             <select
               value={sortBy}
@@ -277,40 +462,25 @@ export default function Home() {
             />
           </div>
 
-          {/* Toggle filter panel */}
           <button
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary hover:text-text-primary hover:border-rose-accent transition"
           >
             <SlidersHorizontal size={16} />
-            Filters
+            More filters
           </button>
+
+          {hasActiveFilters && (
+            <span className="text-xs text-text-secondary">
+              {procedures.length} result{procedures.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
-        {/* Expanded filter controls */}
-        {showFilters && (
+        {/* Expanded extra filters (provider type + price range) */}
+        {showMoreFilters && (
           <div className="glow-card p-4 mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Procedure type */}
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1">
-                  Procedure Type
-                </label>
-                <select
-                  value={filterProcedureType}
-                  onChange={(e) => setFilterProcedureType(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
-                >
-                  <option value="">All Types</option>
-                  {PROCEDURE_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Provider type */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1">
                   Provider Type
@@ -318,7 +488,7 @@ export default function Home() {
                 <select
                   value={filterProviderType}
                   onChange={(e) => setFilterProviderType(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
                 >
                   <option value="">All Providers</option>
                   {PROVIDER_TYPES.map((type) => (
@@ -328,48 +498,29 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-
-              {/* State */}
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1">
-                  State
+                  Min Price
                 </label>
-                <select
-                  value={filterState}
-                  onChange={(e) => setFilterState(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
-                >
-                  <option value="">All States</option>
-                  {US_STATES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="number"
+                  placeholder="$0"
+                  value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                />
               </div>
-
-              {/* Price range */}
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1">
-                  Price Range
+                  Max Price
                 </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={priceMin}
-                    onChange={(e) => setPriceMin(e.target.value)}
-                    className="w-full px-3 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
-                  />
-                  <span className="text-text-secondary text-sm">-</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={priceMax}
-                    onChange={(e) => setPriceMax(e.target.value)}
-                    className="w-full px-3 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
-                  />
-                </div>
+                <input
+                  type="number"
+                  placeholder="$10,000"
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                />
               </div>
             </div>
           </div>
@@ -392,7 +543,6 @@ export default function Home() {
             </p>
             <Link
               to="/log"
-              onClick={handleLogCTA}
               className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
               style={{ backgroundColor: '#C94F78' }}
             >
