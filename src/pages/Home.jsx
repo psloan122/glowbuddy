@@ -307,7 +307,7 @@ export default function Home() {
 
         <div className="relative z-10 py-16 md:py-[100px] md:pb-[80px] px-5 md:px-0">
           <div className="max-w-[580px] ml-[max(5vw,40px)]">
-            <h1 className="text-[32px] md:text-[52px] leading-[1.15] font-normal tracking-[-0.5px] text-text-primary mb-4">
+            <h1 className="font-display italic text-[36px] md:text-[56px] leading-[1.1] font-light tracking-[-0.5px] text-text-primary mb-4">
               Know before you glow.
             </h1>
             <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mb-6">
@@ -354,7 +354,7 @@ export default function Home() {
       {/* What Patients Are Saying */}
       {recentReviews.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 mt-12">
-          <h2 className="text-2xl font-bold text-text-primary mb-6">
+          <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
             What Patients Are Saying
           </h2>
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
@@ -407,7 +407,7 @@ export default function Home() {
 
       {/* Specials Near You */}
       <section className="max-w-7xl mx-auto px-4 mt-12">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
+        <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
           Specials Near You
         </h2>
 
@@ -455,7 +455,7 @@ export default function Home() {
 
       {/* Browse Feed */}
       <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
+        <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
           Recent Prices
         </h2>
 

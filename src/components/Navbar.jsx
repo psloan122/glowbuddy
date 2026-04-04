@@ -64,7 +64,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-0 shrink-0">
-            <span className="text-xl font-bold text-rose-accent">Glow</span>
+            <span className="font-display italic text-[22px] font-semibold text-rose-accent">Glow</span>
             <span className="text-xl font-light text-text-primary">Buddy</span>
           </Link>
 
