@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Gift, Loader2 } from 'lucide-react';
 import { setInterests, setOnboarded } from '../lib/gating';
 import { lookupZip } from '../lib/zipLookup';
+import { supabase } from '../lib/supabase';
+import { sendWelcomeUser } from '../lib/email';
 
 const INTEREST_OPTIONS = [
   { emoji: '💉', label: 'Botox & Dysport' },
@@ -90,12 +92,18 @@ export default function Onboarding({ onComplete }) {
   function handleBrowse() {
     setOnboarded();
     onComplete();
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.email) sendWelcomeUser(data.session.user.email);
+    });
   }
 
   function handleLogTreatment() {
     setOnboarded();
     onComplete();
     navigate('/log');
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.email) sendWelcomeUser(data.session.user.email);
+    });
   }
 
   // Focus zip input when location screen appears

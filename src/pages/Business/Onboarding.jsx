@@ -10,6 +10,7 @@ import Step3PracticeProfile from '../../components/ProviderOnboarding/Step3Pract
 import Step4PriceMenu from '../../components/ProviderOnboarding/Step4PriceMenu';
 import Step5ChoosePlan from '../../components/ProviderOnboarding/Step5ChoosePlan';
 import WelcomeModal from '../../components/ProviderOnboarding/WelcomeModal';
+import { sendProviderWelcome } from '../../lib/email';
 
 const STEP_COUNT = 5;
 
@@ -324,6 +325,17 @@ export default function Onboarding() {
     await supabase.auth.updateUser({ data: { user_role: 'provider' } });
 
     setShowWelcome(true);
+
+    // Send provider welcome email (fire-and-forget)
+    const p = createdProvider || existingProvider;
+    if (user?.email && p) {
+      sendProviderWelcome(user.email, {
+        providerName: p.name,
+        slug: p.slug,
+        menuCount: menuItems.length,
+        tier: p.tier || 'free',
+      });
+    }
   }
 
   function handleWelcomeDismiss() {

@@ -130,6 +130,73 @@ serve(async (req: Request) => {
             })
             .eq('id', specialId)
         }
+
+        // Send receipt email to the provider (fire-and-forget)
+        try {
+          // Get provider info from placement
+          const { data: placementInfo } = await supabase
+            .from('special_placements')
+            .select('provider_id, tier, weeks, amount_paid')
+            .eq('id', placementId)
+            .single()
+
+          if (placementInfo) {
+            const { data: provider } = await supabase
+              .from('providers')
+              .select('name, owner_user_id')
+              .eq('id', placementInfo.provider_id)
+              .single()
+
+            if (provider?.owner_user_id) {
+              const { data: { user: ownerUser } } = await supabase.auth.admin.getUserById(provider.owner_user_id)
+
+              // Get special details
+              let treatmentName = 'Special Offer'
+              let promoPrice = ''
+              let priceUnit = ''
+              if (specialId) {
+                const { data: special } = await supabase
+                  .from('provider_specials')
+                  .select('headline, treatment_name, promo_price, price_unit')
+                  .eq('id', specialId)
+                  .single()
+                if (special) {
+                  treatmentName = special.treatment_name || special.headline || treatmentName
+                  promoPrice = special.promo_price ? `$${special.promo_price}` : ''
+                  priceUnit = special.price_unit || 'per unit'
+                }
+              }
+
+              if (ownerUser?.email) {
+                const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+                const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+                await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    template: 'special_offer_receipt',
+                    to: ownerUser.email,
+                    data: {
+                      providerName: provider.name,
+                      treatmentName,
+                      promoPrice,
+                      priceUnit,
+                      tier: placementInfo.tier || 'standard',
+                      weeks,
+                      totalPaid: `$${(placementInfo.amount_paid / 100).toFixed(2)}`,
+                      expiryDate: expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                    },
+                  }),
+                })
+              }
+            }
+          }
+        } catch (emailErr) {
+          console.error('Receipt email failed (non-blocking):', emailErr)
+        }
       }
     }
 
