@@ -16,7 +16,9 @@ import {
   ShieldCheck,
   Sparkles,
   MessageSquareWarning,
+  Phone,
 } from 'lucide-react';
+import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -29,6 +31,7 @@ const TABS = [
   { key: 'flaggedReviews', label: 'Flagged Reviews', icon: MessageSquareWarning },
   { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
   { key: 'specials', label: 'Specials', icon: Sparkles },
+  { key: 'phoneNumbers', label: 'Phone Numbers', icon: Phone },
 ];
 
 export default function Admin() {
@@ -586,6 +589,11 @@ export default function Admin() {
 
   // --- Tab content ---
   function renderContent() {
+    // Self-contained tabs that manage their own data
+    if (activeTab === 'phoneNumbers') {
+      return <AdminPhoneNumbers />;
+    }
+
     if (loading) {
       return (
         <div className="text-center py-12 text-text-secondary animate-pulse">

@@ -31,6 +31,7 @@ import PricesTab from '../components/ProviderTabs/PricesTab';
 import CompetitorAds from '../components/CompetitorAds';
 import PriceAlertButton from '../components/PriceAlertButton';
 import FairPriceBadge from '../components/FairPriceBadge';
+import CallNowButton from '../components/CallNowButton';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -796,13 +797,12 @@ export default function ProviderProfile() {
               </a>
             )}
             {phone && (
-              <a
-                href={`tel:${phone}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-text-primary text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <Phone size={14} />
-                {phone}
-              </a>
+              <CallNowButton
+                providerId={provider?.id}
+                realPhone={phone}
+                source="provider_detail"
+                variant="compact"
+              />
             )}
           </div>
         </div>
