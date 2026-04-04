@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Sparkles, ShieldCheck, Gift, Loader2 } from 'lucide-react';
+import { Sparkles, ShieldCheck, Gift, Loader2 } from 'lucide-react';
 import { setInterests, setOnboarded } from '../lib/gating';
 import { lookupZip } from '../lib/zipLookup';
 
@@ -17,18 +17,37 @@ const INTEREST_OPTIONS = [
   { emoji: '👁️', label: 'Under Eye Filler' },
 ];
 
+// Screen order: 0=Welcome, 1=Location, 2=Interests, 3=Mission
+const SCREEN_COUNT = 4;
+
 export default function Onboarding({ onComplete }) {
   const navigate = useNavigate();
   const [screen, setScreen] = useState(0);
+  const [direction, setDirection] = useState(1); // 1=forward, -1=back
   const [selected, setSelected] = useState([]);
   const [zip, setZip] = useState('');
   const [zipError, setZipError] = useState('');
   const [resolvedCity, setResolvedCity] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const zipInputRef = useRef(null);
+
+  function goTo(nextScreen) {
+    setDirection(nextScreen > screen ? 1 : -1);
+    setScreen(nextScreen);
+  }
 
   function handleSkip() {
+    if (!showSkipConfirm) {
+      setShowSkipConfirm(true);
+      return;
+    }
     setOnboarded();
     onComplete();
+  }
+
+  function handleSkipCancel() {
+    setShowSkipConfirm(false);
   }
 
   function toggleInterest(label) {
@@ -41,29 +60,31 @@ export default function Onboarding({ onComplete }) {
 
   function handleInterestsNext() {
     setInterests(selected);
-    setScreen(2);
+    goTo(3);
   }
 
-  async function handleZipSubmit(e) {
-    e.preventDefault();
-    if (!/^\d{5}$/.test(zip)) {
-      setZipError('Enter a valid 5-digit zip code');
-      return;
-    }
+  // Auto-advance when zip reaches 5 digits
+  async function handleZipChange(value) {
+    const cleaned = value.replace(/\D/g, '').slice(0, 5);
+    setZip(cleaned);
     setZipError('');
-    setLookingUp(true);
-    const result = await lookupZip(zip);
-    setLookingUp(false);
-    if (result) {
-      setResolvedCity(result.city);
-      setScreen(3);
-    } else {
-      setZipError('Could not find that zip code');
+
+    if (cleaned.length === 5) {
+      setLookingUp(true);
+      const result = await lookupZip(cleaned);
+      setLookingUp(false);
+      if (result) {
+        setResolvedCity(result.city);
+        // Brief pause to show the resolved city, then auto-advance
+        setTimeout(() => goTo(2), 600);
+      } else {
+        setZipError('Could not find that zip code');
+      }
     }
   }
 
   function handleZipSkip() {
-    setScreen(3);
+    goTo(2);
   }
 
   function handleBrowse() {
@@ -77,22 +98,35 @@ export default function Onboarding({ onComplete }) {
     navigate('/log');
   }
 
+  // Focus zip input when location screen appears
+  useEffect(() => {
+    if (screen === 1 && zipInputRef.current) {
+      zipInputRef.current.focus();
+    }
+  }, [screen]);
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center px-4" style={{ backgroundColor: '#FDF6F0' }}>
       <div className="w-full max-w-[480px]">
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          {[0, 1, 2, 3].map((i) => (
+          {Array.from({ length: SCREEN_COUNT }).map((_, i) => (
             <div
               key={i}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i === screen ? 'bg-[#C94F78]' : 'bg-[#C94F78]/20'
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === screen ? 'w-6 bg-[#C94F78]' : 'w-2 bg-[#C94F78]/20'
               }`}
             />
           ))}
         </div>
 
-        <div className="bg-white rounded-2xl p-8 shadow-lg">
+        <div
+          className="bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 ease-out"
+          style={{
+            animation: `slide-in-${direction > 0 ? 'right' : 'left'} 0.25s ease-out`,
+          }}
+          key={screen}
+        >
           {/* Screen 0 — Welcome */}
           {screen === 0 && (
             <div className="text-center">
@@ -106,23 +140,89 @@ export default function Onboarding({ onComplete }) {
                 See what real people pay for Botox, fillers, and med spa treatments near you.
               </p>
               <button
-                onClick={() => setScreen(1)}
+                onClick={() => goTo(1)}
                 className="w-full py-3 text-white font-semibold rounded-xl hover:opacity-90 transition"
                 style={{ backgroundColor: '#C94F78' }}
               >
                 Get Started
               </button>
+              {showSkipConfirm ? (
+                <div className="mt-3 p-3 rounded-xl bg-gray-50">
+                  <p className="text-xs text-text-secondary mb-2">
+                    Personalization helps us show relevant prices and specials. Skip anyway?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSkipCancel}
+                      className="flex-1 py-2 text-xs font-medium text-text-primary border border-gray-200 rounded-lg hover:bg-white transition"
+                    >
+                      Keep going
+                    </button>
+                    <button
+                      onClick={handleSkip}
+                      className="flex-1 py-2 text-xs text-text-secondary hover:text-text-primary rounded-lg transition"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSkip}
+                  className="w-full mt-3 py-2 text-sm text-text-secondary hover:text-text-primary transition"
+                >
+                  Skip for now
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Screen 1 — Location */}
+          {screen === 1 && (
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-text-primary mb-1">
+                Where are you located?
+              </h2>
+              <p className="text-sm text-text-secondary mb-6">
+                We'll show prices and specials near you.
+              </p>
+              <div className="mb-4">
+                <input
+                  ref={zipInputRef}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  placeholder="Enter zip code"
+                  value={zip}
+                  onChange={(e) => handleZipChange(e.target.value)}
+                  className="w-full text-center text-2xl tracking-widest px-4 py-4 rounded-xl border border-gray-200 focus:border-[#C94F78] focus:ring-2 focus:ring-[#C94F78]/20 outline-none transition"
+                />
+                {zipError && (
+                  <p className="text-sm text-red-500 mt-2">{zipError}</p>
+                )}
+                {lookingUp && (
+                  <div className="flex items-center justify-center gap-2 mt-3 text-text-secondary">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span className="text-sm">Looking up...</span>
+                  </div>
+                )}
+                {resolvedCity && !lookingUp && (
+                  <p className="text-sm text-text-primary mt-3 font-medium">
+                    {resolvedCity}
+                  </p>
+                )}
+              </div>
               <button
-                onClick={handleSkip}
-                className="w-full mt-3 py-2 text-sm text-text-secondary hover:text-text-primary transition"
+                onClick={handleZipSkip}
+                className="text-sm text-text-secondary hover:text-text-primary transition"
               >
-                Skip for now
+                I'll add this later
               </button>
             </div>
           )}
 
-          {/* Screen 1 — Interests */}
-          {screen === 1 && (
+          {/* Screen 2 — Interests */}
+          {screen === 2 && (
             <div>
               <h2 className="text-xl font-bold text-text-primary mb-1 text-center">
                 What are you most curious about?
@@ -160,58 +260,7 @@ export default function Onboarding({ onComplete }) {
             </div>
           )}
 
-          {/* Screen 2 — Zip Code */}
-          {screen === 2 && (
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-text-primary mb-1">
-                Where are you located?
-              </h2>
-              <p className="text-sm text-text-secondary mb-6">
-                We'll show prices and specials near you.
-              </p>
-              <form onSubmit={handleZipSubmit} className="mb-4">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  placeholder="Enter zip code"
-                  value={zip}
-                  onChange={(e) => {
-                    setZip(e.target.value.replace(/\D/g, '').slice(0, 5));
-                    setZipError('');
-                  }}
-                  className="w-full text-center text-2xl tracking-widest px-4 py-4 rounded-xl border border-gray-200 focus:border-[#C94F78] focus:ring-2 focus:ring-[#C94F78]/20 outline-none transition"
-                  autoFocus
-                />
-                {zipError && (
-                  <p className="text-sm text-red-500 mt-2">{zipError}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={zip.length < 5 || lookingUp}
-                  className="w-full mt-4 py-3 text-white font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#C94F78' }}
-                >
-                  {lookingUp ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 size={16} className="animate-spin" />
-                      Looking up...
-                    </span>
-                  ) : (
-                    'Continue'
-                  )}
-                </button>
-              </form>
-              <button
-                onClick={handleZipSkip}
-                className="text-sm text-text-secondary hover:text-text-primary transition"
-              >
-                I'll add this later
-              </button>
-            </div>
-          )}
-
-          {/* Screen 3 — Confirmation */}
+          {/* Screen 3 — Mission / Confirmation */}
           {screen === 3 && (
             <div className="text-center">
               <div className="flex items-center justify-center w-16 h-16 bg-rose-light rounded-full mx-auto mb-6">
@@ -272,6 +321,18 @@ export default function Onboarding({ onComplete }) {
             </div>
           )}
         </div>
+
+        {/* Slide animation styles */}
+        <style>{`
+          @keyframes slide-in-right {
+            from { opacity: 0; transform: translateX(24px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes slide-in-left {
+            from { opacity: 0; transform: translateX(-24px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
       </div>
     </div>
   );

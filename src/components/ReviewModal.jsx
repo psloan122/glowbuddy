@@ -5,6 +5,8 @@ import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
 import { PROCEDURE_TYPES } from '../lib/constants';
 import { assignTrustTier } from '../lib/trustTiers';
+import { runReviewSafetyChecks } from '../lib/reviewSafety';
+import { checkTextSimilarity, analyzeReviewAuthenticity } from '../lib/reviewDetection';
 import StarRating from './StarRating';
 import VerifyEmailModal from './VerifyEmailModal';
 
@@ -110,7 +112,7 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
       });
 
       // Insert review
-      const { error: insertError } = await supabase.from('reviews').insert({
+      const { data: insertedReview, error: insertError } = await supabase.from('reviews').insert({
         user_id: user.id,
         provider_id: provider.id,
         rating,
@@ -124,9 +126,18 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
         receipt_id: verifiedReceiptId,
         trust_tier: trustData.trust_tier,
         trust_weight: trustData.trust_weight,
-      });
+      }).select('id').single();
 
       if (insertError) throw insertError;
+
+      // Run all review safety checks async — never blocks user flow
+      if (insertedReview?.id) {
+        Promise.allSettled([
+          runReviewSafetyChecks(insertedReview.id, provider.id, body.trim(), title.trim(), rating),
+          checkTextSimilarity(provider.id, body.trim(), insertedReview.id),
+          analyzeReviewAuthenticity(insertedReview.id, rating),
+        ]);
+      }
 
       // Recalculate provider avg_rating and review_count (trigger also handles weighted)
       const { data: allReviews } = await supabase

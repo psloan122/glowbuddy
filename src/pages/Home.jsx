@@ -9,6 +9,7 @@ import {
 } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
+import SpecialOfferCard from '../components/SpecialOfferCard';
 import PriceStatsBar from '../components/PriceStatsBar';
 import HeroPattern from '../components/HeroPattern';
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
@@ -24,6 +25,7 @@ export default function Home() {
 
   // Specials
   const [specials, setSpecials] = useState([]);
+  const [promotedSpecials, setPromotedSpecials] = useState([]);
 
   // Procedures / feed
   const [procedures, setProcedures] = useState([]);
@@ -95,6 +97,19 @@ export default function Home() {
       .order('created_at', { ascending: false })
       .limit(6)
       .then(({ data }) => setSpecials(data || []));
+  }, []);
+
+  // Fetch promoted specials (paid placements)
+  useEffect(() => {
+    supabase
+      .from('provider_specials')
+      .select('*, providers(*)')
+      .eq('is_active', true)
+      .gt('ends_at', new Date().toISOString())
+      .order('placement_tier', { ascending: false }) // featured first
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data }) => setPromotedSpecials(data || []));
   }, []);
 
   // Fetch recent 5-star reviews
@@ -273,6 +288,12 @@ export default function Home() {
     : [];
   const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
 
+  // Filter promoted specials by user state
+  const filteredPromoted = userState
+    ? promotedSpecials.filter((s) => s.providers?.state === userState)
+    : [];
+  const displayPromoted = filteredPromoted.length > 0 ? filteredPromoted : promotedSpecials;
+
   const hasActiveFilters = selectedProc || selectedLoc || filterProviderType || priceMin || priceMax || minRating;
 
   return (
@@ -389,6 +410,21 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-text-primary mb-6">
           Specials Near You
         </h2>
+
+        {/* Promoted specials (paid placements) */}
+        {displayPromoted.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {displayPromoted.map((special) => (
+              <SpecialOfferCard
+                key={special.id}
+                special={special}
+                provider={special.providers}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Regular specials */}
         {displaySpecials.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {displaySpecials.map((special) => (
@@ -399,7 +435,7 @@ export default function Home() {
               />
             ))}
           </div>
-        ) : (
+        ) : displayPromoted.length === 0 ? (
           <div className="glow-card p-8 text-center">
             <p className="text-text-secondary mb-2">
               No specials near you yet.
@@ -414,7 +450,7 @@ export default function Home() {
               See provider plans &rarr;
             </Link>
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* Browse Feed */}

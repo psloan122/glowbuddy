@@ -1,19 +1,16 @@
 import { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Eye,
   Users,
   DollarSign,
   BarChart3,
   Plus,
   Pencil,
   Trash2,
-  X,
   Check,
   Loader2,
   AlertTriangle,
   ArrowUpRight,
-  Lock,
   RefreshCw,
   Star,
   Settings as SettingsIcon,
@@ -25,16 +22,16 @@ import { extractPlaceData } from '../../lib/places';
 import {
   PROCEDURE_TYPES,
   TREATMENT_AREAS,
-  DISCOUNT_TYPES,
 } from '../../lib/constants';
 import InjectorsTab from '../../components/DashboardTabs/InjectorsTab';
 import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterTab';
 import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
+import SpecialsManager from '../../components/SpecialsManager';
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Specials', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -56,20 +53,6 @@ export default function Dashboard() {
     price_label: '',
   });
   const [pricingSaving, setPricingSaving] = useState(false);
-
-  // Specials state
-  const [specials, setSpecials] = useState([]);
-  const [showAddSpecial, setShowAddSpecial] = useState(false);
-  const [specialForm, setSpecialForm] = useState({
-    title: '',
-    description: '',
-    procedure_type: '',
-    discount_type: '',
-    original_price: '',
-    special_price: '',
-    expires_at: '',
-  });
-  const [specialSaving, setSpecialSaving] = useState(false);
 
   // Disputes state
   const [disputes, setDisputes] = useState([]);
@@ -133,16 +116,6 @@ export default function Dashboard() {
     setPricing(data || []);
   }, [provider]);
 
-  const fetchSpecials = useCallback(async () => {
-    if (!provider) return;
-    const { data } = await supabase
-      .from('specials')
-      .select('*')
-      .eq('provider_id', provider.id)
-      .order('created_at', { ascending: false });
-    setSpecials(data || []);
-  }, [provider]);
-
   const fetchDisputes = useCallback(async () => {
     if (!provider) return;
     const { data } = await supabase
@@ -196,14 +169,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (provider) {
       fetchPricing();
-      fetchSpecials();
       fetchDisputes();
       fetchCommunityProcedures();
       fetchInjectors();
       fetchBAPhotos();
       fetchDashReviews();
     }
-  }, [provider, fetchPricing, fetchSpecials, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews]);
+  }, [provider, fetchPricing, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews]);
 
   // --- Menu Handlers ---
 
@@ -269,64 +241,6 @@ export default function Dashboard() {
     }
     await supabase.from('provider_pricing').delete().eq('id', id);
     fetchPricing();
-  }
-
-  // --- Specials Handlers ---
-
-  function resetSpecialForm() {
-    setSpecialForm({
-      title: '',
-      description: '',
-      procedure_type: '',
-      discount_type: '',
-      original_price: '',
-      special_price: '',
-      expires_at: '',
-    });
-  }
-
-  async function handleSaveSpecial(e) {
-    e.preventDefault();
-    setSpecialSaving(true);
-
-    const payload = {
-      provider_id: provider.id,
-      title: specialForm.title,
-      description: specialForm.description || null,
-      procedure_type: specialForm.procedure_type || null,
-      discount_type: specialForm.discount_type || null,
-      original_price: specialForm.original_price
-        ? parseFloat(specialForm.original_price)
-        : null,
-      special_price: specialForm.special_price
-        ? parseFloat(specialForm.special_price)
-        : null,
-      expires_at: specialForm.expires_at || null,
-      is_active: true,
-    };
-
-    await supabase.from('specials').insert(payload);
-
-    resetSpecialForm();
-    setShowAddSpecial(false);
-    setSpecialSaving(false);
-    fetchSpecials();
-  }
-
-  async function handleToggleSpecialActive(special) {
-    await supabase
-      .from('specials')
-      .update({ is_active: !special.is_active })
-      .eq('id', special.id);
-    fetchSpecials();
-  }
-
-  async function handleDeleteSpecial(id) {
-    if (!window.confirm('Are you sure you want to delete this special?')) {
-      return;
-    }
-    await supabase.from('specials').delete().eq('id', id);
-    fetchSpecials();
   }
 
   // --- Settings: Refresh from Google ---
@@ -840,303 +754,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ===== SPECIALS TAB ===== */}
-      {activeTab === 'Specials' && (
-        <div>
-          {provider.tier === 'pro' || provider.tier === 'pro_trial' ? (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-text-primary">
-                  Your Specials
-                </h2>
-                {!showAddSpecial && (
-                  <button
-                    onClick={() => {
-                      resetSpecialForm();
-                      setShowAddSpecial(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
-                  >
-                    <Plus size={16} /> Create Special
-                  </button>
-                )}
-              </div>
-
-              {/* Add special form */}
-              {showAddSpecial && (
-                <div className="glow-card p-5 mb-6">
-                  <form onSubmit={handleSaveSpecial} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Title
-                        </label>
-                        <input
-                          type="text"
-                          value={specialForm.title}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              title: e.target.value,
-                            }))
-                          }
-                          required
-                          placeholder="e.g. Summer Botox Special"
-                          className={INPUT_CLASS + ' text-sm'}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Procedure Type (optional)
-                        </label>
-                        <select
-                          value={specialForm.procedure_type}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              procedure_type: e.target.value,
-                            }))
-                          }
-                          className={INPUT_CLASS + ' text-sm'}
-                        >
-                          <option value="">Select...</option>
-                          {PROCEDURE_TYPES.map((type) => (
-                            <option key={type} value={type}>
-                              {type}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-text-secondary mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        value={specialForm.description}
-                        onChange={(e) =>
-                          setSpecialForm((f) => ({
-                            ...f,
-                            description: e.target.value,
-                          }))
-                        }
-                        rows={3}
-                        placeholder="Describe your special offer..."
-                        className={INPUT_CLASS + ' text-sm'}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Discount Type
-                        </label>
-                        <select
-                          value={specialForm.discount_type}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              discount_type: e.target.value,
-                            }))
-                          }
-                          className={INPUT_CLASS + ' text-sm'}
-                        >
-                          <option value="">Select...</option>
-                          {DISCOUNT_TYPES.map((dt) => (
-                            <option key={dt.value} value={dt.value}>
-                              {dt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Original Price ($)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={specialForm.original_price}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              original_price: e.target.value,
-                            }))
-                          }
-                          placeholder="0.00"
-                          className={INPUT_CLASS + ' text-sm'}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Special Price ($)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={specialForm.special_price}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              special_price: e.target.value,
-                            }))
-                          }
-                          placeholder="0.00"
-                          className={INPUT_CLASS + ' text-sm'}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                          Expires At
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={specialForm.expires_at}
-                          onChange={(e) =>
-                            setSpecialForm((f) => ({
-                              ...f,
-                              expires_at: e.target.value,
-                            }))
-                          }
-                          className={INPUT_CLASS + ' text-sm'}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="submit"
-                        disabled={specialSaving}
-                        className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
-                      >
-                        {specialSaving ? 'Saving...' : 'Create Special'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddSpecial(false);
-                          resetSpecialForm();
-                        }}
-                        className="text-text-secondary hover:text-text-primary transition text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* Specials list */}
-              {specials.length === 0 && !showAddSpecial ? (
-                <div className="glow-card p-8 text-center">
-                  <p className="text-text-secondary mb-3">
-                    No specials created yet.
-                  </p>
-                  <button
-                    onClick={() => {
-                      resetSpecialForm();
-                      setShowAddSpecial(true);
-                    }}
-                    className="text-rose-accent font-medium hover:text-rose-dark transition"
-                  >
-                    Create your first special
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {specials.map((special) => (
-                    <div key={special.id} className="glow-card p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-text-primary">
-                              {special.title}
-                            </h3>
-                            <span
-                              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                special.is_active
-                                  ? 'bg-verified/10 text-verified'
-                                  : 'bg-gray-100 text-text-secondary'
-                              }`}
-                            >
-                              {special.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          {special.description && (
-                            <p className="text-sm text-text-secondary mb-2">
-                              {special.description}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap items-center gap-3 text-sm">
-                            {special.procedure_type && (
-                              <span className="bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full text-xs">
-                                {special.procedure_type}
-                              </span>
-                            )}
-                            {special.original_price != null && (
-                              <span className="text-text-secondary line-through">
-                                ${special.original_price}
-                              </span>
-                            )}
-                            {special.special_price != null && (
-                              <span className="font-bold text-rose-accent">
-                                ${special.special_price}
-                              </span>
-                            )}
-                            {special.expires_at && (
-                              <span className="text-text-secondary text-xs">
-                                Expires:{' '}
-                                {new Date(special.expires_at).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleToggleSpecialActive(special)}
-                            className={`text-xs font-medium px-3 py-1.5 rounded-full transition ${
-                              special.is_active
-                                ? 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                                : 'bg-verified/10 text-verified hover:bg-verified/20'
-                            }`}
-                          >
-                            {special.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSpecial(special.id)}
-                            className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="glow-card p-10 text-center">
-              <Lock size={40} className="text-text-secondary/30 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-text-primary mb-2">
-                Posting specials is a Pro feature
-              </h3>
-              <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
-                Reach patients searching near your zip code with time-limited deals.
-              </p>
-              <button
-                onClick={() => alert('Stripe integration coming soon')}
-                className="inline-block bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
-              >
-                Upgrade to Pro — $149/mo
-              </button>
-            </div>
-          )}
-        </div>
+      {/* ===== PROMOTED SPECIALS TAB ===== */}
+      {activeTab === 'Promoted Specials' && (
+        <SpecialsManager provider={provider} />
       )}
 
       {/* ===== INJECTORS TAB ===== */}

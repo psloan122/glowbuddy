@@ -15,11 +15,17 @@ ALTER TABLE giveaway_entries
 --   Max file size: 10MB
 --   Allowed MIME types: image/jpeg, image/png, image/webp, application/pdf
 
--- Storage RLS policies
-CREATE POLICY "users can upload receipts"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'receipts');
+-- Storage RLS policies (idempotent)
+DO $$ BEGIN
+  CREATE POLICY "users can upload receipts"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'receipts');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "service role can read receipts"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'receipts');
+DO $$ BEGIN
+  CREATE POLICY "service role can read receipts"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'receipts');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

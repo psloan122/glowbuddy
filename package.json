@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify-seed": "node --env-file=.env scripts/verify-seed-data.js"
+    "verify-seed": "node --env-file=.env scripts/verify-seed-data.js",
+    "import-quotes": "node --env-file=.env scripts/import-quotes.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
@@ -31,6 +32,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "csv-parse": "^6.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

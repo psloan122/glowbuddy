@@ -7,10 +7,14 @@ import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
 import FairPriceBadge from './FairPriceBadge';
 import { providerProfileUrl } from '../lib/slugify';
+import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
 
 export default function ProcedureCard({ procedure }) {
-  const isVerified = procedure.source === 'verified';
   const [responseExpanded, setResponseExpanded] = useState(false);
+  const sourceBadge = getSourceBadge(procedure.data_source);
+  const freshness = procedure.data_source === 'provider_quote'
+    ? getQuoteFreshness(procedure.quote_date)
+    : null;
 
   const profileUrl = providerProfileUrl(
     procedure.provider_slug,
@@ -26,19 +30,26 @@ export default function ProcedureCard({ procedure }) {
       {...wrapperProps}
       className="block glow-card p-5 hover:no-underline"
     >
-      {/* Top row: badge */}
+      {/* Top row: source badge */}
       <div className="flex items-center justify-between mb-3">
-        {isVerified ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
-            <ShieldCheck size={14} />
-            Provider-listed price
+        <div>
+          <span
+            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ color: sourceBadge.color, backgroundColor: sourceBadge.background }}
+            title={sourceBadge.tooltip}
+          >
+            <span className="text-[11px]">{sourceBadge.icon}</span>
+            {sourceBadge.label}
           </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-community bg-community/10 px-2 py-0.5 rounded-full">
-            <Users size={14} />
-            Patient reported
-          </span>
-        )}
+          {freshness && (
+            <span
+              className="block text-[11px] mt-1 ml-0.5"
+              style={{ color: freshness.color }}
+            >
+              {freshness.icon} {freshness.text}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {procedure.has_receipt && procedure.receipt_verified && (
             <span

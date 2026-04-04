@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowRight, Trophy } from 'lucide-react';
+import { Check, ArrowRight, Trophy, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { getEntryBreakdown } from '../lib/points';
 import EmailConfirmation from './EmailConfirmation';
+
+const VERIFY_EMAIL = 'verify@glowbuddy.com';
 
 export default function ThankYou({
   procedure,
@@ -23,6 +25,7 @@ export default function ThankYou({
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [skipToast, setSkipToast] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { lines: entryLines, total: totalEntries } = getEntryBreakdown(
     activeCount,
@@ -140,8 +143,40 @@ export default function ThankYou({
         )}
       </div>
 
+      {/* Email forward verification prompt */}
+      <div
+        className="rounded-xl p-4 text-left mt-4"
+        style={{ background: '#FBE8EF', border: '0.5px solid #F4C0D1' }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Mail size={16} className="text-rose-accent shrink-0" />
+          <p className="text-sm font-medium text-text-primary">
+            Get a Verified badge
+          </p>
+        </div>
+        <p className="text-[13px] text-text-secondary mb-3">
+          Forward your appointment confirmation email to verify your visit and
+          earn +1 giveaway entry.
+        </p>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(VERIFY_EMAIL);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="text-[13px] font-medium text-white rounded-full px-4 py-2 hover:opacity-90 transition"
+          style={{ backgroundColor: '#C94F78' }}
+        >
+          {copied ? 'Copied!' : `Copy ${VERIFY_EMAIL}`}
+        </button>
+        <p className="text-[11px] text-text-secondary mt-2">
+          Forward from the same email you used to sign up. We auto-verify
+          within minutes.
+        </p>
+      </div>
+
       {/* Divider */}
-      <div className="border-t border-gray-100 mb-8" />
+      <div className="border-t border-gray-100 mb-8 mt-8" />
 
       {/* Email capture — only shown when not authenticated */}
       {!user ? (

@@ -1,0 +1,3 @@
+provider_name,city,state,procedure_type,price,price_per,provider_type,address,zip,phone,website,quote_date,notes
+"Louisiana Glow","Mandeville","LA","Botox / Dysport / Xeomin",13,"per unit","Med Spa (Physician-Owned)","123 Main St","70448","985-445-8821","louisianaglowmedspa.com","2026-03-15","Quoted by phone"
+"The Modern Plastic Surgery & Medspa","Metairie","LA","Lip Filler",700,"per syringe","Plastic Surgeon","3100 Galleria Dr","70001","504-517-6200","themodernplasticsurgery.com","2026-03-15","Quoted by phone"

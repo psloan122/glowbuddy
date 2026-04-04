@@ -23,6 +23,13 @@ export const TRUST_TIERS = {
     badge: 'checkmark_camera',
     color: 'green',
   },
+  provider_quote: {
+    weight: 0.7,
+    label: 'Provider quote',
+    badge: '💬',
+    color: '#6366F1',
+    background: '#EEF2FF',
+  },
 };
 
 export function assignTrustTier(review) {

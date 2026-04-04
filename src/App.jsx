@@ -7,6 +7,7 @@ import { checkAndAwardBadges } from './lib/badgeLogic';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import Onboarding from './components/Onboarding';
+import Toast from './components/Toast';
 import Home from './pages/Home';
 import Log from './pages/Log';
 import ProcedureDetail from './pages/ProcedureDetail';
@@ -23,6 +24,8 @@ import Admin from './pages/Admin';
 import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import Verified from './pages/Verified';
+import AuthCallback from './pages/AuthCallback';
+import ResetPassword from './pages/ResetPassword';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 
 export const AuthContext = createContext(null);
@@ -39,9 +42,16 @@ function App() {
   // Post-signup onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Welcome toast
-  const [welcomeToast, setWelcomeToast] = useState(false);
-  const [welcomeToastMessage, setWelcomeToastMessage] = useState('');
+  // Toast system
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+  }, []);
+
+  const clearToast = useCallback(() => {
+    setToast(null);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -73,14 +83,29 @@ function App() {
               if (claimedId) {
                 // Award badges for the new submission
                 await checkAndAwardBadges(userId);
-                // Navigate to my-treatments and show welcome toast
+                // Navigate to my-treatments and show toast
                 navigate('/my-treatments');
-                setWelcomeToast(true);
-                setWelcomeToastMessage('Your submission is now live! Welcome to GlowBuddy.');
-                setTimeout(() => setWelcomeToast(false), 5000);
+                showToast('Your submission is now live! Welcome to GlowBuddy.');
                 return;
               }
-              // No pending submission — normal post-auth flow
+
+              // Check for pending action in sessionStorage
+              const pendingAction = sessionStorage.getItem('gb_pending_action');
+              if (pendingAction) {
+                sessionStorage.removeItem('gb_pending_action');
+                try {
+                  const action = JSON.parse(pendingAction);
+                  if (action.path) {
+                    navigate(action.path);
+                    showToast('Welcome back!');
+                    return;
+                  }
+                } catch {
+                  // Invalid JSON — ignore
+                }
+              }
+
+              // No pending submission or action — normal post-auth flow
               if (!isOnboarded()) {
                 setShowOnboarding(true);
               } else {
@@ -107,11 +132,9 @@ function App() {
       const redirect = pendingRedirectRef.current;
       pendingRedirectRef.current = null;
       navigate(redirect);
+      showToast('Welcome back!');
     } else {
-      // Show welcome toast on browse
-      setWelcomeToastMessage('');
-      setWelcomeToast(true);
-      setTimeout(() => setWelcomeToast(false), 5000);
+      showToast('Welcome to GlowBuddy!');
     }
   }
 
@@ -144,6 +167,7 @@ function App() {
       user: session?.user || null,
       openAuthModal,
       closeAuthModal,
+      showToast,
     }}>
       <div className="min-h-screen bg-warm-white">
         <Navbar />
@@ -165,6 +189,8 @@ function App() {
             <Route path="/business/dashboard" element={<BusinessDashboard />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/verified" element={<Verified />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
@@ -182,25 +208,13 @@ function App() {
           <Onboarding onComplete={handleOnboardingComplete} />
         )}
 
-        {/* Welcome toast */}
-        {welcomeToast && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3 animate-fade-in">
-            <span className="text-lg">✨</span>
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                {welcomeToastMessage || 'Welcome to GlowBuddy!'}
-              </p>
-              {!welcomeToastMessage && (
-                <p className="text-xs text-text-secondary">You're all set to log your first treatment.</p>
-              )}
-            </div>
-            <button
-              onClick={() => setWelcomeToast(false)}
-              className="text-text-secondary hover:text-text-primary ml-2"
-            >
-              ✕
-            </button>
-          </div>
+        {/* Toast notifications */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={clearToast}
+          />
         )}
       </div>
     </AuthContext.Provider>

@@ -2,6 +2,69 @@ import { supabase } from './supabase';
 import { getZip, getCity, getState, getInterests } from './gating';
 
 /**
+ * Map Supabase auth error messages to user-friendly text.
+ * Handles all known error codes and messages without leaking raw errors.
+ */
+export function getAuthErrorMessage(error) {
+  if (!error) return '';
+  const msg = (error.message || '').toLowerCase();
+  const status = error.status;
+
+  // Rate limiting
+  if (msg.includes('rate_limit') || msg.includes('rate limit') || msg.includes('too many requests') || status === 429) {
+    return 'We just sent you an email. Please check your inbox (and spam folder).';
+  }
+
+  // User already exists
+  if (msg.includes('already registered') || msg.includes('user_already_exists') || msg.includes('already been registered')) {
+    return 'An account with this email already exists. Try signing in instead.';
+  }
+
+  // Invalid login credentials
+  if (msg.includes('invalid login') || msg.includes('invalid_credentials') || msg.includes('invalid email or password')) {
+    return 'Invalid email or password. Please try again.';
+  }
+
+  // Email not confirmed
+  if (msg.includes('email_not_confirmed') || msg.includes('email not confirmed')) {
+    return 'Please verify your email before signing in.';
+  }
+
+  // User not found
+  if (msg.includes('user_not_found') || msg.includes('user not found') || msg.includes('no user found')) {
+    return 'No account found with this email. Try signing up instead.';
+  }
+
+  // Weak password
+  if (msg.includes('weak_password') || msg.includes('weak password') || msg.includes('should be at least')) {
+    return 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.';
+  }
+
+  // Signups disabled
+  if (msg.includes('signups not allowed') || msg.includes('signup_disabled')) {
+    return 'Sign ups are temporarily disabled. Please try again later.';
+  }
+
+  // Email link expired / invalid
+  if (msg.includes('otp_expired') || msg.includes('token') || msg.includes('expired')) {
+    return 'This link has expired. Please request a new one.';
+  }
+
+  // Network errors
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch')) {
+    return 'Connection error. Please check your internet and try again.';
+  }
+
+  // OAuth errors
+  if (msg.includes('oauth') || msg.includes('provider')) {
+    return 'Something went wrong with sign in. Please try again.';
+  }
+
+  // Fallback — never show raw Supabase errors
+  return 'Something went wrong. Please try again.';
+}
+
+/**
  * Sign up with email + password. Creates the account and logs in immediately.
  * Supabase sends a verification email in the background (non-blocking).
  */
@@ -37,12 +100,32 @@ export async function signInWithEmail(email) {
 }
 
 /**
- * Sign in with Google OAuth via popup.
+ * Sign in with Google OAuth via redirect.
  */
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin },
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  return { error };
+}
+
+/**
+ * Send a password reset email.
+ */
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  return { error };
+}
+
+/**
+ * Update the user's password (used on the reset password page).
+ */
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
   });
   return { error };
 }

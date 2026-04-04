@@ -1,35 +1,26 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { X, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 
 export default function VerifyEmailModal({ action = 'do this', onClose }) {
   const { user } = useContext(AuthContext);
-  const [cooldown, setCooldown] = useState(0);
   const [sent, setSent] = useState(false);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
+  const [sending, setSending] = useState(false);
 
   async function handleResend() {
-    if (!user?.email) return;
-    await supabase.auth.resend({
-      type: 'signup',
-      email: user.email,
-    });
+    if (!user?.email || sending) return;
+    setSending(true);
+    try {
+      await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+      });
+    } catch {
+      // Rate limit or other error — show sent state regardless
+    }
     setSent(true);
-    setCooldown(60);
+    setSending(false);
   }
 
   return (
@@ -72,19 +63,15 @@ export default function VerifyEmailModal({ action = 'do this', onClose }) {
 
         <button
           onClick={handleResend}
-          disabled={cooldown > 0}
+          disabled={sending || sent}
           className="w-full py-3 font-semibold rounded-xl transition mb-3 text-sm"
           style={{
-            backgroundColor: cooldown > 0 ? '#E5E7EB' : '#C94F78',
-            color: cooldown > 0 ? '#9CA3AF' : 'white',
-            cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+            backgroundColor: (sending || sent) ? '#E5E7EB' : '#C94F78',
+            color: (sending || sent) ? '#6B7280' : 'white',
+            cursor: (sending || sent) ? 'not-allowed' : 'pointer',
           }}
         >
-          {cooldown > 0
-            ? `Resend in ${cooldown}s`
-            : sent
-              ? 'Resend again'
-              : 'Resend verification email'}
+          {sending ? 'Sending...' : sent ? 'Email sent' : 'Resend verification email'}
         </button>
 
         <button

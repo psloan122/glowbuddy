@@ -1,0 +1,308 @@
+[
+  {
+    "provider_name": "Balanced Aesthetics + Wellness",
+    "city": "Atlanta",
+    "state": "GA",
+    "zip": "30309",
+    "google_place_id": "ChIJj5gJNO8F9YgR3o03kysplYo",
+    "address": "1350 Dresden Dr NE #1006, Atlanta, GA 30319, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Facial Aesthetics",
+    "city": "Atlanta",
+    "state": "GA",
+    "zip": "30305",
+    "google_place_id": "ChIJwfiqahAF9YgRUTEE6BRyQJg",
+    "address": "2975 N Fulton Dr NE, Atlanta, GA 30305, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Millennial Skin Studio and Spa",
+    "city": "Atlanta",
+    "state": "GA",
+    "zip": "30308",
+    "google_place_id": "ChIJpVha0D0F9YgRWmJOCr6dsIo",
+    "address": "Salon Lofts, 77 12th St NE loft 9, Atlanta, GA 30309, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Infinity MedSpa and Wellness",
+    "city": "Charlotte",
+    "state": "NC",
+    "zip": "28202",
+    "google_place_id": "ChIJHQrMMxSeVogRhW21QWOsTSo",
+    "address": "2809 Coltsgate Rd #100, Charlotte, NC 28211, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "South Park Skincare",
+    "city": "Charlotte",
+    "state": "NC",
+    "zip": "28209",
+    "google_place_id": "ChIJN3LjRhSeVogRnLhPSnzMrUw",
+    "address": "6831 Fairview Rd # B, Charlotte, NC 28210, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "GOLDCOAST medspa",
+    "city": "Chicago",
+    "state": "IL",
+    "zip": "60610",
+    "google_place_id": "ChIJx19MXa0sDogRy7I0TQY78L4",
+    "address": "233 E Erie St Suite #100, Chicago, IL 60611, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Skin Studio Chicago",
+    "city": "Chicago",
+    "state": "IL",
+    "zip": "60614",
+    "google_place_id": "ChIJJ9dOlLvSD4gRgWtWuShZJK8",
+    "address": "2245 W North Ave, Chicago, IL 60647, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "The Aesthetics MD & Wellness",
+    "city": "Coral Gables",
+    "state": "FL",
+    "zip": "33134",
+    "google_place_id": "ChIJ99Qx7oS32YgRTN4PpSiVN7s",
+    "address": "747 Ponce de Leon Blvd STE 501, Coral Gables, FL 33134, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Highland Park Aesthetics",
+    "city": "Dallas",
+    "state": "TX",
+    "zip": "75205",
+    "google_place_id": "ChIJp0L3I22fToYRl2qAm90DTUw",
+    "address": "5213 W Lovers Ln, Dallas, TX 75209, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Mara's Med Spa",
+    "city": "Dallas",
+    "state": "TX",
+    "zip": "75219",
+    "google_place_id": "ChIJVTgC-i-ZToYRnhM8bs_V0V8",
+    "address": "2222 McKinney Ave Unit 120, Dallas, TX 75201, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Cherry Creek Med Spa",
+    "city": "Denver",
+    "state": "CO",
+    "zip": "80206",
+    "google_place_id": "ChIJRTPXJQ9_bIcRG1KMpYEp0bY",
+    "address": "90 Madison St #307, Denver, CO 80206, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "VIVE Med Spa",
+    "city": "Denver",
+    "state": "CO",
+    "zip": "80202",
+    "google_place_id": "ChIJkYnubS15bIcRXX-XXMPNIHs",
+    "address": "2353 15th St, Denver, CO 80202, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Galleria Aesthetics and Wellness",
+    "city": "Houston",
+    "state": "TX",
+    "zip": "77056",
+    "google_place_id": "ChIJ8ZwATWTBQIYRDDFvSI-MUIw",
+    "address": "5373 W Alabama St #120, Houston, TX 77056, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "River Oaks MedSpa",
+    "city": "Houston",
+    "state": "TX",
+    "zip": "77019",
+    "google_place_id": "ChIJL1LGdR3BQIYR5MvMIclvRtM",
+    "address": "3100 Timmons Ln # 100, Houston, TX 77027, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Texas Skin Center",
+    "city": "Houston",
+    "state": "TX",
+    "zip": "77005",
+    "google_place_id": "ChIJB0vJ-83BQIYRc8xHwNssEUU",
+    "address": "4101 Greenbriar Dr Suite #305, Houston, TX 77098, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Beverly Hills Aesthetics",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zip": "90210",
+    "google_place_id": "ChIJdaHFtOS7woAR1FxwRyGmwPY",
+    "address": "640 S San Vicente Blvd Ste 210, Los Angeles, CA 90048, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Cienega Medical",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zip": "90046",
+    "google_place_id": "ChIJDUvh60W5woARpc9QXPcqgzQ",
+    "address": "375 N La Cienega Blvd, Los Angeles, CA 90048, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Louisiana Glow",
+    "city": "Mandeville",
+    "state": "LA",
+    "zip": "70448",
+    "google_place_id": "ChIJccUbj6JcJ4YREx0YQbGKXu8",
+    "address": "1901 US-190 Suite 20, Mandeville, LA 70448, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "The Esthetic",
+    "city": "Metairie",
+    "state": "LA",
+    "zip": "70001",
+    "google_place_id": "ChIJ5RxZSiKxIIYR2RXlh4k9Zok",
+    "address": "3301 Veterans Memorial Blvd # 137, Metairie, LA 70002, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "The Miami Beauty Bar",
+    "city": "Miami",
+    "state": "FL",
+    "zip": "33131",
+    "google_place_id": "ChIJb_zsvLq32YgRxyPRWX_6gok",
+    "address": "1800 SW 1st Ave Suite 303, Miami, FL 33129, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Miami Beach Laser & Aesthetics",
+    "city": "Miami Beach",
+    "state": "FL",
+    "zip": "33139",
+    "google_place_id": "ChIJS4dcz66z2YgRhj8_hQOVv5E",
+    "address": "4302 Alton Rd Suite 740, Miami Beach, FL 33140, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Belle Meade Aesthetics",
+    "city": "Nashville",
+    "state": "TN",
+    "zip": "37205",
+    "google_place_id": "ChIJr-ua5PRiZIgRtf7m87pAVv4",
+    "address": "6598-A TN-100, Nashville, TN 37205, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "ElaMar Nashville",
+    "city": "Nashville",
+    "state": "TN",
+    "zip": "37212",
+    "google_place_id": "ChIJzWRlxBZhZIgRF5Byvi9iFng",
+    "address": "4101 Charlotte Ave Suite G100, Nashville, TN 37209, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Belle Aesthetics",
+    "city": "New Orleans",
+    "state": "LA",
+    "zip": "70130",
+    "google_place_id": "ChIJ44JWzSCvIIYReV3dHWv1iYo",
+    "address": "225 W Harrison Ave Unit C, New Orleans, LA 70124, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Fleur-De-Lis Aesthetics & Apothecary",
+    "city": "New Orleans",
+    "state": "LA",
+    "zip": "70116",
+    "google_place_id": "ChIJY9rwWn2lIIYRHDz8tUFQjmw",
+    "address": "3001 Napoleon Ave Ste B, New Orleans, LA 70125, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Rejuvené Med Spa & Wellness Center",
+    "city": "New Orleans",
+    "state": "LA",
+    "zip": "70118",
+    "google_place_id": "ChIJXfWsW7WnIIYRq9hpaHXaplo",
+    "address": "701 Poydras St Suite 106, New Orleans, LA 70139, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Southern Skin and Wellness",
+    "city": "New Orleans",
+    "state": "LA",
+    "zip": "70115",
+    "google_place_id": "ChIJtSOh3wCnIIYRNgU3eEaEu4Y",
+    "address": "644 Camp St, New Orleans, LA 70130, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Uptown Wellness + Aesthetics",
+    "city": "New Orleans",
+    "state": "LA",
+    "zip": "70115",
+    "google_place_id": "ChIJEyfvLHalIIYRtCJPdx8CW90",
+    "address": "4712 Magazine St, New Orleans, LA 70115, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Manhattan Aesthetics",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10001",
+    "google_place_id": "ChIJ7ShvlQBZwokRoDcuq64fg6Q",
+    "address": "36 E 36th St 2nd Floor, New York, NY 10016, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "The Dermatology Specialists - Upper East Side",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10021",
+    "google_place_id": "ChIJJ_NRA6RZwokRptypTme-T2Q",
+    "address": "1425 2nd Ave, New York, NY 10021, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Tribeca Skin Center",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10013",
+    "google_place_id": "ChIJ5cuj9IpZwokRBQ6v4sS0HLw",
+    "address": "315 Church St 2nd floor, New York, NY 10013, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Desert Bloom Skin Care",
+    "city": "Scottsdale",
+    "state": "AZ",
+    "zip": "85260",
+    "google_place_id": "ChIJt4Hnjj11K4cRP_lrpKgB78M",
+    "address": "10752 N 89th Pl #122b, Scottsdale, AZ 85260, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "The Old Town Esthetician",
+    "city": "Scottsdale",
+    "state": "AZ",
+    "zip": "85251",
+    "google_place_id": "ChIJJ-DeRLJ1K4cRwmWZZqvOM8o",
+    "address": "7373 E Scottsdale Mall Suite 9, Scottsdale, AZ 85251, USA",
+    "verified": true
+  },
+  {
+    "provider_name": "Woodhouse Spa - The Woodlands",
+    "city": "The Woodlands",
+    "state": "TX",
+    "zip": "77380",
+    "google_place_id": "ChIJ3w6wRC43R4YR-JlO6y3vJPA",
+    "address": "9595 Six Pines Dr #1270, The Woodlands, TX 77380, USA",
+    "verified": true
+  }
+]

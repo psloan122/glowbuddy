@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
@@ -11,33 +11,24 @@ export default function SoftVerifyBanner() {
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem(DISMISS_KEY) === 'true'
   );
-  const [cooldown, setCooldown] = useState(0);
   const [sent, setSent] = useState(false);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
+  const [sending, setSending] = useState(false);
 
   if (!user || isEmailVerified(user) || dismissed) return null;
 
   async function handleResend() {
-    if (!user?.email || cooldown > 0) return;
-    await supabase.auth.resend({
-      type: 'signup',
-      email: user.email,
-    });
+    if (!user?.email || sending) return;
+    setSending(true);
+    try {
+      await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+      });
+    } catch {
+      // Rate limit or other error — show sent state regardless
+    }
     setSent(true);
-    setCooldown(60);
+    setSending(false);
   }
 
   function handleDismiss() {
@@ -58,23 +49,25 @@ export default function SoftVerifyBanner() {
         Please verify your email to unlock all features.
       </span>
       <div className="flex items-center gap-4 shrink-0">
-        <button
-          onClick={handleResend}
-          disabled={cooldown > 0}
-          className="text-[13px] font-medium transition"
-          style={{
-            background: 'none',
-            border: 'none',
-            color: cooldown > 0 ? '#9CA3AF' : '#C94F78',
-            cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {cooldown > 0
-            ? `Resend in ${cooldown}s`
-            : sent
-              ? 'Sent! Resend'
-              : 'Resend email'}
-        </button>
+        {sent ? (
+          <span className="text-[13px] font-medium" style={{ color: '#0F6E56' }}>
+            Sent! Check your inbox.
+          </span>
+        ) : (
+          <button
+            onClick={handleResend}
+            disabled={sending}
+            className="text-[13px] font-medium transition"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: sending ? '#9CA3AF' : '#C94F78',
+              cursor: sending ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {sending ? 'Sending...' : 'Resend email'}
+          </button>
+        )}
         <button
           onClick={handleDismiss}
           className="text-text-secondary hover:text-text-primary transition"

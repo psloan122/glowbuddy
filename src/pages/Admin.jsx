@@ -14,6 +14,8 @@ import {
   FileText,
   Image,
   ShieldCheck,
+  Sparkles,
+  MessageSquareWarning,
 } from 'lucide-react';
 
 const TABS = [
@@ -24,7 +26,9 @@ const TABS = [
   { key: 'velocity', label: 'Velocity Flagged', icon: Zap },
   { key: 'lowTrust', label: 'Low Trust', icon: ShieldAlert },
   { key: 'duplicates', label: 'Duplicate Clusters', icon: Copy },
+  { key: 'flaggedReviews', label: 'Flagged Reviews', icon: MessageSquareWarning },
   { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
+  { key: 'specials', label: 'Specials', icon: Sparkles },
 ];
 
 export default function Admin() {
@@ -103,12 +107,27 @@ export default function Admin() {
         .eq('status', 'pending_review')
         .order('created_at', { ascending: true });
       setData(rows || []);
+    } else if (activeTab === 'flaggedReviews') {
+      const { data: rows } = await supabase
+        .from('reviews')
+        .select('id, rating, title, body, status, flagged_reason, ai_risk_score, ai_flags, user_id, provider_id, created_at')
+        .eq('status', 'flagged')
+        .order('created_at', { ascending: false });
+      setData(rows || []);
     } else if (activeTab === 'verifications') {
       const { data: rows } = await supabase
         .from('verification_submissions')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
+      setData(rows || []);
+    } else if (activeTab === 'specials') {
+      const { data: rows } = await supabase
+        .from('provider_specials')
+        .select('*, providers(name, slug), special_placements(*)')
+        .eq('is_active', true)
+        .gt('ends_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
       setData(rows || []);
     } else if (activeTab === 'duplicates') {
       // Fetch recent submissions from new accounts (< 7 days old)
@@ -140,7 +159,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, receipts, photos, velocity, lowTrust, verifications] =
+    const [pending, disputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -171,9 +190,18 @@ export default function Admin() {
           .lt('trust_score', 30)
           .neq('status', 'removed'),
         supabase
+          .from('reviews')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'flagged'),
+        supabase
           .from('verification_submissions')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending'),
+        supabase
+          .from('provider_specials')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', true)
+          .gt('ends_at', new Date().toISOString()),
       ]);
     setCounts({
       pending: pending.count || 0,
@@ -182,7 +210,9 @@ export default function Admin() {
       photos: photos.count || 0,
       velocity: velocity.count || 0,
       lowTrust: lowTrust.count || 0,
+      flaggedReviews: flaggedReviews.count || 0,
       verifications: verifications.count || 0,
+      specials: specials.count || 0,
     });
   }
 
@@ -320,6 +350,22 @@ export default function Admin() {
   async function removePhoto(id) {
     await supabase
       .from('before_after_photos')
+      .update({ status: 'removed' })
+      .eq('id', id);
+    fetchData();
+  }
+
+  async function approveReview(id) {
+    await supabase
+      .from('reviews')
+      .update({ status: 'active', flagged_reason: null })
+      .eq('id', id);
+    fetchData();
+  }
+
+  async function removeReview(id) {
+    await supabase
+      .from('reviews')
       .update({ status: 'removed' })
       .eq('id', id);
     fetchData();
@@ -856,6 +902,188 @@ export default function Admin() {
 
     if (activeTab === 'duplicates') {
       return <div className="space-y-6">{renderGrouped(data, true)}</div>;
+    }
+
+    if (activeTab === 'flaggedReviews') {
+      if (data.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No flagged reviews.
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4">
+          {data.map((review) => {
+            const isDuplicate = review.flagged_reason?.startsWith('duplicate_text:');
+            const isAiFlagged = review.flagged_reason?.startsWith('ai_flagged:');
+            const riskColor =
+              review.ai_risk_score >= 70
+                ? 'bg-red-100 text-red-700'
+                : review.ai_risk_score >= 40
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-600';
+
+            return (
+              <div key={review.id} className="glow-card p-5">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="font-bold text-lg">
+                        {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                      </span>
+                      {review.title && (
+                        <span className="font-medium text-text-primary">{review.title}</span>
+                      )}
+                      {isDuplicate && (
+                        <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full">
+                          Duplicate Text
+                        </span>
+                      )}
+                      {isAiFlagged && (
+                        <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">
+                          AI Flagged
+                        </span>
+                      )}
+                      {review.ai_risk_score != null && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${riskColor}`}>
+                          Risk: {review.ai_risk_score}
+                        </span>
+                      )}
+                    </div>
+
+                    {review.body && (
+                      <p className="text-sm text-text-secondary mb-2">
+                        &ldquo;{review.body}&rdquo;
+                      </p>
+                    )}
+
+                    {/* AI flags as pills */}
+                    {review.ai_flags && review.ai_flags.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-2">
+                        {review.ai_flags.map((flag) => (
+                          <span
+                            key={flag}
+                            className="text-[10px] font-medium uppercase tracking-wide bg-red-50 text-red-600 px-2 py-0.5 rounded-full"
+                          >
+                            {flag.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {review.flagged_reason && (
+                      <p className="text-sm text-red-600 mb-1">
+                        {review.flagged_reason}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-3 text-xs text-text-secondary mt-2">
+                      <span>{new Date(review.created_at).toLocaleDateString()}</span>
+                      <span className="font-mono">User: {review.user_id?.slice(0, 8)}...</span>
+                      <span className="font-mono">Provider: {review.provider_id?.slice(0, 8)}...</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => approveReview(review.id)}
+                      className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                    >
+                      <Check className="w-4 h-4" /> Approve
+                    </button>
+                    <button
+                      onClick={() => removeReview(review.id)}
+                      className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
+                    >
+                      <X className="w-4 h-4" /> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (activeTab === 'specials') {
+      if (data.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No active promoted specials.
+          </div>
+        );
+      }
+
+      const totalRevenue = data.reduce((sum, s) => {
+        const placement = s.special_placements?.[0];
+        return sum + (placement ? Number(placement.price_paid) : 0);
+      }, 0);
+
+      return (
+        <div>
+          <div className="glow-card p-5 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-text-secondary">Active Promoted Specials</p>
+                <p className="text-2xl font-bold text-text-primary">{data.length}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-text-secondary">Total Revenue</p>
+                <p className="text-2xl font-bold text-text-primary">${totalRevenue.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {data.map((special) => {
+              const placement = special.special_placements?.[0];
+              return (
+                <div key={special.id} className="glow-card p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold text-lg">{special.headline}</span>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                            special.placement_tier === 'featured'
+                              ? 'text-white'
+                              : 'bg-gray-100 text-text-secondary'
+                          }`}
+                          style={
+                            special.placement_tier === 'featured'
+                              ? { backgroundColor: '#D4A017' }
+                              : undefined
+                          }
+                        >
+                          {special.placement_tier}
+                        </span>
+                      </div>
+                      <p className="text-sm text-text-secondary">
+                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)}/{special.price_unit}
+                      </p>
+                      <p className="text-sm text-text-secondary mt-1">
+                        Provider: {special.providers?.name || 'Unknown'}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-text-secondary mt-2">
+                        <span>{special.impressions?.toLocaleString() || 0} impressions</span>
+                        <span>{special.clicks?.toLocaleString() || 0} clicks</span>
+                        {placement && (
+                          <span className="font-medium text-text-primary">
+                            Paid ${Number(placement.price_paid).toFixed(2)}
+                          </span>
+                        )}
+                        <span>
+                          Expires {new Date(special.ends_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     }
 
     if (activeTab === 'verifications') {
