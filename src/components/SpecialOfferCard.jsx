@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import SpecialCountdownBadge from './SpecialCountdownBadge';
 import ProviderAvatar from './ProviderAvatar';
+import FinancingWidget from './FinancingWidget';
 
 /**
  * Consumer-facing special offer card for the market feed.
@@ -104,8 +105,16 @@ export default function SpecialOfferCard({ special, provider, onBook }) {
         <span className="text-sm text-text-secondary">{unitLabel}</span>
       </div>
 
+      {/* Financing (show if estimated total >= $150, e.g. Botox $10 x 40 units) */}
+      <FinancingWidget
+        procedureName={special.treatment_name}
+        estimatedCost={Number(special.promo_price) * 40}
+        providerId={provider?.id}
+        variant="compact"
+      />
+
       {/* Provider info */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 mt-3">
         <ProviderAvatar name={provider?.name || 'Provider'} size={24} />
         <div>
           <p className="text-sm font-medium text-text-primary">

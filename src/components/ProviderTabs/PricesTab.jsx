@@ -1,5 +1,6 @@
 import { Flag, ShieldCheck, Users } from 'lucide-react';
 import ProcedureCard from '../ProcedureCard';
+import FinancingWidget from '../FinancingWidget';
 
 export default function PricesTab({
   verifiedPricing,
@@ -57,6 +58,21 @@ export default function PricesTab({
             </p>
           </div>
         )}
+
+        {/* Financing widget */}
+        {(() => {
+          const avgPrice = verifiedPricing.length > 0
+            ? verifiedPricing.reduce((sum, item) => sum + Number(item.price), 0) / verifiedPricing.length
+            : null;
+          return (
+            <FinancingWidget
+              procedureName={verifiedPricing[0]?.procedure_type}
+              estimatedCost={avgPrice}
+              providerId={provider?.id}
+              variant="full"
+            />
+          );
+        })()}
       </div>
 
       {/* Right column: Community Prices */}

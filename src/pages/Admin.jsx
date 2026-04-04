@@ -17,8 +17,10 @@ import {
   Sparkles,
   MessageSquareWarning,
   Phone,
+  DollarSign,
 } from 'lucide-react';
 import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
+import AdminFinancingReport from '../components/AdminFinancingReport';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -32,6 +34,7 @@ const TABS = [
   { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
   { key: 'specials', label: 'Specials', icon: Sparkles },
   { key: 'phoneNumbers', label: 'Phone Numbers', icon: Phone },
+  { key: 'financing', label: 'Financing', icon: DollarSign },
 ];
 
 export default function Admin() {
@@ -592,6 +595,9 @@ export default function Admin() {
     // Self-contained tabs that manage their own data
     if (activeTab === 'phoneNumbers') {
       return <AdminPhoneNumbers />;
+    }
+    if (activeTab === 'financing') {
+      return <AdminFinancingReport />;
     }
 
     if (loading) {

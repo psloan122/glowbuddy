@@ -8,6 +8,7 @@ import StarRating from './StarRating';
 import FairPriceBadge from './FairPriceBadge';
 import { providerProfileUrl } from '../lib/slugify';
 import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
+import FinancingWidget from './FinancingWidget';
 
 export default function ProcedureCard({ procedure }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
@@ -118,10 +119,17 @@ export default function ProcedureCard({ procedure }) {
 
       {/* Units / volume */}
       {procedure.units_or_volume && (
-        <p className="text-sm text-text-secondary mb-3">
+        <p className="text-sm text-text-secondary mb-1">
           {procedure.units_or_volume}
         </p>
       )}
+
+      {/* Financing */}
+      <FinancingWidget
+        procedureName={procedure.procedure_type}
+        estimatedCost={Number(procedure.price_paid)}
+        variant="compact"
+      />
 
       {/* Provider name + location */}
       <div className="flex items-center gap-2 mb-2">
