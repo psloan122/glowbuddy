@@ -28,11 +28,13 @@ import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterT
 import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
 import SpecialsManager from '../../components/SpecialsManager';
 import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
+import VagaroConnectFlow from '../../components/VagaroConnectFlow';
+import IntegrationStats from '../../components/IntegrationStats';
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -763,6 +765,14 @@ export default function Dashboard() {
       {/* ===== CALL ANALYTICS TAB ===== */}
       {activeTab === 'Call Analytics' && (
         <CallAnalyticsTab providerId={provider?.id} />
+      )}
+
+      {/* ===== INTEGRATIONS TAB ===== */}
+      {activeTab === 'Integrations' && (
+        <div>
+          <VagaroConnectFlow providerId={provider?.id} />
+          <IntegrationStats providerId={provider?.id} />
+        </div>
       )}
 
       {/* ===== INJECTORS TAB ===== */}

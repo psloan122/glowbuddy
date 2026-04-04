@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
 import AdminFinancingReport from '../components/AdminFinancingReport';
+import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -35,6 +36,7 @@ const TABS = [
   { key: 'specials', label: 'Specials', icon: Sparkles },
   { key: 'phoneNumbers', label: 'Phone Numbers', icon: Phone },
   { key: 'financing', label: 'Financing', icon: DollarSign },
+  { key: 'integrations', label: 'Integrations', icon: ExternalLink },
 ];
 
 export default function Admin() {
@@ -598,6 +600,9 @@ export default function Admin() {
     }
     if (activeTab === 'financing') {
       return <AdminFinancingReport />;
+    }
+    if (activeTab === 'integrations') {
+      return <AdminIntegrationsTab />;
     }
 
     if (loading) {

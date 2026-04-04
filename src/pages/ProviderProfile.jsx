@@ -32,6 +32,8 @@ import CompetitorAds from '../components/CompetitorAds';
 import PriceAlertButton from '../components/PriceAlertButton';
 import FairPriceBadge from '../components/FairPriceBadge';
 import CallNowButton from '../components/CallNowButton';
+import VagaroBookButton from '../components/VagaroBookButton';
+import VagaroWidget from '../components/VagaroWidget';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,6 +46,7 @@ export default function ProviderProfile() {
   const [communityData, setCommunityData] = useState([]);
   const [verifiedPricing, setVerifiedPricing] = useState([]);
   const [specials, setSpecials] = useState([]);
+  const [vagaroIntegration, setVagaroIntegration] = useState(null);
   const [providerPhotos, setProviderPhotos] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [baPhotos, setBaPhotos] = useState([]);
@@ -169,6 +172,17 @@ export default function ProviderProfile() {
         setReviews(reviewsRes.data || []);
         setBaPhotos(baRes.data || []);
         setInjectors(injectorsRes.data || []);
+
+        // Fetch Vagaro integration (non-blocking)
+        supabase
+          .from('provider_integrations')
+          .select('vagaro_widget_url, widget_embed_enabled, connection_status')
+          .eq('provider_id', finalProvider.id)
+          .eq('connection_status', 'active')
+          .maybeSingle()
+          .then(({ data: intData }) => {
+            if (intData) setVagaroIntegration(intData);
+          });
       }
 
       setLoading(false);
@@ -804,6 +818,10 @@ export default function ProviderProfile() {
                 variant="compact"
               />
             )}
+            <VagaroBookButton
+              providerId={provider?.id}
+              variant="detail-page"
+            />
           </div>
         </div>
       </div>
@@ -977,14 +995,22 @@ export default function ProviderProfile() {
           )}
 
           {activeTab === 'Prices' && (
-            <PricesTab
-              verifiedPricing={verifiedPricing}
-              communityData={communityData}
-              provider={provider}
-              user={user}
-              isProviderOwner={isProviderOwner}
-              onDisputeTarget={setDisputeTarget}
-            />
+            <>
+              <PricesTab
+                verifiedPricing={verifiedPricing}
+                communityData={communityData}
+                provider={provider}
+                user={user}
+                isProviderOwner={isProviderOwner}
+                onDisputeTarget={setDisputeTarget}
+              />
+              {vagaroIntegration?.widget_embed_enabled && vagaroIntegration?.vagaro_widget_url && (
+                <VagaroWidget
+                  widgetUrl={vagaroIntegration.vagaro_widget_url}
+                  providerName={provider?.name}
+                />
+              )}
+            </>
           )}
         </>
       )}
