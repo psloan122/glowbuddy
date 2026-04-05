@@ -31,6 +31,7 @@ import GoalDetail from './pages/GoalDetail';
 import InjectorProfile from './pages/InjectorProfile';
 import InjectorFeed from './pages/InjectorFeed';
 import InjectorClaim from './pages/InjectorClaim';
+import DealShare from './pages/DealShare';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
@@ -204,6 +205,7 @@ function App() {
             <Route path="/injectors/:slugOrId" element={<InjectorProfile />} />
             <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />
             <Route path="/following" element={<InjectorFeed />} />
+            <Route path="/deal" element={<DealShare />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

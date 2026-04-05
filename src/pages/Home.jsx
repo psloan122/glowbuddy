@@ -24,6 +24,7 @@ import {
 } from '../lib/firstTimerMode';
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 import OutcomeSelector from '../components/OutcomeSelector';
+import { getUserActiveAlerts } from '../lib/priceAlerts';
 
 export default function Home() {
   // Stats
@@ -73,6 +74,9 @@ export default function Home() {
   // Browse mode: 'treatment' or 'goal'
   const [browseMode, setBrowseMode] = useState('treatment');
 
+  // User's active price alerts (for AlertMatchBadge)
+  const [userAlerts, setUserAlerts] = useState([]);
+
   // Recent reviews
   const [recentReviews, setRecentReviews] = useState([]);
 
@@ -84,6 +88,11 @@ export default function Home() {
   // SEO
   useEffect(() => {
     document.title = 'GlowBuddy \u2014 Know Before You Glow';
+  }, []);
+
+  // Fetch user's active price alerts for match badges
+  useEffect(() => {
+    getUserActiveAlerts().then(setUserAlerts);
   }, []);
 
   // Switch to lowest_price sort when first-timer mode activates
@@ -816,7 +825,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {procedures.map((proc) => (
-              <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} />
+              <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} />
             ))}
           </div>
         )}

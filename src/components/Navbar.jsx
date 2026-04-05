@@ -1,6 +1,6 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronDown, Bell } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
 import { getUnreadCount } from '../lib/priceAlerts';
@@ -86,14 +86,6 @@ export default function Navbar() {
           {/* Desktop auth */}
           <div className="hidden md:flex items-center gap-3">
             {user && <NotificationBell />}
-            {user && (
-              <Link to="/alerts" className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
-                <Bell size={18} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-accent rounded-full" />
-                )}
-              </Link>
-            )}
             {user ? (
               /* Avatar dropdown */
               <div ref={avatarRef} className="relative">

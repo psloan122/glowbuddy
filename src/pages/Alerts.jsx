@@ -1,15 +1,16 @@
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
-import { Bell, BellOff, Trash2, Plus } from 'lucide-react';
+import { Bell, BellOff, Plus } from 'lucide-react';
 import { AuthContext } from '../App';
-import { getUserAlerts, deleteAlert, toggleAlert, markTriggersRead } from '../lib/priceAlerts';
+import { getUserAlerts, deleteAlert, toggleAlert, markTriggersRead, fetchCurrentAvg } from '../lib/priceAlerts';
 import { supabase } from '../lib/supabase';
-import PriceAlertModal from '../components/PriceAlertModal';
+import AlertCard from '../components/AlertCard';
+import CreatePriceAlert from '../components/CreatePriceAlert';
 
 export default function Alerts() {
   const { user, openAuthModal } = useContext(AuthContext);
   const [alerts, setAlerts] = useState([]);
   const [triggers, setTriggers] = useState({});
+  const [currentAvgs, setCurrentAvgs] = useState({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
@@ -53,6 +54,16 @@ export default function Alerts() {
             await markTriggersRead(alert.id);
           }
         }
+
+        // Fetch current averages for each alert
+        const avgs = {};
+        await Promise.all(
+          alertList.map(async (alert) => {
+            const avg = await fetchCurrentAvg(alert.procedure_type, alert.city, alert.state);
+            if (avg !== null) avgs[alert.id] = avg;
+          })
+        );
+        setCurrentAvgs(avgs);
       }
     } catch {
       // Silent fail
@@ -88,7 +99,7 @@ export default function Alerts() {
         <Bell className="w-12 h-12 text-text-secondary mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-text-primary mb-2">Price Alerts</h1>
         <p className="text-text-secondary mb-6">
-          Sign in to set alerts and get notified when new prices are posted.
+          Sign in to set alerts and get notified when prices drop.
         </p>
         <button
           onClick={() => openAuthModal('signup')}
@@ -130,7 +141,7 @@ export default function Alerts() {
         <div className="glow-card p-8 text-center">
           <BellOff className="w-10 h-10 text-text-secondary mx-auto mb-3" />
           <p className="text-text-secondary mb-4">
-            No alerts yet. Create one to get notified when new prices are posted.
+            No alerts yet. Set one on any treatment page to get notified when prices drop.
           </p>
           <button
             onClick={() => setShowModal(true)}
@@ -142,93 +153,21 @@ export default function Alerts() {
         </div>
       ) : (
         <div className="space-y-4">
-          {alerts.map((alert) => {
-            const alertTriggers = triggers[alert.id] || [];
-            return (
-              <div key={alert.id} className="glow-card p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-bold text-text-primary">
-                        {alert.procedure_type}
-                      </span>
-                      {!alert.is_active && (
-                        <span className="text-xs bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full">
-                          Paused
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-text-secondary">
-                      {[alert.city, alert.state].filter(Boolean).join(', ') || 'Any location'}
-                      {alert.max_price && ` · Under $${Number(alert.max_price).toLocaleString()}`}
-                    </p>
-                    <p className="text-xs text-text-secondary mt-1">
-                      {alert.frequency === 'instant' ? 'Instant notifications' : alert.frequency}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleToggle(alert.id, alert.is_active)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        alert.is_active
-                          ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                          : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                      }`}
-                      title={alert.is_active ? 'Pause alert' : 'Resume alert'}
-                    >
-                      {alert.is_active ? <Bell size={16} /> : <BellOff size={16} />}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(alert.id)}
-                      className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                      title="Delete alert"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Recent triggers */}
-                {alertTriggers.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs font-medium text-text-secondary mb-2">
-                      Recent matches ({alertTriggers.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {alertTriggers.slice(0, 3).map((trigger) => (
-                        <div
-                          key={trigger.id}
-                          className="flex items-center justify-between text-sm bg-warm-gray rounded-lg px-3 py-2"
-                        >
-                          <span className="text-text-primary">
-                            {trigger.procedures?.provider_name}
-                            {trigger.procedures?.city && (
-                              <span className="text-text-secondary">
-                                {' '}&middot; {trigger.procedures.city}, {trigger.procedures.state}
-                              </span>
-                            )}
-                          </span>
-                          <span className="font-bold text-text-primary">
-                            ${Number(trigger.procedures?.price_paid).toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                      {alertTriggers.length > 3 && (
-                        <p className="text-xs text-text-secondary text-center">
-                          +{alertTriggers.length - 3} more
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {alerts.map((alert) => (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              triggers={triggers[alert.id] || []}
+              currentAvg={currentAvgs[alert.id] ?? null}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+            />
+          ))}
         </div>
       )}
 
       {showModal && (
-        <PriceAlertModal onClose={() => { setShowModal(false); loadAlerts(); }} />
+        <CreatePriceAlert onClose={() => { setShowModal(false); loadAlerts(); }} />
       )}
     </div>
   );

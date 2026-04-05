@@ -76,3 +76,38 @@ export async function markTriggersRead(alertId) {
 
   if (error) throw error;
 }
+
+// Fetch active alerts for the current user (lightweight, for AlertMatchBadge)
+export async function getUserActiveAlerts() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('price_alerts')
+    .select('id, procedure_type, city, state, max_price, is_active')
+    .eq('user_id', user.id)
+    .eq('is_active', true);
+
+  if (error) return [];
+  return data || [];
+}
+
+// Fetch current average price for a treatment in a location
+export async function fetchCurrentAvg(procedureType, city, state) {
+  if (!procedureType) return null;
+
+  let query = supabase
+    .from('procedures')
+    .select('price_paid')
+    .eq('procedure_type', procedureType)
+    .eq('status', 'active');
+
+  if (city) query = query.ilike('city', city);
+  if (state) query = query.eq('state', state);
+
+  const { data } = await query.limit(200);
+  if (!data || data.length === 0) return null;
+
+  const sum = data.reduce((acc, row) => acc + Number(row.price_paid), 0);
+  return Math.round((sum / data.length) * 100) / 100;
+}

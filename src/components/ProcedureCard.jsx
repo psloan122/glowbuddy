@@ -11,8 +11,9 @@ import { providerProfileUrl } from '../lib/slugify';
 import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
 import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
+import AlertMatchBadge from './AlertMatchBadge';
 
-export default function ProcedureCard({ procedure, firstTimerActive }) {
+export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
   const sourceBadge = getSourceBadge(procedure.data_source);
   const freshness = procedure.data_source === 'provider_quote'
@@ -121,6 +122,17 @@ export default function ProcedureCard({ procedure, firstTimerActive }) {
       {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
         <div className="mb-1">
           <PriceAnnotation price={procedure.price_paid} treatmentName={procedure.procedure_type} />
+        </div>
+      )}
+      {userAlerts && (
+        <div className="mb-1">
+          <AlertMatchBadge
+            procedureType={procedure.procedure_type}
+            price={Number(procedure.price_paid)}
+            userAlerts={userAlerts}
+            city={procedure.city}
+            state={procedure.state}
+          />
         </div>
       )}
 
