@@ -6,6 +6,7 @@ import { AuthContext } from '../App';
 import TreatmentLogEntry from '../components/TreatmentLogEntry';
 import MonthlySpendSummary from '../components/MonthlySpendSummary';
 import LogTreatmentForm from '../components/LogTreatmentForm';
+import PioneerBadge from '../components/PioneerBadge';
 
 export default function MyTreatments() {
   const { user, openAuthModal } = useContext(AuthContext);
@@ -113,6 +114,11 @@ export default function MyTreatments() {
             Log Treatment
           </button>
         </div>
+      </div>
+
+      {/* Pioneer badge */}
+      <div className="mb-4">
+        <PioneerBadge userId={user.id} />
       </div>
 
       {/* Monthly spend summary */}

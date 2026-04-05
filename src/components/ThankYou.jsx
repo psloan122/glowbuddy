@@ -4,6 +4,7 @@ import { Check, ArrowRight, Trophy, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { getEntryBreakdown } from '../lib/points';
+import { PIONEER_TIERS, getPioneerToastMessage } from '../lib/pioneerLogic';
 import EmailConfirmation from './EmailConfirmation';
 
 const VERIFY_EMAIL = 'verify@glowbuddy.com';
@@ -19,6 +20,7 @@ export default function ThankYou({
   hasReview = false,
   hasResultPhoto = false,
   receiptVerified = false,
+  pioneerResult = null,
 }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -27,13 +29,16 @@ export default function ThankYou({
   const [skipToast, setSkipToast] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const pioneerTier = pioneerResult?.pioneer_tier || null;
   const { lines: entryLines, total: totalEntries } = getEntryBreakdown(
     activeCount,
     hasReceipt,
     hasRating,
     hasReview,
     hasResultPhoto,
-    receiptVerified
+    receiptVerified,
+    null,
+    pioneerTier
   );
 
   async function handleCreateAccount(e) {
@@ -96,6 +101,29 @@ export default function ThankYou({
       >
         <Check size={32} className="text-white" />
       </div>
+
+      {/* Pioneer celebration */}
+      {pioneerResult && (() => {
+        const tier = PIONEER_TIERS[pioneerResult.pioneer_tier] || PIONEER_TIERS.pioneer;
+        return (
+          <div
+            className="rounded-xl p-4 mb-5 text-left"
+            style={{ background: '#FFFBEB', border: '1px solid rgba(251, 191, 36, 0.3)' }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">{tier.emoji}</span>
+              <div>
+                <p className="text-sm font-medium text-text-primary leading-snug">
+                  {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
+                </p>
+                <p className="text-xs mt-2" style={{ color: '#B45309' }}>
+                  You&apos;ve also entered the Pioneer Giveaway ($200/month)
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Headline */}
       <h2 className="text-2xl font-bold text-text-primary mb-2">

@@ -18,6 +18,7 @@ export async function checkAndAwardBadges(userId) {
   const newBadges = [];
 
   for (const [key, badge] of Object.entries(BADGE_DEFINITIONS)) {
+    if (badge.threshold == null) continue;
     if (!earned.has(key) && count >= badge.threshold) {
       const { error } = await supabase.from('user_badges').insert({
         user_id: userId,

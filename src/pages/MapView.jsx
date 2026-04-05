@@ -267,6 +267,16 @@ export default function MapView() {
         </div>
       </div>
 
+      {/* Pioneer unclaimed locations banner */}
+      {!loading && withoutData.length > 0 && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-amber-50 border-b border-amber-100" style={{ color: '#92400E' }}>
+          <span role="img" aria-label="Pioneer">🏅</span>
+          <span>
+            {withoutData.length} unclaimed location{withoutData.length !== 1 ? 's' : ''} near you &mdash; be the first to verify a price and earn Pioneer status
+          </span>
+        </div>
+      )}
+
       {/* Main content */}
       {view === 'map' ? (
         <div className="relative flex-1">

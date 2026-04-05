@@ -36,6 +36,7 @@ import FairPriceBadge from '../components/FairPriceBadge';
 import CallNowButton from '../components/CallNowButton';
 import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
+import PioneerCredit from '../components/PioneerCredit';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -854,6 +855,9 @@ export default function ProviderProfile() {
           <p className="text-sm text-text-secondary mb-4">
             Be the first{providerCity ? ` in ${providerCity}` : ''} to share what you paid at {providerName}.
           </p>
+          <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
+            Be the Pioneer &mdash; first to verify a price here earns a permanent badge.
+          </p>
           <Link
             to="/log"
             className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
@@ -870,6 +874,7 @@ export default function ProviderProfile() {
           <h2 className="text-lg font-bold text-text-primary mb-4">
             What Patients Paid
           </h2>
+          <PioneerCredit providerSlug={slug} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {Object.entries(
               communityData.reduce((acc, p) => {

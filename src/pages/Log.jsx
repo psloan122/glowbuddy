@@ -5,6 +5,7 @@ import { AuthContext } from '../App';
 import { providerSlug } from '../lib/slugify';
 import { checkOutlier } from '../lib/outlierDetection';
 import { checkAndAwardBadges } from '../lib/badgeLogic';
+import { checkAndAwardPioneer } from '../lib/pioneerLogic';
 import {
   REQUIRES_TREATMENT_AREA,
   PROCEDURE_TYPES,
@@ -87,6 +88,9 @@ export default function Log() {
   // Entry tracking
   const [activeCount, setActiveCount] = useState(null);
   const [entryCount, setEntryCount] = useState(1);
+
+  // Pioneer tracking
+  const [pioneerResult, setPioneerResult] = useState(null);
 
   // SEO
   useEffect(() => {
@@ -550,9 +554,11 @@ export default function Log() {
         });
       }
 
-      // If already authenticated, award badges immediately
+      // If already authenticated, award badges and check pioneer status
       if (user?.id) {
         await checkAndAwardBadges(user.id);
+        const pioneer = await checkAndAwardPioneer(user.id, inserted);
+        setPioneerResult(pioneer);
       }
 
       // 8. Run velocity check in background (silent, never blocks UI)
@@ -748,6 +754,7 @@ export default function Log() {
           hasRating={!!formData.rating}
           hasReview={!!formData.reviewBody}
           hasResultPhoto={!!resultPhotoUrl}
+          pioneerResult={pioneerResult}
         />
       )}
 

@@ -148,6 +148,12 @@ export const BADGE_DEFINITIONS = {
     description: '100 submissions',
     threshold: 100,
   },
+  location_pioneer: {
+    emoji: '🏅',
+    label: 'Pioneer',
+    description: 'First verified price at a location',
+    threshold: null,
+  },
 };
 
 // Procedures that require treatment area selection

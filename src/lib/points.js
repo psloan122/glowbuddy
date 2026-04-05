@@ -12,6 +12,9 @@ export const ENTRY_VALUES = {
   referral_submission: 5,
   appointment_confirmed_bonus: 2,
   receipt_verified_bonus: 3,
+  pioneer_early_reporter: 1,
+  pioneer_verified: 3,
+  pioneer_founding: 5,
 };
 
 const MAX_ENTRIES_PER_SUBMISSION = 8;
@@ -26,7 +29,8 @@ export function calculateEntriesFromCount(
   hasReview = false,
   hasResultPhoto = false,
   receiptVerified = false,
-  verificationTier = null
+  verificationTier = null,
+  pioneerTier = null
 ) {
   let entries = ENTRY_VALUES.base_submission;
 
@@ -45,6 +49,15 @@ export function calculateEntriesFromCount(
     entries += ENTRY_VALUES.appointment_confirmed_bonus;
   } else if (verificationTier === 'receipt_verified') {
     entries += ENTRY_VALUES.receipt_verified_bonus;
+  }
+
+  // Pioneer bonus
+  if (pioneerTier === 'founding_patient') {
+    entries += ENTRY_VALUES.pioneer_founding;
+  } else if (pioneerTier === 'pioneer') {
+    entries += ENTRY_VALUES.pioneer_verified;
+  } else if (pioneerTier === 'early_reporter') {
+    entries += ENTRY_VALUES.pioneer_early_reporter;
   }
 
   const newCount = (activeCount || 0) + 1;
@@ -104,7 +117,8 @@ export function getEntryBreakdown(
   hasReview = false,
   hasResultPhoto = false,
   receiptVerified = false,
-  verificationTier = null
+  verificationTier = null,
+  pioneerTier = null
 ) {
   const lines = [];
   const newCount = (activeCount || 0) + 1;
@@ -129,6 +143,14 @@ export function getEntryBreakdown(
     lines.push({ label: 'Appointment confirmed bonus', value: ENTRY_VALUES.appointment_confirmed_bonus });
   } else if (verificationTier === 'receipt_verified') {
     lines.push({ label: 'Receipt verified patient bonus', value: ENTRY_VALUES.receipt_verified_bonus });
+  }
+
+  if (pioneerTier === 'founding_patient') {
+    lines.push({ label: 'Pioneer \u2014 first confirmed patient here', value: ENTRY_VALUES.pioneer_founding });
+  } else if (pioneerTier === 'pioneer') {
+    lines.push({ label: 'Pioneer \u2014 first verified price here', value: ENTRY_VALUES.pioneer_verified });
+  } else if (pioneerTier === 'early_reporter') {
+    lines.push({ label: 'Pioneer \u2014 first to report here', value: ENTRY_VALUES.pioneer_early_reporter });
   }
 
   if (newCount === 1) {
