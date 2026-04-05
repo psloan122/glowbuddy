@@ -18,10 +18,12 @@ import {
   MessageSquareWarning,
   Phone,
   DollarSign,
+  Users,
 } from 'lucide-react';
 import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
 import AdminFinancingReport from '../components/AdminFinancingReport';
 import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
+import AdminInjectorsTab from '../components/AdminInjectorsTab';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -37,6 +39,7 @@ const TABS = [
   { key: 'phoneNumbers', label: 'Phone Numbers', icon: Phone },
   { key: 'financing', label: 'Financing', icon: DollarSign },
   { key: 'integrations', label: 'Integrations', icon: ExternalLink },
+  { key: 'injectors', label: 'Injectors', icon: Users },
 ];
 
 export default function Admin() {
@@ -603,6 +606,9 @@ export default function Admin() {
     }
     if (activeTab === 'integrations') {
       return <AdminIntegrationsTab />;
+    }
+    if (activeTab === 'injectors') {
+      return <AdminInjectorsTab />;
     }
 
     if (loading) {

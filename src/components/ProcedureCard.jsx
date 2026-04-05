@@ -141,15 +141,22 @@ export default function ProcedureCard({ procedure, firstTimerActive }) {
       {/* Provider name + location */}
       <div className="flex items-center gap-2 mb-2">
         <ProviderAvatar name={procedure.provider_name} size={28} />
-        <p className="text-sm text-text-primary">
-          {procedure.provider_name}
-          {procedure.city && procedure.state && (
-            <span className="text-text-secondary">
-              {' '}
-              &middot; {procedure.city}, {procedure.state}
-            </span>
+        <div>
+          <p className="text-sm text-text-primary">
+            {procedure.provider_name}
+            {procedure.city && procedure.state && (
+              <span className="text-text-secondary">
+                {' '}
+                &middot; {procedure.city}, {procedure.state}
+              </span>
+            )}
+          </p>
+          {procedure.injector_name && (
+            <p className="text-xs text-[#0369A1]">
+              Injected by {procedure.injector_name}
+            </p>
           )}
-        </p>
+        </div>
       </div>
 
       {/* Provider type badge */}

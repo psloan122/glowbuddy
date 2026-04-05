@@ -4,6 +4,7 @@ import { Menu, X, ChevronDown, Bell } from 'lucide-react';
 import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
 import { getUnreadCount } from '../lib/priceAlerts';
+import NotificationBell from './NotificationBell';
 
 const NAV_LINKS = [
   { to: '/', label: 'Browse' },
@@ -12,6 +13,7 @@ const NAV_LINKS = [
   { to: '/insights', label: 'Insights' },
   { to: '/specials', label: 'Specials' },
   { to: '/community', label: 'Community' },
+  { to: '/following', label: 'Following' },
   { to: '/business', label: 'Business' },
 ];
 
@@ -83,6 +85,7 @@ export default function Navbar() {
 
           {/* Desktop auth */}
           <div className="hidden md:flex items-center gap-3">
+            {user && <NotificationBell />}
             {user && (
               <Link to="/alerts" className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
                 <Bell size={18} />

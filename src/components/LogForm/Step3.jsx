@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { Trophy, Upload, CheckCircle, X, Loader2 } from 'lucide-react';
+import { Trophy, Upload, CheckCircle, X, Loader2, Search, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ReceiptUpload from '../ReceiptUpload';
 import StarRating from '../StarRating';
@@ -29,6 +29,90 @@ export default function Step3({
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoDragOver, setPhotoDragOver] = useState(false);
   const photoInputRef = useRef(null);
+
+  // Injector search state
+  const [injectorResults, setInjectorResults] = useState([]);
+  const [showInjectorDropdown, setShowInjectorDropdown] = useState(false);
+  const [injectorQuery, setInjectorQuery] = useState(formData.injectorName || '');
+  const injectorRef = useRef(null);
+
+  // Fetch injectors at the selected provider
+  useEffect(() => {
+    async function fetchInjectors() {
+      if (!formData.googlePlaceId && !formData.providerName) {
+        setInjectorResults([]);
+        return;
+      }
+      // Find provider by google_place_id first, fallback to name match
+      let providerId = null;
+      if (formData.googlePlaceId) {
+        const { data } = await supabase
+          .from('providers')
+          .select('id')
+          .eq('google_place_id', formData.googlePlaceId)
+          .maybeSingle();
+        if (data) providerId = data.id;
+      }
+      if (!providerId && formData.providerName) {
+        const { data } = await supabase
+          .from('providers')
+          .select('id')
+          .ilike('name', formData.providerName)
+          .limit(1)
+          .maybeSingle();
+        if (data) providerId = data.id;
+      }
+      if (!providerId) {
+        setInjectorResults([]);
+        return;
+      }
+      const { data: injectors } = await supabase
+        .from('injectors')
+        .select('id, name, display_name, credentials')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('name');
+      setInjectorResults(injectors || []);
+    }
+    fetchInjectors();
+  }, [formData.googlePlaceId, formData.providerName]);
+
+  // Close injector dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (injectorRef.current && !injectorRef.current.contains(e.target)) {
+        setShowInjectorDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filteredInjectors = injectorResults.filter((inj) => {
+    const name = (inj.display_name || inj.name).toLowerCase();
+    return name.includes(injectorQuery.toLowerCase());
+  });
+
+  function selectInjector(inj) {
+    const name = inj.display_name || inj.name;
+    setInjectorQuery(name);
+    setFormData((prev) => ({
+      ...prev,
+      injectorName: name,
+      injectorId: inj.id,
+    }));
+    setShowInjectorDropdown(false);
+  }
+
+  function handleInjectorInput(value) {
+    setInjectorQuery(value);
+    setFormData((prev) => ({
+      ...prev,
+      injectorName: value,
+      injectorId: null, // Clear ID when typing freely
+    }));
+    setShowInjectorDropdown(true);
+  }
 
   async function handlePhotoFile(f) {
     if (!f) return;
@@ -194,22 +278,69 @@ export default function Step3({
             )}
           </div>
 
-          {/* Injector Name */}
-          <div>
-            <input
-              type="text"
-              value={formData.injectorName}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  injectorName: e.target.value,
-                }))
-              }
-              placeholder="Who did your treatment?"
-              className={`${INPUT_CLASSES} text-sm`}
-            />
+          {/* Injector Name — searchable dropdown */}
+          <div ref={injectorRef} className="relative">
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Who did your treatment?
+            </label>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+              <input
+                type="text"
+                value={injectorQuery}
+                onChange={(e) => handleInjectorInput(e.target.value)}
+                onFocus={() => injectorResults.length > 0 && setShowInjectorDropdown(true)}
+                placeholder="Search or type injector name..."
+                className={`${INPUT_CLASSES} text-sm pl-9`}
+              />
+            </div>
+            {showInjectorDropdown && (
+              <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {filteredInjectors.map((inj) => (
+                  <button
+                    key={inj.id}
+                    type="button"
+                    onClick={() => selectInjector(inj)}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-medium text-text-primary">
+                      {inj.display_name || inj.name}
+                    </span>
+                    {inj.credentials && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-[#0369A1]">
+                        {inj.credentials.toUpperCase()}
+                      </span>
+                    )}
+                  </button>
+                ))}
+                {injectorQuery.trim() && !filteredInjectors.some(
+                  (inj) => (inj.display_name || inj.name).toLowerCase() === injectorQuery.trim().toLowerCase()
+                ) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        injectorName: injectorQuery.trim(),
+                        injectorId: null,
+                      }));
+                      setShowInjectorDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-sky-50 transition-colors flex items-center gap-2 border-t border-gray-100 text-[#0369A1]"
+                  >
+                    <UserPlus size={14} />
+                    Add &ldquo;{injectorQuery.trim()}&rdquo; as new injector
+                  </button>
+                )}
+                {!injectorQuery.trim() && filteredInjectors.length === 0 && (
+                  <p className="px-4 py-3 text-xs text-text-secondary">
+                    No injectors found at this provider yet
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-xs text-text-secondary mt-1">
-              Helps others find the right person
+              {injectorResults.length > 0 ? 'Select from list or add a new name' : 'Helps others find the right person'}
             </p>
           </div>
         </div>

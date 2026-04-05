@@ -28,6 +28,9 @@ import AuthCallback from './pages/AuthCallback';
 import ResetPassword from './pages/ResetPassword';
 import GuideDetail from './pages/GuideDetail';
 import GoalDetail from './pages/GoalDetail';
+import InjectorProfile from './pages/InjectorProfile';
+import InjectorFeed from './pages/InjectorFeed';
+import InjectorClaim from './pages/InjectorClaim';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
@@ -198,6 +201,9 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/guides/:slug" element={<GuideDetail />} />
             <Route path="/goals/:slug" element={<GoalDetail />} />
+            <Route path="/injectors/:slugOrId" element={<InjectorProfile />} />
+            <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />
+            <Route path="/following" element={<InjectorFeed />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

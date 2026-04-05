@@ -54,6 +54,7 @@ const INITIAL_FORM_DATA = {
   reviewBody: '',
   wouldReturn: null,
   injectorName: '',
+  injectorId: null,
   resultPhotoUrl: null,
   resultPhotoConsent: false,
 };
@@ -349,6 +350,38 @@ export default function Log() {
         }
       }
 
+      // Auto-create unclaimed injector profile if user typed a new name
+      let resolvedInjectorId = formData.injectorId;
+      if (formData.injectorName && !formData.injectorId && formData.googlePlaceId) {
+        try {
+          const { data: provider } = await supabase
+            .from('providers')
+            .select('id')
+            .eq('google_place_id', formData.googlePlaceId)
+            .maybeSingle();
+          if (provider) {
+            const injectorSlug = formData.injectorName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)/g, '');
+            const { data: newInjector } = await supabase
+              .from('injectors')
+              .insert({
+                provider_id: provider.id,
+                name: formData.injectorName,
+                display_name: formData.injectorName,
+                slug: `${injectorSlug}-${Date.now()}`,
+                is_claimed: false,
+              })
+              .select('id')
+              .single();
+            if (newInjector) resolvedInjectorId = newInjector.id;
+          }
+        } catch {
+          // Non-blocking — proceed without injector_id
+        }
+      }
+
       // Determine status based on auth and outlier
       let status;
       if (user) {
@@ -393,6 +426,7 @@ export default function Log() {
         review_body: formData.reviewBody || null,
         would_return: formData.wouldReturn,
         injector_name: formData.injectorName || null,
+        injector_id: resolvedInjectorId || null,
         result_photo_url: resultPhotoUrl || null,
         result_photo_consent: formData.resultPhotoConsent,
       };
