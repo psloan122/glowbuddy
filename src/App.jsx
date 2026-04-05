@@ -33,6 +33,8 @@ import InjectorFeed from './pages/InjectorFeed';
 import InjectorClaim from './pages/InjectorClaim';
 import DealShare from './pages/DealShare';
 import BudgetPlanner from './pages/BudgetPlanner';
+import StackBuilder from './pages/StackBuilder';
+import RoutineQuiz from './pages/RoutineQuiz';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
@@ -208,6 +210,8 @@ function App() {
             <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />
             <Route path="/following" element={<InjectorFeed />} />
             <Route path="/deal" element={<DealShare />} />
+            <Route path="/my-stack" element={<StackBuilder />} />
+            <Route path="/build-my-routine" element={<RoutineQuiz />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

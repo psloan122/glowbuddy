@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { slugToProcedure, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 import ProcedureCard from '../components/ProcedureCard';
 import PriceAlertButton from '../components/PriceAlertButton';
+import PairsWellWith from '../components/PairsWellWith';
+import StackCaution from '../components/StackCaution';
 
 export default function ProcedureDetail() {
   const { slug } = useParams();
@@ -394,6 +396,10 @@ export default function ProcedureDetail() {
           </Link>
         </div>
       )}
+
+      {/* Treatment Stacking */}
+      <PairsWellWith treatmentName={procedureName} />
+      <StackCaution treatmentName={procedureName} />
     </div>
   );
 }

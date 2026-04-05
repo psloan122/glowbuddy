@@ -15,6 +15,8 @@ const NAV_LINKS = [
   { to: '/community', label: 'Community' },
   { to: '/following', label: 'Following' },
   { to: '/budget', label: 'Budget' },
+  { to: '/my-stack', label: 'My Stack' },
+  { to: '/build-my-routine', label: 'Routine' },
   { to: '/business', label: 'Business' },
 ];
 
