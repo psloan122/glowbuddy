@@ -164,25 +164,21 @@ export async function awardSubmissionCredits(userId, procedureRow, opts = {}) {
     runningTotal = MAX_CREDITS_PER_SUBMISSION;
   }
 
-  // Get current balance
-  const { balance: currentBalance } = await getBalance(userId);
-  let balance = currentBalance;
-
-  // Insert each action as its own ledger row
+  // Insert each action via SECURITY DEFINER function (prevents client-side credit minting)
   const breakdown = [];
+  let balance = 0;
   for (const action of actions) {
     if (action.amount <= 0) continue;
-    balance += action.amount;
-    const { error } = await supabase.from('credit_ledger').insert({
-      user_id: userId,
-      amount: action.amount,
-      balance_after: balance,
-      type: action.type,
-      reference_id: referenceId,
-      description: action.description,
-      expires_at: expiresAt,
+    const { data: newBalance, error } = await supabase.rpc('award_credits', {
+      p_user_id: userId,
+      p_amount: action.amount,
+      p_type: action.type,
+      p_description: action.description,
+      p_reference_id: referenceId,
+      p_expires_at: expiresAt,
     });
     if (!error) {
+      balance = newBalance;
       breakdown.push({ type: action.type, amount: action.amount, description: action.description });
     }
   }
@@ -226,22 +222,20 @@ export async function getCreditHistory(userId, limit = 50, offset = 0) {
 // --- Redemptions ---
 
 async function deductCredits(userId, amount, type, description, referenceId = null) {
-  const { balance } = await getBalance(userId);
-  if (balance < amount) {
-    return { success: false, error: 'Insufficient credits' };
-  }
-
-  const newBalance = balance - amount;
-  const { error } = await supabase.from('credit_ledger').insert({
-    user_id: userId,
-    amount: -amount,
-    balance_after: newBalance,
-    type,
-    reference_id: referenceId,
-    description,
+  // Atomic deduction via SECURITY DEFINER function with advisory lock (prevents TOCTOU race)
+  const { data: success, error } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_type: type,
+    p_description: description,
+    p_reference_id: referenceId,
   });
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: 'Something went wrong. Please try again.' };
+  if (!success) return { success: false, error: 'Insufficient credits' };
+
+  // Fetch updated balance
+  const { balance: newBalance } = await getBalance(userId);
   return { success: true, newBalance };
 }
 
@@ -295,7 +289,7 @@ export async function redeemForSpecial(userId, specialId) {
     expires_at: expiresAt,
   }).select().single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: 'Something went wrong. Please try again.' };
   return { success: true, code, expiresAt: data.expires_at };
 }
 
@@ -320,7 +314,7 @@ export async function redeemForTreatment(userId, providerId) {
     expires_at: expiresAt,
   }).select().single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: 'Something went wrong. Please try again.' };
   return { success: true, code, expiresAt: data.expires_at };
 }
 
@@ -405,14 +399,12 @@ export async function checkLoginStreak(userId) {
   let creditsAwarded = 0;
   if (newStreak >= 3) {
     creditsAwarded = CREDIT_VALUES.login_streak_daily;
-    const { balance } = await getBalance(userId);
-    await supabase.from('credit_ledger').insert({
-      user_id: userId,
-      amount: creditsAwarded,
-      balance_after: balance + creditsAwarded,
-      type: 'login_streak',
-      description: `Daily login streak (day ${newStreak})`,
-      expires_at: endOfYear(),
+    await supabase.rpc('award_credits', {
+      p_user_id: userId,
+      p_amount: creditsAwarded,
+      p_type: 'login_streak',
+      p_description: `Daily login streak (day ${newStreak})`,
+      p_expires_at: endOfYear(),
     });
   }
 

@@ -1,9 +1,14 @@
+import { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ArrowRight } from 'lucide-react';
+import { Clock, ArrowRight, Wallet } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
+import { AuthContext } from '../App';
+import WalletRedeemModal from './WalletRedeemModal';
 
-export default function SpecialCard({ special, provider }) {
+export default function SpecialCard({ special, provider, walletBalance = 0 }) {
+  const { user } = useContext(AuthContext);
+  const [showRedeem, setShowRedeem] = useState(false);
   const hasDiscount = special.original_price && special.special_price;
   const isExpired = special.expires_at && new Date(special.expires_at) < new Date();
 
@@ -60,6 +65,17 @@ export default function SpecialCard({ special, provider }) {
         </span>
       )}
 
+      {/* Wallet credit apply */}
+      {user && walletBalance > 0 && hasDiscount && !isExpired && (
+        <button
+          onClick={() => setShowRedeem(true)}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors mb-3 mt-2"
+        >
+          <Wallet size={14} />
+          Apply ${(Math.min(walletBalance, 1000) / 100).toFixed(2)} credit
+        </button>
+      )}
+
       {/* View Provider link */}
       {provider?.slug && (
         <Link
@@ -69,6 +85,14 @@ export default function SpecialCard({ special, provider }) {
           View Provider
           <ArrowRight size={14} />
         </Link>
+      )}
+
+      {showRedeem && (
+        <WalletRedeemModal
+          special={special}
+          onClose={() => setShowRedeem(false)}
+          onSuccess={() => setShowRedeem(false)}
+        />
       )}
     </div>
   );

@@ -275,7 +275,7 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) {
       console.error('Failed to create verification submission:', insertError)
-      return jsonResponse({ error: insertError.message }, 500)
+      return jsonResponse({ error: 'An internal error occurred' }, 500)
     }
 
     // 6. Auto-approve if high confidence
@@ -355,6 +355,6 @@ Deno.serve(async (req: Request) => {
     })
   } catch (err) {
     console.error('process-verification-email error:', err)
-    return jsonResponse({ error: (err as Error).message }, 500)
+    return jsonResponse({ error: 'An internal error occurred' }, 500)
   }
 })

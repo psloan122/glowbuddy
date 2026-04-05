@@ -525,6 +525,409 @@ function buildFreshnessNudge(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildDisputeNotification(data: {
+  procedureType: string
+  providerName: string
+  price: string | number
+  city: string
+  state: string
+  procedureId: string
+}): { html: string; text: string } {
+  const confirmUrl = `${BASE_URL}/resolve-dispute?id=${data.procedureId}&action=confirmed`
+  const updateUrl = `${BASE_URL}/log?procedure=${encodeURIComponent(data.procedureType)}&provider=${encodeURIComponent(data.providerName)}&city=${encodeURIComponent(data.city)}&state=${encodeURIComponent(data.state)}`
+  const removeUrl = `${BASE_URL}/resolve-dispute?id=${data.procedureId}&action=removed`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Someone questioned your price
+    </h1>
+    <p style="margin:0 0 24px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      You reported <strong>${data.procedureType}</strong> at <strong>${data.providerName}</strong> for <strong>$${Number(data.price).toLocaleString()}</strong>.
+      3 people have flagged this as potentially inaccurate.
+    </p>
+
+    <p style="margin:0 0 24px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Was your reported price accurate?
+    </p>
+
+    <!-- Three CTA buttons stacked -->
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+      <tr>
+        <td style="padding-bottom:12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td style="background-color:#059669;border-radius:999px;padding:14px 32px;">
+                <a href="${confirmUrl}" style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Yes, it was accurate</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom:12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td style="background-color:${ACCENT};border-radius:999px;padding:14px 32px;">
+                <a href="${updateUrl}" style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Update the price</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td style="background-color:#6B7280;border-radius:999px;padding:14px 32px;">
+                <a href="${removeUrl}" style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Remove my submission</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:24px 0 0;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      If your price is confirmed as accurate, you'll earn 200 Glow Credits + 2 bonus giveaway entries.
+    </p>`
+
+  const html = emailWrapper(content, `Someone questioned your ${data.procedureType} price at ${data.providerName}`)
+  return { html, text: htmlToText(html) }
+}
+
+function buildGlowReport(data: {
+  userName?: string
+  city: string
+  state: string
+  month: string // e.g. 'April 2026'
+  // Price trend
+  trendProcedure?: string
+  trendCurrentAvg?: number
+  trendChangePercent?: number // negative = dropped
+  trendDirection?: 'down' | 'up' | 'flat'
+  trendSampleSize?: number
+  // Savings
+  lifetimeSavings?: number
+  // Specials
+  specials?: Array<{ providerName: string; headline: string; price: string; daysLeft: number; specialId: string }>
+  // New providers
+  newProviderCount?: number
+  // Pioneer
+  pioneerOpportunities?: number
+  // Giveaway
+  totalEntries?: number
+}): { html: string; text: string } {
+  const sections: string[] = []
+
+  // 1. Header
+  sections.push(`
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Your ${data.city} Glow Report
+    </h1>
+    <p style="margin:0 0 32px;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      ${data.month}
+    </p>`)
+
+  // 2. Price trend
+  if (data.trendProcedure && data.trendCurrentAvg != null) {
+    const arrow = data.trendDirection === 'down' ? '&#8595;' : data.trendDirection === 'up' ? '&#8593;' : '&#8594;'
+    const arrowColor = data.trendDirection === 'down' ? '#059669' : data.trendDirection === 'up' ? '#DC2626' : TEXT_SECONDARY
+    const changeText = data.trendChangePercent != null && data.trendChangePercent !== 0
+      ? `<span style="color:${arrowColor};font-weight:600;">${arrow} ${Math.abs(data.trendChangePercent)}% from last month</span>`
+      : `<span style="color:${TEXT_SECONDARY};">${arrow} Unchanged</span>`
+
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            ${data.trendProcedure} prices in ${data.city}
+          </p>
+          <p style="margin:0 0 8px;font-size:32px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+            $${data.trendCurrentAvg.toLocaleString()}
+          </p>
+          <p style="margin:0 0 8px;font-size:14px;font-family:${FONT};">
+            ${changeText}
+          </p>
+          ${data.trendSampleSize ? `<p style="margin:0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};">Based on ${data.trendSampleSize} patient submissions this month</p>` : ''}
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // 3. Savings
+  if (data.lifetimeSavings && data.lifetimeSavings > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ECFDF5;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:13px;color:#059669;font-family:${FONT};font-weight:600;">
+            Your estimated savings
+          </p>
+          <p style="margin:0 0 8px;font-size:28px;font-weight:700;color:#059669;font-family:${FONT};">
+            $${data.lifetimeSavings.toLocaleString()}
+          </p>
+          <p style="margin:0;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            Since joining GlowBuddy, you&rsquo;ve saved an estimated $${data.lifetimeSavings.toLocaleString()} vs average pricing.
+          </p>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // 4. Specials
+  if (data.specials && data.specials.length > 0) {
+    const specialRows = data.specials.slice(0, 3).map((s) => `
+      <tr>
+        <td style="padding:12px 0;border-bottom:1px solid #E5E7EB;">
+          <p style="margin:0;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${s.headline}
+          </p>
+          <p style="margin:2px 0 4px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            ${s.providerName} &middot; ${s.price}
+          </p>
+          <p style="margin:0;font-size:12px;color:${ACCENT};font-family:${FONT};font-weight:600;">
+            Ends in ${s.daysLeft} day${s.daysLeft !== 1 ? 's' : ''}
+          </p>
+        </td>
+      </tr>`).join('')
+
+    sections.push(`
+    <div style="margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:16px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+        New specials near you
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${specialRows}
+      </table>
+      ${ctaButton('View All Specials', `${BASE_URL}/specials`)}
+    </div>`)
+  }
+
+  // 5. New providers
+  if (data.newProviderCount && data.newProviderCount > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:12px 20px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:28px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${data.newProviderCount}
+          </p>
+          <p style="margin:0 0 12px;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            new practice${data.newProviderCount !== 1 ? 's' : ''} added in ${data.city} this month
+          </p>
+          <a href="${BASE_URL}/map" style="display:inline-block;padding:8px 20px;border-radius:999px;font-size:13px;font-weight:600;color:${ACCENT};background-color:#FBE8EF;text-decoration:none;font-family:${FONT};">
+            Explore New Providers &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // 6. Pioneer opportunities
+  if (data.pioneerOpportunities && data.pioneerOpportunities > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFBEB;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid rgba(251,191,36,0.3);">
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};font-family:${FONT};">
+            &#127941; ${data.pioneerOpportunities} provider${data.pioneerOpportunities !== 1 ? 's' : ''} near you ${data.pioneerOpportunities !== 1 ? 'have' : 'has'} no verified prices yet.
+          </p>
+          <p style="margin:0 0 12px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            Be the first to submit and earn Pioneer status + bonus giveaway entries.
+          </p>
+          <a href="${BASE_URL}/map" style="display:inline-block;padding:8px 20px;border-radius:999px;font-size:13px;font-weight:600;color:#B45309;background-color:#FEF3C7;text-decoration:none;font-family:${FONT};">
+            See Unclaimed Providers &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // 7. Giveaway reminder
+  if (data.totalEntries != null && data.totalEntries > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FBE8EF;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:12px 20px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:13px;color:${ACCENT};font-family:${FONT};font-weight:600;">
+            Monthly Giveaway
+          </p>
+          <p style="margin:0 0 8px;font-size:28px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${data.totalEntries} entries
+          </p>
+          <p style="margin:0 0 12px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            Drawing on the last day of the month.
+          </p>
+          <a href="${BASE_URL}/rewards" style="display:inline-block;padding:8px 20px;border-radius:999px;font-size:13px;font-weight:600;color:${ACCENT};background-color:#FFFFFF;text-decoration:none;font-family:${FONT};border:1px solid ${ACCENT};">
+            View Giveaway Status &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  const content = sections.join('')
+  const previewText = data.trendProcedure && data.trendDirection === 'down' && data.trendChangePercent
+    ? `${data.trendProcedure} dropped ${Math.abs(data.trendChangePercent)}% in ${data.city} this month`
+    : data.specials && data.specials.length > 0
+      ? `${data.specials.length} new special${data.specials.length !== 1 ? 's' : ''} near you — ${data.month} Glow Report`
+      : `Your ${data.city} Glow Report — ${data.month}`
+
+  const html = emailWrapper(content, previewText)
+  return { html, text: htmlToText(html) }
+}
+
+function buildProviderActivity(data: {
+  providerName: string
+  providerSlug: string
+  pageViews: number
+  submissionsWeek: number
+  submissionsTotal: number
+  avgPrice: number | null
+  competitorCount: number
+  competitorName: string | null
+  competitorCity: string | null
+  claimUrl: string
+  pageUrl: string
+  optoutUrl: string
+}): { html: string; text: string } {
+  // Stats card rows
+  const statsRows: string[] = []
+
+  statsRows.push(`
+    <tr>
+      <td style="padding:10px 16px;font-family:${FONT};">
+        <span style="font-size:20px;">&#128065;</span>
+        <span style="font-size:15px;color:${TEXT_PRIMARY};font-weight:600;margin-left:8px;">${data.pageViews} people viewed your page</span>
+      </td>
+    </tr>`)
+
+  if (data.submissionsWeek > 0) {
+    statsRows.push(`
+    <tr>
+      <td style="padding:10px 16px;font-family:${FONT};">
+        <span style="font-size:20px;">&#128176;</span>
+        <span style="font-size:15px;color:${TEXT_PRIMARY};font-weight:600;margin-left:8px;">${data.submissionsWeek} patient${data.submissionsWeek !== 1 ? 's' : ''} submitted prices</span>
+      </td>
+    </tr>`)
+  }
+
+  if (data.avgPrice) {
+    statsRows.push(`
+    <tr>
+      <td style="padding:10px 16px;font-family:${FONT};">
+        <span style="font-size:20px;">&#128202;</span>
+        <span style="font-size:15px;color:${TEXT_PRIMARY};font-weight:600;margin-left:8px;">Average reported: $${data.avgPrice}/unit</span>
+      </td>
+    </tr>`)
+  }
+
+  if (data.competitorCount > 0) {
+    statsRows.push(`
+    <tr>
+      <td style="padding:10px 16px;font-family:${FONT};">
+        <span style="font-size:20px;">&#9888;&#65039;</span>
+        <span style="font-size:15px;color:#DC2626;font-weight:600;margin-left:8px;">${data.competitorCount} competitor${data.competitorCount !== 1 ? 's' : ''} advertising here</span>
+      </td>
+    </tr>`)
+  }
+
+  // Competitor callout section
+  let competitorSection = ''
+  if (data.competitorCount > 0 && data.competitorName) {
+    competitorSection = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;background-color:#FEF2F2;border-radius:12px;">
+      <tr>
+        <td style="padding:20px;font-family:${FONT};">
+          <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#DC2626;">&#9888;&#65039; Competitor Alert</p>
+          <p style="margin:0;font-size:14px;color:${TEXT_PRIMARY};line-height:1.5;">
+            <strong>${data.competitorName}</strong> in ${data.competitorCity || 'your area'} is currently appearing as a suggested alternative on your unclaimed page.
+            Claiming your listing removes competitor ads from your page — for free.
+          </p>
+        </td>
+      </tr>
+    </table>`
+  }
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+      Hi ${data.providerName} team,
+    </h1>
+    <p style="margin:0 0 24px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.5;">
+      Your practice appeared on GlowBuddy this week. Here&rsquo;s what happened:
+    </p>
+
+    <!-- Stats Card -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;margin-bottom:24px;">
+      ${statsRows.join('')}
+    </table>
+
+    ${competitorSection}
+
+    <!-- Claim Benefits -->
+    <p style="margin:0 0 12px;font-size:16px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+      Claim your free listing to:
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="padding:6px 0;font-size:14px;color:${TEXT_PRIMARY};font-family:${FONT};">&#10003;&nbsp; Remove competitor ads from your page</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:${TEXT_PRIMARY};font-family:${FONT};">&#10003;&nbsp; Add your official price menu</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:${TEXT_PRIMARY};font-family:${FONT};">&#10003;&nbsp; Respond to patient submissions</td></tr>
+      <tr><td style="padding:6px 0;font-size:14px;color:${TEXT_PRIMARY};font-family:${FONT};">&#10003;&nbsp; Post specials and promotions</td></tr>
+    </table>
+
+    ${ctaButton('Claim Your Free Listing', data.claimUrl)}
+
+    <!-- Footer note -->
+    <p style="margin:32px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.6;border-top:1px solid #E5E7EB;padding-top:20px;">
+      You&rsquo;re receiving this because your practice appears on GlowBuddy. We never fabricate data &mdash; these are real patient reports.<br><br>
+      <a href="${data.optoutUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;">Opt out of these updates</a>
+      &nbsp;&middot;&nbsp;
+      <a href="${data.pageUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;">View your page</a>
+    </p>`
+
+  const previewText = data.competitorCount > 0
+    ? `A competitor is advertising on your GlowBuddy page`
+    : `${data.pageViews} people viewed ${data.providerName} on GlowBuddy this week`
+
+  const html = emailWrapper(content, previewText)
+  return { html, text: htmlToText(html) }
+}
+
+function buildWrappedReady(data: {
+  year: number | string
+  displayName?: string
+  treatmentsLogged?: number
+  totalSavings?: number
+}): { html: string; text: string } {
+  const wrappedUrl = `${BASE_URL}/my/wrapped/${data.year}`
+  const greeting = data.displayName ? `Hi ${data.displayName},` : 'Hi there,'
+  const highlight = data.totalSavings && data.totalSavings > 100
+    ? `You saved an estimated <strong>$${data.totalSavings.toLocaleString()}</strong> this year.`
+    : data.treatmentsLogged
+      ? `You logged <strong>${data.treatmentsLogged} treatment${data.treatmentsLogged !== 1 ? 's' : ''}</strong> this year.`
+      : 'See your personalized year in review.'
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Your ${data.year} Wrapped is here &#10024;
+    </h1>
+    <p style="margin:0 0 24px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};">
+      ${greeting}
+    </p>
+    <p style="margin:0 0 8px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};line-height:1.6;">
+      ${highlight}
+    </p>
+    <p style="margin:0 0 32px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.6;">
+      Your personalized GlowBuddy Wrapped is ready &mdash; see your top procedures, savings,
+      city rankings, and more in an interactive year-in-review you can share with friends.
+    </p>
+    ${ctaButton('See My Wrapped', wrappedUrl)}`
+
+  const html = emailWrapper(content, `Your ${data.year} GlowBuddy Wrapped is ready`)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -570,6 +973,40 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
         subject: `${data.staleCount} of your prices may need updating`,
       }
 
+    case 'dispute_notification':
+      return {
+        ...buildDisputeNotification(data as Parameters<typeof buildDisputeNotification>[0]),
+        subject: `Someone questioned your ${data.procedureType} price at ${data.providerName}`,
+      }
+
+    case 'glow_report': {
+      const reportData = data as Parameters<typeof buildGlowReport>[0]
+      // Dynamic subject line
+      let subject: string
+      if (reportData.trendProcedure && reportData.trendDirection === 'down' && reportData.trendChangePercent) {
+        subject = `${reportData.trendProcedure} dropped ${Math.abs(reportData.trendChangePercent)}% in ${reportData.city} this month`
+      } else if (reportData.specials && reportData.specials.length > 0) {
+        subject = `${reportData.specials.length} new special${reportData.specials.length !== 1 ? 's' : ''} near you — ${reportData.month} Glow Report`
+      } else {
+        subject = `Your ${reportData.city} Glow Report — ${reportData.month}`
+      }
+      return { ...buildGlowReport(reportData), subject }
+    }
+
+    case 'wrapped_ready':
+      return {
+        ...buildWrappedReady(data as Parameters<typeof buildWrappedReady>[0]),
+        subject: `Your ${data.year} GlowBuddy Wrapped is ready`,
+      }
+
+    case 'provider_activity':
+      return {
+        ...buildProviderActivity(data as Parameters<typeof buildProviderActivity>[0]),
+        subject: data.competitorCount && (data.competitorCount as number) > 0
+          ? 'A competitor is advertising on your GlowBuddy page'
+          : `${data.pageViews} people viewed ${data.providerName} on GlowBuddy this week`,
+      }
+
     default:
       throw new Error(`Unknown email template: ${template}`)
   }
@@ -599,6 +1036,9 @@ Deno.serve(async (req: Request) => {
     const email = buildEmail(template, data || {})
     const subject = subjectOverride || email.subject
 
+    // Provider activity emails use hello@ as reply-to (not support@)
+    const replyTo = template === 'provider_activity' ? 'hello@glowbuddy.com' : 'support@glowbuddy.com'
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -607,7 +1047,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         from: 'GlowBuddy <hello@glowbuddy.com>',
-        reply_to: 'support@glowbuddy.com',
+        reply_to: replyTo,
         to: Array.isArray(to) ? to : [to],
         subject,
         html: email.html,
@@ -632,7 +1072,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('send-email error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An error occurred. Please try again.' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

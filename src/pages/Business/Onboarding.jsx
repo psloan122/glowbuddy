@@ -64,45 +64,74 @@ export default function Onboarding() {
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
-            setExistingProvider(data);
-            setPlaceData({
-              name: data.name,
-              formattedAddress: `${data.address || ''}, ${data.city}, ${data.state} ${data.zip_code || ''}`,
-              city: data.city,
-              state: data.state,
-              zipCode: data.zip_code,
-              address: data.address,
-              phone: data.phone,
-              website: data.website,
-              placeId: data.google_place_id,
-              lat: data.lat,
-              lng: data.lng,
-              googleRating: null,
-              googleReviewCount: null,
-              googleMapsUrl: null,
-              googlePriceLevel: null,
-              googleTypes: [],
-              hoursText: '',
-              googlePhotos: [],
-            });
-            setProfileData((prev) => ({
-              ...prev,
-              name: data.name,
-              provider_type: data.provider_type || '',
-              website: data.website || '',
-              phone: data.phone || '',
-              instagram: data.instagram || '',
-              address: data.address || '',
-              city: data.city || '',
-              state: data.state || '',
-              zip: data.zip_code || '',
-            }));
-            // Skip to step 2
-            setStep(2);
+            prefillFromProvider(data);
           }
         });
     }
   }, [searchParams, placeData]);
+
+  // Pre-fill from provider slug URL param (from activity email claim CTA)
+  useEffect(() => {
+    const providerSlug = searchParams.get('provider');
+    const source = searchParams.get('source');
+    if (providerSlug && !placeData) {
+      supabase
+        .from('providers')
+        .select('*')
+        .eq('slug', providerSlug)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            prefillFromProvider(data);
+            // Track claim-from-email event
+            if (source === 'email') {
+              supabase.from('custom_events').insert({
+                event_name: 'provider_claim_from_email',
+                properties: { provider_id: data.id, provider_slug: data.slug },
+              });
+            }
+          }
+        });
+    }
+  }, [searchParams, placeData]);
+
+  function prefillFromProvider(data) {
+    setExistingProvider(data);
+    setPlaceData({
+      name: data.name,
+      formattedAddress: `${data.address || ''}, ${data.city}, ${data.state} ${data.zip_code || ''}`,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zip_code,
+      address: data.address,
+      phone: data.phone,
+      website: data.website,
+      placeId: data.google_place_id,
+      lat: data.lat,
+      lng: data.lng,
+      googleRating: null,
+      googleReviewCount: null,
+      googleMapsUrl: null,
+      googlePriceLevel: null,
+      googleTypes: [],
+      hoursText: '',
+      googlePhotos: [],
+    });
+    setProfileData((prev) => ({
+      ...prev,
+      name: data.name,
+      provider_type: data.provider_type || '',
+      website: data.website || '',
+      phone: data.phone || '',
+      instagram: data.instagram || '',
+      address: data.address || '',
+      city: data.city || '',
+      state: data.state || '',
+      zip: data.zip_code || '',
+    }));
+    // Skip to step 2
+    setStep(2);
+  }
 
   // Require auth
   if (!session) {

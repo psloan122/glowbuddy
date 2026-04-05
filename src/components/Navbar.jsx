@@ -111,11 +111,32 @@ export default function Navbar() {
                       My Treatments
                     </Link>
                     <Link
+                      to="/my/history"
+                      onClick={() => setAvatarOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-text-primary hover:bg-rose-light/50 transition-colors"
+                    >
+                      History
+                    </Link>
+                    <Link
                       to="/rewards"
                       onClick={() => setAvatarOpen(false)}
                       className="block px-4 py-2.5 text-sm text-text-primary hover:bg-rose-light/50 transition-colors"
                     >
                       My Rewards
+                    </Link>
+                    <Link
+                      to="/refer"
+                      onClick={() => setAvatarOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-rose-accent font-medium hover:bg-rose-light/50 transition-colors"
+                    >
+                      Refer &amp; Earn $10
+                    </Link>
+                    <Link
+                      to="/settings"
+                      onClick={() => setAvatarOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-text-primary hover:bg-rose-light/50 transition-colors"
+                    >
+                      Settings
                     </Link>
                     <button
                       onClick={handleSignOut}
@@ -178,6 +199,13 @@ export default function Navbar() {
                     My Treatments
                   </Link>
                   <Link
+                    to="/my/history"
+                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    History
+                  </Link>
+                  <Link
                     to="/rewards"
                     className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
                     onClick={() => setMobileOpen(false)}
@@ -193,6 +221,13 @@ export default function Navbar() {
                     {unreadCount > 0 && (
                       <span className="w-2 h-2 bg-rose-accent rounded-full" />
                     )}
+                  </Link>
+                  <Link
+                    to="/refer"
+                    className="px-3 py-2 text-sm font-medium text-rose-accent hover:bg-rose-light/50 rounded-lg transition-colors"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Refer &amp; Earn $10
                   </Link>
                   <button
                     onClick={handleSignOut}

@@ -29,6 +29,24 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { provider_id } = await req.json()
     if (!provider_id) {
       return new Response(
@@ -36,8 +54,6 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       )
     }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     // Check if provider already has a number
     const { data: existing } = await supabase
@@ -146,7 +162,7 @@ Deno.serve(async (req: Request) => {
       if (!purchaseRes.ok) {
         const err = await purchaseRes.json()
         return new Response(
-          JSON.stringify({ error: `Failed to purchase number: ${err.message || err.detail}` }),
+          JSON.stringify({ error: 'Failed to purchase number. Please try again.' }),
           { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         )
       }
@@ -165,7 +181,7 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) {
       return new Response(
-        JSON.stringify({ error: insertError.message }),
+        JSON.stringify({ error: 'An error occurred. Please try again.' }),
         { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       )
     }
@@ -177,7 +193,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('provision-twilio-number error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An error occurred. Please try again.' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

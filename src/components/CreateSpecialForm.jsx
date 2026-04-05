@@ -110,7 +110,6 @@ export default function CreateSpecialForm({ provider, onComplete, onCancel }) {
       placementId: placement.id,
       tier,
       weeks,
-      totalPrice: total,
     });
 
     if (checkoutResult?.simulated) {

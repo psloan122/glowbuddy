@@ -18,7 +18,7 @@ Deno.serve(async () => {
       .limit(200)
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'An error occurred' }), { status: 500 })
     }
 
     if (!integrations || integrations.length === 0) {
@@ -64,7 +64,7 @@ Deno.serve(async () => {
   } catch (err) {
     console.error('verify-integrations error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An error occurred' }),
       { status: 500 }
     )
   }

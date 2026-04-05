@@ -33,7 +33,7 @@ Deno.serve(async () => {
 
     if (fetchError) {
       console.error('Fetch stale procedures error:', fetchError)
-      return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'An internal error occurred' }), { status: 500 })
     }
 
     if (!staleProcs || staleProcs.length === 0) {
@@ -103,7 +103,7 @@ Deno.serve(async () => {
   } catch (err) {
     console.error('cron-freshness-nudge error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An internal error occurred' }),
       { status: 500 }
     )
   }

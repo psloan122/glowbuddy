@@ -76,7 +76,7 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ## Admin Access
 
-Navigate to `/admin` and use the password: `glowadmin2026`
+Navigate to `/admin`. You must be signed in with an account that has `role = 'admin'` in the `profiles` table.
 
 ## Project Structure
 

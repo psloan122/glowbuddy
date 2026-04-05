@@ -26,6 +26,7 @@ import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 import OutcomeSelector from '../components/OutcomeSelector';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import RetouchReminders from '../components/RetouchReminders';
+import SavingsCalculator from '../components/SavingsCalculator';
 
 export default function Home() {
   // Stats
@@ -80,6 +81,9 @@ export default function Home() {
 
   // Recent reviews
   const [recentReviews, setRecentReviews] = useState([]);
+
+  // Calculator widget
+  const [calcOpen, setCalcOpen] = useState(false);
 
   // Location personalization
   const [userCity, setUserCity] = useState(() => getCity());
@@ -385,6 +389,33 @@ export default function Home() {
       {/* Stats Bar */}
       <section className="max-w-4xl mx-auto px-4 -mt-6 relative z-10">
         <PriceStatsBar stats={stats} city={userCity} localCount={localCount} />
+      </section>
+
+      {/* Savings Calculator Widget */}
+      <section className="max-w-4xl mx-auto px-4 mt-8">
+        <div className="glow-card overflow-hidden">
+          <button
+            onClick={() => setCalcOpen(!calcOpen)}
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-rose-accent text-lg">&#x1F4B0;</span>
+              <div>
+                <p className="text-sm font-bold text-text-primary">How much could you save?</p>
+                <p className="text-xs text-text-secondary">Compare your prices to your city&apos;s average</p>
+              </div>
+            </div>
+            <ChevronDown
+              size={18}
+              className={`text-text-secondary transition-transform ${calcOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {calcOpen && (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              <SavingsCalculator variant="compact" />
+            </div>
+          )}
+        </div>
       </section>
 
       {/* What Patients Are Saying */}

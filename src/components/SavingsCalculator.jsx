@@ -1,0 +1,496 @@
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { Calculator, ChevronDown, MapPin, ArrowRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { AuthContext } from '../App';
+import { fetchBenchmark } from '../lib/priceBenchmark';
+import { PROCEDURE_TYPES } from '../lib/constants';
+import SavingsShareCard from './SavingsShareCard';
+
+const TYPICAL_UNITS = {
+  'Botox / Dysport / Xeomin': 28,
+  'Lip Filler': 1,
+  'Cheek Filler': 1,
+  'Jawline Filler': 1,
+  'HydraFacial': 1,
+};
+
+const UNIT_LABELS = {
+  'Botox / Dysport / Xeomin': '/unit',
+  'Lip Filler': '/syringe',
+  'Cheek Filler': '/syringe',
+  'Jawline Filler': '/syringe',
+  'Nasolabial Filler': '/syringe',
+  'Under Eye Filler': '/syringe',
+  'Chin Filler': '/syringe',
+  'Kybella': '/session',
+  'RF Microneedling': '/session',
+  'Microneedling': '/session',
+  'Chemical Peel': '/session',
+  'Laser Hair Removal': '/session',
+  'IPL / Photofacial': '/session',
+  'CoolSculpting': '/area',
+  'Semaglutide / Weight Loss': '/month',
+  'IV Therapy': '/session',
+  'HydraFacial': '/session',
+  'Botox Lip Flip': '',
+  'Brow Lamination': '',
+  'Lash Lift': '',
+};
+
+const FREQUENCY_OPTIONS = [
+  { value: 3, label: 'Every 3 months' },
+  { value: 4, label: 'Every 4 months' },
+  { value: 6, label: 'Every 6 months' },
+  { value: 12, label: 'Once a year' },
+];
+
+function trackEvent(eventName, properties = {}) {
+  supabase.from('custom_events').insert({ event_name: eventName, properties }).then(() => {});
+}
+
+export default function SavingsCalculator({ variant = 'full', defaultProcedure = '', defaultCity = '' }) {
+  const { user, openAuthModal } = useContext(AuthContext);
+
+  // Step 1 — What do you get?
+  const [procedureType, setProcedureType] = useState(defaultProcedure);
+  const [city, setCity] = useState(defaultCity);
+  const [state, setState] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState([]);
+  const [cityOpen, setCityOpen] = useState(false);
+  const [cityLoading, setCityLoading] = useState(false);
+  const cityRef = useRef(null);
+  const cityDebounce = useRef(null);
+
+  // Step 2 — What do you pay?
+  const [price, setPrice] = useState('');
+  const [frequency, setFrequency] = useState(3);
+
+  // Results
+  const [benchmark, setBenchmark] = useState(null);
+  const [percentile, setPercentile] = useState(null);
+  const [cheaperProviders, setCheaperProviders] = useState([]);
+
+  // Share card
+  const [showShareCard, setShowShareCard] = useState(false);
+
+  // Close city dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (cityRef.current && !cityRef.current.contains(e.target)) setCityOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Fetch benchmark when procedure + city selected
+  useEffect(() => {
+    if (!procedureType || !city || !state) {
+      setBenchmark(null);
+      setPercentile(null);
+      setCheaperProviders([]);
+      return;
+    }
+    fetchBenchmark(procedureType, state, city).then((bm) => {
+      setBenchmark(bm);
+    });
+  }, [procedureType, city, state]);
+
+  // Fetch percentile + cheaper providers when price changes
+  useEffect(() => {
+    if (!procedureType || !city || !state || !price || !benchmark) {
+      setPercentile(null);
+      setCheaperProviders([]);
+      return;
+    }
+
+    const userPrice = parseFloat(price);
+    if (isNaN(userPrice) || userPrice <= 0) return;
+
+    // Get percentile
+    async function fetchPercentile() {
+      const { data: allPrices } = await supabase
+        .from('procedures')
+        .select('price_paid')
+        .eq('procedure_type', procedureType)
+        .eq('city', city)
+        .eq('state', state)
+        .eq('status', 'active');
+
+      if (allPrices && allPrices.length >= 3) {
+        const sorted = allPrices.map((p) => Number(p.price_paid)).sort((a, b) => a - b);
+        const below = sorted.filter((p) => p <= userPrice).length;
+        setPercentile(Math.round((below / sorted.length) * 100));
+      } else {
+        setPercentile(null);
+      }
+    }
+
+    // Get cheaper providers (only when above avg)
+    async function fetchCheaper() {
+      const avgPrice = Number(benchmark.avg_price);
+      if (userPrice <= avgPrice) {
+        setCheaperProviders([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('procedures')
+        .select('provider_name, price_paid')
+        .eq('procedure_type', procedureType)
+        .eq('city', city)
+        .eq('state', state)
+        .eq('status', 'active')
+        .lt('price_paid', userPrice)
+        .order('price_paid', { ascending: true })
+        .limit(20);
+
+      if (data) {
+        // Group by provider, get average
+        const providerMap = {};
+        for (const row of data) {
+          if (!row.provider_name) continue;
+          if (!providerMap[row.provider_name]) {
+            providerMap[row.provider_name] = { total: 0, count: 0 };
+          }
+          providerMap[row.provider_name].total += Number(row.price_paid);
+          providerMap[row.provider_name].count += 1;
+        }
+        const sorted = Object.entries(providerMap)
+          .map(([name, d]) => ({ provider_name: name, avg_price: d.total / d.count }))
+          .sort((a, b) => a.avg_price - b.avg_price);
+        setCheaperProviders(sorted.slice(0, 3));
+      }
+    }
+
+    fetchPercentile();
+    fetchCheaper();
+
+    trackEvent(user ? 'calculator_used' : 'calculator_used_no_auth', {
+      procedure_type: procedureType,
+      city,
+      user_id: user?.id || null,
+    });
+  }, [price, benchmark, procedureType, city, state]);
+
+  // City search
+  const searchCities = useCallback(async (q) => {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) { setCityResults([]); return; }
+    setCityLoading(true);
+    try {
+      const { data } = await supabase
+        .from('procedures')
+        .select('city, state')
+        .eq('status', 'active')
+        .ilike('city', `%${trimmed}%`)
+        .limit(50);
+
+      const seen = new Set();
+      const unique = [];
+      for (const row of data || []) {
+        if (!row.city) continue;
+        const key = `${row.city}|${row.state}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push({ city: row.city, state: row.state });
+        }
+        if (unique.length >= 6) break;
+      }
+      setCityResults(unique);
+    } catch {
+      setCityResults([]);
+    } finally {
+      setCityLoading(false);
+    }
+  }, []);
+
+  function handleCityInput(val) {
+    setCityQuery(val);
+    setCityOpen(true);
+    if (cityDebounce.current) clearTimeout(cityDebounce.current);
+    cityDebounce.current = setTimeout(() => searchCities(val), 300);
+  }
+
+  function selectCity(loc) {
+    setCity(loc.city);
+    setState(loc.state);
+    setCityQuery('');
+    setCityOpen(false);
+  }
+
+  // Calculations
+  const userPrice = parseFloat(price) || 0;
+  const avgPrice = benchmark ? Number(benchmark.avg_price) : 0;
+  const typicalUnits = TYPICAL_UNITS[procedureType] || 1;
+  const unitLabel = UNIT_LABELS[procedureType] || '';
+  const perTreatmentSavings = avgPrice > 0 ? Math.abs(avgPrice - userPrice) * typicalUnits : 0;
+  const treatmentsPerYear = 12 / frequency;
+  const yearlySavings = perTreatmentSavings * treatmentsPerYear;
+  const fiveYearSavings = yearlySavings * 5;
+  const paidBelow = userPrice < avgPrice;
+  const paidAbove = userPrice > avgPrice;
+  const hasResults = userPrice > 0 && avgPrice > 0;
+
+  function handleShareClick() {
+    if (!user) {
+      openAuthModal('signin');
+      return;
+    }
+    setShowShareCard(true);
+  }
+
+  const isCompact = variant === 'compact';
+
+  return (
+    <>
+      <div className={isCompact ? '' : 'glow-card p-6'}>
+        {!isCompact && (
+          <div className="flex items-center gap-2.5 mb-5">
+            <Calculator size={22} className="text-rose-accent" />
+            <h2 className="text-lg font-bold text-text-primary">Savings Calculator</h2>
+          </div>
+        )}
+
+        {/* Step 1 — Procedure + City */}
+        <div className={`grid ${isCompact ? 'grid-cols-1 gap-3' : 'grid-cols-1 sm:grid-cols-2 gap-3'} mb-4`}>
+          {/* Procedure dropdown */}
+          <div className="relative">
+            <label className="block text-xs font-medium text-text-secondary mb-1">Procedure</label>
+            <div className="relative">
+              <select
+                value={procedureType}
+                onChange={(e) => setProcedureType(e.target.value)}
+                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm bg-white"
+              >
+                <option value="">Select procedure</option>
+                {PROCEDURE_TYPES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            </div>
+          </div>
+
+          {/* City autocomplete */}
+          <div ref={cityRef} className="relative">
+            <label className="block text-xs font-medium text-text-secondary mb-1">City</label>
+            {city ? (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
+                <span className="inline-flex items-center gap-1 text-sm text-text-primary">
+                  <MapPin size={12} className="text-text-secondary" />
+                  {city}{state ? `, ${state}` : ''}
+                </span>
+                <button
+                  onClick={() => { setCity(''); setState(''); setBenchmark(null); }}
+                  className="ml-auto text-text-secondary hover:text-text-primary text-xs"
+                >
+                  &times;
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                  <input
+                    type="text"
+                    placeholder="Search city..."
+                    value={cityQuery}
+                    onChange={(e) => handleCityInput(e.target.value)}
+                    onFocus={() => cityQuery.trim() && setCityOpen(true)}
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                  />
+                </div>
+                {cityOpen && cityQuery.trim().length >= 2 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                    {cityLoading ? (
+                      <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                    ) : cityResults.length > 0 ? (
+                      cityResults.map((loc, i) => (
+                        <button
+                          key={`${loc.city}-${loc.state}-${i}`}
+                          onClick={() => selectCity(loc)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors flex items-center gap-2 text-text-primary"
+                        >
+                          <MapPin size={12} className="text-text-secondary shrink-0" />
+                          {loc.city}, {loc.state}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-text-secondary">No cities found</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Step 2 — Price + Frequency */}
+        <div className={`grid ${isCompact ? 'grid-cols-1 gap-3' : 'grid-cols-1 sm:grid-cols-2 gap-3'} mb-5`}>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              What do you pay?{unitLabel && <span className="text-text-secondary/60"> ({unitLabel.replace('/', 'per ')})</span>}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">$</span>
+              <input
+                type="number"
+                placeholder="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                min="0"
+                step="0.01"
+                className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">How often?</label>
+            <div className="relative">
+              <select
+                value={frequency}
+                onChange={(e) => setFrequency(Number(e.target.value))}
+                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm bg-white"
+              >
+                {FREQUENCY_OPTIONS.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ RESULTS ═══ */}
+        {hasResults && (
+          <div className="rounded-xl p-5 mb-4" style={{ background: 'linear-gradient(135deg, #FDF6F0, #FBE8EF)' }}>
+            {/* Price comparison */}
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="text-text-secondary">You pay</span>
+              <span className="font-bold text-text-primary">${userPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}{unitLabel}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm mb-4">
+              <span className="text-text-secondary">{city} average</span>
+              <span className="font-bold text-text-primary">${avgPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}{unitLabel}</span>
+            </div>
+
+            {/* Savings breakdown */}
+            {paidBelow ? (
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">Per treatment</span>
+                  <span className="text-sm font-bold text-green-600">~${Math.round(perTreatmentSavings).toLocaleString()} savings</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">Per year</span>
+                  <span className="text-base font-bold" style={{ color: '#C94F78' }}>~${Math.round(yearlySavings).toLocaleString()} savings</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">Over 5 years</span>
+                  <span className="text-sm font-bold text-text-primary">~${Math.round(fiveYearSavings).toLocaleString()} savings</span>
+                </div>
+              </div>
+            ) : paidAbove ? (
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">You could save</span>
+                  <span className="text-sm font-bold" style={{ color: '#92400E' }}>${Math.round(perTreatmentSavings).toLocaleString()}/treatment</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">Per year</span>
+                  <span className="text-base font-bold" style={{ color: '#92400E' }}>${Math.round(yearlySavings).toLocaleString()} potential savings</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-green-600 mb-4">
+                Right at the local average &#x2705;
+              </p>
+            )}
+
+            {/* Percentile */}
+            {percentile != null && paidBelow && (
+              <p className="text-sm font-medium text-text-primary mb-4">
+                You&apos;re in the top {Math.round(100 - percentile)}% of prices in {city} &#x1F389;
+              </p>
+            )}
+
+            {/* Cheaper providers (above avg) */}
+            {paidAbove && cheaperProviders.length > 0 && (
+              <div className="border-t border-rose-accent/15 pt-3 mb-4">
+                <p className="text-xs font-medium text-text-secondary mb-2">
+                  See which providers are cheaper:
+                </p>
+                <div className="space-y-1.5">
+                  {cheaperProviders.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-text-primary flex items-center gap-1.5">
+                        <MapPin size={12} className="text-text-secondary" />
+                        {p.provider_name}
+                      </span>
+                      <span className="font-semibold text-text-primary">
+                        ${Number(p.avg_price).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}{unitLabel} avg
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleShareClick}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors"
+                style={{ backgroundColor: '#C94F78' }}
+              >
+                &#x1F4F8; Create Shareable Card
+              </button>
+              <Link
+                to={`/log?procedure=${encodeURIComponent(procedureType)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}`}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-rose-accent border border-rose-accent/30 rounded-xl hover:bg-rose-light/50 transition-colors"
+              >
+                Log this treatment <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator when benchmark is fetching */}
+        {procedureType && city && state && !benchmark && (
+          <div className="text-center py-4">
+            <p className="text-sm text-text-secondary animate-pulse">Loading price data...</p>
+          </div>
+        )}
+
+        {/* No data message */}
+        {procedureType && city && state && benchmark === null && price && (
+          <div className="text-center py-3">
+            <p className="text-sm text-text-secondary">
+              Not enough data for {procedureType} in {city} yet.{' '}
+              <Link to="/log" className="text-rose-accent font-medium hover:text-rose-dark">
+                Be the first to report
+              </Link>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Share card modal */}
+      {showShareCard && hasResults && (
+        <SavingsShareCard
+          procedureType={procedureType}
+          pricePerUnit={price}
+          unitLabel={unitLabel}
+          city={city}
+          yearlySavings={yearlySavings}
+          percentile={percentile}
+          paidBelow={paidBelow}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
+    </>
+  );
+}

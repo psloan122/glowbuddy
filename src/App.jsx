@@ -37,8 +37,20 @@ import DealShare from './pages/DealShare';
 import BudgetPlanner from './pages/BudgetPlanner';
 import StackBuilder from './pages/StackBuilder';
 import RoutineQuiz from './pages/RoutineQuiz';
+import ResolveDispute from './pages/ResolveDispute';
+import Settings from './pages/Settings';
+import TreatmentTimeline from './pages/TreatmentTimeline';
+import CalculatorPage from './pages/Calculator';
+import CityPriceIndex from './pages/CityPriceIndex';
+import CityPriceReport from './pages/CityPriceReport';
+import Refer from './pages/Refer';
+import Wrapped from './pages/Wrapped';
+import ReferralRedirect from './pages/ReferralRedirect';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
+import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
 
 export const AuthContext = createContext(null);
 
@@ -63,6 +75,11 @@ function App() {
 
   const clearToast = useCallback(() => {
     setToast(null);
+  }, []);
+
+  // Capture ?ref= param on app load
+  useEffect(() => {
+    captureReferralFromUrl();
   }, []);
 
   useEffect(() => {
@@ -94,6 +111,8 @@ function App() {
             syncToSupabase(userId);
             loadFromSupabase(userId);
             checkLoginStreak(userId);
+            // Create referral record if user signed up via referral link
+            createReferralOnSignup(userId);
           }
 
           // Claim any pending submission from the log form
@@ -220,11 +239,32 @@ function App() {
             <Route path="/deal" element={<DealShare />} />
             <Route path="/my-stack" element={<StackBuilder />} />
             <Route path="/build-my-routine" element={<RoutineQuiz />} />
+            <Route path="/resolve-dispute" element={<ResolveDispute />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/my/history" element={<TreatmentTimeline />} />
+            <Route path="/calculator" element={<CalculatorPage />} />
+            <Route path="/refer" element={<Refer />} />
+            <Route path="/r/:code" element={<ReferralRedirect />} />
+            <Route path="/my/wrapped" element={<Wrapped />} />
+            <Route path="/my/wrapped/:year" element={<Wrapped />} />
+            <Route path="/prices" element={<CityPriceIndex />} />
+            <Route path="/prices/:citySlug" element={<CityPriceReport />} />
+            <Route path="/prices/:citySlug/:yearMonth" element={<CityPriceReport />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
-        <footer className="text-center py-8 text-sm text-text-secondary border-t border-gray-100 mt-12">
+        <footer className="text-center py-8 text-sm text-text-secondary border-t border-gray-100 mt-12 space-y-2">
           <p>&copy; {new Date().getFullYear()} GlowBuddy. All data is crowdsourced and self-reported.</p>
+          <p className="text-xs text-text-secondary/60">
+            GlowBuddy is a pricing tool, not medical advice. Always consult a qualified provider.
+          </p>
+          <div className="flex justify-center gap-4 text-xs">
+            <a href="/privacy" className="text-text-secondary hover:text-rose-accent transition">Privacy Policy</a>
+            <a href="/terms" className="text-text-secondary hover:text-rose-accent transition">Terms of Service</a>
+            <a href="/privacy#ccpa" className="text-text-secondary hover:text-rose-accent transition">Do Not Sell My Information</a>
+          </div>
         </footer>
 
         {/* Auth modal */}

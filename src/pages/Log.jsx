@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Check, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -24,8 +25,10 @@ import Step1 from '../components/LogForm/Step1';
 import Step2 from '../components/LogForm/Step2';
 import Step3 from '../components/LogForm/Step3';
 import ThankYou from '../components/ThankYou';
+import HowdIDoScreen from '../components/HowdIDoScreen';
 import VerifyEmailModal from '../components/VerifyEmailModal';
 import { format } from 'date-fns';
+import { fetchBenchmark } from '../lib/priceBenchmark';
 
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
@@ -63,10 +66,22 @@ const INITIAL_FORM_DATA = {
 
 export default function Log() {
   const { user, openAuthModal } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+  const [formData, setFormData] = useState(() => {
+    const prefill = { ...INITIAL_FORM_DATA };
+    const procedure = searchParams.get('procedure');
+    const provider = searchParams.get('provider');
+    const city = searchParams.get('city');
+    const state = searchParams.get('state');
+    if (procedure) prefill.procedureType = procedure;
+    if (provider) prefill.providerName = provider;
+    if (city) prefill.city = city;
+    if (state) prefill.state = state;
+    return prefill;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
   const [outlierFlagged, setOutlierFlagged] = useState(false);
@@ -95,6 +110,10 @@ export default function Log() {
 
   // Credit tracking
   const [creditResult, setCreditResult] = useState(null);
+
+  // Price comparison data (for HowdIDoScreen)
+  const [comparisonData, setComparisonData] = useState(null);
+  const [cheaperProviders, setCheaperProviders] = useState([]);
 
   // SEO
   useEffect(() => {
@@ -579,7 +598,83 @@ export default function Log() {
       // 8. Run velocity check in background (silent, never blocks UI)
       checkVelocity(formData.providerName, formData.city, formData.state);
 
-      // 9. Show ThankYou screen
+      // 9. Fetch price comparison data for HowdIDoScreen
+      try {
+        const benchmark = await fetchBenchmark(
+          formData.procedureType,
+          formData.state,
+          formData.city
+        );
+        if (benchmark && benchmark.sample_size >= 3) {
+          // Fetch min/max/percentile from procedures directly
+          const { data: priceRows } = await supabase
+            .from('procedures')
+            .select('price_paid')
+            .eq('procedure_type', formData.procedureType)
+            .eq('city', formData.city)
+            .eq('state', formData.state)
+            .eq('status', 'active')
+            .gt('price_paid', 0)
+            .order('price_paid', { ascending: true });
+
+          if (priceRows && priceRows.length >= 3) {
+            const prices = priceRows.map((r) => Number(r.price_paid));
+            const minP = prices[0];
+            const maxP = prices[prices.length - 1];
+            const belowCount = prices.filter((p) => p >= price).length;
+            const pct = ((prices.length - belowCount) / prices.length) * 100;
+
+            setComparisonData({
+              avg_price: benchmark.avg_price,
+              median_price: benchmark.median_price,
+              sample_size: benchmark.sample_size,
+              min_price: minP,
+              max_price: maxP,
+              percentile: Math.round(pct),
+              city: formData.city,
+              state: formData.state,
+            });
+
+            // If user paid above avg, find cheaper providers
+            if (price > Number(benchmark.avg_price)) {
+              const { data: providerRows } = await supabase
+                .from('procedures')
+                .select('provider_name, price_paid')
+                .eq('procedure_type', formData.procedureType)
+                .eq('city', formData.city)
+                .eq('state', formData.state)
+                .eq('status', 'active')
+                .gt('price_paid', 0)
+                .lt('price_paid', price)
+                .order('price_paid', { ascending: true });
+
+              if (providerRows && providerRows.length > 0) {
+                // Group by provider and average
+                const byProvider = {};
+                providerRows.forEach((r) => {
+                  const name = r.provider_name;
+                  if (!byProvider[name]) byProvider[name] = { total: 0, count: 0 };
+                  byProvider[name].total += Number(r.price_paid);
+                  byProvider[name].count += 1;
+                });
+                const cheaper = Object.entries(byProvider)
+                  .map(([name, { total, count }]) => ({
+                    provider_name: name,
+                    avg_price: Math.round(total / count),
+                  }))
+                  .sort((a, b) => a.avg_price - b.avg_price)
+                  .slice(0, 3);
+                setCheaperProviders(cheaper);
+              }
+            }
+          }
+        }
+      } catch (compErr) {
+        // Non-blocking — comparison is optional
+        console.error('Comparison fetch error (non-blocking):', compErr);
+      }
+
+      // 10. Show success screen
       setDuplicateWarning(false);
       setDuplicateConfirmed(false);
       setCurrentStep('success');
@@ -757,21 +852,39 @@ export default function Log() {
         </>
       )}
 
-      {/* Thank You screen */}
+      {/* Success screen: comparison view or standard thank-you */}
       {currentStep === 'success' && submissionResult && (
-        <ThankYou
-          procedure={submissionResult}
-          user={user}
-          outlierFlagged={outlierFlagged}
-          entries={entryCount}
-          hasReceipt={hasReceipt}
-          activeCount={activeCount}
-          hasRating={!!formData.rating}
-          hasReview={!!formData.reviewBody}
-          hasResultPhoto={!!resultPhotoUrl}
-          pioneerResult={pioneerResult}
-          creditResult={creditResult}
-        />
+        comparisonData ? (
+          <HowdIDoScreen
+            procedure={submissionResult}
+            comparison={comparisonData}
+            user={user}
+            outlierFlagged={outlierFlagged}
+            entries={entryCount}
+            hasReceipt={hasReceipt}
+            activeCount={activeCount}
+            hasRating={!!formData.rating}
+            hasReview={!!formData.reviewBody}
+            hasResultPhoto={!!resultPhotoUrl}
+            pioneerResult={pioneerResult}
+            creditResult={creditResult}
+            cheaperProviders={cheaperProviders}
+          />
+        ) : (
+          <ThankYou
+            procedure={submissionResult}
+            user={user}
+            outlierFlagged={outlierFlagged}
+            entries={entryCount}
+            hasReceipt={hasReceipt}
+            activeCount={activeCount}
+            hasRating={!!formData.rating}
+            hasReview={!!formData.reviewBody}
+            hasResultPhoto={!!resultPhotoUrl}
+            pioneerResult={pioneerResult}
+            creditResult={creditResult}
+          />
+        )
       )}
 
       {showVerifyModal && (

@@ -20,7 +20,7 @@ export function getStripe() {
  * Create a placement checkout session via Supabase edge function.
  * Returns { url } for redirect, or { error }.
  */
-export async function createPlacementCheckout({ specialId, placementId, tier, weeks, totalPrice }) {
+export async function createPlacementCheckout({ specialId, placementId, tier, weeks }) {
   const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
   // If Stripe isn't configured yet, simulate success for development
@@ -33,20 +33,26 @@ export async function createPlacementCheckout({ specialId, placementId, tier, we
   }
 
   try {
+    const { supabase } = await import('./supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      return { error: 'You must be signed in to checkout' };
+    }
+
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-placement-checkout`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${(await import('./supabase')).supabase.auth.session()?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           specialId,
           placementId,
           tier,
           weeks,
-          totalPrice,
           successUrl: `${window.location.origin}/business/dashboard?tab=Specials&checkout=success`,
           cancelUrl: `${window.location.origin}/business/dashboard?tab=Specials&checkout=cancelled`,
         }),
@@ -59,7 +65,7 @@ export async function createPlacementCheckout({ specialId, placementId, tier, we
       return { url: data.url };
     }
     return { error: data.error || 'Failed to create checkout session' };
-  } catch (err) {
-    return { error: err.message };
+  } catch {
+    return { error: 'Something went wrong. Please try again.' };
   }
 }

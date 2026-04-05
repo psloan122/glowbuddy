@@ -24,7 +24,7 @@ Deno.serve(async () => {
       .limit(100);
 
     if (fetchError) {
-      return new Response(JSON.stringify({ error: fetchError.message }), {
+      return new Response(JSON.stringify({ error: 'An internal error occurred' }), {
         status: 500,
       });
     }
@@ -91,7 +91,7 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ sent: sentCount }), { status: 200 });
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An internal error occurred' }),
       { status: 500 }
     );
   }

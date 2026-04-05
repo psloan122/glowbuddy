@@ -34,7 +34,7 @@ Deno.serve(async () => {
 
     if (fetchError) {
       console.error('Fetch error:', fetchError)
-      return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'An internal error occurred' }), { status: 500 })
     }
 
     if (!specials || specials.length === 0) {
@@ -92,7 +92,7 @@ Deno.serve(async () => {
   } catch (err) {
     console.error('cron-expiring-specials error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An internal error occurred' }),
       { status: 500 }
     )
   }

@@ -21,6 +21,24 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { provider_id, vagaro_booking_url, vagaro_widget_url, vagaro_business_id } = await req.json()
 
     if (!provider_id || !vagaro_booking_url) {
@@ -70,8 +88,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // Upsert integration record
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
     const { error: upsertError } = await supabase
       .from('provider_integrations')
       .upsert({
@@ -87,7 +103,7 @@ Deno.serve(async (req: Request) => {
 
     if (upsertError) {
       return new Response(
-        JSON.stringify({ success: false, error: upsertError.message }),
+        JSON.stringify({ success: false, error: 'An error occurred. Please try again.' }),
         { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       )
     }
@@ -99,7 +115,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('validate-vagaro-connection error:', err)
     return new Response(
-      JSON.stringify({ success: false, error: (err as Error).message }),
+      JSON.stringify({ success: false, error: 'An error occurred. Please try again.' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

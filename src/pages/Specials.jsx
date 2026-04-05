@@ -1,15 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { Tag, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { PROCEDURE_TYPES, US_STATES } from '../lib/constants';
+import { AuthContext } from '../App';
+import { getWalletBalance } from '../lib/referral';
 import SpecialCard from '../components/SpecialCard';
+import WalletCreditBanner from '../components/WalletCreditBanner';
 
 export default function Specials() {
+  const { user } = useContext(AuthContext);
   const [specials, setSpecials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [procedureFilter, setProcedureFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      getWalletBalance(user.id).then(setWalletBalance);
+    }
+  }, [user]);
 
   // SEO
   useEffect(() => {
@@ -115,6 +126,9 @@ export default function Specials() {
         </select>
       </div>
 
+      {/* Wallet credit banner */}
+      <WalletCreditBanner />
+
       {/* Specials Grid */}
       {filteredSpecials.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -123,6 +137,7 @@ export default function Specials() {
               key={special.id}
               special={special}
               provider={special.providers}
+              walletBalance={walletBalance}
             />
           ))}
         </div>

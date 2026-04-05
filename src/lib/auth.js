@@ -211,6 +211,8 @@ export async function syncLocalPrefsToProfile(userId) {
         city: city || null,
         state: state || null,
         interests: interests.length > 0 ? interests : null,
+        terms_accepted_at: new Date().toISOString(),
+        terms_version: '2026-04',
       },
       { onConflict: 'user_id' }
     );

@@ -24,7 +24,7 @@ Deno.serve(async () => {
 
     if (providerError) {
       console.error('Provider fetch error:', providerError)
-      return new Response(JSON.stringify({ error: providerError.message }), { status: 500 })
+      return new Response(JSON.stringify({ error: 'An internal error occurred' }), { status: 500 })
     }
 
     if (!providers || providers.length === 0) {
@@ -104,7 +104,7 @@ Deno.serve(async () => {
   } catch (err) {
     console.error('cron-weekly-digest error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An internal error occurred' }),
       { status: 500 }
     )
   }

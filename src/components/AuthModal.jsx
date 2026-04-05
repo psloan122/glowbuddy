@@ -47,6 +47,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
   const [forgotSent, setForgotSent] = useState(false);
 
   // Inline validation
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false, confirm: false });
   const [fieldErrors, setFieldErrors] = useState({ email: '', password: '', confirm: '' });
 
@@ -70,6 +71,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     setConfirmPassword('');
     setSuccess(false);
     setForgotSent(false);
+    setAgreedToTerms(false);
     setTouched({ email: false, password: false, confirm: false });
     setFieldErrors({ email: '', password: '', confirm: '' });
   }
@@ -394,6 +396,30 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             </div>
           )}
 
+          {/* Terms & Privacy consent (signup only) */}
+          {mode === 'signup' && (
+            <label className="flex gap-2 text-[13px] text-text-secondary cursor-pointer my-1">
+              <input
+                type="checkbox"
+                required
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 accent-rose-accent"
+              />
+              <span>
+                I agree to the{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-rose-accent hover:text-rose-dark transition">
+                  Terms of Service
+                </a>
+                {' '}and{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-rose-accent hover:text-rose-dark transition">
+                  Privacy Policy
+                </a>
+                . I am 18 or older.
+              </span>
+            </label>
+          )}
+
           {/* Forgot password link (signin only) */}
           {mode === 'signin' && (
             <div className="text-right">
@@ -410,7 +436,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
           {/* Submit */}
           <button
             type="submit"
-            disabled={sending}
+            disabled={sending || (mode === 'signup' && !agreedToTerms)}
             className="w-full py-3 text-white font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
             style={{ backgroundColor: '#C94F78' }}
           >

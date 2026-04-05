@@ -70,44 +70,41 @@ export async function checkAndAwardPioneer(userId, procedureRow) {
 
   if (existing) return null; // Already claimed
 
-  // Race for the slot — unique constraint will reject duplicates
-  const { data: record, error } = await supabase
-    .from('pioneer_records')
-    .insert({
-      user_id: userId,
-      provider_slug: providerSlug,
-      provider_name: procedureRow.provider_name,
-      city: procedureRow.city || null,
-      state: procedureRow.state || null,
-      procedure_id: procedureRow.id,
-      pioneer_tier: tier,
-    })
-    .select()
-    .single();
+  // Race for the slot via SECURITY DEFINER function — unique constraint rejects duplicates
+  const { data: recordId, error } = await supabase.rpc('award_pioneer_record', {
+    p_user_id: userId,
+    p_provider_slug: providerSlug,
+    p_provider_name: procedureRow.provider_name,
+    p_city: procedureRow.city || null,
+    p_state: procedureRow.state || null,
+    p_procedure_id: procedureRow.id,
+    p_pioneer_tier: tier,
+  });
 
-  if (error) {
-    // 23505 = unique constraint violation — someone else got there first
-    if (error.code === '23505') return null;
-    console.error('Pioneer insert error:', error);
+  if (error || !recordId) {
+    // Unique constraint violation or someone else got there first
     return null;
   }
 
-  // Award location_pioneer badge if this is pioneer or founding_patient tier
+  // Build a record object for downstream use
+  const record = {
+    id: recordId,
+    user_id: userId,
+    provider_slug: providerSlug,
+    provider_name: procedureRow.provider_name,
+    city: procedureRow.city || null,
+    state: procedureRow.state || null,
+    procedure_id: procedureRow.id,
+    pioneer_tier: tier,
+  };
+
+  // Award location_pioneer badge via SECURITY DEFINER (ON CONFLICT DO NOTHING handles dupes)
   if (tier === 'pioneer' || tier === 'founding_patient') {
     try {
-      const { data: existingBadge } = await supabase
-        .from('user_badges')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('badge_type', 'location_pioneer')
-        .maybeSingle();
-
-      if (!existingBadge) {
-        await supabase.from('user_badges').insert({
-          user_id: userId,
-          badge_type: 'location_pioneer',
-        });
-      }
+      await supabase.rpc('award_badge', {
+        p_user_id: userId,
+        p_badge_type: 'location_pioneer',
+      });
     } catch {
       // Non-blocking
     }
@@ -155,16 +152,16 @@ export async function getPioneerCredit(providerSlug) {
 
   if (error || !data || data.length === 0) return [];
 
-  // Fetch display names for the pioneer users
+  // Fetch display names from public_profiles view (privacy-safe)
   const userIds = [...new Set(data.map((r) => r.user_id))];
   const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .in('id', userIds);
+    .from('public_profiles')
+    .select('user_id, display_name')
+    .in('user_id', userIds);
 
   const nameMap = {};
   (profiles || []).forEach((p) => {
-    nameMap[p.id] = p.display_name;
+    nameMap[p.user_id] = p.display_name;
   });
 
   return data.map((r) => ({
@@ -202,17 +199,17 @@ export async function getPioneerLeaderboard(city, state, limit = 20) {
     .sort((a, b) => b.location_count - a.location_count)
     .slice(0, limit);
 
-  // Fetch display names
+  // Fetch display names from public_profiles view (privacy-safe)
   if (sorted.length === 0) return [];
   const userIds = sorted.map((r) => r.user_id);
   const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .in('id', userIds);
+    .from('public_profiles')
+    .select('user_id, display_name')
+    .in('user_id', userIds);
 
   const nameMap = {};
   (profiles || []).forEach((p) => {
-    nameMap[p.id] = p.display_name;
+    nameMap[p.user_id] = p.display_name;
   });
 
   return sorted.map((r) => ({

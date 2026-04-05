@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { supabase } from '../lib/supabase';
+import { AuthContext } from '../App';
 import {
   Shield,
   Check,
@@ -19,15 +20,20 @@ import {
   Phone,
   DollarSign,
   Users,
+  Flag,
+  Mail,
 } from 'lucide-react';
+import { processReferralQualification } from '../lib/referral';
 import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
 import AdminFinancingReport from '../components/AdminFinancingReport';
 import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
 import AdminInjectorsTab from '../components/AdminInjectorsTab';
+import AdminOutreachTab from '../components/AdminOutreachTab';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
   { key: 'disputes', label: 'Disputes', icon: Eye },
+  { key: 'communityDisputes', label: 'Community Disputes', icon: Flag },
   { key: 'receipts', label: 'Receipts', icon: FileImage },
   { key: 'photos', label: 'Photo Review', icon: Image },
   { key: 'velocity', label: 'Velocity Flagged', icon: Zap },
@@ -40,11 +46,13 @@ const TABS = [
   { key: 'financing', label: 'Financing', icon: DollarSign },
   { key: 'integrations', label: 'Integrations', icon: ExternalLink },
   { key: 'injectors', label: 'Injectors', icon: Users },
+  { key: 'outreach', label: 'Outreach', icon: Mail },
 ];
 
 export default function Admin() {
-  const [password, setPassword] = useState('');
+  const { user, openAuthModal } = useContext(AuthContext);
   const [authenticated, setAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [data, setData] = useState([]);
   const [counts, setCounts] = useState({});
@@ -54,20 +62,26 @@ export default function Admin() {
     document.title = 'Admin | GlowBuddy';
   }, []);
 
+  // Check admin role from JWT user_metadata
+  useEffect(() => {
+    if (!user?.id) {
+      setAuthenticated(false);
+      setAuthChecking(false);
+      return;
+    }
+    setAuthChecking(true);
+    supabase.auth.getUser().then(({ data: { user: freshUser } }) => {
+      const role = freshUser?.user_metadata?.user_role;
+      setAuthenticated(role === 'admin');
+      setAuthChecking(false);
+    });
+  }, [user?.id]);
+
   useEffect(() => {
     if (authenticated) {
       fetchData();
     }
   }, [authenticated, activeTab]);
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === 'glowadmin2026') {
-      setAuthenticated(true);
-    } else {
-      alert('Incorrect password');
-    }
-  };
 
   async function fetchData() {
     setLoading(true);
@@ -84,6 +98,12 @@ export default function Admin() {
       const { data: rows } = await supabase
         .from('disputes')
         .select('*, procedures(*), providers(*)')
+        .order('created_at', { ascending: false });
+      setData(rows || []);
+    } else if (activeTab === 'communityDisputes') {
+      const { data: rows } = await supabase
+        .from('procedure_disputes')
+        .select('*, procedures(id, procedure_type, price_paid, provider_name, city, state, user_id, trust_score, is_disputed, dispute_count, dispute_resolution)')
         .order('created_at', { ascending: false });
       setData(rows || []);
     } else if (activeTab === 'receipts') {
@@ -170,7 +190,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials] =
+    const [pending, disputes, communityDisputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -181,6 +201,11 @@ export default function Admin() {
           .from('disputes')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending'),
+        supabase
+          .from('procedures')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_disputed', true)
+          .is('dispute_resolution', null),
         supabase
           .from('procedures')
           .select('*', { count: 'exact', head: true })
@@ -217,6 +242,7 @@ export default function Admin() {
     setCounts({
       pending: pending.count || 0,
       disputes: disputes.count || 0,
+      communityDisputes: communityDisputes.count || 0,
       receipts: receipts.count || 0,
       photos: photos.count || 0,
       velocity: velocity.count || 0,
@@ -271,6 +297,10 @@ export default function Admin() {
         .from('procedures')
         .update({ trust_score: Math.min((proc.trust_score || 50) + 20, 100) })
         .eq('id', id);
+      // Check if this triggers a referral reward
+      if (proc.user_id) {
+        processReferralQualification(proc.user_id);
+      }
     }
     fetchData();
   }
@@ -294,8 +324,14 @@ export default function Admin() {
 
   async function viewReceipt(path) {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
-        `/api/receipt-url?path=${encodeURIComponent(path)}`
+        `/api/receipt-url?path=${encodeURIComponent(path)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        }
       );
       const { url } = await res.json();
       if (url) window.open(url, '_blank');
@@ -331,6 +367,30 @@ export default function Admin() {
       await supabase
         .from('procedures')
         .update({ status: 'active' })
+        .eq('id', procedureId);
+    }
+    fetchData();
+  }
+
+  async function resolveCommunityDispute(procedureId, action) {
+    if (action === 'confirm') {
+      await supabase
+        .from('procedures')
+        .update({
+          dispute_resolution: 'confirmed',
+          is_disputed: false,
+          dispute_resolved_at: new Date().toISOString(),
+        })
+        .eq('id', procedureId);
+    } else if (action === 'remove') {
+      await supabase
+        .from('procedures')
+        .update({
+          dispute_resolution: 'removed',
+          status: 'removed',
+          is_disputed: false,
+          dispute_resolved_at: new Date().toISOString(),
+        })
         .eq('id', procedureId);
     }
     fetchData();
@@ -391,7 +451,7 @@ export default function Admin() {
       })
       .eq('id', submission.id);
 
-    // Upsert user_verification tier (only upgrade, never downgrade)
+    // Upsert user_verification tier via SECURITY DEFINER function (only upgrade, never downgrade)
     const tierRank = { self_reported: 0, appointment_confirmed: 1, receipt_verified: 2 };
     const { data: existing } = await supabase
       .from('user_verification')
@@ -403,13 +463,10 @@ export default function Admin() {
     const newRank = tierRank[submission.verification_type] || 0;
 
     if (newRank > currentRank) {
-      await supabase
-        .from('user_verification')
-        .upsert({
-          user_id: submission.user_id,
-          verification_tier: submission.verification_type,
-          updated_at: new Date().toISOString(),
-        });
+      await supabase.rpc('admin_set_verification_tier', {
+        p_user_id: submission.user_id,
+        p_tier: submission.verification_type,
+      });
     }
 
     fetchData();
@@ -423,31 +480,44 @@ export default function Admin() {
     fetchData();
   }
 
-  // --- Login screen ---
-  if (!authenticated) {
+  // --- Auth gate ---
+  if (authChecking) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-24 text-center">
+        <div className="animate-pulse text-text-secondary">Checking access...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="max-w-md mx-auto px-4 pt-24">
         <div className="glow-card p-8 text-center">
           <Shield className="w-12 h-12 text-rose-accent mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Admin Access</h1>
           <p className="text-text-secondary mb-6">
-            Enter the admin password to continue.
+            Sign in with an admin account to continue.
           </p>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition"
-            />
-            <button
-              type="submit"
-              className="w-full bg-rose-accent text-white py-3 rounded-xl font-semibold hover:bg-rose-dark transition"
-            >
-              Sign In
-            </button>
-          </form>
+          <button
+            onClick={() => openAuthModal('login')}
+            className="w-full bg-rose-accent text-white py-3 rounded-xl font-semibold hover:bg-rose-dark transition"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="max-w-md mx-auto px-4 pt-24">
+        <div className="glow-card p-8 text-center">
+          <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-text-secondary">
+            Your account does not have admin privileges.
+          </p>
         </div>
       </div>
     );
@@ -610,6 +680,9 @@ export default function Admin() {
     if (activeTab === 'injectors') {
       return <AdminInjectorsTab />;
     }
+    if (activeTab === 'outreach') {
+      return <AdminOutreachTab />;
+    }
 
     if (loading) {
       return (
@@ -741,6 +814,129 @@ export default function Admin() {
               </div>
             </div>
           ))}
+        </div>
+      );
+    }
+
+    if (activeTab === 'communityDisputes') {
+      // Group disputes by procedure_id to show per-procedure view
+      const grouped = {};
+      data.forEach((d) => {
+        const pid = d.procedure_id;
+        if (!grouped[pid]) {
+          grouped[pid] = {
+            procedure: d.procedures,
+            disputes: [],
+            reasons: {},
+          };
+        }
+        grouped[pid].disputes.push(d);
+        grouped[pid].reasons[d.reason] = (grouped[pid].reasons[d.reason] || 0) + 1;
+      });
+      const groups = Object.values(grouped);
+
+      if (groups.length === 0) {
+        return (
+          <div className="glow-card p-8 text-center text-text-secondary">
+            No community disputes to review.
+          </div>
+        );
+      }
+
+      const reasonLabels = {
+        price_wrong: 'Price wrong',
+        wrong_provider: 'Wrong provider',
+        wrong_procedure: 'Wrong procedure',
+        looks_fake: 'Looks fake',
+        other: 'Other',
+      };
+
+      return (
+        <div className="space-y-4">
+          {groups.map((group) => {
+            const proc = group.procedure;
+            if (!proc) return null;
+            return (
+              <div key={proc.id} className="glow-card p-5">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="font-bold text-lg">{proc.procedure_type}</span>
+                      <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">
+                        {group.disputes.length} flag{group.disputes.length !== 1 ? 's' : ''}
+                      </span>
+                      {proc.dispute_resolution && (
+                        <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
+                          Resolved: {proc.dispute_resolution}
+                        </span>
+                      )}
+                      {proc.trust_score != null && (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${
+                            proc.trust_score < 30
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          Trust: {proc.trust_score}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold mt-1">
+                      ${Number(proc.price_paid).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-text-secondary mt-1">
+                      {proc.provider_name} &middot; {proc.city}, {proc.state}
+                    </p>
+                    {proc.user_id && (
+                      <p className="text-xs text-text-secondary mt-1 font-mono">
+                        Submitter: {proc.user_id.slice(0, 8)}...
+                      </p>
+                    )}
+                    {/* Reason breakdown */}
+                    <div className="flex gap-1.5 flex-wrap mt-3">
+                      {Object.entries(group.reasons).map(([reason, count]) => (
+                        <span
+                          key={reason}
+                          className="text-[10px] font-medium uppercase tracking-wide bg-red-50 text-red-600 px-2 py-0.5 rounded-full"
+                        >
+                          {reasonLabels[reason] || reason} ({count})
+                        </span>
+                      ))}
+                    </div>
+                    {/* Individual dispute notes */}
+                    {group.disputes.some((d) => d.note) && (
+                      <div className="mt-3 space-y-1">
+                        {group.disputes
+                          .filter((d) => d.note)
+                          .map((d) => (
+                            <p key={d.id} className="text-xs text-text-secondary italic">
+                              &ldquo;{d.note}&rdquo;
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                  {!proc.dispute_resolution && (
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <button
+                        onClick={() => resolveCommunityDispute(proc.id, 'confirm')}
+                        className="flex items-center gap-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                      >
+                        <Check className="w-4 h-4" /> Confirm Accurate
+                      </button>
+                      <button
+                        onClick={() => resolveCommunityDispute(proc.id, 'remove')}
+                        className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
+                      >
+                        <X className="w-4 h-4" /> Mark Suspicious
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
     }

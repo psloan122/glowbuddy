@@ -26,6 +26,24 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { review_id } = await req.json()
     if (!review_id) {
       return new Response(
@@ -33,8 +51,6 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       )
     }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     // Fetch the review
     const { data: review, error: fetchError } = await supabase
@@ -175,7 +191,7 @@ Respond with ONLY a JSON object (no markdown, no explanation outside the JSON):
   } catch (err) {
     console.error('analyze-review error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An error occurred. Please try again.' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

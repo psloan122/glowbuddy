@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck, RotateCcw, CheckCircle, Camera } from 'lucide-react';
+import { ShieldCheck, Users, ChevronDown, ChevronUp, FileCheck, RotateCcw, CheckCircle, Camera, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
@@ -13,6 +13,7 @@ import { getPriceFreshness, getFreshnessAge } from '../lib/freshness';
 import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
+import DisputeButton from './DisputeButton';
 
 export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
@@ -36,19 +37,30 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   return (
     <Wrapper
       {...wrapperProps}
-      className="block glow-card p-5 hover:no-underline"
+      className="group block glow-card p-5 hover:no-underline"
     >
       {/* Top row: source badge */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span
-            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{ color: sourceBadge.color, backgroundColor: sourceBadge.background }}
-            title={sourceBadge.tooltip}
-          >
-            <span className="text-[11px]">{sourceBadge.icon}</span>
-            {sourceBadge.label}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ color: sourceBadge.color, backgroundColor: sourceBadge.background }}
+              title={sourceBadge.tooltip}
+            >
+              <span className="text-[11px]">{sourceBadge.icon}</span>
+              {sourceBadge.label}
+            </span>
+            {procedure.is_disputed && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
+                title="Multiple users have flagged this price as potentially inaccurate. Use with caution."
+              >
+                <AlertTriangle size={11} />
+                Disputed
+              </span>
+            )}
+          </div>
           {freshness && (
             <span
               className="block text-[11px] mt-1 ml-0.5"
@@ -258,6 +270,11 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           )}
         </div>
       )}
+
+      {/* Community flag button */}
+      <div className="flex justify-end mt-2 opacity-40 group-hover:opacity-100 transition-opacity">
+        <DisputeButton procedureId={procedure.id} procedureUserId={procedure.user_id} />
+      </div>
     </Wrapper>
   );
 }

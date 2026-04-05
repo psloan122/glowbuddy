@@ -33,3 +33,23 @@ export function sendWeeklyDigest(email, data) {
 export function sendPriceAlert(email, data) {
   invoke('price_alert', email, data);
 }
+
+export function sendDisputeNotification(email, data) {
+  invoke('dispute_notification', email, data);
+}
+
+export function sendGlowReport(email, data) {
+  invoke('glow_report', email, data);
+}
+
+export function sendReferralReward(email, data) {
+  invoke('referral_reward', email, data);
+}
+
+export function sendReferralWelcomeCredit(email, data) {
+  invoke('referral_welcome_credit', email, data);
+}
+
+export function sendWrappedReady(email, data) {
+  invoke('wrapped_ready', email, data);
+}

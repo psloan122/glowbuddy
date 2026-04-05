@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('fan-out error:', err)
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({ error: 'An internal error occurred' }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

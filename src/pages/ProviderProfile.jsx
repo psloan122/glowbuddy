@@ -196,6 +196,22 @@ export default function ProviderProfile() {
     fetchData();
   }, [slug]);
 
+  // Track page view for analytics
+  useEffect(() => {
+    if (loading || !provider?.id) return;
+    supabase
+      .from('custom_events')
+      .insert({
+        event_name: 'provider_page_view',
+        properties: {
+          provider_id: provider.id,
+          provider_slug: slug,
+          is_claimed: provider.is_claimed || false,
+        },
+      })
+      .then(() => {});
+  }, [loading, provider?.id, slug]);
+
   // 5. Auto-fetch Google Places for unclaimed providers
   useEffect(() => {
     if (loading) return;
@@ -551,10 +567,9 @@ export default function ProviderProfile() {
               </>
             )}
             {photos[photoIndex].attribution && (
-              <div
-                className="absolute bottom-2 left-2 text-[10px] text-white/70"
-                dangerouslySetInnerHTML={{ __html: photos[photoIndex].attribution }}
-              />
+              <div className="absolute bottom-2 left-2 text-[10px] text-white/70">
+                {photos[photoIndex].attribution.replace(/<[^>]*>/g, '')}
+              </div>
             )}
           </div>
           <p className="text-[10px] text-gray-400 text-right pr-2 mt-1">
