@@ -176,6 +176,50 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
                 </Link>
               )}
 
+              {/* Source attribution */}
+              {guide.sources?.length > 0 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-[10px] text-text-secondary leading-relaxed">
+                    Information sourced from{' '}
+                    {guide.sources.map((url, i) => {
+                      const domain = (() => {
+                        try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
+                      })();
+                      const shortMap = {
+                        'accessdata.fda.gov': 'FDA',
+                        'plasticsurgery.org': 'ASPS',
+                        'aad.org': 'AAD',
+                        'asds.net': 'ASDS',
+                        'pubmed.ncbi.nlm.nih.gov': 'PubMed',
+                      };
+                      const short = shortMap[domain] || domain;
+                      return (
+                        <span key={i}>
+                          {i > 0 && ', '}
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#0369A1] hover:underline"
+                          >
+                            {short}
+                          </a>
+                        </span>
+                      );
+                    })}
+                    . See{' '}
+                    <Link
+                      to={`/guides/${guide.slug}`}
+                      className="text-[#0369A1] hover:underline"
+                      onClick={onClose}
+                    >
+                      full guide
+                    </Link>
+                    {' '}for complete citations.
+                  </p>
+                </div>
+              )}
+
               {/* Activate mode CTA */}
               {onActivateMode && (
                 <button

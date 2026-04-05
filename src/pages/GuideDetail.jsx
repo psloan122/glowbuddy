@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CopyableQuestion from '../components/CopyableQuestion';
 import DosageCalculator from '../components/DosageCalculator';
@@ -208,6 +208,47 @@ export default function GuideDetail() {
                 A consultation is recommended before your first treatment.
               </p>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Sources */}
+      {guide.sources?.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-display text-xl font-semibold text-text-primary mb-3">Sources</h2>
+          <div className="rounded-xl bg-warm-gray p-4">
+            <p className="text-xs text-text-secondary mb-2">
+              The information in this guide is sourced from published clinical data and professional organization statistics:
+            </p>
+            <ul className="space-y-1.5">
+              {guide.sources.map((url, i) => {
+                const domain = (() => {
+                  try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
+                })();
+                const labelMap = {
+                  'accessdata.fda.gov': 'FDA Prescribing Information',
+                  'plasticsurgery.org': 'American Society of Plastic Surgeons (ASPS)',
+                  'aad.org': 'American Academy of Dermatology (AAD)',
+                  'asds.net': 'American Society for Dermatologic Surgery (ASDS)',
+                  'pubmed.ncbi.nlm.nih.gov': 'PubMed / NIH',
+                  'hydrafacial.com': 'HydraFacial (Manufacturer)',
+                };
+                const label = labelMap[domain] || domain;
+                return (
+                  <li key={i}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-[#0369A1] hover:text-sky-800 transition"
+                    >
+                      <ExternalLink size={10} className="shrink-0" />
+                      {label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </section>
       )}
