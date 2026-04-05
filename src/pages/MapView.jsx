@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Map, List, Plus } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import MapFilterBar from '../components/MapFilterBar';
 import ProviderMap from '../components/ProviderMap';
 import MapProviderCard from '../components/MapProviderCard';
 import MobileSheet from '../components/MobileSheet';
+import { autoPopulateCity, fetchAllProvidersInBounds } from '../lib/autoPopulate';
 
 const DEFAULT_CENTER = { lat: 37.0902, lng: -95.7129 };
 const DEFAULT_ZOOM = 4;
@@ -20,6 +20,7 @@ export default function MapView() {
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
   const [cityLabel, setCityLabel] = useState(''); // for count display
+  const [stateLabel, setStateLabel] = useState('');
   const [mapMoved, setMapMoved] = useState(false);
 
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
@@ -37,81 +38,47 @@ export default function MapView() {
   const boundsRef = useRef(DEFAULT_BOUNDS);
   const debounceRef = useRef(null);
 
-  // ── Fetch markers from procedures table ──
+  // ── Fetch all providers (with and without submissions) ──
   const fetchMarkers = useCallback(async (bounds) => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('procedures')
-        .select('provider_name, provider_slug, city, state, lat, lng, price_paid, procedure_type, provider_type, units_or_volume')
-        .not('lat', 'is', null)
-        .not('lng', 'is', null)
-        .eq('status', 'active')
-        .gte('lat', bounds.south)
-        .lte('lat', bounds.north)
-        .gte('lng', bounds.west)
-        .lte('lng', bounds.east)
-        .limit(200);
+      const merged = await fetchAllProvidersInBounds(bounds, filters.procedureType);
 
-      if (filters.procedureType) {
-        query = query.eq('procedure_type', filters.procedureType);
-      }
-
+      // Apply city/zip filter client-side if set
+      let filtered = merged;
       const cityOrZip = filters.cityOrZip.trim();
       if (cityOrZip) {
         if (/^\d{5}$/.test(cityOrZip)) {
-          query = query.eq('zip_code', cityOrZip);
+          // Zip filter not available on providers table — keep all
+          filtered = merged;
         } else {
-          query = query.ilike('city', `%${cityOrZip}%`);
+          filtered = merged.filter((p) =>
+            p.city?.toLowerCase().includes(cityOrZip.toLowerCase())
+          );
         }
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Group by provider_name + city → one marker per location
-      const grouped = {};
-      for (const row of data || []) {
-        const key = `${row.provider_name}-${row.city}`;
-        if (!grouped[key]) {
-          grouped[key] = {
-            key,
-            provider_name: row.provider_name,
-            provider_slug: row.provider_slug,
-            city: row.city,
-            state: row.state,
-            lat: row.lat,
-            lng: row.lng,
-            provider_type: row.provider_type,
-            submissions: [],
-          };
-        }
-        grouped[key].submissions.push(row);
-        // Keep first non-null slug
-        if (row.provider_slug && !grouped[key].provider_slug) {
-          grouped[key].provider_slug = row.provider_slug;
-        }
-      }
-
-      const markers = Object.values(grouped).map((p) => ({
-        ...p,
-        submission_count: p.submissions.length,
-        avg_price: Math.round(
-          p.submissions.reduce((sum, s) => sum + (s.price_paid || 0), 0) /
-            p.submissions.length
-        ),
-      }));
-
-      // Sort by submission count desc
-      markers.sort((a, b) => b.submission_count - a.submission_count);
-
-      setProviders(markers);
+      setProviders(filtered);
     } catch (err) {
       console.error('MapView fetch error:', err);
     } finally {
       setLoading(false);
     }
   }, [filters]);
+
+  // ── Auto-populate when city filter changes ──
+  useEffect(() => {
+    const city = filters.cityOrZip.trim();
+    if (!city || /^\d{5}$/.test(city)) return;
+
+    // Trigger auto-populate in background (fire-and-forget)
+    autoPopulateCity(city, stateLabel).then((created) => {
+      if (created.length > 0) {
+        // Re-fetch to include newly created providers
+        fetchMarkers(boundsRef.current);
+      }
+    });
+  }, [filters.cityOrZip]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Initial fetch with US-wide bounds ──
   useEffect(() => {
@@ -151,12 +118,16 @@ export default function MapView() {
                 }
               );
             });
+            let foundCity = '';
+            let foundState = '';
             for (const comp of result.address_components) {
-              if (comp.types.includes('locality')) {
-                setCityLabel(comp.long_name);
-                setFilters((f) => ({ ...f, cityOrZip: comp.long_name }));
-                break;
-              }
+              if (comp.types.includes('locality')) foundCity = comp.long_name;
+              if (comp.types.includes('administrative_area_level_1')) foundState = comp.short_name;
+            }
+            if (foundCity) {
+              setCityLabel(foundCity);
+              setStateLabel(foundState);
+              setFilters((f) => ({ ...f, cityOrZip: foundCity }));
             }
           } catch {
             // silent
@@ -201,12 +172,16 @@ export default function MapView() {
                 }
               );
             });
+            let foundCity = '';
+            let foundState = '';
             for (const comp of result.address_components) {
-              if (comp.types.includes('locality')) {
-                setCityLabel(comp.long_name);
-                setFilters((f) => ({ ...f, cityOrZip: comp.long_name }));
-                break;
-              }
+              if (comp.types.includes('locality')) foundCity = comp.long_name;
+              if (comp.types.includes('administrative_area_level_1')) foundState = comp.short_name;
+            }
+            if (foundCity) {
+              setCityLabel(foundCity);
+              setStateLabel(foundState);
+              setFilters((f) => ({ ...f, cityOrZip: foundCity }));
             }
           } catch {
             // silent
@@ -228,14 +203,25 @@ export default function MapView() {
   }
 
   // ── Count display text ──
+  const withData = providers.filter((p) => p.has_submissions);
+  const withoutData = providers.filter((p) => !p.has_submissions);
+
   function getCountText() {
     if (loading) return 'Searching...';
     const n = providers.length;
-    if (n === 0) return null; // handled by empty state
-    const label = n === 1 ? 'provider' : 'providers';
-    if (mapMoved && !filters.cityOrZip.trim()) return `${n} ${label} in this area`;
-    if (cityLabel.trim()) return `${n} ${label} in ${cityLabel}`;
-    return `${n} ${label} nationwide`;
+    if (n === 0) return null;
+    const area = cityLabel.trim()
+      ? ` in ${cityLabel}`
+      : mapMoved
+      ? ' in this area'
+      : ' nationwide';
+    if (withoutData.length > 0 && withData.length > 0) {
+      return `${withData.length} with prices · ${withoutData.length} awaiting first submission${area}`;
+    }
+    if (withoutData.length > 0) {
+      return `${n} provider${n !== 1 ? 's' : ''} found${area} — be the first to log prices`;
+    }
+    return `${n} provider${n !== 1 ? 's' : ''}${area}`;
   }
 
   const countText = getCountText();
@@ -294,26 +280,10 @@ export default function MapView() {
             procedureFilter={filters.procedureType}
           />
 
-          {/* Empty state overlay */}
-          {!loading && providers.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 text-center pointer-events-auto max-w-xs">
-                <p className="text-sm font-medium text-text-primary mb-1">
-                  No prices logged here yet
-                </p>
-                <p className="text-xs text-text-secondary mb-3">
-                  Be the first to share what you paid in this area.
-                </p>
-                <Link
-                  to="/log"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-accent hover:text-rose-dark transition"
-                >
-                  <Plus size={14} />
-                  Log a Treatment
-                </Link>
-              </div>
-            </div>
-          )}
+          {/* Powered by Google attribution */}
+          <div className="absolute bottom-2 left-2 bg-white/90 rounded px-2 py-0.5 text-[10px] text-text-secondary z-10">
+            Powered by Google
+          </div>
 
           <MobileSheet
             providers={providers}
@@ -330,18 +300,11 @@ export default function MapView() {
           ) : providers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <p className="text-sm font-medium text-text-primary mb-1">
-                No prices logged here yet
+                No providers found in this area yet
               </p>
               <p className="text-xs text-text-secondary mb-3">
-                Be the first to share what you paid in this area.
+                Search for a city to discover med spas near you.
               </p>
-              <Link
-                to="/log"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-accent hover:text-rose-dark transition"
-              >
-                <Plus size={14} />
-                Log a Treatment
-              </Link>
             </div>
           ) : (
             <div className="max-w-2xl mx-auto p-4 grid gap-1">

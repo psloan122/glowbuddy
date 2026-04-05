@@ -845,6 +845,25 @@ export default function ProviderProfile() {
         </div>
       )}
 
+      {/* Empty State — no submissions yet */}
+      {communityData.length === 0 && !isClaimed && (
+        <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
+          <p className="text-lg font-semibold text-text-primary mb-1">
+            No prices logged here yet
+          </p>
+          <p className="text-sm text-text-secondary mb-4">
+            Be the first{providerCity ? ` in ${providerCity}` : ''} to share what you paid at {providerName}.
+          </p>
+          <Link
+            to="/log"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+          >
+            <Plus size={18} />
+            Log What You Paid
+          </Link>
+        </div>
+      )}
+
       {/* What Patients Paid — always show when community data exists */}
       {communityData.length > 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6">

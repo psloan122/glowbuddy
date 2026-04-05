@@ -67,8 +67,31 @@ export default function ProviderMap({
     );
   }
 
+  function getMarkerIcon(p) {
+    if (!p.has_submissions) {
+      // Gray pin for providers without price data
+      return {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#9CA3AF',
+        fillOpacity: 0.9,
+        strokeColor: '#6B7280',
+        strokeWeight: 1.5,
+      };
+    }
+    return undefined; // default red marker
+  }
+
   function getMarkerLabel(p) {
-    if (procedureFilter) {
+    if (!p.has_submissions) {
+      return {
+        text: '?',
+        color: '#FFFFFF',
+        fontSize: '10px',
+        fontWeight: '700',
+      };
+    }
+    if (procedureFilter && p.avg_price > 0) {
       return {
         text: `$${p.avg_price}`,
         color: '#1A1A2E',
@@ -98,6 +121,7 @@ export default function ProviderMap({
           key={p.key}
           position={{ lat: p.lat, lng: p.lng }}
           title={p.provider_name}
+          icon={getMarkerIcon(p)}
           label={getMarkerLabel(p)}
           onClick={() => onSelectProvider(p)}
         />
