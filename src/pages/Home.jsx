@@ -12,6 +12,16 @@ import SpecialCard from '../components/SpecialCard';
 import SpecialOfferCard from '../components/SpecialOfferCard';
 import PriceStatsBar from '../components/PriceStatsBar';
 import HeroPattern from '../components/HeroPattern';
+import FirstTimerBadge from '../components/FirstTimerBadge';
+import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
+import FirstTimerOnboardingPrompt from '../components/FirstTimerOnboardingPrompt';
+import FirstTimerGuideSheet from '../components/FirstTimerGuideSheet';
+import DosageCalculator from '../components/DosageCalculator';
+import {
+  isFirstTimerMode, setFirstTimerMode,
+  addFirstTimerTreatment, getFirstTimerTreatments,
+  isFirstTimerFor,
+} from '../lib/firstTimerMode';
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 
 export default function Home() {
@@ -54,6 +64,11 @@ export default function Home() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [minRating, setMinRating] = useState('');
 
+  // First-timer state
+  const [firstTimerActive, setFirstTimerActive] = useState(() => isFirstTimerMode());
+  const [showGuideSheet, setShowGuideSheet] = useState(false);
+  const [guideSheetTreatment, setGuideSheetTreatment] = useState('');
+
   // Recent reviews
   const [recentReviews, setRecentReviews] = useState([]);
 
@@ -66,6 +81,13 @@ export default function Home() {
   useEffect(() => {
     document.title = 'GlowBuddy \u2014 Know Before You Glow';
   }, []);
+
+  // Switch to lowest_price sort when first-timer mode activates
+  useEffect(() => {
+    if (firstTimerActive && selectedProc && sortBy === 'most_recent') {
+      setSortBy('lowest_price');
+    }
+  }, [firstTimerActive, selectedProc]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -475,6 +497,13 @@ export default function Home() {
                     <X size={14} />
                   </button>
                 </span>
+                {firstTimerActive && isFirstTimerFor(selectedProc) && (
+                  <FirstTimerBadge
+                    variant="inline"
+                    label="View Guide"
+                    onClick={() => { setGuideSheetTreatment(selectedProc); setShowGuideSheet(true); }}
+                  />
+                )}
               </div>
             ) : (
               <>
@@ -693,6 +722,42 @@ export default function Home() {
           </div>
         )}
 
+        {/* First-Timer Mode Banner */}
+        {firstTimerActive && (
+          <FirstTimerModeBanner
+            onOpenGuide={() => {
+              const treatments = getFirstTimerTreatments();
+              setGuideSheetTreatment(treatments[0] || selectedProc);
+              setShowGuideSheet(true);
+            }}
+            onDeactivate={() => {
+              setFirstTimerMode(false);
+              setFirstTimerActive(false);
+            }}
+          />
+        )}
+
+        {/* First-Timer Onboarding Prompt */}
+        {selectedProc && !firstTimerActive && (
+          <FirstTimerOnboardingPrompt
+            key={selectedProc}
+            treatmentName={selectedProc}
+            onActivated={() => {
+              addFirstTimerTreatment(selectedProc);
+              setFirstTimerMode(true);
+              setFirstTimerActive(true);
+              setGuideSheetTreatment(selectedProc);
+              setShowGuideSheet(true);
+            }}
+            onDismissed={() => {}}
+          />
+        )}
+
+        {/* Dosage Calculator */}
+        {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
+          <DosageCalculator treatmentName={selectedProc} />
+        )}
+
         {/* Procedures grid */}
         {loadingProcedures ? (
           <div className="text-center py-12">
@@ -719,11 +784,25 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {procedures.map((proc) => (
-              <ProcedureCard key={proc.id} procedure={proc} />
+              <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} />
             ))}
           </div>
         )}
       </section>
+
+      {/* First-Timer Guide Sheet */}
+      {showGuideSheet && guideSheetTreatment && (
+        <FirstTimerGuideSheet
+          treatmentName={guideSheetTreatment}
+          onClose={() => setShowGuideSheet(false)}
+          onActivateMode={() => {
+            addFirstTimerTreatment(guideSheetTreatment);
+            setFirstTimerMode(true);
+            setFirstTimerActive(true);
+            setShowGuideSheet(false);
+          }}
+        />
+      )}
     </div>
   );
 }

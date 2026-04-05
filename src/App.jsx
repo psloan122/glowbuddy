@@ -26,7 +26,9 @@ import Alerts from './pages/Alerts';
 import Verified from './pages/Verified';
 import AuthCallback from './pages/AuthCallback';
 import ResetPassword from './pages/ResetPassword';
+import GuideDetail from './pages/GuideDetail';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
+import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
 export const AuthContext = createContext(null);
 
@@ -75,6 +77,8 @@ function App() {
           // Sync localStorage prefs to profile
           if (userId) {
             syncLocalPrefsToProfile(userId);
+            syncToSupabase(userId);
+            loadFromSupabase(userId);
           }
 
           // Claim any pending submission from the log form
@@ -191,6 +195,7 @@ function App() {
             <Route path="/verified" element={<Verified />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/guides/:slug" element={<GuideDetail />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

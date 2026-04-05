@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Star,
   Settings as SettingsIcon,
+  Sparkles,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -970,6 +971,59 @@ export default function Dashboard() {
               </p>
             </div>
           )}
+
+          {/* First-Timer Settings */}
+          <div className="glow-card p-5 mt-6">
+            <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
+              <Sparkles size={16} className="text-[#0369A1]" />
+              First-Timer Settings
+            </h3>
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={provider.first_timer_friendly || false}
+                  onChange={async (e) => {
+                    const val = e.target.checked;
+                    const { data } = await supabase
+                      .from('providers')
+                      .update({ first_timer_friendly: val })
+                      .eq('id', provider.id)
+                      .select()
+                      .single();
+                    if (data) setProvider(data);
+                  }}
+                  className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="text-sm text-text-primary">We welcome first-timers</span>
+              </label>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  First-Timer Special (shown on your profile)
+                </label>
+                <textarea
+                  defaultValue={provider.first_timer_special || ''}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    if (val === (provider.first_timer_special || null)) return;
+                    const { data } = await supabase
+                      .from('providers')
+                      .update({ first_timer_special: val })
+                      .eq('id', provider.id)
+                      .select()
+                      .single();
+                    if (data) setProvider(data);
+                  }}
+                  placeholder="e.g. 10% off your first Botox session"
+                  rows={2}
+                  className={INPUT_CLASS + ' text-sm'}
+                />
+                <p className="text-xs text-text-secondary mt-1">
+                  Saves automatically when you click away.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

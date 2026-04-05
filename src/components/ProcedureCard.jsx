@@ -6,11 +6,13 @@ import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
 import FairPriceBadge from './FairPriceBadge';
+import PriceAnnotation from './PriceAnnotation';
 import { providerProfileUrl } from '../lib/slugify';
 import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
+import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
 
-export default function ProcedureCard({ procedure }) {
+export default function ProcedureCard({ procedure, firstTimerActive }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
   const sourceBadge = getSourceBadge(procedure.data_source);
   const freshness = procedure.data_source === 'provider_quote'
@@ -116,6 +118,11 @@ export default function ProcedureCard({ procedure }) {
           city={procedure.city}
         />
       </div>
+      {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
+        <div className="mb-1">
+          <PriceAnnotation price={procedure.price_paid} treatmentName={procedure.procedure_type} />
+        </div>
+      )}
 
       {/* Units / volume */}
       {procedure.units_or_volume && (

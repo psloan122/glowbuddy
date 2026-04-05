@@ -14,6 +14,8 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Heart,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -587,6 +589,12 @@ export default function ProviderProfile() {
                     Verified Provider
                   </span>
                 )}
+                {provider?.first_timer_friendly && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-[#E0F2FE] text-[#0369A1]">
+                    <Heart size={14} />
+                    Welcomes First-Timers
+                  </span>
+                )}
               </div>
 
               {/* GlowBuddy Rating */}
@@ -825,6 +833,17 @@ export default function ProviderProfile() {
           </div>
         </div>
       </div>
+
+      {/* First-Timer Special */}
+      {provider?.first_timer_special && (
+        <div className="glow-card p-5 mb-6 border border-sky-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-[#0369A1]" />
+            <h3 className="text-sm font-semibold text-[#0369A1]">First-Timer Special</h3>
+          </div>
+          <p className="text-sm text-text-primary">{provider.first_timer_special}</p>
+        </div>
+      )}
 
       {/* What Patients Paid — always show when community data exists */}
       {communityData.length > 0 && !isClaimed && (
