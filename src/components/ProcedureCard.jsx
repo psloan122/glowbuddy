@@ -9,6 +9,7 @@ import FairPriceBadge from './FairPriceBadge';
 import PriceAnnotation from './PriceAnnotation';
 import { providerProfileUrl } from '../lib/slugify';
 import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
+import { getPriceFreshness, getFreshnessAge } from '../lib/freshness';
 import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
@@ -18,6 +19,9 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   const sourceBadge = getSourceBadge(procedure.data_source);
   const freshness = procedure.data_source === 'provider_quote'
     ? getQuoteFreshness(procedure.quote_date)
+    : null;
+  const priceFreshness = procedure.data_source !== 'provider_quote'
+    ? getPriceFreshness(procedure.freshness_confirmed_at || procedure.created_at)
     : null;
 
   const profileUrl = providerProfileUrl(
@@ -119,6 +123,27 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           city={procedure.city}
         />
       </div>
+      {/* Price freshness indicator */}
+      {priceFreshness && (
+        <div className="flex items-center gap-2 mb-1">
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{ color: priceFreshness.color, backgroundColor: priceFreshness.bg }}
+          >
+            {priceFreshness.showWarning && <span>&#9888;</span>}
+            {priceFreshness.label} &middot; {getFreshnessAge(priceFreshness.daysOld)}
+          </span>
+          {priceFreshness.tier.key === 'stale' && (
+            <Link
+              to={`/log?procedure=${encodeURIComponent(procedure.procedure_type)}&provider=${encodeURIComponent(procedure.provider_name || '')}&city=${encodeURIComponent(procedure.city || '')}&state=${encodeURIComponent(procedure.state || '')}`}
+              className="text-[11px] font-medium text-rose-accent hover:text-rose-dark transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Update this price &rarr;
+            </Link>
+          )}
+        </div>
+      )}
       {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
         <div className="mb-1">
           <PriceAnnotation price={procedure.price_paid} treatmentName={procedure.procedure_type} />

@@ -1,6 +1,8 @@
-import { Flag, ShieldCheck, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Flag, ShieldCheck, Users, AlertTriangle } from 'lucide-react';
 import ProcedureCard from '../ProcedureCard';
 import FinancingWidget from '../FinancingWidget';
+import { getStalenessPercentage } from '../../lib/freshness';
 
 export default function PricesTab({
   verifiedPricing,
@@ -81,6 +83,26 @@ export default function PricesTab({
           <Users size={20} className="text-community" />
           What Patients Actually Paid
         </h2>
+
+        {/* Staleness warning when >50% of community prices are stale */}
+        {communityData.length > 0 && getStalenessPercentage(communityData) > 50 && (
+          <div
+            className="flex items-start gap-2.5 rounded-xl p-3 mb-4 text-sm"
+            style={{ background: '#FFFBEB', border: '1px solid rgba(217, 119, 6, 0.2)' }}
+          >
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: '#D97706' }} />
+            <p style={{ color: '#92400E' }}>
+              Most community prices here are over 6 months old and may no longer be accurate.
+              <Link
+                to={`/log?provider=${encodeURIComponent(provider?.name || '')}&city=${encodeURIComponent(provider?.city || '')}&state=${encodeURIComponent(provider?.state || '')}`}
+                className="font-medium ml-1 hover:underline"
+                style={{ color: '#B45309' }}
+              >
+                Submit a fresh price &rarr;
+              </Link>
+            </p>
+          </div>
+        )}
 
         {communityData.length > 0 ? (
           <div className="flex flex-col gap-4">

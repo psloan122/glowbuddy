@@ -460,6 +460,71 @@ function buildPriceAlert(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildFreshnessNudge(data: {
+  userName?: string
+  staleCount: number
+  procedures: Array<{ procedure_type: string; provider_name: string; city: string; state: string; procedure_id: string }>
+}): { html: string; text: string } {
+  const greeting = data.userName ? `Hi ${data.userName},` : 'Hi there,'
+  const procRows = data.procedures.slice(0, 5).map((p) => {
+    const confirmUrl = `${BASE_URL}/confirm-freshness?id=${p.procedure_id}`
+    const updateUrl = `${BASE_URL}/log?procedure=${encodeURIComponent(p.procedure_type)}&provider=${encodeURIComponent(p.provider_name)}&city=${encodeURIComponent(p.city)}&state=${encodeURIComponent(p.state)}`
+    return `
+      <tr>
+        <td style="padding:12px 0;border-bottom:1px solid #E5E7EB;">
+          <p style="margin:0;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${p.procedure_type}
+          </p>
+          <p style="margin:2px 0 8px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            ${p.provider_name} &middot; ${p.city}, ${p.state}
+          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding-right:8px;">
+                <a href="${confirmUrl}" style="display:inline-block;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;color:#059669;background-color:#ECFDF5;text-decoration:none;font-family:${FONT};">
+                  &#10003; Still Accurate
+                </a>
+              </td>
+              <td>
+                <a href="${updateUrl}" style="display:inline-block;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;color:${ACCENT};background-color:#FBE8EF;text-decoration:none;font-family:${FONT};">
+                  Update Price
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+  }).join('')
+
+  const content = `
+    <p style="margin:0 0 8px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting}
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};">
+      You have ${data.staleCount} price${data.staleCount === 1 ? '' : 's'} on GlowBuddy that
+      ${data.staleCount === 1 ? "hasn't" : "haven't"} been updated in over 6 months.
+      A quick confirmation helps others know these prices are still accurate.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${procRows}
+    </table>
+
+    ${data.staleCount > 5 ? `
+    <p style="margin:16px 0 0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      + ${data.staleCount - 5} more
+    </p>` : ''}
+
+    ${ctaButton('View All My Submissions', `${BASE_URL}/my-treatments`)}
+
+    <p style="margin:24px 0 0;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Confirming earns you 50 Glow Credits per price!
+    </p>`
+
+  const html = emailWrapper(content, `${data.staleCount} of your prices may need updating`)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -497,6 +562,12 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
       return {
         ...buildPriceAlert(data as Parameters<typeof buildPriceAlert>[0]),
         subject: `${data.treatment} dropped to $${data.price} near you`,
+      }
+
+    case 'freshness_nudge':
+      return {
+        ...buildFreshnessNudge(data as Parameters<typeof buildFreshnessNudge>[0]),
+        subject: `${data.staleCount} of your prices may need updating`,
       }
 
     default:
