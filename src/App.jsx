@@ -32,6 +32,7 @@ import InjectorProfile from './pages/InjectorProfile';
 import InjectorFeed from './pages/InjectorFeed';
 import InjectorClaim from './pages/InjectorClaim';
 import DealShare from './pages/DealShare';
+import BudgetPlanner from './pages/BudgetPlanner';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
@@ -192,6 +193,7 @@ function App() {
             <Route path="/specials" element={<Specials />} />
             <Route path="/community" element={<Community />} />
             <Route path="/my-treatments" element={<MyTreatments />} />
+            <Route path="/budget" element={<BudgetPlanner />} />
             <Route path="/business" element={<BusinessLanding />} />
             <Route path="/business/claim" element={<BusinessClaim />} />
             <Route path="/business/onboarding" element={<BusinessOnboarding />} />

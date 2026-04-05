@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/specials', label: 'Specials' },
   { to: '/community', label: 'Community' },
   { to: '/following', label: 'Following' },
+  { to: '/budget', label: 'Budget' },
   { to: '/business', label: 'Business' },
 ];
 

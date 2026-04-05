@@ -25,6 +25,7 @@ import {
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 import OutcomeSelector from '../components/OutcomeSelector';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
+import RetouchReminders from '../components/RetouchReminders';
 
 export default function Home() {
   // Stats
@@ -487,6 +488,11 @@ export default function Home() {
           </div>
         ) : null}
       </section>
+
+      {/* Retouch Reminders */}
+      <div className="max-w-7xl mx-auto px-4 mt-8">
+        <RetouchReminders />
+      </div>
 
       {/* Browse Feed */}
       <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
