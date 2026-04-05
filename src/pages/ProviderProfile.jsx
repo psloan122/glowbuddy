@@ -37,6 +37,7 @@ import CallNowButton from '../components/CallNowButton';
 import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
+import RedemptionModal from '../components/RedemptionModal';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -58,6 +59,7 @@ export default function ProviderProfile() {
   const [isProviderOwner, setIsProviderOwner] = useState(false);
   const [disputeTarget, setDisputeTarget] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [googleData, setGoogleData] = useState(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [competitorCount, setCompetitorCount] = useState(0);
@@ -596,6 +598,14 @@ export default function ProviderProfile() {
                     Welcomes First-Timers
                   </span>
                 )}
+                {provider?.glow_rewards_enabled && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
+                    style={{ background: '#FEF3C7', color: '#92400E' }}
+                  >
+                    <span style={{ color: '#D97706' }}>&#10022;</span>
+                    GlowRewards Accepted
+                  </span>
+                )}
               </div>
 
               {/* GlowBuddy Rating */}
@@ -826,6 +836,16 @@ export default function ProviderProfile() {
                 source="provider_detail"
                 variant="compact"
               />
+            )}
+            {provider?.glow_rewards_enabled && user && (
+              <button
+                onClick={() => setShowRedeemModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 border text-sm font-medium rounded-xl hover:opacity-90 transition-colors"
+                style={{ borderColor: '#D97706', color: '#D97706' }}
+              >
+                <span>&#10022;</span>
+                Use Glow Credits Here
+              </button>
             )}
             <VagaroBookButton
               providerId={provider?.id}
@@ -1104,6 +1124,17 @@ export default function ProviderProfile() {
             refreshReviews();
             setShowReviewModal(false);
           }}
+        />
+      )}
+
+      {/* GlowRewards Redemption Modal */}
+      {showRedeemModal && provider?.id && user && (
+        <RedemptionModal
+          tier="treatment_credit"
+          userId={user.id}
+          providerId={provider.id}
+          onClose={() => setShowRedeemModal(false)}
+          onSuccess={() => setShowRedeemModal(false)}
         />
       )}
     </div>

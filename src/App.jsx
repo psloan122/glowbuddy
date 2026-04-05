@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import { isOnboarded } from './lib/gating';
 import { syncLocalPrefsToProfile, claimPendingSubmission } from './lib/auth';
 import { checkAndAwardBadges } from './lib/badgeLogic';
+import { checkLoginStreak } from './lib/creditLogic';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import Onboarding from './components/Onboarding';
@@ -21,6 +22,7 @@ import BusinessClaim from './pages/Business/Claim';
 import BusinessDashboard from './pages/Business/Dashboard';
 import BusinessOnboarding from './pages/Business/Onboarding';
 import Admin from './pages/Admin';
+import Rewards from './pages/Rewards';
 import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import Verified from './pages/Verified';
@@ -67,6 +69,10 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      // Check login streak for existing sessions
+      if (session?.user?.id) {
+        checkLoginStreak(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -87,6 +93,7 @@ function App() {
             syncLocalPrefsToProfile(userId);
             syncToSupabase(userId);
             loadFromSupabase(userId);
+            checkLoginStreak(userId);
           }
 
           // Claim any pending submission from the log form
@@ -195,6 +202,7 @@ function App() {
             <Route path="/specials" element={<Specials />} />
             <Route path="/community" element={<Community />} />
             <Route path="/my-treatments" element={<MyTreatments />} />
+            <Route path="/rewards" element={<Rewards />} />
             <Route path="/budget" element={<BudgetPlanner />} />
             <Route path="/business" element={<BusinessLanding />} />
             <Route path="/business/claim" element={<BusinessClaim />} />

@@ -110,6 +110,13 @@ export default function Navbar() {
                     >
                       My Treatments
                     </Link>
+                    <Link
+                      to="/rewards"
+                      onClick={() => setAvatarOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-text-primary hover:bg-rose-light/50 transition-colors"
+                    >
+                      My Rewards
+                    </Link>
                     <button
                       onClick={handleSignOut}
                       className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 transition-colors"
@@ -169,6 +176,13 @@ export default function Navbar() {
                     onClick={() => setMobileOpen(false)}
                   >
                     My Treatments
+                  </Link>
+                  <Link
+                    to="/rewards"
+                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    My Rewards
                   </Link>
                   <Link
                     to="/alerts"

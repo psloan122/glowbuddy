@@ -17,7 +17,7 @@ export const ENTRY_VALUES = {
   pioneer_founding: 5,
 };
 
-const MAX_ENTRIES_PER_SUBMISSION = 8;
+const MAX_ENTRIES_PER_SUBMISSION = 12;
 
 /**
  * Calculate entries synchronously given a known active count.
@@ -41,7 +41,7 @@ export function calculateEntriesFromCount(
   }
 
   if (hasResultPhoto) entries += ENTRY_VALUES.with_result_photo;
-  // Rating alone without review = 0 bonus; must write review to get entry bonus
+  if (hasRating) entries += 1;
   if (hasReview) entries += ENTRY_VALUES.with_review;
 
   // Verification tier bonuses
@@ -134,6 +134,9 @@ export function getEntryBreakdown(
 
   if (hasResultPhoto) {
     lines.push({ label: 'Result photo', value: ENTRY_VALUES.with_result_photo });
+  }
+  if (hasRating) {
+    lines.push({ label: 'Rating', value: 1 });
   }
   if (hasReview) {
     lines.push({ label: 'Written review', value: ENTRY_VALUES.with_review });

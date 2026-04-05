@@ -21,6 +21,7 @@ export default function ThankYou({
   hasResultPhoto = false,
   receiptVerified = false,
   pioneerResult = null,
+  creditResult = null,
 }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -170,6 +171,37 @@ export default function ThankYou({
           </p>
         )}
       </div>
+
+      {/* Credit breakdown card */}
+      {creditResult && creditResult.totalCredits > 0 && (
+        <div className="rounded-xl p-4 mb-8 text-left" style={{ background: '#FEF3C7' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base" style={{ color: '#D97706' }}>&#10022;</span>
+            <p className="text-sm font-semibold text-text-primary">
+              You earned {creditResult.totalCredits.toLocaleString()} Glow Credits (${(creditResult.totalCredits / 100).toFixed(2)})
+            </p>
+          </div>
+          <div className="space-y-1">
+            {creditResult.breakdown.map((line, i) => (
+              <p key={i} className="text-xs" style={{ color: '#92400E' }}>
+                {i > 0 ? '+ ' : ''}{line.amount} credits for {line.description.toLowerCase()}
+              </p>
+            ))}
+            {creditResult.breakdown.length > 1 && (
+              <p className="text-xs font-semibold pt-1" style={{ color: '#D97706', borderTop: '1px solid rgba(217,119,6,0.15)' }}>
+                = {creditResult.totalCredits.toLocaleString()} total credits
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/rewards')}
+            className="mt-3 text-xs font-semibold transition"
+            style={{ color: '#D97706' }}
+          >
+            View My Rewards &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Email forward verification prompt */}
       <div

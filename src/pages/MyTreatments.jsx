@@ -7,6 +7,7 @@ import TreatmentLogEntry from '../components/TreatmentLogEntry';
 import MonthlySpendSummary from '../components/MonthlySpendSummary';
 import LogTreatmentForm from '../components/LogTreatmentForm';
 import PioneerBadge from '../components/PioneerBadge';
+import CreditBalance from '../components/CreditBalance';
 
 export default function MyTreatments() {
   const { user, openAuthModal } = useContext(AuthContext);
@@ -119,6 +120,14 @@ export default function MyTreatments() {
       {/* Pioneer badge */}
       <div className="mb-4">
         <PioneerBadge userId={user.id} />
+      </div>
+
+      {/* Credit balance */}
+      <div className="mb-4 flex items-center gap-3">
+        <CreditBalance userId={user.id} />
+        <Link to="/rewards" className="text-xs font-medium text-rose-accent hover:text-rose-dark transition">
+          View My Rewards &rarr;
+        </Link>
       </div>
 
       {/* Monthly spend summary */}
