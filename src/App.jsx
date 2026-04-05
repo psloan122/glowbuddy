@@ -27,6 +27,7 @@ import Verified from './pages/Verified';
 import AuthCallback from './pages/AuthCallback';
 import ResetPassword from './pages/ResetPassword';
 import GuideDetail from './pages/GuideDetail';
+import GoalDetail from './pages/GoalDetail';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 
@@ -196,6 +197,7 @@ function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/guides/:slug" element={<GuideDetail />} />
+            <Route path="/goals/:slug" element={<GoalDetail />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>

@@ -23,6 +23,7 @@ import {
   isFirstTimerFor,
 } from '../lib/firstTimerMode';
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
+import OutcomeSelector from '../components/OutcomeSelector';
 
 export default function Home() {
   // Stats
@@ -68,6 +69,9 @@ export default function Home() {
   const [firstTimerActive, setFirstTimerActive] = useState(() => isFirstTimerMode());
   const [showGuideSheet, setShowGuideSheet] = useState(false);
   const [guideSheetTreatment, setGuideSheetTreatment] = useState('');
+
+  // Browse mode: 'treatment' or 'goal'
+  const [browseMode, setBrowseMode] = useState('treatment');
 
   // Recent reviews
   const [recentReviews, setRecentReviews] = useState([]);
@@ -477,10 +481,38 @@ export default function Home() {
 
       {/* Browse Feed */}
       <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
-        <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
-          Recent Prices
-        </h2>
+        <div className="flex items-center gap-6 mb-6">
+          <h2 className="font-display text-[26px] font-semibold text-text-primary">
+            {browseMode === 'treatment' ? 'Recent Prices' : 'Browse by Goal'}
+          </h2>
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setBrowseMode('treatment')}
+              className={`px-3 py-1.5 text-xs font-medium transition ${
+                browseMode === 'treatment'
+                  ? 'bg-[#0369A1] text-white'
+                  : 'bg-white text-text-secondary hover:bg-gray-50'
+              }`}
+            >
+              By Treatment
+            </button>
+            <button
+              onClick={() => setBrowseMode('goal')}
+              className={`px-3 py-1.5 text-xs font-medium transition ${
+                browseMode === 'goal'
+                  ? 'bg-[#0369A1] text-white'
+                  : 'bg-white text-text-secondary hover:bg-gray-50'
+              }`}
+            >
+              By Goal
+            </button>
+          </div>
+        </div>
 
+        {browseMode === 'goal' ? (
+          <OutcomeSelector />
+        ) : (
+        <>
         {/* Two search inputs */}
         <div className="flex flex-col md:flex-row gap-2 mb-3">
           {/* Procedure search */}
@@ -787,6 +819,8 @@ export default function Home() {
               <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} />
             ))}
           </div>
+        )}
+        </>
         )}
       </section>
 
