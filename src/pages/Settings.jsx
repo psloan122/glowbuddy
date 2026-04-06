@@ -1,9 +1,24 @@
 import { useState, useEffect, useContext } from 'react';
-import { Settings as SettingsIcon, Mail, Bell, Gift, Loader2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Mail, Bell, Gift, Loader2, AlertTriangle, DollarSign, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { AuthContext } from '../App';
+import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES } from '../lib/constants';
+import useUserPreferences from '../hooks/useUserPreferences';
+
+const BUDGET_RANGES = [
+  { label: 'Under $250', min: 0, max: 250 },
+  { label: '$250 – $500', min: 250, max: 500 },
+  { label: '$500 – $1,000', min: 500, max: 1000 },
+  { label: '$1,000 – $2,500', min: 1000, max: 2500 },
+  { label: '$2,500+', min: 2500, max: null },
+  { label: 'No budget', min: null, max: null },
+];
+
+function matchBudgetRange(min, max) {
+  return BUDGET_RANGES.findIndex((r) => r.min === min && r.max === max);
+}
 
 const EMAIL_PREFS = [
   {
@@ -39,6 +54,13 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const {
+    preferences: userPrefs,
+    procedureTags,
+    updatePreferences,
+    toggleProcedureTag,
+  } = useUserPreferences();
 
   useEffect(() => {
     document.title = 'Settings | GlowBuddy';
@@ -164,6 +186,75 @@ export default function Settings() {
           {saved && (
             <span className="text-xs text-green-600">Saved</span>
           )}
+        </div>
+      </div>
+
+      {/* Treatment Preferences */}
+      <div className="glow-card p-6 mt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles size={18} className="text-rose-accent" />
+          <h2 className="text-lg font-bold text-text-primary">Treatment Preferences</h2>
+        </div>
+        <p className="text-sm text-text-secondary mb-5">
+          Personalize what you see across GlowBuddy.
+        </p>
+
+        {/* Interest toggles */}
+        <div className="mb-5">
+          <p className="text-sm font-medium text-text-primary mb-2">Interested in</p>
+          <div className="flex flex-wrap gap-2">
+            {INTEREST_OPTIONS.map(({ emoji, label }) => {
+              const procedures = INTEREST_TO_PROCEDURES[label] || [];
+              const isActive = procedures.some((p) => procedureTags.includes(p));
+              return (
+                <button
+                  key={label}
+                  onClick={() => {
+                    // Toggle all procedures for this interest
+                    procedures.forEach((p) => {
+                      const isOn = procedureTags.includes(p);
+                      if (isActive && isOn) toggleProcedureTag(p);
+                      if (!isActive && !isOn) toggleProcedureTag(p);
+                    });
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium border transition ${
+                    isActive
+                      ? 'bg-rose-accent/10 border-rose-accent text-rose-accent'
+                      : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
+                  }`}
+                >
+                  <span>{emoji}</span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Budget range */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <DollarSign size={14} className="text-text-secondary" />
+            <p className="text-sm font-medium text-text-primary">Typical budget</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {BUDGET_RANGES.map((range) => {
+              const isActive = matchBudgetRange(userPrefs?.budget_min ?? null, userPrefs?.budget_max ?? null) === BUDGET_RANGES.indexOf(range);
+              return (
+                <button
+                  key={range.label}
+                  onClick={() => updatePreferences({ budget_min: range.min, budget_max: range.max })}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition ${
+                    isActive
+                      ? 'bg-rose-accent/10 border-rose-accent text-rose-accent'
+                      : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, createContext, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
-import { isOnboarded } from './lib/gating';
+import { isOnboarded, syncProcedureTagsToSupabase } from './lib/gating';
 import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission } from './lib/auth';
 import { checkAndAwardBadges } from './lib/badgeLogic';
 
@@ -131,6 +131,7 @@ function App() {
           if (userId) {
             syncProfileToLocal(userId).catch(() => {});
             syncLocalPrefsToProfile(userId).catch(() => {});
+            syncProcedureTagsToSupabase(userId, supabase).catch(() => {});
             syncToSupabase(userId).catch(() => {});
             loadFromSupabase(userId).catch(() => {});
             // Create referral record if user signed up via referral link

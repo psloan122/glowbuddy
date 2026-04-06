@@ -1,26 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Gift, Loader2 } from 'lucide-react';
-import { setInterests, setOnboarded } from '../lib/gating';
+import { setInterests, setOnboarded, setProcedureTags, setPreferences as setLocalPrefs } from '../lib/gating';
 import { lookupZip } from '../lib/zipLookup';
 import { supabase } from '../lib/supabase';
 import { sendWelcomeUser } from '../lib/email';
+import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES } from '../lib/constants';
+import OnboardingPreferences from './OnboardingPreferences';
 
-const INTEREST_OPTIONS = [
-  { emoji: '💉', label: 'Botox & Dysport' },
-  { emoji: '💋', label: 'Lip Filler' },
-  { emoji: '✨', label: 'Cheek & Jawline Filler' },
-  { emoji: '🔬', label: 'Microneedling' },
-  { emoji: '⚡', label: 'Laser Treatments' },
-  { emoji: '💆', label: 'HydraFacial' },
-  { emoji: '💪', label: 'Body Contouring' },
-  { emoji: '⚖️', label: 'Weight Loss (GLP-1)' },
-  { emoji: '🫧', label: 'Chemical Peels' },
-  { emoji: '👁️', label: 'Under Eye Filler' },
-];
-
-// Screen order: 0=Welcome, 1=Location, 2=Interests, 3=Mission
-const SCREEN_COUNT = 4;
+// Screen order: 0=Welcome, 1=Location, 2=Interests, 3=Preferences, 4=Mission
+const SCREEN_COUNT = 5;
 
 export default function Onboarding({ onComplete }) {
   const navigate = useNavigate();
@@ -62,7 +51,38 @@ export default function Onboarding({ onComplete }) {
 
   function handleInterestsNext() {
     setInterests(selected);
+    persistProcedureTags(selected);
     goTo(3);
+  }
+
+  function persistProcedureTags(interests) {
+    // Resolve broad interests to specific procedure types
+    const tags = [];
+    for (const label of interests) {
+      const mapped = INTEREST_TO_PROCEDURES[label];
+      if (mapped) tags.push(...mapped);
+    }
+    const unique = [...new Set(tags)];
+    setProcedureTags(unique);
+  }
+
+  function handlePreferencesNext(prefs) {
+    setLocalPrefs(prefs);
+    // Also save to Supabase if logged in
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user?.id) {
+        supabase.from('user_preferences').upsert({
+          user_id: data.session.user.id,
+          ...prefs,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' }).catch(() => {});
+      }
+    });
+    goTo(4);
+  }
+
+  function handlePreferencesSkip() {
+    goTo(4);
   }
 
   // Auto-advance when zip reaches 5 digits
@@ -268,8 +288,16 @@ export default function Onboarding({ onComplete }) {
             </div>
           )}
 
-          {/* Screen 3 — Mission / Confirmation */}
+          {/* Screen 3 — Preferences */}
           {screen === 3 && (
+            <OnboardingPreferences
+              onNext={handlePreferencesNext}
+              onSkip={handlePreferencesSkip}
+            />
+          )}
+
+          {/* Screen 4 — Mission / Confirmation */}
+          {screen === 4 && (
             <div className="text-center">
               <div className="flex items-center justify-center w-16 h-16 bg-rose-light rounded-full mx-auto mb-6">
                 <Sparkles size={28} className="text-[#C94F78]" />

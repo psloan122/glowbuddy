@@ -1,13 +1,16 @@
 import { useState, useEffect, useContext } from 'react';
-import { Bell, BellOff, Plus } from 'lucide-react';
+import { Bell, BellOff, Plus, Sparkles } from 'lucide-react';
 import { AuthContext } from '../App';
-import { getUserAlerts, deleteAlert, toggleAlert, markTriggersRead, fetchCurrentAvg } from '../lib/priceAlerts';
+import { getUserAlerts, deleteAlert, toggleAlert, markTriggersRead, fetchCurrentAvg, createAlert } from '../lib/priceAlerts';
 import { supabase } from '../lib/supabase';
 import AlertCard from '../components/AlertCard';
 import CreatePriceAlert from '../components/CreatePriceAlert';
+import { AVG_PRICES } from '../lib/constants';
+import useUserPreferences from '../hooks/useUserPreferences';
 
 export default function Alerts() {
   const { user, openAuthModal } = useContext(AuthContext);
+  const { procedureTags } = useUserPreferences();
   const [alerts, setAlerts] = useState([]);
   const [triggers, setTriggers] = useState({});
   const [currentAvgs, setCurrentAvgs] = useState({});
@@ -103,6 +106,19 @@ export default function Alerts() {
     }
   }
 
+  async function handleQuickCreateAlert(procedureType) {
+    try {
+      const newAlert = await createAlert({ procedureType });
+      setAlerts((prev) => [newAlert, ...prev]);
+    } catch {
+      // Silent fail
+    }
+  }
+
+  // Compute suggested procedures: tagged interests without an existing alert
+  const existingProcedures = new Set(alerts.map((a) => a.procedure_type));
+  const suggestedProcedures = (procedureTags || []).filter((p) => !existingProcedures.has(p));
+
   if (!user) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -173,6 +189,46 @@ export default function Alerts() {
               onDelete={handleDelete}
             />
           ))}
+        </div>
+      )}
+
+      {/* Suggested Alerts — based on user's interest tags */}
+      {suggestedProcedures.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={18} className="text-rose-accent" />
+            <h2 className="text-lg font-bold text-text-primary">Suggested for you</h2>
+          </div>
+          <p className="text-sm text-text-secondary mb-4">
+            Procedures you&apos;re interested in but don&apos;t have alerts for yet.
+          </p>
+          <div className="space-y-2">
+            {suggestedProcedures.slice(0, 6).map((procedureType) => {
+              const avg = AVG_PRICES[procedureType];
+              return (
+                <div
+                  key={procedureType}
+                  className="glow-card p-4 flex items-center justify-between gap-4"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{procedureType}</p>
+                    {avg && (
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        Avg ${avg.avg}{avg.unit}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleQuickCreateAlert(procedureType)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-accent text-white text-xs font-semibold rounded-lg hover:bg-rose-dark transition shrink-0"
+                  >
+                    <Plus size={14} />
+                    Set alert
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

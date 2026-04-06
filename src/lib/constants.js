@@ -461,3 +461,31 @@ export function procedureToSlug(name) {
 export function slugToProcedure(slug) {
   return PROCEDURE_TYPES.find((p) => procedureToSlug(p) === slug) || slug;
 }
+
+// Shared interest options for Onboarding + Settings
+export const INTEREST_OPTIONS = [
+  { emoji: '💉', label: 'Botox & Dysport' },
+  { emoji: '💋', label: 'Lip Filler' },
+  { emoji: '✨', label: 'Cheek & Jawline Filler' },
+  { emoji: '🔬', label: 'Microneedling' },
+  { emoji: '⚡', label: 'Laser Treatments' },
+  { emoji: '💆', label: 'HydraFacial' },
+  { emoji: '💪', label: 'Body Contouring' },
+  { emoji: '⚖️', label: 'Weight Loss (GLP-1)' },
+  { emoji: '🫧', label: 'Chemical Peels' },
+  { emoji: '👁️', label: 'Under Eye Filler' },
+];
+
+// Maps broad interest labels to specific procedure types for tag resolution
+export const INTEREST_TO_PROCEDURES = {
+  'Botox & Dysport': ['Botox / Dysport / Xeomin', 'Jeuveau', 'Daxxify', 'Botox Lip Flip'],
+  'Lip Filler': ['Lip Filler'],
+  'Cheek & Jawline Filler': ['Cheek Filler', 'Jawline Filler', 'Chin Filler'],
+  'Microneedling': ['Microneedling', 'RF Microneedling', 'Morpheus8', 'PRP Microneedling', 'Exosome Microneedling'],
+  'Laser Treatments': ['Laser Hair Removal', 'IPL / Photofacial', 'Fractional CO2 Laser', 'Clear + Brilliant', 'Halo Laser', 'Picosure / Picoway', 'Erbium Laser'],
+  'HydraFacial': ['HydraFacial'],
+  'Body Contouring': ['CoolSculpting', 'Emsculpt NEO', 'truSculpt', 'SculpSure', 'BodyTite', 'Kybella'],
+  'Weight Loss (GLP-1)': ['Semaglutide (Ozempic / Wegovy)', 'Tirzepatide (Mounjaro / Zepbound)', 'Compounded Semaglutide', 'Compounded Tirzepatide', 'GLP-1 (unspecified)', 'Semaglutide / Weight Loss'],
+  'Chemical Peels': ['Chemical Peel'],
+  'Under Eye Filler': ['Under Eye Filler'],
+};

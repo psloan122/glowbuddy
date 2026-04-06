@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Camera,
   AlertTriangle,
+  Bookmark,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -40,6 +41,7 @@ import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
 import { getGuideUrl } from '../lib/guideMapping';
+import useSavedProviders from '../hooks/useSavedProviders';
 
 import { SkeletonGrid } from '../components/SkeletonCard';
 
@@ -65,6 +67,8 @@ export default function ProviderProfile() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followId, setFollowId] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+
+  const { isSaved, saveProvider, unsaveProvider } = useSavedProviders();
 
   const [googleData, setGoogleData] = useState(null);
   const [competitorCount, setCompetitorCount] = useState(0);
@@ -1043,6 +1047,17 @@ export default function ProviderProfile() {
               <Heart size={14} className={isFollowing ? 'fill-rose-accent text-rose-accent' : ''} />
               {isFollowing ? 'Following' : 'Follow'}
             </button>
+            <button
+              onClick={() => isSaved(slug) ? unsaveProvider(slug) : saveProvider(slug, provider?.id)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
+                isSaved(slug)
+                  ? 'border-2 border-rose-accent text-rose-accent hover:bg-rose-light'
+                  : 'border border-gray-200 text-text-primary hover:bg-gray-50'
+              }`}
+            >
+              <Bookmark size={14} className={isSaved(slug) ? 'fill-rose-accent text-rose-accent' : ''} />
+              {isSaved(slug) ? 'Saved' : 'Save'}
+            </button>
           </div>
         </div>
       )}
@@ -1274,6 +1289,7 @@ export default function ProviderProfile() {
                 user={user}
                 isProviderOwner={isProviderOwner}
                 onDisputeTarget={setDisputeTarget}
+                cityState={{ city: providerCity, state: providerState }}
               />
               {vagaroIntegration?.widget_embed_enabled && vagaroIntegration?.vagaro_widget_url && (
                 <VagaroWidget

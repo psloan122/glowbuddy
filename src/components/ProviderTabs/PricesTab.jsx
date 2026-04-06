@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { Flag, ShieldCheck, Users, AlertTriangle } from 'lucide-react';
+import { Flag, ShieldCheck, Users, AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
 import ProcedureCard from '../ProcedureCard';
 import FinancingWidget from '../FinancingWidget';
 import { getStalenessPercentage } from '../../lib/freshness';
+import { AVG_PRICES } from '../../lib/constants';
 
 export default function PricesTab({
   verifiedPricing,
@@ -11,6 +12,7 @@ export default function PricesTab({
   user,
   isProviderOwner,
   onDisputeTarget,
+  cityState,
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -25,33 +27,57 @@ export default function PricesTab({
         {verifiedPricing.length > 0 ? (
           <div className="glow-card overflow-hidden">
             <div className="divide-y divide-gray-100">
-              {verifiedPricing.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-4"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">
-                      {item.procedure_type}
-                    </p>
-                    {item.units_or_volume && (
-                      <p className="text-xs text-text-secondary mt-0.5">
-                        {item.units_or_volume}
+              {verifiedPricing.map((item) => {
+                const nationalAvg = AVG_PRICES[item.procedure_type];
+                const providerPrice = Number(item.price);
+                const refPrice = nationalAvg?.avg;
+                const pctDiff = refPrice && providerPrice > 0
+                  ? Math.round(((providerPrice - refPrice) / refPrice) * 100)
+                  : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        {item.procedure_type}
                       </p>
-                    )}
+                      {item.units_or_volume && (
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          {item.units_or_volume}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <p className="text-lg font-bold text-text-primary">
+                          ${providerPrice.toLocaleString()}
+                        </p>
+                        {item.price_label && (
+                          <p className="text-xs text-text-secondary">
+                            {item.price_label}
+                          </p>
+                        )}
+                      </div>
+                      {pctDiff !== null && pctDiff !== 0 && (
+                        <span
+                          className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-full text-xs font-medium ${
+                            pctDiff < 0
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                          title={`${Math.abs(pctDiff)}% ${pctDiff < 0 ? 'below' : 'above'} national avg ($${refPrice})`}
+                        >
+                          {pctDiff < 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                          {Math.abs(pctDiff)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-text-primary">
-                      ${Number(item.price).toLocaleString()}
-                    </p>
-                    {item.price_label && (
-                      <p className="text-xs text-text-secondary">
-                        {item.price_label}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
