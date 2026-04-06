@@ -13,7 +13,8 @@ export async function fetchCityList() {
     .select('city, state')
     .eq('status', 'active')
     .not('city', 'is', null)
-    .not('state', 'is', null);
+    .not('state', 'is', null)
+    .limit(5000);
 
   if (error || !data) return [];
 
@@ -79,7 +80,7 @@ export async function fetchCityReport(city, state, yearMonth) {
   // Fetch scoped data
   let query = supabase
     .from('procedures')
-    .select('*')
+    .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier')
     .eq('status', 'active')
     .ilike('city', city)
     .eq('state', state);
@@ -96,7 +97,7 @@ export async function fetchCityReport(city, state, yearMonth) {
   if (rows.length < MIN_SUBMISSIONS && !yearMonth) {
     const { data: allRows } = await supabase
       .from('procedures')
-      .select('*')
+      .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier')
       .eq('status', 'active')
       .ilike('city', city)
       .eq('state', state);
@@ -186,13 +187,33 @@ export async function fetchCityReport(city, state, yearMonth) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // ── 3. Most affordable providers ──
-  const { data: providerRows } = await supabase
-    .from('providers')
-    .select('name, slug, verified')
-    .ilike('city', city)
-    .eq('state', state);
+  // ── 3-5. Parallel: providers, recent submissions, archive months ──
+  const [providerRes, recentRes, archiveRes] = await Promise.all([
+    supabase
+      .from('providers')
+      .select('name, slug, verified')
+      .ilike('city', city)
+      .eq('state', state),
+    supabase
+      .from('procedures')
+      .select('id, procedure_type, price_paid, units_or_volume, created_at, trust_tier')
+      .eq('status', 'active')
+      .ilike('city', city)
+      .eq('state', state)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('procedures')
+      .select('created_at')
+      .eq('status', 'active')
+      .ilike('city', city)
+      .eq('state', state)
+      .order('created_at', { ascending: false })
+      .limit(500),
+  ]);
 
+  // Most affordable providers
+  const providerRows = providerRes.data;
   const verifiedMap = {};
   if (providerRows) {
     for (const p of providerRows) {
@@ -217,17 +238,8 @@ export async function fetchCityReport(city, state, yearMonth) {
     .sort((a, b) => a.avgPrice - b.avgPrice)
     .slice(0, 5);
 
-  // ── 4. Recent submissions ──
-  const { data: recentRows } = await supabase
-    .from('procedures')
-    .select('id, procedure_type, price_paid, units_or_volume, created_at, trust_tier')
-    .eq('status', 'active')
-    .ilike('city', city)
-    .eq('state', state)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  const recent = (recentRows || []).map((r) => ({
+  // Recent submissions
+  const recent = (recentRes.data || []).map((r) => ({
     id: r.id,
     procedure: r.procedure_type,
     price: Number(r.price_paid),
@@ -236,18 +248,10 @@ export async function fetchCityReport(city, state, yearMonth) {
     trustTier: r.trust_tier,
   }));
 
-  // ── 5. Archive months ──
-  const { data: archiveData } = await supabase
-    .from('procedures')
-    .select('created_at')
-    .eq('status', 'active')
-    .ilike('city', city)
-    .eq('state', state)
-    .order('created_at', { ascending: false });
-
+  // Archive months
   const monthSet = new Set();
-  if (archiveData) {
-    for (const r of archiveData) {
+  if (archiveRes.data) {
+    for (const r of archiveRes.data) {
       const d = new Date(r.created_at);
       monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }

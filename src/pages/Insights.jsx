@@ -93,7 +93,9 @@ export default function Insights() {
       const { data, error } = await supabase
         .from('procedures')
         .select('procedure_type, provider_type, city, state, price_paid, created_at, rating')
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(2000);
 
       if (error || !data) {
         setLoading(false);

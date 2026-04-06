@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
-import { CREDIT_VALUES } from '../lib/creditLogic';
+
 import { format } from 'date-fns';
 
 export default function ResolveDispute() {
@@ -80,17 +80,6 @@ export default function ResolveDispute() {
           })
           .eq('id', procedureId);
 
-        // Award credits + giveaway entries
-        const expiresAt = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59).toISOString();
-        await supabase.from('glow_credits').insert({
-          user_id: user.id,
-          amount: CREDIT_VALUES.dispute_defended,
-          type: 'dispute_defended',
-          description: 'Dispute defended — price confirmed accurate',
-          reference_id: procedureId,
-          expires_at: expiresAt,
-        });
-
         // Award 2 bonus giveaway entries
         const month = format(new Date(), 'yyyy-MM');
         await supabase.from('giveaway_entries').insert({
@@ -103,7 +92,7 @@ export default function ResolveDispute() {
         });
 
         setStatus('success');
-        setMessage('Your price has been confirmed as accurate. You earned 200 Glow Credits and 2 bonus giveaway entries!');
+        setMessage('Your price has been confirmed as accurate. You earned 2 bonus giveaway entries!');
       } else if (action === 'removed') {
         await supabase
           .from('procedures')

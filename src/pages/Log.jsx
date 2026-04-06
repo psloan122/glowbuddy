@@ -19,7 +19,7 @@ import {
 } from '../lib/trustDetection';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import { calculateEntries, calculateEntriesFromCount } from '../lib/points';
-import { awardSubmissionCredits } from '../lib/creditLogic';
+
 import { assignTrustTier } from '../lib/trustTiers';
 import { isEmailVerified } from '../lib/auth';
 import Step1 from '../components/LogForm/Step1';
@@ -171,9 +171,6 @@ export default function Log() {
 
   // Pioneer tracking
   const [pioneerResult, setPioneerResult] = useState(null);
-
-  // Credit tracking
-  const [creditResult, setCreditResult] = useState(null);
 
   // Price comparison data (for HowdIDoScreen)
   const [comparisonData, setComparisonData] = useState(null);
@@ -647,16 +644,6 @@ export default function Log() {
         const pioneer = await checkAndAwardPioneer(user.id, inserted);
         setPioneerResult(pioneer);
 
-        // Award Glow Credits
-        const credits = await awardSubmissionCredits(user.id, inserted, {
-          hasReceipt,
-          hasRating: !!formData.rating,
-          hasReview: !!formData.reviewBody,
-          hasResultPhoto: !!resultPhotoUrl,
-          receiptVerified: false,
-          pioneerTier: pioneer?.pioneer_tier || null,
-        });
-        setCreditResult(credits);
       }
 
       // 8. Run velocity check in background (silent, never blocks UI)
@@ -931,7 +918,6 @@ export default function Log() {
             hasReview={!!formData.reviewBody}
             hasResultPhoto={!!resultPhotoUrl}
             pioneerResult={pioneerResult}
-            creditResult={creditResult}
             cheaperProviders={cheaperProviders}
           />
         ) : (
@@ -946,7 +932,6 @@ export default function Log() {
             hasReview={!!formData.reviewBody}
             hasResultPhoto={!!resultPhotoUrl}
             pioneerResult={pioneerResult}
-            creditResult={creditResult}
           />
         )
       )}

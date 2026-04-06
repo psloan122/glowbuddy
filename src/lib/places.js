@@ -57,7 +57,21 @@ export function parseAddressComponents(components) {
  * Returns array of { city, state } objects for US localities.
  */
 export function searchCitiesViaGoogle(query) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
+    if (!window.google?.maps?.places) {
+      try {
+        const { loadGoogleMaps } = await import('./loadGoogleMaps');
+        await loadGoogleMaps();
+        // Wait for places library
+        await new Promise((r) => {
+          const check = () => window.google?.maps?.places ? r() : setTimeout(check, 100);
+          check();
+        });
+      } catch {
+        resolve([]);
+        return;
+      }
+    }
     const places = window.google?.maps?.places;
     if (!places?.AutocompleteService) {
       resolve([]);

@@ -27,7 +27,7 @@ export async function getUserAlerts() {
 
   const { data, error } = await supabase
     .from('price_alerts')
-    .select('*')
+    .select('id, user_id, procedure_type, city, state, max_price, is_active, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

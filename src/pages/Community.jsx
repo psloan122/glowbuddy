@@ -220,33 +220,6 @@ export default function Community() {
         </div>
       </div>
 
-      {/* Glow Credits Info Card */}
-      <div
-        className="glow-card p-6 mb-8"
-        style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)' }}
-      >
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-          <div className="flex-shrink-0 p-3 rounded-full" style={{ background: 'rgba(217, 119, 6, 0.1)' }}>
-            <span className="text-3xl" style={{ color: '#D97706' }}>&#10022;</span>
-          </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-text-primary mb-1">
-              Glow Credits
-            </h2>
-            <p style={{ color: '#92400E' }}>
-              Earn Glow Credits with every submission &mdash; redeem for real treatment discounts at participating providers.
-            </p>
-          </div>
-          <Link
-            to="/rewards"
-            className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition whitespace-nowrap"
-            style={{ background: '#D97706' }}
-          >
-            See How It Works
-          </Link>
-        </div>
-      </div>
-
       {/* Badge Showcase */}
       <div className="glow-card p-6 mb-8">
         <h2 className="text-2xl font-bold text-text-primary mb-6">Earn Badges</h2>

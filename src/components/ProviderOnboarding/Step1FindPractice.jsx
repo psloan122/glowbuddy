@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, X, CheckCircle, Phone, ExternalLink, Search, AlertTriangle, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { extractPlaceData } from '../../lib/places';
+import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
 export default function Step1FindPractice({ onComplete }) {
   const wrapperRef = useRef(null);
@@ -31,6 +32,7 @@ export default function Step1FindPractice({ onComplete }) {
       return true;
     }
     if (init()) return;
+    loadGoogleMaps().catch(() => {});
     const interval = setInterval(() => { if (init()) clearInterval(interval); }, 200);
     return () => clearInterval(interval);
   }, []);

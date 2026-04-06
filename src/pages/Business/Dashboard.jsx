@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
+import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import {
   PROCEDURE_TYPES,
   PROCEDURE_CATEGORIES,
@@ -32,7 +33,7 @@ import SpecialsManager from '../../components/SpecialsManager';
 import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import IntegrationStats from '../../components/IntegrationStats';
-import RedemptionConfirmCard from '../../components/RedemptionConfirmCard';
+
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -256,6 +257,14 @@ export default function Dashboard() {
     setRefreshing(true);
 
     try {
+      // Load Google Maps if not loaded
+      if (!window.google?.maps?.places) {
+        await loadGoogleMaps();
+        await new Promise((r) => {
+          const check = () => window.google?.maps?.places ? r() : setTimeout(check, 100);
+          check();
+        });
+      }
       if (!detailsServiceRef.current) {
         const el = document.createElement('div');
         detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
@@ -559,11 +568,6 @@ export default function Dashboard() {
       {/* ===== OVERVIEW TAB ===== */}
       {activeTab === 'Overview' && (
         <div>
-          {/* GlowRewards Pending Redemptions */}
-          {provider.glow_rewards_enabled && (
-            <RedemptionConfirmCard providerId={provider.id} />
-          )}
-
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="glow-card p-5">
@@ -980,63 +984,6 @@ export default function Dashboard() {
               </p>
             </div>
           )}
-
-          {/* GlowRewards Settings */}
-          <div className="glow-card p-5 mt-6">
-            <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-              <span style={{ color: '#D97706' }}>&#10022;</span>
-              GlowRewards Program
-            </h3>
-            <p className="text-sm text-text-secondary mb-4">
-              Accept Glow Credits from patients who earned them by submitting prices. You gain bookings, they get discounts.
-            </p>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={provider.glow_rewards_enabled || false}
-                  onChange={async (e) => {
-                    const val = e.target.checked;
-                    const { data } = await supabase
-                      .from('providers')
-                      .update({ glow_rewards_enabled: val })
-                      .eq('id', provider.id)
-                      .select()
-                      .single();
-                    if (data) setProvider(data);
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                />
-                <span className="text-sm text-text-primary">Accept GlowRewards credits</span>
-              </label>
-              {provider.glow_rewards_enabled && (
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">
-                    Monthly redemption cap (in credits, 100 credits = $1)
-                  </label>
-                  <input
-                    type="number"
-                    defaultValue={provider.glow_rewards_monthly_cap || 2500}
-                    onBlur={async (e) => {
-                      const val = parseInt(e.target.value, 10) || 2500;
-                      if (val === provider.glow_rewards_monthly_cap) return;
-                      const { data } = await supabase
-                        .from('providers')
-                        .update({ glow_rewards_monthly_cap: val })
-                        .eq('id', provider.id)
-                        .select()
-                        .single();
-                      if (data) setProvider(data);
-                    }}
-                    className={INPUT_CLASS + ' text-sm max-w-xs'}
-                  />
-                  <p className="text-xs text-text-secondary mt-1">
-                    Default: 2500 credits ($25/month). Saves automatically when you click away.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* First-Timer Settings */}
           <div className="glow-card p-5 mt-6">

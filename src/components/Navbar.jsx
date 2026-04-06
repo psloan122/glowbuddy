@@ -13,6 +13,7 @@ const TOP_LINKS = [
 ];
 
 const DISCOVER_LINKS = [
+  { to: '/guides', label: 'Treatment Guides', icon: '\uD83D\uDCDA', sub: 'First-timer guides for every treatment' },
   { to: '/specials', label: 'Specials', icon: '\u2728', sub: 'New deals from verified providers' },
   { to: '/insights', label: 'Insights', icon: '\uD83D\uDCCA', sub: 'Price trends & data' },
   { to: '/prices', label: 'City Reports', icon: '\uD83C\uDFD9\uFE0F', sub: 'Prices by location' },

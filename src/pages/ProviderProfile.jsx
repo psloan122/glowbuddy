@@ -16,12 +16,14 @@ import {
   Sparkles,
   ShieldCheck,
   Camera,
+  AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { VALID_STATE_CODES } from '../lib/constants';
 import { providerSlugFromParts, slugToDisplayName } from '../lib/slugify';
 import { extractPlaceData } from '../lib/places';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 import DisputeModal from '../components/DisputeModal';
 import ReviewModal from '../components/ReviewModal';
 import ProviderAvatar from '../components/ProviderAvatar';
@@ -37,7 +39,8 @@ import CallNowButton from '../components/CallNowButton';
 import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
-import RedemptionModal from '../components/RedemptionModal';
+import { getGuideUrl } from '../lib/guideMapping';
+
 import { SkeletonGrid } from '../components/SkeletonCard';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
@@ -59,8 +62,10 @@ export default function ProviderProfile() {
   const [loading, setLoading] = useState(true);
   const [isProviderOwner, setIsProviderOwner] = useState(false);
   const [disputeTarget, setDisputeTarget] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followId, setFollowId] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showRedeemModal, setShowRedeemModal] = useState(false);
+
   const [googleData, setGoogleData] = useState(null);
   const [competitorCount, setCompetitorCount] = useState(0);
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -68,6 +73,8 @@ export default function ProviderProfile() {
   const carouselRef = useRef(null);
 
   const isClaimed = provider?.is_claimed === true;
+  const isPageOwner = !!user && provider?.owner_user_id === user?.id;
+  const isAdmin = user?.user_metadata?.user_role === 'admin';
 
   // Default tab: mobile shows B&A, desktop shows Overview
   const [activeTab, setActiveTab] = useState(() =>
@@ -95,14 +102,14 @@ export default function ProviderProfile() {
       // 1. Try claimed provider by slug
       const { data: providerRow } = await supabase
         .from('providers')
-        .select('*')
+        .select('id, name, slug, city, state, zip, address, phone, website, lat, lng, google_place_id, google_rating, google_review_count, google_maps_url, google_synced_at, hours_text, is_claimed, is_verified, is_active, owner_user_id, provider_type, instagram, first_timer_friendly, first_timer_special, glow_rewards_enabled, avg_rating, weighted_rating, review_count, verified_review_count, photo_review_count, unverified_review_count, photo_reference, procedure_tags')
         .eq('slug', slug)
         .single();
 
       // 2. Try procedures by provider_slug (claimed providers)
       const { data: community } = await supabase
         .from('procedures')
-        .select('*')
+        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
         .eq('provider_slug', slug)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
@@ -116,10 +123,11 @@ export default function ProviderProfile() {
         if (state) {
           const { data: stateProcedures } = await supabase
             .from('procedures')
-            .select('*')
+            .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
             .eq('state', state)
             .eq('status', 'active')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(100);
 
           finalCommunity = (stateProcedures || []).filter(
             (p) =>
@@ -140,34 +148,34 @@ export default function ProviderProfile() {
           await Promise.all([
             supabase
               .from('provider_pricing')
-              .select('*')
+              .select('id, provider_id, procedure_type, price, unit, is_starting_at, notes, created_at')
               .eq('provider_id', finalProvider.id),
             supabase
               .from('specials')
-              .select('*')
+              .select('id, provider_id, title, description, procedure_type, discount_type, discount_value, original_price, is_active, expires_at, created_at')
               .eq('provider_id', finalProvider.id)
               .eq('is_active', true)
               .order('created_at', { ascending: false }),
             supabase
               .from('provider_photos')
-              .select('*')
+              .select('id, provider_id, url, caption, display_order')
               .eq('provider_id', finalProvider.id)
               .order('display_order'),
             supabase
               .from('reviews')
-              .select('*')
+              .select('id, provider_id, user_id, rating, body, procedure_type, is_verified, photo_url, trust_tier, status, created_at')
               .eq('provider_id', finalProvider.id)
               .eq('status', 'active')
               .order('created_at', { ascending: false }),
             supabase
               .from('before_after_photos')
-              .select('*, injectors(name)')
+              .select('id, provider_id, injector_id, before_url, after_url, procedure_type, notes, display_order, status, injectors(name)')
               .eq('provider_id', finalProvider.id)
               .eq('status', 'active')
               .order('display_order'),
             supabase
               .from('injectors')
-              .select('*')
+              .select('id, provider_id, name, display_name, slug, title, bio, photo_url, city, avg_rating, is_active')
               .eq('provider_id', finalProvider.id)
               .eq('is_active', true),
           ]);
@@ -219,7 +227,7 @@ export default function ProviderProfile() {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     supabase
       .from('custom_events')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('event_name', 'provider_page_view')
       .contains('properties', { provider_slug: slug })
       .gte('created_at', oneWeekAgo)
@@ -275,7 +283,14 @@ export default function ProviderProfile() {
   }, [loading, provider, communityData, slug]);
 
   async function fetchGooglePlaces(name, city, state) {
-    // Wait for Google Maps to load
+    // Load Google Maps if not already loaded
+    if (!window.google?.maps?.places) {
+      try {
+        await loadGoogleMaps();
+        // Wait a tick for places library to init
+        await new Promise((r) => setTimeout(r, 100));
+      } catch { return; }
+    }
     if (!window.google?.maps?.places) return;
 
     const query = [name, city, state].filter(Boolean).join(' ');
@@ -369,6 +384,21 @@ export default function ProviderProfile() {
     checkOwnership();
   }, [user?.id]);
 
+  // Check provider follow status
+  useEffect(() => {
+    if (!user || !slug) { setIsFollowing(false); setFollowId(null); return; }
+    supabase
+      .from('provider_follows')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('provider_slug', slug)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsFollowing(!!data);
+        setFollowId(data?.id || null);
+      });
+  }, [user?.id, slug]);
+
   // SEO
   useEffect(() => {
     const name =
@@ -442,18 +472,36 @@ export default function ProviderProfile() {
   function handleDisputeSubmitted() {
     supabase
       .from('procedures')
-      .select('*')
+      .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
       .eq('provider_slug', slug)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .then(({ data }) => setCommunityData(data || []));
   }
 
+  async function handleFollowProvider() {
+    if (isFollowing && followId) {
+      await supabase.from('provider_follows').delete().eq('id', followId);
+      setIsFollowing(false);
+      setFollowId(null);
+    } else if (user) {
+      const { data } = await supabase
+        .from('provider_follows')
+        .insert({ user_id: user.id, provider_slug: slug })
+        .select('id')
+        .single();
+      if (data) {
+        setIsFollowing(true);
+        setFollowId(data.id);
+      }
+    }
+  }
+
   function refreshReviews() {
     if (!provider) return;
     supabase
       .from('reviews')
-      .select('*')
+      .select('id, provider_id, user_id, rating, body, procedure_type, is_verified, photo_url, trust_tier, status, created_at')
       .eq('provider_id', provider.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -583,14 +631,6 @@ export default function ProviderProfile() {
                   <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-[#E0F2FE] text-[#0369A1]">
                     <Heart size={14} />
                     Welcomes First-Timers
-                  </span>
-                )}
-                {provider?.glow_rewards_enabled && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
-                    style={{ background: '#FEF3C7', color: '#92400E' }}
-                  >
-                    <span style={{ color: '#D97706' }}>&#10022;</span>
-                    GlowRewards Accepted
                   </span>
                 )}
               </div>
@@ -810,16 +850,6 @@ export default function ProviderProfile() {
                 variant="compact"
               />
             )}
-            {provider?.glow_rewards_enabled && user && (
-              <button
-                onClick={() => setShowRedeemModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border text-sm font-medium rounded-xl hover:opacity-90 transition-colors"
-                style={{ borderColor: '#D97706', color: '#D97706' }}
-              >
-                <span>&#10022;</span>
-                Use Glow Credits Here
-              </button>
-            )}
             <VagaroBookButton
               providerId={provider?.id}
               variant="detail-page"
@@ -828,7 +858,25 @@ export default function ProviderProfile() {
         </div>
       </div>
 
-      {/* 2. Community Prices + Verification Breakdown — trust level 1 (unclaimed) */}
+      {/* 2. Warning Banner — competitors advertising on unclaimed page */}
+      {/* Hidden for regular logged-in patients — only owners, business users, and admins see this */}
+      {!isClaimed && competitorCount > 0 && (!user || isProviderOwner || isAdmin) && (
+        <div
+          className="mb-6 flex items-center gap-3 p-4 rounded-xl"
+          style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}
+        >
+          <AlertTriangle size={20} className="shrink-0" style={{ color: '#D97706' }} />
+          <p className="text-sm font-medium" style={{ color: '#92400E' }}>
+            {competitorCount} competitor{competitorCount !== 1 ? 's are' : ' is'} advertising on this unclaimed page.{' '}
+            <Link to={claimUrl} className="underline font-semibold" style={{ color: '#92400E' }}>
+              Claim it free
+            </Link>{' '}
+            to remove them.
+          </p>
+        </div>
+      )}
+
+      {/* 3. Community Prices + Verification Breakdown — trust level 1 (unclaimed) */}
       {communityData.length > 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6">
           <h2 className="text-lg font-bold text-text-primary mb-1">
@@ -880,6 +928,17 @@ export default function ProviderProfile() {
                     <p className="text-xs text-text-secondary">
                       {prices.length} {prices.length === 1 ? 'price' : 'prices'}
                       {prices.length > 1 && ` · $${min}–$${max}`}
+                      {getGuideUrl(type) && (
+                        <>
+                          {' · '}
+                          <Link
+                            to={getGuideUrl(type)}
+                            className="text-[#0369A1] hover:text-sky-800 font-medium transition-colors"
+                          >
+                            What is {type}? &rarr;
+                          </Link>
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="text-right">
@@ -923,7 +982,139 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 4. Photo Carousel — visual proof (demoted for unclaimed) */}
+      {/* 5. Competitor Ads — unclaimed, mid-page placement */}
+      {!isClaimed && (providerCity || providerState) && (
+        <CompetitorAds
+          providerSlug={slug}
+          providerId={provider?.id}
+          lat={providerLat}
+          lng={providerLng}
+          city={providerCity}
+          state={providerState}
+          procedureTypes={[
+            ...new Set(communityData.map((p) => p.procedure_type).filter(Boolean)),
+          ]}
+          claimUrl={claimUrl}
+          onCompetitorsLoaded={setCompetitorCount}
+        />
+      )}
+
+      {/* 6. Unclaimed — Manage listing (page owner) */}
+      {!isClaimed && isPageOwner && (
+        <div className="mb-6 glow-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-text-primary">You own this listing</p>
+            <p className="text-xs text-text-secondary mt-0.5">Manage your profile, pricing, and specials</p>
+          </div>
+          <Link
+            to="/business/dashboard"
+            className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-dark transition shrink-0"
+          >
+            Manage your listing &rarr;
+          </Link>
+        </div>
+      )}
+
+      {/* 6b. Unclaimed — Patient actions (logged-in regular user) */}
+      {!isClaimed && user && !isPageOwner && !isProviderOwner && !isAdmin && (
+        <div className="mb-6 glow-card p-5">
+          <p className="text-sm font-medium text-text-primary mb-3">Been here? Help others decide.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/log?provider_id=${provider?.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&slug=${encodeURIComponent(slug)}`}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-accent text-white text-sm font-semibold rounded-xl hover:bg-rose-dark transition-colors"
+            >
+              <Plus size={16} />
+              Add a price
+            </Link>
+            <PriceAlertButton
+              procedureType={communityData.length > 0 ? communityData[0].procedure_type : undefined}
+              city={providerCity}
+              state={providerState}
+            />
+            <button
+              onClick={handleFollowProvider}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
+                isFollowing
+                  ? 'border-2 border-rose-accent text-rose-accent hover:bg-rose-light'
+                  : 'border border-gray-200 text-text-primary hover:bg-gray-50'
+              }`}
+            >
+              <Heart size={14} className={isFollowing ? 'fill-rose-accent text-rose-accent' : ''} />
+              {isFollowing ? 'Following' : 'Follow'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6c. Unclaimed Banner — claim CTA (not logged in, business owners, admins) */}
+      {!isClaimed && !isPageOwner && (!user || isProviderOwner || isAdmin) && (
+        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+          {/* Part 1: What's happening — live stats */}
+          {(pageViews > 0 || communityData.length > 0) && (
+            <div className="p-5" style={{ background: '#F9FAFB' }}>
+              <div className="flex flex-wrap gap-8">
+                {pageViews > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{pageViews.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">viewed this page this week</p>
+                  </div>
+                )}
+                {communityData.length > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
+                    <p className="text-xs text-text-secondary">patients shared prices here</p>
+                  </div>
+                )}
+                {avgPrice && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">average reported</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Part 2: What they're missing */}
+          <div className="p-5">
+            <p className="font-semibold text-text-primary text-[15px] mb-3">Claim your free listing to:</p>
+            <ul className="space-y-2 text-sm text-text-secondary mb-5">
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Remove competitor ads from this page
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Add your official price menu
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Respond to patient submissions
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Post specials and promotions
+              </li>
+            </ul>
+
+            <Link
+              to={claimUrl}
+              className="block w-full sm:w-auto sm:inline-flex items-center justify-center gap-1.5 text-center text-white px-6 py-3 rounded-xl text-sm font-semibold transition"
+              style={{ background: '#C94F78' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
+            >
+              Claim This Listing &mdash; It&rsquo;s Free
+            </Link>
+            <p className="text-xs text-text-secondary mt-2 sm:text-left text-center">
+              Takes 2 minutes. Free forever.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Photo Carousel — visual proof */}
       {allPhotos.length > 0 ? (
         <div className="mb-6">
           <div
@@ -961,93 +1152,7 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 5. Unclaimed Banner — claim CTA (demoted) */}
-      {!isClaimed && (
-        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
-          {/* Part 1: What's happening — live stats */}
-          {(pageViews > 0 || communityData.length > 0) && (
-            <div className="p-5" style={{ background: '#F9FAFB' }}>
-              <div className="flex flex-wrap gap-8">
-                {pageViews > 0 && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">{pageViews.toLocaleString()}</p>
-                    <p className="text-xs text-text-secondary">viewed this page this week</p>
-                  </div>
-                )}
-                {communityData.length > 0 && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
-                    <p className="text-xs text-text-secondary">patients shared prices here</p>
-                  </div>
-                )}
-                {avgPrice && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
-                    <p className="text-xs text-text-secondary">average reported</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Part 2: What they're missing */}
-          <div className="p-5">
-            <p className="font-semibold text-text-primary text-[15px] mb-3">Claim your free listing to:</p>
-            <ul className="space-y-2 text-sm text-text-secondary mb-5">
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Add your official price menu
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Respond to patient submissions
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Remove competitor ads from this page
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Post specials and promotions
-              </li>
-            </ul>
-
-            <Link
-              to={claimUrl}
-              className="block w-full sm:w-auto sm:inline-flex items-center justify-center gap-1.5 text-center text-white px-6 py-3 rounded-xl text-sm font-semibold transition"
-              style={{ background: '#C94F78' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
-            >
-              Claim This Listing &mdash; It&rsquo;s Free
-            </Link>
-            <p className="text-xs text-text-secondary mt-2 sm:text-left text-center">
-              Takes 2 minutes. Free forever.
-            </p>
-
-            {competitorCount > 0 && (
-              <div className="mt-4 p-3 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                <p className="text-sm font-medium" style={{ color: '#92400E' }}>
-                  &#9888;&#65039; {competitorCount} competitor{competitorCount !== 1 ? 's' : ''} currently advertising on your unclaimed page.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 6. First-Timer Special */}
-      {provider?.first_timer_special && (
-        <div className="glow-card p-5 mb-6 border border-sky-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={16} className="text-[#0369A1]" />
-            <h3 className="text-sm font-semibold text-[#0369A1]">First-Timer Special</h3>
-          </div>
-          <p className="text-sm text-text-primary">{provider.first_timer_special}</p>
-        </div>
-      )}
-
-      {/* 7. Locked Provider Prices — unclaimed only */}
+      {/* 8. Locked Provider Prices — unclaimed only */}
       {!isClaimed && (
         <div className="glow-card p-6 mb-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
@@ -1083,21 +1188,15 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 8. Competitor Ads — unclaimed only, last */}
-      {!isClaimed && (providerCity || providerState) && (
-        <CompetitorAds
-          providerSlug={slug}
-          providerId={provider?.id}
-          lat={providerLat}
-          lng={providerLng}
-          city={providerCity}
-          state={providerState}
-          procedureTypes={[
-            ...new Set(communityData.map((p) => p.procedure_type).filter(Boolean)),
-          ]}
-          claimUrl={claimUrl}
-          onCompetitorsLoaded={setCompetitorCount}
-        />
+      {/* 9. First-Timer Special */}
+      {provider?.first_timer_special && (
+        <div className="glow-card p-5 mb-6 border border-sky-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-[#0369A1]" />
+            <h3 className="text-sm font-semibold text-[#0369A1]">First-Timer Special</h3>
+          </div>
+          <p className="text-sm text-text-primary">{provider.first_timer_special}</p>
+        </div>
       )}
 
       {/* Tab Navigation — full tabs for claimed, simplified for unclaimed */}
@@ -1236,16 +1335,6 @@ export default function ProviderProfile() {
         />
       )}
 
-      {/* GlowRewards Redemption Modal */}
-      {showRedeemModal && provider?.id && user && (
-        <RedemptionModal
-          tier="treatment_credit"
-          userId={user.id}
-          providerId={provider.id}
-          onClose={() => setShowRedeemModal(false)}
-          onSuccess={() => setShowRedeemModal(false)}
-        />
-      )}
     </div>
   );
 }

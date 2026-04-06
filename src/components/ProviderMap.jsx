@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, InfoWindowF } from '@react-google-maps/api';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import MapInfoCard from './MapInfoCard';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 
 const MAP_STYLES = {
   width: '100%',
@@ -106,6 +107,8 @@ export default function ProviderMap({
       setMapsReady(true);
       return;
     }
+    // Trigger load if not already loaded
+    loadGoogleMaps().catch(() => {});
     const interval = setInterval(() => {
       if (window.google?.maps?.Map) {
         setMapsReady(true);

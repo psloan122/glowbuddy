@@ -3,6 +3,7 @@ import { MapPin, X, CheckCircle, ExternalLink, Phone, Sparkles } from 'lucide-re
 import { Link } from 'react-router-dom';
 import { extractPlaceData } from '../lib/places';
 import { supabase } from '../lib/supabase';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 pl-10 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -34,6 +35,9 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     }
 
     if (init()) return;
+
+    // Trigger load if not already loaded
+    loadGoogleMaps().catch(() => {});
 
     // Poll until the async-loaded Google Maps script is ready
     const interval = setInterval(() => {

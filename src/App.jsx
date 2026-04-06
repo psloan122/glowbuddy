@@ -1,60 +1,64 @@
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef, createContext, useCallback } from 'react';
+import { useState, useEffect, useRef, createContext, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded } from './lib/gating';
 import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission } from './lib/auth';
 import { checkAndAwardBadges } from './lib/badgeLogic';
-import { checkLoginStreak } from './lib/creditLogic';
+
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import Onboarding from './components/Onboarding';
 import Toast from './components/Toast';
 import Home from './pages/Home';
-import Log from './pages/Log';
-import ProcedureDetail from './pages/ProcedureDetail';
-import ProviderProfile from './pages/ProviderProfile';
-import Insights from './pages/Insights';
-import Specials from './pages/Specials';
-import Community from './pages/Community';
-import MyTreatments from './pages/MyTreatments';
-import BusinessLanding from './pages/Business/Landing';
-import BusinessClaim from './pages/Business/Claim';
-import BusinessDashboard from './pages/Business/Dashboard';
-import BusinessOnboarding from './pages/Business/Onboarding';
-import Admin from './pages/Admin';
-import Rewards from './pages/Rewards';
-import FindPrices from './pages/FindPrices';
-import MapView from './pages/MapView';
-import Alerts from './pages/Alerts';
-import Verified from './pages/Verified';
-import AuthCallback from './pages/AuthCallback';
-import ResetPassword from './pages/ResetPassword';
-import GuideDetail from './pages/GuideDetail';
-import GoalDetail from './pages/GoalDetail';
-import InjectorProfile from './pages/InjectorProfile';
-import InjectorFeed from './pages/InjectorFeed';
-import InjectorClaim from './pages/InjectorClaim';
-import DealShare from './pages/DealShare';
-import BudgetPlanner from './pages/BudgetPlanner';
-import StackBuilder from './pages/StackBuilder';
-import RoutineQuiz from './pages/RoutineQuiz';
-import ResolveDispute from './pages/ResolveDispute';
-import Settings from './pages/Settings';
-import TreatmentTimeline from './pages/TreatmentTimeline';
-import CalculatorPage from './pages/Calculator';
-import CityPriceIndex from './pages/CityPriceIndex';
-import CityPriceReport from './pages/CityPriceReport';
-import Refer from './pages/Refer';
-import Wrapped from './pages/Wrapped';
-import ReferralRedirect from './pages/ReferralRedirect';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import About from './pages/About';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
+
+// Lazy-loaded pages — only downloaded when the user navigates to them
+const Log = lazy(() => import('./pages/Log'));
+const ProcedureDetail = lazy(() => import('./pages/ProcedureDetail'));
+const ProviderProfile = lazy(() => import('./pages/ProviderProfile'));
+const Insights = lazy(() => import('./pages/Insights'));
+const Specials = lazy(() => import('./pages/Specials'));
+const Community = lazy(() => import('./pages/Community'));
+const MyTreatments = lazy(() => import('./pages/MyTreatments'));
+const BusinessLanding = lazy(() => import('./pages/Business/Landing'));
+const BusinessClaim = lazy(() => import('./pages/Business/Claim'));
+const BusinessDashboard = lazy(() => import('./pages/Business/Dashboard'));
+const BusinessOnboarding = lazy(() => import('./pages/Business/Onboarding'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Rewards = lazy(() => import('./pages/Rewards'));
+const FindPrices = lazy(() => import('./pages/FindPrices'));
+const MapView = lazy(() => import('./pages/MapView'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Verified = lazy(() => import('./pages/Verified'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const GuideDetail = lazy(() => import('./pages/GuideDetail'));
+const GuideIndex = lazy(() => import('./pages/GuideIndex'));
+const ProcedureGuide = lazy(() => import('./pages/ProcedureGuide'));
+const GoalDetail = lazy(() => import('./pages/GoalDetail'));
+const InjectorProfile = lazy(() => import('./pages/InjectorProfile'));
+const InjectorFeed = lazy(() => import('./pages/InjectorFeed'));
+const InjectorClaim = lazy(() => import('./pages/InjectorClaim'));
+const DealShare = lazy(() => import('./pages/DealShare'));
+const BudgetPlanner = lazy(() => import('./pages/BudgetPlanner'));
+const StackBuilder = lazy(() => import('./pages/StackBuilder'));
+const RoutineQuiz = lazy(() => import('./pages/RoutineQuiz'));
+const ResolveDispute = lazy(() => import('./pages/ResolveDispute'));
+const Settings = lazy(() => import('./pages/Settings'));
+const TreatmentTimeline = lazy(() => import('./pages/TreatmentTimeline'));
+const CalculatorPage = lazy(() => import('./pages/Calculator'));
+const CityPriceIndex = lazy(() => import('./pages/CityPriceIndex'));
+const CityPriceReport = lazy(() => import('./pages/CityPriceReport'));
+const Refer = lazy(() => import('./pages/Refer'));
+const Wrapped = lazy(() => import('./pages/Wrapped'));
+const ReferralRedirect = lazy(() => import('./pages/ReferralRedirect'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const About = lazy(() => import('./pages/About'));
 
 export const AuthContext = createContext(null);
 
@@ -95,9 +99,8 @@ function App() {
       setSession(session);
       setLoading(false);
       // Check login streak for existing sessions
-      if (session?.user?.id) {
-        checkLoginStreak(session.user.id);
-      }
+
+
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -130,7 +133,6 @@ function App() {
             syncLocalPrefsToProfile(userId).catch(() => {});
             syncToSupabase(userId).catch(() => {});
             loadFromSupabase(userId).catch(() => {});
-            checkLoginStreak(userId).catch(() => {});
             // Create referral record if user signed up via referral link
             createReferralOnSignup(userId).catch(() => {});
           }
@@ -240,51 +242,59 @@ function App() {
         <Navbar />
         <SoftVerifyBanner />
         <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/browse" element={<FindPrices />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/log" element={<Log />} />
-            <Route path="/procedure/:slug" element={<ProcedureDetail />} />
-            <Route path="/provider/:slug" element={<ProviderProfile />} />
-            <Route path="/insights" element={<Insights />} />
-            <Route path="/specials" element={<Specials />} />
-            <Route path="/community" element={<Community />} />
-            <Route path="/my-treatments" element={<MyTreatments />} />
-            <Route path="/rewards" element={<Rewards />} />
-            <Route path="/budget" element={<BudgetPlanner />} />
-            <Route path="/business" element={<BusinessLanding />} />
-            <Route path="/business/claim" element={<BusinessClaim />} />
-            <Route path="/business/onboarding" element={<BusinessOnboarding />} />
-            <Route path="/business/dashboard" element={<BusinessDashboard />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/verified" element={<Verified />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/guides/:slug" element={<GuideDetail />} />
-            <Route path="/goals/:slug" element={<GoalDetail />} />
-            <Route path="/injectors/:slugOrId" element={<InjectorProfile />} />
-            <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />
-            <Route path="/following" element={<InjectorFeed />} />
-            <Route path="/deal" element={<DealShare />} />
-            <Route path="/my-stack" element={<StackBuilder />} />
-            <Route path="/build-my-routine" element={<RoutineQuiz />} />
-            <Route path="/resolve-dispute" element={<ResolveDispute />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/my/history" element={<TreatmentTimeline />} />
-            <Route path="/calculator" element={<CalculatorPage />} />
-            <Route path="/refer" element={<Refer />} />
-            <Route path="/r/:code" element={<ReferralRedirect />} />
-            <Route path="/my/wrapped" element={<Wrapped />} />
-            <Route path="/my/wrapped/:year" element={<Wrapped />} />
-            <Route path="/prices" element={<CityPriceIndex />} />
-            <Route path="/prices/:citySlug" element={<CityPriceReport />} />
-            <Route path="/prices/:citySlug/:yearMonth" element={<CityPriceReport />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
+          <Suspense fallback={
+            <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C94F78', fontSize: '14px' }}>
+              Loading...
+            </div>
+          }>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/browse" element={<FindPrices />} />
+              <Route path="/map" element={<MapView />} />
+              <Route path="/log" element={<Log />} />
+              <Route path="/procedure/:slug" element={<ProcedureDetail />} />
+              <Route path="/provider/:slug" element={<ProviderProfile />} />
+              <Route path="/insights" element={<Insights />} />
+              <Route path="/specials" element={<Specials />} />
+              <Route path="/community" element={<Community />} />
+              <Route path="/my-treatments" element={<MyTreatments />} />
+              <Route path="/rewards" element={<Rewards />} />
+              <Route path="/budget" element={<BudgetPlanner />} />
+              <Route path="/business" element={<BusinessLanding />} />
+              <Route path="/business/claim" element={<BusinessClaim />} />
+              <Route path="/business/onboarding" element={<BusinessOnboarding />} />
+              <Route path="/business/dashboard" element={<BusinessDashboard />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/verified" element={<Verified />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/guides" element={<GuideIndex />} />
+              <Route path="/guides/:slug" element={<GuideDetail />} />
+              <Route path="/guide/:slug" element={<ProcedureGuide />} />
+              <Route path="/goals/:slug" element={<GoalDetail />} />
+              <Route path="/injectors/:slugOrId" element={<InjectorProfile />} />
+              <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />
+              <Route path="/following" element={<InjectorFeed />} />
+              <Route path="/deal" element={<DealShare />} />
+              <Route path="/my-stack" element={<StackBuilder />} />
+              <Route path="/build-my-routine" element={<RoutineQuiz />} />
+              <Route path="/resolve-dispute" element={<ResolveDispute />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/my/history" element={<TreatmentTimeline />} />
+              <Route path="/calculator" element={<CalculatorPage />} />
+              <Route path="/refer" element={<Refer />} />
+              <Route path="/r/:code" element={<ReferralRedirect />} />
+              <Route path="/my/wrapped" element={<Wrapped />} />
+              <Route path="/my/wrapped/:year" element={<Wrapped />} />
+              <Route path="/prices" element={<CityPriceIndex />} />
+              <Route path="/prices/:citySlug" element={<CityPriceReport />} />
+              <Route path="/prices/:citySlug/:yearMonth" element={<CityPriceReport />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+          </Suspense>
         </main>
         <Footer />
 

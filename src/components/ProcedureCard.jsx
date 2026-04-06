@@ -14,6 +14,7 @@ import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
 import DisputeButton from './DisputeButton';
+import { getGuideUrl } from '../lib/guideMapping';
 
 export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
@@ -62,13 +63,24 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       )}
 
       {/* Procedure type + treatment area */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1">
         <ProcedureIcon type={procedure.procedure_type} size={22} className="text-rose-dark" />
         <span className="text-[15px] font-semibold text-text-primary">{procedure.procedure_type}</span>
         {procedure.treatment_area && (
           <span className="text-sm text-text-secondary">&middot; {procedure.treatment_area}</span>
         )}
       </div>
+
+      {/* Guide link */}
+      {getGuideUrl(procedure.procedure_type) && (
+        <Link
+          to={getGuideUrl(procedure.procedure_type)}
+          className="text-[11px] font-medium text-[#0369A1] hover:text-sky-800 transition-colors mb-2 inline-block"
+          onClick={(e) => e.stopPropagation()}
+        >
+          First timer? Read the guide &rarr;
+        </Link>
+      )}
 
       {/* Layer 2: Provider name */}
       <div className="flex items-center gap-2 mb-0.5">

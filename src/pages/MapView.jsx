@@ -10,6 +10,7 @@ import { setPageMeta } from '../lib/seo';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { getCity as getGatingCity, getState as getGatingState, getZip as getGatingZip } from '../lib/gating';
 import { supabase } from '../lib/supabase';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 
 const DEFAULT_CENTER = { lat: 39.5, lng: -98.35 };
 const DEFAULT_ZOOM = 5;
@@ -295,12 +296,14 @@ export default function MapView() {
     });
   }
 
-  function waitForGoogleMaps() {
-    if (window.google?.maps?.Geocoder) return Promise.resolve();
-    return new Promise((resolve) => {
+  async function waitForGoogleMaps() {
+    if (window.google?.maps?.Geocoder) return;
+    await loadGoogleMaps();
+    // Wait for Geocoder to be available after script loads
+    await new Promise((resolve) => {
       const check = () => {
         if (window.google?.maps?.Geocoder) resolve();
-        else setTimeout(check, 200);
+        else setTimeout(check, 100);
       };
       check();
     });

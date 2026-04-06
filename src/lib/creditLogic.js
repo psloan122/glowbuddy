@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED — Glow Credits system removed (April 2026).
+ * This file is kept for historical reference. No new writes to glow_credits table.
+ * The database tables (glow_credits, glow_redemptions) are preserved but unused.
+ */
+
 import { supabase } from './supabase';
 
 // --- Constants ---

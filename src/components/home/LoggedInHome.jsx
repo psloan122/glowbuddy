@@ -121,7 +121,7 @@ export default function LoggedInHome() {
       }
       const { data } = await supabase
         .from('procedures')
-        .select('*')
+        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, created_at, rating, receipt_verified, result_photo_url, trust_tier, is_anonymous, provider_slug, provider_id')
         .eq('status', 'active')
         .ilike('city', city)
         .eq('state', state)
@@ -152,41 +152,31 @@ export default function LoggedInHome() {
 
   async function fetchActivityData() {
     try {
-      // Prices shared
-      const { count: pricesShared } = await supabase
-        .from('procedures')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
-      // Recent submissions
-      const { data: recentRows } = await supabase
-        .from('procedures')
-        .select('id, procedure_type, price_paid, created_at')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      // Saved vs avg — compute from user's submissions vs city averages
-      let savedVsAvg = 0;
-      if (recentRows && recentRows.length > 0) {
-        // Simplified: sum of price differences isn't feasible per-row here,
-        // so we skip the complex computation and show the count only
-        savedVsAvg = 0;
-      }
-
-      // Pioneer check
-      const { count: pioneerCount } = await supabase
-        .from('pioneer_records')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+      // Run all three queries in parallel
+      const [countRes, recentRes, pioneerRes] = await Promise.all([
+        supabase
+          .from('procedures')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'active'),
+        supabase
+          .from('procedures')
+          .select('id, procedure_type, price_paid, created_at')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('pioneer_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+      ]);
 
       setActivity({
-        pricesShared: pricesShared || 0,
-        savedVsAvg,
-        isPioneer: (pioneerCount || 0) > 0,
-        recentSubmissions: recentRows || [],
+        pricesShared: countRes.count || 0,
+        savedVsAvg: 0,
+        isPioneer: (pioneerRes.count || 0) > 0,
+        recentSubmissions: recentRes.data || [],
       });
     } catch {
       // ignore

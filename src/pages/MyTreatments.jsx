@@ -8,7 +8,7 @@ import TreatmentLogEntry from '../components/TreatmentLogEntry';
 import MonthlySpendSummary from '../components/MonthlySpendSummary';
 import LogTreatmentForm from '../components/LogTreatmentForm';
 import PioneerBadge from '../components/PioneerBadge';
-import CreditBalance from '../components/CreditBalance';
+
 
 export default function MyTreatments() {
   const { user, openAuthModal } = useContext(AuthContext);
@@ -147,14 +147,6 @@ export default function MyTreatments() {
         <PioneerBadge userId={user.id} />
       </div>
 
-      {/* Credit balance */}
-      <div className="mb-4 flex items-center gap-3">
-        <CreditBalance userId={user.id} />
-        <Link to="/rewards" className="text-xs font-medium text-rose-accent hover:text-rose-dark transition">
-          View My Rewards &rarr;
-        </Link>
-      </div>
-
       {/* Stale submissions banner */}
       {staleProcs.length > 0 && (
         <div
@@ -168,7 +160,7 @@ export default function MyTreatments() {
                 {staleProcs.length} price{staleProcs.length === 1 ? '' : 's'} may need updating
               </p>
               <p className="text-xs mt-0.5" style={{ color: '#92400E' }}>
-                Confirm or update to help others &mdash; earn 50 Glow Credits each!
+                Confirm or update to help others &mdash; earn bonus giveaway entries!
               </p>
             </div>
           </div>

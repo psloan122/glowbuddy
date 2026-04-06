@@ -23,6 +23,7 @@ import { searchCitiesViaGoogle } from '../lib/places';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import ProviderMap from '../components/ProviderMap';
 import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
@@ -313,7 +314,7 @@ export default function FindPrices() {
     function buildQuery({ city, state, zip }) {
       let query = supabase
         .from('procedures')
-        .select('*')
+        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
         .eq('status', 'active');
 
       if (filterProcedureType) query = query.eq('procedure_type', filterProcedureType);
@@ -335,7 +336,7 @@ export default function FindPrices() {
       // Get total count
       const countQuery = supabase
         .from('procedures')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'active');
       if (filterProcedureType) countQuery.eq('procedure_type', filterProcedureType);
       countQuery.then(({ count }) => setTotalCount(count || 0));
@@ -368,7 +369,7 @@ export default function FindPrices() {
       if (results.length === 0) {
         let fallbackAll = supabase
           .from('procedures')
-          .select('*')
+          .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(12);
@@ -469,10 +470,15 @@ export default function FindPrices() {
   useEffect(() => {
     if (!mapLoaded) return;
     if (selectedLoc) {
-      const waitAndGeocode = () => {
+      const waitAndGeocode = async () => {
         if (!window.google?.maps?.Geocoder) {
-          setTimeout(waitAndGeocode, 200);
-          return;
+          try {
+            await loadGoogleMaps();
+            await new Promise((r) => {
+              const check = () => window.google?.maps?.Geocoder ? r() : setTimeout(check, 100);
+              check();
+            });
+          } catch { return; }
         }
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode(

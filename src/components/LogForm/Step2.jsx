@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PROVIDER_TYPES, US_STATES } from '../../lib/constants';
 import PlacesSearch from '../PlacesSearch';
+import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -14,6 +15,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
 
   useEffect(() => {
     if (hasPlaces) return;
+    loadGoogleMaps().catch(() => {});
     const interval = setInterval(() => {
       if (window.google?.maps?.places) {
         setHasPlaces(true);
