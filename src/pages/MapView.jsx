@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Map, List, Plus } from 'lucide-react';
 import MapFilterBar from '../components/MapFilterBar';
 import ProviderMap from '../components/ProviderMap';
@@ -9,13 +9,15 @@ import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
 import { setPageMeta } from '../lib/seo';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { getCity as getGatingCity, getState as getGatingState, getZip as getGatingZip } from '../lib/gating';
+import { supabase } from '../lib/supabase';
 
-const DEFAULT_CENTER = { lat: 37.0902, lng: -95.7129 };
-const DEFAULT_ZOOM = 4;
+const DEFAULT_CENTER = { lat: 39.5, lng: -98.35 };
+const DEFAULT_ZOOM = 5;
 const LOCATED_ZOOM = 11;
 const DEFAULT_BOUNDS = { south: 24.0, north: 49.0, west: -125.0, east: -66.0 };
 
 export default function MapView() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('map');
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -107,97 +109,202 @@ export default function MapView() {
     return () => clearTimeout(debounceRef.current);
   }, [filters.procedureType, fetchMarkers]);
 
-  // ── Resolve user location on mount: saved location → browser geolocation → US center ──
+  // ── Resolve user location on mount ──
+  // Priority: 1) URL params → 2) Profile lat/lng → 3) Gating city/zip → 4) Browser geolocation → 5) US center
   useEffect(() => {
-    const savedCity = getGatingCity();
-    const savedState = getGatingState();
-    const savedZip = getGatingZip();
+    let cancelled = false;
 
-    // If user has a saved location from onboarding, geocode it to center the map
-    if (savedZip || savedCity) {
+    async function resolveLocation() {
       setLocating(true);
-      const query = savedZip || `${savedCity}, ${savedState}`;
-      const label = savedCity
-        ? `${savedCity}${savedState ? `, ${savedState}` : ''}`
-        : savedZip;
 
-      // Pre-fill the city input immediately
-      setCityLabel(savedCity || savedZip);
-      setStateLabel(savedState);
-      setFilters((f) => ({ ...f, cityOrZip: label }));
+      // 1. URL params
+      const urlLat = searchParams.get('lat');
+      const urlLng = searchParams.get('lng');
+      const urlCity = searchParams.get('city');
+      const urlState = searchParams.get('state');
 
-      // Wait for Google Maps to load, then geocode
-      const waitAndGeocode = () => {
-        if (!window.google?.maps?.Geocoder) {
-          // Google Maps not loaded yet — retry briefly
-          setTimeout(waitAndGeocode, 200);
-          return;
-        }
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode(
-          { address: query, componentRestrictions: { country: 'US' } },
-          (results, status) => {
-            if (status === 'OK' && results?.[0]) {
-              const loc = {
-                lat: results[0].geometry.location.lat(),
-                lng: results[0].geometry.location.lng(),
-              };
-              setUserLocation(loc);
-              setMapCenter(loc);
-              setMapZoom(LOCATED_ZOOM);
-            }
-            setLocating(false);
-          }
-        );
-      };
-      waitAndGeocode();
-      return;
-    }
-
-    // No saved location — fall back to browser geolocation
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const loc = { lat: latitude, lng: longitude };
+      if (urlLat && urlLng) {
+        const loc = { lat: parseFloat(urlLat), lng: parseFloat(urlLng) };
         setUserLocation(loc);
         setMapCenter(loc);
         setMapZoom(LOCATED_ZOOM);
-
-        if (window.google?.maps?.Geocoder) {
-          try {
-            const geocoder = new window.google.maps.Geocoder();
-            const result = await new Promise((resolve, reject) => {
-              geocoder.geocode(
-                { location: { lat: latitude, lng: longitude } },
-                (results, status) => {
-                  if (status === 'OK' && results?.[0]) resolve(results[0]);
-                  else reject(new Error('Geocode failed'));
-                }
-              );
-            });
-            let foundCity = '';
-            let foundState = '';
-            for (const comp of result.address_components) {
-              if (comp.types.includes('locality')) foundCity = comp.long_name;
-              if (comp.types.includes('administrative_area_level_1')) foundState = comp.short_name;
-            }
-            if (foundCity) {
-              setCityLabel(foundCity);
-              setStateLabel(foundState);
-              setFilters((f) => ({ ...f, cityOrZip: foundCity }));
-            }
-          } catch {
-            // silent
-          }
+        if (urlCity) {
+          setCityLabel(urlCity);
+          setStateLabel(urlState || '');
+          setFilters((f) => ({ ...f, cityOrZip: urlCity }));
         }
         setLocating(false);
-      },
-      () => setLocating(false),
-      { timeout: 10000, enableHighAccuracy: false }
-    );
-  }, []);
+        return;
+      }
+
+      if (urlCity && urlState) {
+        setCityLabel(urlCity);
+        setStateLabel(urlState);
+        setFilters((f) => ({ ...f, cityOrZip: `${urlCity}, ${urlState}` }));
+        const coords = await geocodeAddress(`${urlCity}, ${urlState}, USA`);
+        if (!cancelled && coords) {
+          setUserLocation(coords);
+          setMapCenter(coords);
+          setMapZoom(LOCATED_ZOOM);
+        }
+        if (!cancelled) setLocating(false);
+        return;
+      }
+
+      // 2. User's saved profile location
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && !cancelled) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('preferred_lat, preferred_lng, preferred_zip, preferred_city, preferred_state')
+            .eq('id', user.id)
+            .single();
+
+          if (!cancelled && profile?.preferred_lat && profile?.preferred_lng) {
+            const loc = { lat: parseFloat(profile.preferred_lat), lng: parseFloat(profile.preferred_lng) };
+            setUserLocation(loc);
+            setMapCenter(loc);
+            setMapZoom(LOCATED_ZOOM);
+            if (profile.preferred_city) {
+              setCityLabel(profile.preferred_city);
+              setStateLabel(profile.preferred_state || '');
+              setFilters((f) => ({ ...f, cityOrZip: profile.preferred_city }));
+            }
+            setLocating(false);
+            return;
+          }
+
+          // Profile has city/zip but no coords — geocode it
+          if (!cancelled && (profile?.preferred_zip || profile?.preferred_city)) {
+            const query = profile.preferred_zip || `${profile.preferred_city}, ${profile.preferred_state}`;
+            const coords = await geocodeAddress(query);
+            if (!cancelled && coords) {
+              setUserLocation(coords);
+              setMapCenter(coords);
+              setMapZoom(LOCATED_ZOOM);
+              setCityLabel(profile.preferred_city || profile.preferred_zip);
+              setStateLabel(profile.preferred_state || '');
+              setFilters((f) => ({ ...f, cityOrZip: profile.preferred_city || profile.preferred_zip }));
+              // Save coords for next time
+              supabase.from('profiles').update({ preferred_lat: coords.lat, preferred_lng: coords.lng }).eq('id', user.id).then(() => {});
+              setLocating(false);
+              return;
+            }
+          }
+        }
+      } catch {
+        // Profile lookup failed — continue to fallbacks
+      }
+
+      if (cancelled) return;
+
+      // 3. Gating (localStorage) city/zip
+      const savedCity = getGatingCity();
+      const savedState = getGatingState();
+      const savedZip = getGatingZip();
+
+      if (savedZip || savedCity) {
+        const query = savedZip || `${savedCity}, ${savedState}`;
+        setCityLabel(savedCity || savedZip);
+        setStateLabel(savedState);
+        setFilters((f) => ({ ...f, cityOrZip: savedCity || savedZip }));
+
+        const coords = await geocodeAddress(query);
+        if (!cancelled && coords) {
+          setUserLocation(coords);
+          setMapCenter(coords);
+          setMapZoom(LOCATED_ZOOM);
+        }
+        if (!cancelled) setLocating(false);
+        return;
+      }
+
+      // 4. Browser geolocation
+      if (navigator.geolocation) {
+        try {
+          const coords = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+              reject,
+              { timeout: 3000 }
+            );
+          });
+
+          if (!cancelled) {
+            setUserLocation(coords);
+            setMapCenter(coords);
+            setMapZoom(LOCATED_ZOOM);
+
+            // Reverse geocode to get city name
+            const cityInfo = await reverseGeocode(coords);
+            if (!cancelled && cityInfo) {
+              setCityLabel(cityInfo.city);
+              setStateLabel(cityInfo.state);
+              setFilters((f) => ({ ...f, cityOrZip: cityInfo.city }));
+            }
+          }
+        } catch {
+          // Permission denied or timeout — use default
+        }
+      }
+
+      // 5. Final fallback — stays on DEFAULT_CENTER (center of US)
+      if (!cancelled) setLocating(false);
+    }
+
+    resolveLocation();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Geocode helpers ──
+  async function geocodeAddress(address) {
+    await waitForGoogleMaps();
+    return new Promise((resolve) => {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode(
+        { address, componentRestrictions: { country: 'US' } },
+        (results, status) => {
+          if (status === 'OK' && results?.[0]) {
+            resolve({
+              lat: results[0].geometry.location.lat(),
+              lng: results[0].geometry.location.lng(),
+            });
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
+  async function reverseGeocode(coords) {
+    await waitForGoogleMaps();
+    return new Promise((resolve) => {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: coords }, (results, status) => {
+        if (status !== 'OK' || !results?.[0]) { resolve(null); return; }
+        let city = '';
+        let state = '';
+        for (const comp of results[0].address_components) {
+          if (comp.types.includes('locality')) city = comp.long_name;
+          if (comp.types.includes('administrative_area_level_1')) state = comp.short_name;
+        }
+        resolve(city ? { city, state } : null);
+      });
+    });
+  }
+
+  function waitForGoogleMaps() {
+    if (window.google?.maps?.Geocoder) return Promise.resolve();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (window.google?.maps?.Geocoder) resolve();
+        else setTimeout(check, 200);
+      };
+      check();
+    });
+  }
 
   // ── Handlers ──
   function handleFilterChange(patch) {
@@ -208,49 +315,31 @@ export default function MapView() {
     setFilters((f) => ({ ...f, ...patch }));
   }
 
-  function handleLocateMe() {
+  async function handleLocateMe() {
     if (!navigator.geolocation) return;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const loc = { lat: latitude, lng: longitude };
-        setUserLocation(loc);
-        setMapCenter(loc);
-        setMapZoom(LOCATED_ZOOM);
+    try {
+      const coords = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          reject,
+          { timeout: 10000, enableHighAccuracy: false }
+        );
+      });
+      setUserLocation(coords);
+      setMapCenter(coords);
+      setMapZoom(LOCATED_ZOOM);
 
-        if (window.google?.maps?.Geocoder) {
-          try {
-            const geocoder = new window.google.maps.Geocoder();
-            const result = await new Promise((resolve, reject) => {
-              geocoder.geocode(
-                { location: { lat: latitude, lng: longitude } },
-                (results, status) => {
-                  if (status === 'OK' && results?.[0]) resolve(results[0]);
-                  else reject(new Error('Geocode failed'));
-                }
-              );
-            });
-            let foundCity = '';
-            let foundState = '';
-            for (const comp of result.address_components) {
-              if (comp.types.includes('locality')) foundCity = comp.long_name;
-              if (comp.types.includes('administrative_area_level_1')) foundState = comp.short_name;
-            }
-            if (foundCity) {
-              setCityLabel(foundCity);
-              setStateLabel(foundState);
-              setFilters((f) => ({ ...f, cityOrZip: foundCity }));
-            }
-          } catch {
-            // silent
-          }
-        }
-        setLocating(false);
-      },
-      () => setLocating(false),
-      { timeout: 10000, enableHighAccuracy: false }
-    );
+      const cityInfo = await reverseGeocode(coords);
+      if (cityInfo) {
+        setCityLabel(cityInfo.city);
+        setStateLabel(cityInfo.state);
+        setFilters((f) => ({ ...f, cityOrZip: cityInfo.city }));
+      }
+    } catch {
+      // Permission denied or timeout
+    }
+    setLocating(false);
   }
 
   function handleBoundsChanged(bounds) {

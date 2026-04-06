@@ -102,8 +102,8 @@ export default function FindPrices() {
   const [viewMode, setViewMode] = useState('list');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapProviders, setMapProviders] = useState([]);
-  const [mapCenter, setMapCenter] = useState({ lat: 37.0902, lng: -95.7129 });
-  const [mapZoom, setMapZoom] = useState(4);
+  const [mapCenter, setMapCenter] = useState({ lat: 39.5, lng: -98.35 });
+  const [mapZoom, setMapZoom] = useState(5);
   const [selectedMapProvider, setSelectedMapProvider] = useState(null);
   const mapBoundsRef = useRef(null);
 
@@ -479,10 +479,8 @@ export default function FindPrices() {
           { address: `${selectedLoc.city}, ${selectedLoc.state}, USA` },
           (results, status) => {
             if (status === 'OK' && results?.[0]) {
-              setMapCenter({
-                lat: results[0].geometry.location.lat(),
-                lng: results[0].geometry.location.lng(),
-              });
+              const loc = results[0].geometry.location;
+              setMapCenter({ lat: loc.lat(), lng: loc.lng() });
               setMapZoom(11);
             }
           }
@@ -490,7 +488,7 @@ export default function FindPrices() {
       };
       waitAndGeocode();
     }
-  }, [mapLoaded, selectedLoc]);
+  }, [mapLoaded, selectedLoc?.city, selectedLoc?.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchMapProviders = useCallback(async (bounds) => {
     const data = await fetchAllProvidersInBounds(bounds, filterProcedureType);
