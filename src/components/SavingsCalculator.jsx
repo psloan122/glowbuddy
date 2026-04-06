@@ -9,30 +9,93 @@ import SavingsShareCard from './SavingsShareCard';
 
 const TYPICAL_UNITS = {
   'Botox / Dysport / Xeomin': 28,
+  'Jeuveau': 28,
+  'Daxxify': 40,
   'Lip Filler': 1,
   'Cheek Filler': 1,
   'Jawline Filler': 1,
   'HydraFacial': 1,
+  'Semaglutide (Ozempic / Wegovy)': 1,
+  'Tirzepatide (Mounjaro / Zepbound)': 1,
+  'Liraglutide (Saxenda)': 1,
+  'Compounded Semaglutide': 1,
+  'Compounded Tirzepatide': 1,
+  'GLP-1 (unspecified)': 1,
+  'Semaglutide / Weight Loss': 1,
+  'B12 Injection': 1,
+  'Lipotropic / MIC Injection': 1,
 };
 
 const UNIT_LABELS = {
   'Botox / Dysport / Xeomin': '/unit',
+  'Jeuveau': '/unit',
+  'Daxxify': '/unit',
   'Lip Filler': '/syringe',
   'Cheek Filler': '/syringe',
   'Jawline Filler': '/syringe',
   'Nasolabial Filler': '/syringe',
   'Under Eye Filler': '/syringe',
   'Chin Filler': '/syringe',
+  'Nose Filler': '/syringe',
+  'Hand Filler': '/syringe',
+  'Temple Filler': '/syringe',
   'Kybella': '/session',
-  'RF Microneedling': '/session',
+  'CoolSculpting': '/area',
+  'Emsculpt NEO': '/session',
+  'truSculpt': '/session',
+  'SculpSure': '/session',
+  'BodyTite': '/session',
+  'Velashape': '/session',
+  'Cellulite Treatment': '/session',
   'Microneedling': '/session',
+  'RF Microneedling': '/session',
+  'Morpheus8': '/session',
+  'PRP Microneedling': '/session',
+  'Exosome Microneedling': '/session',
   'Chemical Peel': '/session',
+  'HydraFacial': '/session',
+  'Dermaplaning': '/session',
+  'LED Therapy': '/session',
+  'Oxygen Facial': '/session',
+  'Microdermabrasion': '/session',
+  'Vampire Facial': '/session',
   'Laser Hair Removal': '/session',
   'IPL / Photofacial': '/session',
-  'CoolSculpting': '/area',
+  'Fractional CO2 Laser': '/session',
+  'Clear + Brilliant': '/session',
+  'Halo Laser': '/session',
+  'Picosure / Picoway': '/session',
+  'Erbium Laser': '/session',
+  'Thermage': '/session',
+  'Ultherapy': '/session',
+  'Sofwave': '/session',
+  'Tempsure': '/session',
+  'Exilis': '/session',
+  'Semaglutide (Ozempic / Wegovy)': '/month',
+  'Tirzepatide (Mounjaro / Zepbound)': '/month',
+  'Liraglutide (Saxenda)': '/month',
+  'Compounded Semaglutide': '/month',
+  'Compounded Tirzepatide': '/month',
+  'GLP-1 (unspecified)': '/month',
   'Semaglutide / Weight Loss': '/month',
+  'B12 Injection': '/injection',
+  'Lipotropic / MIC Injection': '/injection',
   'IV Therapy': '/session',
-  'HydraFacial': '/session',
+  'IV Vitamin Therapy': '/session',
+  'IV Drip Therapy': '/session',
+  'NAD+ Therapy': '/session',
+  'Peptide Therapy': '/month',
+  'HRT (Hormone Replacement)': '/month',
+  'Testosterone Therapy': '/month',
+  'PRP Hair Restoration': '/session',
+  'Hair Loss Treatment': '/session',
+  'Scalp Micropigmentation': '/session',
+  'PRP Injections': '/session',
+  'Exosome Therapy': '/session',
+  'Sculptra': '/vial',
+  'PDO Thread Lift': '/session',
+  'Sclerotherapy': '/session',
+  'RF Ablation': '/session',
   'Botox Lip Flip': '',
   'Brow Lamination': '',
   'Lash Lift': '',
@@ -69,6 +132,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
 
   // Results
   const [benchmark, setBenchmark] = useState(null);
+  const [benchmarkFallback, setBenchmarkFallback] = useState(false); // true when using state-level data
   const [percentile, setPercentile] = useState(null);
   const [cheaperProviders, setCheaperProviders] = useState([]);
 
@@ -84,17 +148,28 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Fetch benchmark when procedure + city selected
+  // Fetch benchmark when procedure + city selected (with state-level fallback)
   useEffect(() => {
     if (!procedureType || !city || !state) {
       setBenchmark(null);
+      setBenchmarkFallback(false);
       setPercentile(null);
       setCheaperProviders([]);
       return;
     }
-    fetchBenchmark(procedureType, state, city).then((bm) => {
-      setBenchmark(bm);
-    });
+    async function loadBenchmark() {
+      const bm = await fetchBenchmark(procedureType, state, city);
+      if (bm) {
+        setBenchmark(bm);
+        setBenchmarkFallback(false);
+      } else {
+        // Fallback to state-level average
+        const stateBm = await fetchBenchmark(procedureType, state);
+        setBenchmark(stateBm);
+        setBenchmarkFallback(!!stateBm);
+      }
+    }
+    loadBenchmark();
   }, [procedureType, city, state]);
 
   // Fetch percentile + cheaper providers when price changes
@@ -174,9 +249,39 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
     });
   }, [price, benchmark, procedureType, city, state]);
 
-  // City search
+  // City / zip search
   const searchCities = useCallback(async (q) => {
     const trimmed = q.trim();
+    if (!trimmed) { setCityResults([]); return; }
+
+    // Zip code path
+    if (/^\d{5}$/.test(trimmed)) {
+      setCityLoading(true);
+      try {
+        const res = await fetch(`https://api.zippopotam.us/us/${trimmed}`);
+        if (res.ok) {
+          const data = await res.json();
+          const place = data.places?.[0];
+          if (place) {
+            setCityResults([{
+              city: place['place name'],
+              state: place['state abbreviation'],
+            }]);
+          } else {
+            setCityResults([]);
+          }
+        } else {
+          setCityResults([]);
+        }
+      } catch {
+        setCityResults([]);
+      } finally {
+        setCityLoading(false);
+      }
+      return;
+    }
+
+    // City/town name path
     if (trimmed.length < 2) { setCityResults([]); return; }
     setCityLoading(true);
     try {
@@ -275,7 +380,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
 
           {/* City autocomplete */}
           <div ref={cityRef} className="relative">
-            <label className="block text-xs font-medium text-text-secondary mb-1">City</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1">Location</label>
             {city ? (
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
                 <span className="inline-flex items-center gap-1 text-sm text-text-primary">
@@ -295,7 +400,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
                   <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                   <input
                     type="text"
-                    placeholder="Search city..."
+                    placeholder="City, town, or zip code"
                     value={cityQuery}
                     onChange={(e) => handleCityInput(e.target.value)}
                     onFocus={() => cityQuery.trim() && setCityOpen(true)}
@@ -318,7 +423,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
                         </button>
                       ))
                     ) : (
-                      <div className="px-4 py-3 text-sm text-text-secondary">No cities found</div>
+                      <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
                     )}
                   </div>
                 )}
@@ -373,7 +478,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
               <span className="font-bold text-text-primary">${userPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}{unitLabel}</span>
             </div>
             <div className="flex items-center justify-between text-sm mb-4">
-              <span className="text-text-secondary">{city} average</span>
+              <span className="text-text-secondary">{benchmarkFallback ? `${state} average` : `${city} average`}</span>
               <span className="font-bold text-text-primary">${avgPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}{unitLabel}</span>
             </div>
 
@@ -407,6 +512,13 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
             ) : (
               <p className="text-sm font-semibold text-green-600 mb-4">
                 Right at the local average &#x2705;
+              </p>
+            )}
+
+            {/* State fallback note */}
+            {benchmarkFallback && (
+              <p className="text-xs text-text-secondary/70 italic mb-3">
+                Using {state} statewide average — not enough data in {city} yet.
               </p>
             )}
 
@@ -465,13 +577,13 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
           </div>
         )}
 
-        {/* No data message */}
-        {procedureType && city && state && benchmark === null && price && (
+        {/* No data message — shows only when both city and state benchmarks are null */}
+        {procedureType && city && state && benchmark === null && !benchmarkFallback && price && (
           <div className="text-center py-3">
             <p className="text-sm text-text-secondary">
-              Not enough data for {procedureType} in {city} yet.{' '}
+              Not enough prices for {procedureType} in {city} yet.{' '}
               <Link to="/log" className="text-rose-accent font-medium hover:text-rose-dark">
-                Be the first to report
+                Share yours
               </Link>
             </p>
           </div>

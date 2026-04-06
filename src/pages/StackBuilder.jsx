@@ -13,11 +13,16 @@ const TREATMENTS = [
   'Cheek Filler',
   'Microneedling',
   'RF Microneedling',
+  'Morpheus8',
+  'PRP Microneedling',
   'Chemical Peel',
   'HydraFacial',
+  'Dermaplaning',
   'PRP/PRF',
   'Sculptra',
   'Kybella',
+  'CoolSculpting',
+  'Laser Hair Removal',
 ];
 
 export default function StackBuilder() {

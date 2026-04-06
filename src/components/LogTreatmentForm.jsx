@@ -12,9 +12,19 @@ const TREATMENT_NAMES = [
   'Kybella',
   'Microneedling',
   'RF Microneedling',
+  'Morpheus8',
   'Chemical Peel',
   'HydraFacial',
+  'Dermaplaning',
   'PRP/PRF',
+  'Semaglutide (Ozempic / Wegovy)',
+  'Tirzepatide (Mounjaro / Zepbound)',
+  'Compounded Semaglutide',
+  'GLP-1 (unspecified)',
+  'PDO Thread Lift',
+  'Laser Hair Removal',
+  'CoolSculpting',
+  'IV Therapy',
 ];
 
 const FILLER_TREATMENTS = ['Lip Filler', 'Cheek Filler', 'Sculptra', 'Kybella'];

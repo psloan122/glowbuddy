@@ -48,8 +48,8 @@ async function searchGoogle(query) {
 function isAestheticsBusiness(result) {
   const name = result.name.toLowerCase();
   const types = (result.types || []).join(' ').toLowerCase();
-  const good = ['aestheti', 'med spa', 'medspa', 'skin', 'beauty', 'cosmetic', 'dermatolog', 'laser', 'injection', 'botox', 'filler', 'glow', 'rejuvenat', 'wellness', 'facial'];
-  const bad = ['weight loss', 'nail', 'urgent care', 'immediate care', 'veterinar', 'dental', 'auto'];
+  const good = ['aestheti', 'med spa', 'medspa', 'skin', 'beauty', 'cosmetic', 'dermatolog', 'laser', 'injection', 'botox', 'filler', 'glow', 'rejuvenat', 'wellness', 'facial', 'weight loss', 'semaglutide', 'glp', 'peptide', 'hormone', 'iv therapy', 'prp', 'hair restoration'];
+  const bad = ['nail', 'urgent care', 'immediate care', 'veterinar', 'dental', 'auto'];
   if (bad.some((kw) => name.includes(kw))) return false;
   return good.some((kw) => name.includes(kw)) || types.includes('beauty_salon') || types.includes('spa');
 }
@@ -65,6 +65,13 @@ async function findMedSpasInCity(city, state, count, excludeNames) {
     `med spa aesthetics ${city} ${state}`,
     `cosmetic injections medspa ${city} ${state}`,
     `botox filler med spa ${city} ${state}`,
+    `semaglutide weight loss clinic ${city} ${state}`,
+    `medical weight loss ${city} ${state}`,
+    `IV therapy clinic ${city} ${state}`,
+    `laser skin treatment ${city} ${state}`,
+    `morpheus8 microneedling ${city} ${state}`,
+    `coolsculpting body contouring ${city} ${state}`,
+    `hormone therapy clinic ${city} ${state}`,
   ];
   const found = [];
   const usedIds = new Set();

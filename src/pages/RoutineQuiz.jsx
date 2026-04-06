@@ -16,6 +16,7 @@ const CONCERNS = [
   'Skin hydration',
   'Anti-aging prevention',
   'Body contouring',
+  'Weight loss',
 ];
 
 const BUDGET_RANGES = [
@@ -49,7 +50,8 @@ const TREATMENT_RECS = {
   'Pore size': ['HydraFacial', 'Chemical Peel', 'Microneedling'],
   'Skin hydration': ['HydraFacial', 'PRP/PRF'],
   'Anti-aging prevention': ['Botox / Dysport / Xeomin', 'HydraFacial', 'Microneedling'],
-  'Body contouring': ['Kybella'],
+  'Body contouring': ['CoolSculpting', 'Emsculpt NEO', 'Kybella'],
+  'Weight loss': ['Semaglutide (Ozempic / Wegovy)', 'Tirzepatide (Mounjaro / Zepbound)', 'Compounded Semaglutide', 'GLP-1 (unspecified)'],
 };
 
 export default function RoutineQuiz() {
@@ -74,6 +76,9 @@ export default function RoutineQuiz() {
     'Botox / Dysport / Xeomin', 'Lip Filler', 'Cheek Filler',
     'Microneedling', 'RF Microneedling', 'Chemical Peel',
     'HydraFacial', 'PRP/PRF', 'Sculptra', 'Kybella',
+    'Semaglutide (Ozempic / Wegovy)', 'Tirzepatide (Mounjaro / Zepbound)',
+    'Compounded Semaglutide', 'GLP-1 (unspecified)',
+    'CoolSculpting', 'Emsculpt NEO', 'Laser Hair Removal', 'Dermaplaning',
   ];
 
   function toggleItem(list, setList, item) {

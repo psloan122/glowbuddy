@@ -48,17 +48,22 @@ const ICONS = {
 };
 
 const KEYWORD_MAP = [
-  { keywords: ['botox', 'dysport', 'xeomin', 'neurotoxin'], icon: 'syringe' },
+  { keywords: ['botox', 'dysport', 'xeomin', 'jeuveau', 'daxxify', 'neurotoxin'], icon: 'syringe' },
   { keywords: ['lip filler'], icon: 'lips' },
-  { keywords: ['cheek', 'jawline', 'chin filler', 'nasolabial'], icon: 'face' },
+  { keywords: ['cheek', 'jawline', 'chin filler', 'nasolabial', 'nose filler', 'hand filler', 'temple filler'], icon: 'face' },
   { keywords: ['under eye', 'tear trough'], icon: 'eye' },
-  { keywords: ['microneedling'], icon: 'needleGrid' },
-  { keywords: ['laser'], icon: 'zap' },
-  { keywords: ['hydrafacial', 'facial'], icon: 'dropletFace' },
-  { keywords: ['body contouring', 'coolsculpting'], icon: 'body' },
-  { keywords: ['weight loss', 'glp', 'semaglutide', 'ozempic', 'tirzepatide'], icon: 'scale' },
+  { keywords: ['morpheus', 'microneedling'], icon: 'needleGrid' },
+  { keywords: ['laser', 'ipl', 'photofacial', 'co2', 'clear + brilliant', 'halo', 'picosure', 'picoway', 'erbium'], icon: 'zap' },
+  { keywords: ['hydrafacial', 'dermaplaning', 'microdermabrasion', 'led therapy', 'oxygen facial'], icon: 'dropletFace' },
+  { keywords: ['emsculpt', 'trusculpt', 'sculpsure', 'velashape', 'cellulite', 'kybella', 'body contouring', 'coolsculpting', 'bodytite'], icon: 'body' },
+  { keywords: ['weight loss', 'glp', 'semaglutide', 'ozempic', 'tirzepatide', 'mounjaro', 'zepbound', 'liraglutide', 'saxenda', 'compounded'], icon: 'scale' },
+  { keywords: ['b12', 'lipotropic', 'mic injection', 'thread', 'pdo'], icon: 'syringe' },
+  { keywords: ['thermage', 'ultherapy', 'sofwave', 'tempsure', 'exilis', 'rf ablation', 'sclerotherapy'], icon: 'zap' },
+  { keywords: ['scalp', 'hair restoration', 'hair loss', 'micropigmentation'], icon: 'sparkle' },
+  { keywords: ['hormone', 'testosterone', 'hrt', 'nad', 'peptide'], icon: 'drop' },
+  { keywords: ['iv therapy', 'iv vitamin', 'iv drip'], icon: 'drop' },
   { keywords: ['chemical peel'], icon: 'layers' },
-  { keywords: ['prp', 'vampire'], icon: 'drop' },
+  { keywords: ['prp', 'vampire', 'exosome'], icon: 'drop' },
 ];
 
 function getIconKey(type) {
