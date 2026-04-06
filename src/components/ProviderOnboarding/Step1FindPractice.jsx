@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MapPin, X, CheckCircle, Phone, ExternalLink, Search, AlertTriangle, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
 export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
+  const { user } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
   const wrapperRef = useRef(null);
   const serviceRef = useRef(null);
   const detailsServiceRef = useRef(null);
@@ -21,6 +25,91 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualData, setManualData] = useState({ name: '', address: '', city: '', state: '', zip: '', phone: '', website: '' });
   const [importPhotos, setImportPhotos] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Helper: convert a DB provider row into selectedPlace format
+  function providerToPlace(provider) {
+    return {
+      name: provider.name,
+      formattedAddress: `${provider.address || ''}, ${provider.city}, ${provider.state} ${provider.zip_code || ''}`,
+      city: provider.city,
+      state: provider.state,
+      zipCode: provider.zip_code,
+      address: provider.address,
+      phone: provider.phone,
+      website: provider.website,
+      placeId: provider.google_place_id,
+      lat: provider.lat,
+      lng: provider.lng,
+      googleRating: null,
+      googleReviewCount: null,
+      googleMapsUrl: null,
+      googlePriceLevel: null,
+      googleTypes: [],
+      hoursText: '',
+      googlePhotos: [],
+    };
+  }
+
+  // Read URL params and pre-fill/auto-select on mount
+  const urlParamsDone = useRef(false);
+  useEffect(() => {
+    if (urlParamsDone.current) return;
+    urlParamsDone.current = true;
+
+    const name = searchParams.get('name');
+    const city = searchParams.get('city');
+    const providerId = searchParams.get('provider_id');
+
+    if (!name && !providerId) return;
+
+    // If we have a provider_id, load it directly
+    if (providerId) {
+      supabase
+        .from('providers')
+        .select('id, name, city, state, zip_code, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
+        .eq('id', providerId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            if (data.is_claimed && data.owner_user_id !== user?.id) {
+              setError(
+                'This listing has already been claimed. Contact support@glowbuddy.com if you believe this is an error.'
+              );
+              return;
+            }
+            setSelectedPlace(providerToPlace(data));
+            setExistingProvider(data);
+            setValue(data.name);
+          }
+        });
+      return;
+    }
+
+    // Pre-fill search input with name
+    if (name) {
+      setValue(name);
+    }
+
+    // No provider_id but have name+city — search our DB first
+    if (name && city) {
+      supabase
+        .from('providers')
+        .select('id, name, city, state, zip_code, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
+        .ilike('name', `%${name}%`)
+        .ilike('city', `%${city}%`)
+        .eq('is_active', true)
+        .limit(3)
+        .then(({ data }) => {
+          if (data?.length === 1) {
+            setSelectedPlace(providerToPlace(data[0]));
+            setExistingProvider(data[0]);
+            setValue(data[0].name);
+          }
+          // If no DB results or multiple, let Google Places handle it via the input
+        });
+    }
+  }, []);
 
   useEffect(() => {
     function init() {
@@ -181,6 +270,15 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
       <p className="text-text-secondary mb-8">
         Search for your med spa or clinic to see if it's already on GlowBuddy.
       </p>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
 
       {!selectedPlace ? (
         <>

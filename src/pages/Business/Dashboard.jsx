@@ -15,6 +15,7 @@ import {
   Star,
   Settings as SettingsIcon,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -31,6 +32,8 @@ import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterT
 import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
 import SpecialsManager from '../../components/SpecialsManager';
 import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
+import SubmissionsTab from '../../components/DashboardTabs/SubmissionsTab';
+import CallVolumeChart from '../../components/CallVolumeChart';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import IntegrationStats from '../../components/IntegrationStats';
 
@@ -38,7 +41,7 @@ import IntegrationStats from '../../components/IntegrationStats';
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Submissions', 'Disputes', 'Settings'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -66,6 +69,17 @@ export default function Dashboard() {
 
   // Community procedures state
   const [communityProcedures, setCommunityProcedures] = useState([]);
+
+  // Page view analytics state
+  const [pageViewsByWeek, setPageViewsByWeek] = useState([]);
+  const [pageViewsLoading, setPageViewsLoading] = useState(false);
+
+  // Dispute resolution state
+  const [disputeFilter, setDisputeFilter] = useState('all');
+  const [resolvingDisputeId, setResolvingDisputeId] = useState(null);
+  const [disputeAction, setDisputeAction] = useState('resolved');
+  const [disputeNote, setDisputeNote] = useState('');
+  const [disputeSaving, setDisputeSaving] = useState(false);
 
   // New tab states
   const [dashInjectors, setDashInjectors] = useState([]);
@@ -103,6 +117,20 @@ export default function Dashboard() {
       setProvider(null);
     } else {
       setProvider(data);
+
+      // Ensure profile role is synced (may have been missed during onboarding)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile && profile.role !== 'provider') {
+        await supabase
+          .from('profiles')
+          .update({ role: 'provider' })
+          .eq('id', user.id);
+      }
     }
 
     setLoading(false);
@@ -173,6 +201,38 @@ export default function Dashboard() {
     setDashReviews(data || []);
   }, [provider]);
 
+  const fetchPageViewAnalytics = useCallback(async () => {
+    if (!provider?.slug) return;
+    setPageViewsLoading(true);
+    const twentyEightDaysAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('custom_events')
+      .select('created_at')
+      .eq('event_name', 'provider_page_view')
+      .contains('properties', { provider_slug: provider.slug })
+      .gte('created_at', twentyEightDaysAgo);
+
+    const events = data || [];
+    const now = new Date();
+    const weeks = [];
+    for (let i = 3; i >= 0; i--) {
+      const start = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
+      const end = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+      weeks.push({ label: `Week ${4 - i}`, calls: 0, start, end });
+    }
+    for (const event of events) {
+      const eventDate = new Date(event.created_at);
+      for (const week of weeks) {
+        if (eventDate >= week.start && eventDate < week.end) {
+          week.calls++;
+          break;
+        }
+      }
+    }
+    setPageViewsByWeek(weeks.map(({ label, calls }) => ({ label, calls })));
+    setPageViewsLoading(false);
+  }, [provider?.slug]);
+
   useEffect(() => {
     if (provider) {
       fetchPricing();
@@ -181,8 +241,9 @@ export default function Dashboard() {
       fetchInjectors();
       fetchBAPhotos();
       fetchDashReviews();
+      fetchPageViewAnalytics();
     }
-  }, [provider, fetchPricing, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews]);
+  }, [provider, fetchPricing, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews, fetchPageViewAnalytics]);
 
   // --- Menu Handlers ---
 
@@ -333,6 +394,27 @@ export default function Dashboard() {
     }
 
     setRefreshing(false);
+  }
+
+  // --- Dispute Resolution Handler ---
+
+  async function handleResolveDispute(disputeId, newStatus) {
+    setDisputeSaving(true);
+    await supabase
+      .from('disputes')
+      .update({
+        status: newStatus,
+        resolved_at: new Date().toISOString(),
+        resolved_by: user.id,
+        response_note: disputeNote.trim() || null,
+      })
+      .eq('id', disputeId);
+
+    setResolvingDisputeId(null);
+    setDisputeAction('resolved');
+    setDisputeNote('');
+    setDisputeSaving(false);
+    fetchDisputes();
   }
 
   // --- Computed Stats ---
@@ -569,7 +651,24 @@ export default function Dashboard() {
       {activeTab === 'Overview' && (
         <div>
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="glow-card p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-rose-light flex items-center justify-center">
+                  <Eye size={18} className="text-rose-accent" />
+                </div>
+                <span className="text-sm text-text-secondary">
+                  Profile Views
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-text-primary">
+                {provider.page_view_count_week || 0}
+              </p>
+              <p className="text-xs text-text-secondary mt-1">
+                this week &middot; {provider.page_view_count_total || 0} all time
+              </p>
+            </div>
+
             <div className="glow-card p-5">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -629,6 +728,14 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
+
+          {/* Page Views Weekly Chart */}
+          {!pageViewsLoading && pageViewsByWeek.some((w) => w.calls > 0) && (
+            <div className="glow-card p-6 mb-8">
+              <h3 className="text-sm font-semibold text-text-primary mb-4">Profile Views by Week</h3>
+              <CallVolumeChart data={pageViewsByWeek} chart="bar" />
+            </div>
+          )}
 
           {/* Quick Comparison */}
           {communityAvgPrice !== null && menuAvgPrice !== null && (
@@ -817,6 +924,11 @@ export default function Dashboard() {
         />
       )}
 
+      {/* ===== SUBMISSIONS TAB ===== */}
+      {activeTab === 'Submissions' && (
+        <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} />
+      )}
+
       {/* ===== DISPUTES TAB ===== */}
       {activeTab === 'Disputes' && (
         <div>
@@ -824,13 +936,33 @@ export default function Dashboard() {
             Flagged Submissions
           </h2>
 
+          {/* Filter bar */}
+          {disputes.length > 0 && (
+            <div className="flex items-center gap-3 mb-4">
+              <select
+                value={disputeFilter}
+                onChange={(e) => setDisputeFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
+              >
+                <option value="all">All ({disputes.length})</option>
+                <option value="pending">
+                  Pending ({disputes.filter((d) => d.status === 'pending').length})
+                </option>
+                <option value="resolved">Resolved</option>
+                <option value="dismissed">Dismissed</option>
+              </select>
+            </div>
+          )}
+
           {disputes.length === 0 ? (
             <div className="glow-card p-8 text-center">
               <p className="text-text-secondary">No flagged submissions.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {disputes.map((dispute) => {
+              {disputes
+                .filter((d) => disputeFilter === 'all' || d.status === disputeFilter)
+                .map((dispute) => {
                 const proc = dispute.procedures;
                 const matchingMenu = pricing.find(
                   (p) => p.procedure_type === proc?.procedure_type
@@ -909,7 +1041,104 @@ export default function Dashboard() {
                             </span>
                           </div>
                         )}
+
+                        {/* Resolution info for resolved/dismissed disputes */}
+                        {(dispute.status === 'resolved' || dispute.status === 'dismissed') && dispute.resolved_at && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <p className="text-xs text-text-secondary">
+                              {dispute.status === 'resolved' ? 'Resolved' : 'Dismissed'} on{' '}
+                              {new Date(dispute.resolved_at).toLocaleDateString()}
+                            </p>
+                            {dispute.response_note && (
+                              <p className="text-sm text-text-primary mt-1">
+                                {dispute.response_note}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Action buttons for pending disputes */}
+                      {dispute.status === 'pending' && (
+                        <div className="shrink-0">
+                          {resolvingDisputeId === dispute.id ? (
+                            <div className="space-y-2 w-64">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setDisputeAction('resolved')}
+                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
+                                    disputeAction === 'resolved'
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                                  }`}
+                                >
+                                  Resolve
+                                </button>
+                                <button
+                                  onClick={() => setDisputeAction('dismissed')}
+                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
+                                    disputeAction === 'dismissed'
+                                      ? 'bg-gray-200 text-text-primary'
+                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                                  }`}
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                              <textarea
+                                value={disputeNote}
+                                onChange={(e) => setDisputeNote(e.target.value)}
+                                placeholder="Optional note..."
+                                rows={2}
+                                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm resize-none"
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleResolveDispute(dispute.id, disputeAction)}
+                                  disabled={disputeSaving}
+                                  className="bg-rose-accent text-white px-4 py-1.5 rounded-full text-xs font-semibold hover:bg-rose-dark transition disabled:opacity-50 inline-flex items-center gap-1"
+                                >
+                                  {disputeSaving && <Loader2 size={12} className="animate-spin" />}
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setResolvingDisputeId(null);
+                                    setDisputeAction('resolved');
+                                    setDisputeNote('');
+                                  }}
+                                  className="text-xs text-text-secondary hover:text-text-primary transition"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setResolvingDisputeId(dispute.id);
+                                  setDisputeAction('resolved');
+                                  setDisputeNote('');
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-50 text-green-700 hover:bg-green-100 transition"
+                              >
+                                Resolve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setResolvingDisputeId(dispute.id);
+                                  setDisputeAction('dismissed');
+                                  setDisputeNote('');
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-gray-100 text-text-secondary hover:bg-gray-200 transition"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

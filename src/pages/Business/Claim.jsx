@@ -128,7 +128,13 @@ export default function Claim() {
 
     const { error: updateError } = await supabase
       .from('providers')
-      .update({ owner_user_id: user.id, is_claimed: true, is_verified: true })
+      .update({
+        owner_user_id: user.id,
+        is_claimed: true,
+        is_verified: true,
+        claimed_at: new Date().toISOString(),
+        onboarding_completed: false,
+      })
       .eq('id', provider.id);
 
     if (updateError) {
@@ -146,7 +152,7 @@ export default function Claim() {
     }
 
     // Sync role to profiles table for DB-level checks
-    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
+    await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
 
     setClaiming(false);
     navigate('/business/dashboard');
@@ -193,7 +199,7 @@ export default function Claim() {
     }
 
     // Sync role to profiles table for DB-level checks
-    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
+    await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
 
     setCreating(false);
     navigate('/business/dashboard');

@@ -375,7 +375,15 @@ export default function Onboarding() {
 
     // Set user role (JWT metadata + profiles table)
     await supabase.auth.updateUser({ data: { user_role: 'provider' } });
-    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ role: 'provider' })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error('Failed to update profile role:', profileError);
+    }
 
     setShowWelcome(true);
 
