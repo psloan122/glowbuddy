@@ -175,7 +175,7 @@ export default function Home() {
 
         <div className="relative z-10 py-12 md:py-20 px-5 md:px-0">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="font-display italic text-[38px] md:text-[58px] leading-[1.08] font-bold tracking-[-0.5px] text-text-primary mb-3">
+            <h1 className="font-display italic text-[42px] md:text-[64px] leading-[1.08] font-normal tracking-[-0.5px] mb-4" style={{ color: '#C94F78' }}>
               Know before you glow.
             </h1>
             <p className="text-[17px] md:text-[20px] text-text-secondary font-normal mb-8 max-w-lg mx-auto">
