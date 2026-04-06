@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { extractPlaceData } from '../../lib/places';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
-export default function Step1FindPractice({ onComplete }) {
+export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
   const wrapperRef = useRef(null);
   const serviceRef = useRef(null);
   const detailsServiceRef = useRef(null);
@@ -44,6 +44,15 @@ export default function Step1FindPractice({ onComplete }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Pre-fill search from URL params forwarded by parent
+  const prefillDone = useRef(false);
+  useEffect(() => {
+    if (initialQuery && ready && !prefillDone.current) {
+      prefillDone.current = true;
+      handleInputChange(initialQuery);
+    }
+  }, [initialQuery, ready]);
 
   // Check Supabase for existing provider when place is selected
   useEffect(() => {

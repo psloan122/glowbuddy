@@ -43,6 +43,7 @@ export default function Onboarding() {
   });
   const [menuItems, setMenuItems] = useState([]);
   const [createdProvider, setCreatedProvider] = useState(null);
+  const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Google photo import state
   const [googlePhotos, setGooglePhotos] = useState([]);
@@ -93,6 +94,28 @@ export default function Onboarding() {
           }
         });
     }
+  }, [searchParams, placeData]);
+
+  // Pre-fill from name/city/state URL params (fallback when no place_id)
+  useEffect(() => {
+    const name = searchParams.get('name');
+    const city = searchParams.get('city');
+    const state = searchParams.get('state');
+    if (!name || placeData || searchParams.get('place_id') || searchParams.get('provider')) return;
+
+    async function findByName() {
+      let query = supabase.from('providers').select('*').ilike('name', name);
+      if (city) query = query.ilike('city', city);
+      if (state) query = query.eq('state', state);
+      const { data } = await query.limit(1);
+      if (data && data.length > 0) {
+        prefillFromProvider(data[0]);
+      } else {
+        // Provider not in DB — seed the search input
+        setInitialSearchQuery(city ? `${name} ${city}` : name);
+      }
+    }
+    findByName();
   }, [searchParams, placeData]);
 
   function prefillFromProvider(data) {
@@ -350,8 +373,9 @@ export default function Onboarding() {
       }
     }
 
-    // Set user role
+    // Set user role (JWT metadata + profiles table)
     await supabase.auth.updateUser({ data: { user_role: 'provider' } });
+    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
 
     setShowWelcome(true);
 
@@ -413,7 +437,7 @@ export default function Onboarding() {
       {/* Step content */}
       <div className="max-w-2xl mx-auto px-4 py-8">
         {step === 1 && (
-          <Step1FindPractice onComplete={handleStep1Complete} />
+          <Step1FindPractice onComplete={handleStep1Complete} initialQuery={initialSearchQuery} />
         )}
         {step === 2 && (
           <Step2VerifyOwnership
