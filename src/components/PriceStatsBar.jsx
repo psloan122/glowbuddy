@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function PriceStatsBar({ city, state }) {
@@ -56,18 +57,29 @@ export default function PriceStatsBar({ city, state }) {
   if (!stats) return null;
 
   return (
-    <p className="text-[13px] text-text-secondary/60 mt-3 tracking-wide">
-      {localCount !== null && (
-        <>
-          <span className="font-semibold text-text-secondary">{localCount.toLocaleString()}</span>{' '}in {city}
-          {' \u00B7 '}
-        </>
+    <div className="mt-3">
+      <p className="text-[13px] text-text-secondary/60 tracking-wide">
+        {localCount > 0 && (
+          <>
+            <span className="font-semibold text-text-secondary">{localCount.toLocaleString()}</span>{' '}in {city}
+            {' \u00B7 '}
+          </>
+        )}
+        <span className="font-semibold text-text-secondary">{stats.prices.toLocaleString()}</span>{' '}real prices
+        {' \u00B7 '}
+        <span className="font-semibold text-text-secondary">{stats.cities.toLocaleString()}</span>{' '}cities
+        {' \u00B7 '}
+        <span className="font-semibold text-text-secondary">{stats.verified.toLocaleString()}</span>{' '}verified
+      </p>
+      {localCount === 0 && city && (
+        <Link
+          to="/log"
+          className="inline-block text-xs mt-1 hover:underline"
+          style={{ color: '#C94F78' }}
+        >
+          No prices in {city} yet — be the first &rarr;
+        </Link>
       )}
-      <span className="font-semibold text-text-secondary">{stats.prices.toLocaleString()}</span>{' '}real prices
-      {' \u00B7 '}
-      <span className="font-semibold text-text-secondary">{stats.cities.toLocaleString()}</span>{' '}cities
-      {' \u00B7 '}
-      <span className="font-semibold text-text-secondary">{stats.verified.toLocaleString()}</span>{' '}verified
-    </p>
+    </div>
   );
 }

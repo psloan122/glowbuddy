@@ -367,7 +367,7 @@ export default function ProviderProfile() {
       setIsProviderOwner(!!data);
     }
     checkOwnership();
-  }, [user]);
+  }, [user?.id]);
 
   // SEO
   useEffect(() => {

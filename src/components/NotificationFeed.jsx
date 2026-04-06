@@ -33,7 +33,7 @@ export default function NotificationFeed({ onClose, onRead }) {
             .then(() => { unreadIds.forEach(() => onRead?.()); });
         }
       });
-  }, [user]);
+  }, [user?.id]);
 
   if (loading) return <div className="p-4 text-center text-text-secondary text-sm animate-pulse">Loading...</div>;
 

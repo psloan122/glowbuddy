@@ -23,7 +23,7 @@ export default function NotificationBell() {
     fetchCount();
     const interval = setInterval(fetchCount, 60000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     function handleClick(e) {

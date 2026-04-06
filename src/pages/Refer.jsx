@@ -42,7 +42,7 @@ export default function Refer() {
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     loadData();
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadData() {
     setLoading(true);

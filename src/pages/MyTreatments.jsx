@@ -32,7 +32,7 @@ export default function MyTreatments() {
     loadEntries();
     loadCadence();
     loadStaleSubmissions();
-  }, [user]);
+  }, [user?.id]);
 
   async function loadEntries() {
     setLoading(true);

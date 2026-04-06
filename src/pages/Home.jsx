@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Star } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Star, Map, List } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   getCity as getGatingCity, setCity as persistCity,
@@ -28,11 +28,13 @@ import { searchCitiesViaGoogle } from '../lib/places';
 import { assignTrustTier } from '../lib/trustTiers';
 import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
-import OutcomeSelector from '../components/OutcomeSelector';
+
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import RetouchReminders from '../components/RetouchReminders';
 import SavingsCalculator from '../components/SavingsCalculator';
 import { SkeletonGrid } from '../components/SkeletonCard';
+import ProviderMap from '../components/ProviderMap';
+import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
 
 function computeTrustWeight(procedure) {
   const { trust_weight } = assignTrustTier({
@@ -91,9 +93,6 @@ export default function Home() {
   const [showGuideSheet, setShowGuideSheet] = useState(false);
   const [guideSheetTreatment, setGuideSheetTreatment] = useState('');
 
-  // Browse mode: 'treatment' or 'goal'
-  const [browseMode, setBrowseMode] = useState('treatment');
-
   // User's active price alerts (for AlertMatchBadge)
   const [userAlerts, setUserAlerts] = useState([]);
 
@@ -105,6 +104,15 @@ export default function Home() {
 
   // Location personalization
   const [fallbackLabel, setFallbackLabel] = useState('');
+
+  // Map/List view toggle
+  const [viewMode, setViewMode] = useState('list');
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapProviders, setMapProviders] = useState([]);
+  const [mapCenter, setMapCenter] = useState({ lat: 37.0902, lng: -95.7129 });
+  const [mapZoom, setMapZoom] = useState(4);
+  const [selectedMapProvider, setSelectedMapProvider] = useState(null);
+  const mapBoundsRef = useRef(null);
 
   // SEO
   useEffect(() => {
@@ -388,6 +396,51 @@ export default function Home() {
 
   const hasActiveFilters = selectedProc || selectedLoc || filterProviderType || priceMin || priceMax || minRating;
 
+  // ── Map view helpers ──
+  function handleSwitchToMap() {
+    setMapLoaded(true);
+    setViewMode('map');
+  }
+
+  // Geocode user location for map center when map is first opened
+  useEffect(() => {
+    if (!mapLoaded) return;
+    if (selectedLoc) {
+      // Geocode the selected city for map center
+      const waitAndGeocode = () => {
+        if (!window.google?.maps?.Geocoder) {
+          setTimeout(waitAndGeocode, 200);
+          return;
+        }
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode(
+          { address: `${selectedLoc.city}, ${selectedLoc.state}, USA` },
+          (results, status) => {
+            if (status === 'OK' && results?.[0]) {
+              setMapCenter({
+                lat: results[0].geometry.location.lat(),
+                lng: results[0].geometry.location.lng(),
+              });
+              setMapZoom(11);
+            }
+          }
+        );
+      };
+      waitAndGeocode();
+    }
+  }, [mapLoaded, selectedLoc]);
+
+  // Fetch map providers when bounds change
+  const fetchMapProviders = useCallback(async (bounds) => {
+    const data = await fetchAllProvidersInBounds(bounds, filterProcedureType);
+    setMapProviders(data);
+  }, [filterProcedureType]);
+
+  function handleMapBoundsChanged(bounds) {
+    mapBoundsRef.current = bounds;
+    fetchMapProviders(bounds);
+  }
+
   return (
     <div>
       {/* Hero Section */}
@@ -397,210 +450,36 @@ export default function Home() {
       >
         <HeroPattern />
 
-        <div className="relative z-10 py-16 md:py-[100px] md:pb-[80px] px-5 md:px-0">
+        <div className="relative z-10 py-8 md:py-10 px-5 md:px-0">
           <div className="max-w-[580px] ml-[max(5vw,40px)]">
             <h1 className="font-display italic text-[36px] md:text-[52px] leading-[1.1] font-normal tracking-[-0.5px] text-text-primary mb-1">
               Know before you glow.
             </h1>
             <PriceStatsBar city={selectedLoc?.city} state={selectedLoc?.state} />
-            <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mt-5 mb-6">
+            <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mt-4 mb-5">
               Real prices for Botox, fillers, and med spa treatments — reported by
               patients like you.
             </p>
 
-            <ul className="space-y-2.5 mb-6">
-              {[
-                'Real prices from real patients — not what spas advertise',
-                'Search by city, procedure, or zip code',
-                'Free forever — no account needed to browse',
-              ].map((text) => (
-                <li key={text} className="flex items-start gap-2 text-sm text-text-secondary">
-                  <span
-                    className="mt-[7px] shrink-0 rounded-full"
-                    style={{ width: 4, height: 4, backgroundColor: '#C94F78' }}
-                  />
-                  {text}
-                </li>
-              ))}
-            </ul>
-
             <Link
               to="/log"
-              className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition mb-4"
+              className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
               style={{ backgroundColor: '#C94F78' }}
             >
               Share what you paid
             </Link>
-
-            <p className="text-[13px] italic" style={{ color: '#9CA3AF' }}>
-              Real prices from real patients.
-            </p>
           </div>
         </div>
       </section>
 
-      {/* Founder Story */}
-      <section className="max-w-3xl mx-auto px-4 mt-8">
+      {/* Founder Story — trust context right below hero */}
+      <section className="max-w-3xl mx-auto px-4 mt-6">
         <FounderStory />
       </section>
 
-      {/* How It Works */}
-      <section className="max-w-4xl mx-auto px-4 mt-12">
-        <h2 className="font-display text-[26px] font-semibold text-text-primary text-center mb-8">
-          How It Works
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { icon: '💉', title: 'Someone pays for Botox', body: 'A patient gets a treatment at a med spa near you.' },
-            { icon: '📱', title: 'They share what they paid', body: 'They log the real price on GlowBuddy — anonymously.' },
-            { icon: '📍', title: 'You know before you book', body: 'See real prices in your city so you never overpay.' },
-          ].map((step, i) => (
-            <div key={i} className="glow-card p-6 text-center">
-              <span className="text-3xl block mb-3">{step.icon}</span>
-              <p className="text-sm font-bold text-text-primary mb-1">{step.title}</p>
-              <p className="text-xs text-text-secondary leading-relaxed">{step.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Savings Calculator Widget */}
-      <section className="max-w-4xl mx-auto px-4 mt-8">
-        <div className="glow-card overflow-hidden">
-          <button
-            onClick={() => setCalcOpen(!calcOpen)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-rose-accent text-lg">&#x1F4B0;</span>
-              <div>
-                <p className="text-sm font-bold text-text-primary">How much could you save?</p>
-                <p className="text-xs text-text-secondary">Compare your prices to your city&apos;s average</p>
-              </div>
-            </div>
-            <ChevronDown
-              size={18}
-              className={`text-text-secondary transition-transform ${calcOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-          {calcOpen && (
-            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-              <SavingsCalculator variant="compact" />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* What Patients Are Saying */}
-      {recentReviews.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 mt-12">
-          <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
-            What Patients Are Saying
-          </h2>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-            {recentReviews.map((review) => (
-              <Link
-                key={review.id}
-                to={review.providers ? `/provider/${review.providers.slug}` : '#'}
-                className="block min-w-[280px] max-w-[320px] glow-card p-4 shrink-0 hover:no-underline"
-              >
-                <div className="flex items-center gap-1 mb-2">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={14}
-                      className={
-                        s <= review.rating
-                          ? 'text-amber-400 fill-amber-400'
-                          : 'text-gray-300'
-                      }
-                    />
-                  ))}
-                </div>
-                {review.title && (
-                  <h4 className="font-bold text-text-primary text-sm mb-1 line-clamp-1">
-                    {review.title}
-                  </h4>
-                )}
-                {review.body && (
-                  <p className="text-xs text-text-secondary line-clamp-2 mb-2">
-                    {review.body}
-                  </p>
-                )}
-                <div className="flex items-center gap-2">
-                  {review.procedure_type && (
-                    <span className="text-[10px] bg-rose-light text-rose-dark px-1.5 py-0.5 rounded-full">
-                      {review.procedure_type}
-                    </span>
-                  )}
-                  {review.providers?.name && (
-                    <span className="text-[10px] text-text-secondary">
-                      {review.providers.name}
-                    </span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Specials Near You */}
-      <section className="max-w-7xl mx-auto px-4 mt-12">
-        <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
-          Specials Near You
-        </h2>
-
-        {/* Promoted specials (paid placements) */}
-        {displayPromoted.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {displayPromoted.map((special) => (
-              <SpecialOfferCard
-                key={special.id}
-                special={special}
-                provider={special.providers}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Regular specials */}
-        {displaySpecials.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {displaySpecials.map((special) => (
-              <SpecialCard
-                key={special.id}
-                special={special}
-                provider={special.providers}
-              />
-            ))}
-          </div>
-        ) : displayPromoted.length === 0 ? (
-          <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary mb-2">
-              No specials near you yet.
-            </p>
-            <p className="text-sm text-text-secondary mb-3">
-              Are you a provider? Post specials to reach patients in your area.
-            </p>
-            <Link
-              to="/business"
-              className="text-rose-accent font-medium hover:text-rose-dark transition-colors text-sm"
-            >
-              See provider plans &rarr;
-            </Link>
-          </div>
-        ) : null}
-      </section>
-
-      {/* Retouch Reminders */}
-      <div className="max-w-7xl mx-auto px-4 mt-8">
-        <RetouchReminders />
-      </div>
-
       {/* Set your city banner */}
       {user && !selectedLoc && (
-        <section className="max-w-7xl mx-auto px-4 mt-8">
+        <section className="max-w-7xl mx-auto px-4 mt-6">
           <div className="flex items-center justify-between gap-4 px-5 py-4 rounded-xl bg-rose-light border border-rose-accent/20">
             <p className="text-sm text-rose-dark font-medium">
               Set your city to see local prices
@@ -618,45 +497,42 @@ export default function Home() {
         </section>
       )}
 
-      {/* Browse Feed */}
-      <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
-        <div className="flex items-center gap-6 mb-6">
+      {/* Browse Feed — prices first */}
+      <section className="max-w-7xl mx-auto px-4 mt-8 pb-12">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-[26px] font-semibold text-text-primary">
-            {browseMode === 'treatment'
-              ? (sortBy === 'most_verified'
-                  ? `Most Verified Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`
-                  : `Recent Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`)
-              : 'Browse by Goal'}
+            {sortBy === 'most_verified'
+              ? `Most Verified Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`
+              : `Recent Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`}
           </h2>
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             <button
-              onClick={() => setBrowseMode('treatment')}
-              className={`px-3 py-1.5 text-xs font-medium transition ${
-                browseMode === 'treatment'
-                  ? 'bg-[#0369A1] text-white'
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === 'list'
+                  ? 'bg-rose-accent text-white'
                   : 'bg-white text-text-secondary hover:bg-gray-50'
               }`}
             >
-              By Treatment
+              <List size={14} />
+              List
             </button>
             <button
-              onClick={() => setBrowseMode('goal')}
-              className={`px-3 py-1.5 text-xs font-medium transition ${
-                browseMode === 'goal'
-                  ? 'bg-[#0369A1] text-white'
+              onClick={handleSwitchToMap}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition border-l border-gray-200 ${
+                viewMode === 'map'
+                  ? 'bg-rose-accent text-white'
                   : 'bg-white text-text-secondary hover:bg-gray-50'
               }`}
             >
-              By Goal
+              <Map size={14} />
+              Map
             </button>
           </div>
         </div>
 
-        {browseMode === 'goal' ? (
-          <OutcomeSelector />
-        ) : (
+        {/* Search inputs + filters (shared between list and map) */}
         <>
-        {/* Two search inputs */}
         <div className="flex flex-col md:flex-row gap-2 mb-3">
           {/* Procedure search */}
           <div ref={procRef} className="relative md:w-[60%]">
@@ -936,41 +812,203 @@ export default function Home() {
         )}
 
         {/* Fallback note */}
-        {fallbackLabel && (
+        {fallbackLabel && viewMode === 'list' && (
           <p className="text-sm text-text-secondary mb-4">
             No prices in {filterCity} yet — showing {fallbackLabel} prices
           </p>
         )}
 
-        {/* Procedures grid */}
-        {loadingProcedures ? (
-          <SkeletonGrid count={6} />
-        ) : procedures.length === 0 ? (
-          <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary mb-2">
-              No prices in your area yet.
-            </p>
-            <p className="text-sm text-text-secondary mb-6">
-              Be the first to share what you paid here.
-            </p>
-            <Link
-              to="/log"
-              className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
-              style={{ backgroundColor: '#C94F78' }}
-            >
-              + Share my price
-            </Link>
+        {/* Map view (lazy-loaded, stays mounted once opened) */}
+        {mapLoaded && (
+          <div
+            className="rounded-xl overflow-hidden border border-gray-200"
+            style={{ height: 'calc(100vh - 220px)', minHeight: 400, display: viewMode === 'map' ? 'block' : 'none' }}
+          >
+            <ProviderMap
+              providers={mapProviders}
+              center={mapCenter}
+              zoom={mapZoom}
+              selectedProvider={selectedMapProvider}
+              onSelectProvider={setSelectedMapProvider}
+              onBoundsChanged={handleMapBoundsChanged}
+              procedureFilter={filterProcedureType}
+            />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {procedures.map((proc) => (
-              <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} />
-            ))}
-          </div>
+        )}
+
+        {/* List view — procedures grid */}
+        {viewMode === 'list' && (
+          <>
+            {loadingProcedures ? (
+              <SkeletonGrid count={6} />
+            ) : procedures.length === 0 ? (
+              <div className="glow-card p-8 text-center">
+                <p className="text-text-secondary mb-2">
+                  No prices in your area yet.
+                </p>
+                <p className="text-sm text-text-secondary mb-6">
+                  Be the first to share what you paid here.
+                </p>
+                <Link
+                  to="/log"
+                  className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
+                  style={{ backgroundColor: '#C94F78' }}
+                >
+                  + Share my price
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {procedures.map((proc) => (
+                  <ProcedureCard key={proc.id} procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} />
+                ))}
+              </div>
+            )}
+          </>
         )}
         </>
-        )}
       </section>
+
+      {/* Savings Calculator Widget */}
+      <section className="max-w-4xl mx-auto px-4 mt-10">
+        <div className="glow-card overflow-hidden">
+          <button
+            onClick={() => setCalcOpen(!calcOpen)}
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-rose-accent text-lg">&#x1F4B0;</span>
+              <div>
+                <p className="text-sm font-bold text-text-primary">How much could you save?</p>
+                <p className="text-xs text-text-secondary">Compare your prices to your city&apos;s average</p>
+              </div>
+            </div>
+            <ChevronDown
+              size={18}
+              className={`text-text-secondary transition-transform ${calcOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {calcOpen && (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              <SavingsCalculator variant="compact" />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="max-w-4xl mx-auto px-4 mt-12">
+        <h2 className="font-display text-[26px] font-semibold text-text-primary text-center mb-8">
+          How It Works
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { icon: '\u{1F489}', title: 'Someone pays for Botox', body: 'A patient gets a treatment at a med spa near you.' },
+            { icon: '📱', title: 'They share what they paid', body: 'They log the real price on GlowBuddy — anonymously.' },
+            { icon: '📍', title: 'You know before you book', body: 'See real prices in your city so you never overpay.' },
+          ].map((step, i) => (
+            <div key={i} className="glow-card p-6 text-center">
+              <span className="text-3xl block mb-3">{step.icon}</span>
+              <p className="text-sm font-bold text-text-primary mb-1">{step.title}</p>
+              <p className="text-xs text-text-secondary leading-relaxed">{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* What Patients Are Saying */}
+      {recentReviews.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 mt-12">
+          <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
+            What Patients Are Saying
+          </h2>
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+            {recentReviews.map((review) => (
+              <Link
+                key={review.id}
+                to={review.providers ? `/provider/${review.providers.slug}` : '#'}
+                className="block min-w-[280px] max-w-[320px] glow-card p-4 shrink-0 hover:no-underline"
+              >
+                <div className="flex items-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      className={
+                        s <= review.rating
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-gray-300'
+                      }
+                    />
+                  ))}
+                </div>
+                {review.title && (
+                  <h4 className="font-bold text-text-primary text-sm mb-1 line-clamp-1">
+                    {review.title}
+                  </h4>
+                )}
+                {review.body && (
+                  <p className="text-xs text-text-secondary line-clamp-2 mb-2">
+                    {review.body}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  {review.procedure_type && (
+                    <span className="text-[10px] bg-rose-light text-rose-dark px-1.5 py-0.5 rounded-full">
+                      {review.procedure_type}
+                    </span>
+                  )}
+                  {review.providers?.name && (
+                    <span className="text-[10px] text-text-secondary">
+                      {review.providers.name}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Specials Near You — hidden entirely when empty */}
+      {(displaySpecials.length > 0 || displayPromoted.length > 0) && (
+        <section className="max-w-7xl mx-auto px-4 mt-12">
+          <h2 className="font-display text-[26px] font-semibold text-text-primary mb-6">
+            Specials Near You
+          </h2>
+
+          {/* Promoted specials (paid placements) */}
+          {displayPromoted.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {displayPromoted.map((special) => (
+                <SpecialOfferCard
+                  key={special.id}
+                  special={special}
+                  provider={special.providers}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Regular specials */}
+          {displaySpecials.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displaySpecials.map((special) => (
+                <SpecialCard
+                  key={special.id}
+                  special={special}
+                  provider={special.providers}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Retouch Reminders */}
+      <div className="max-w-7xl mx-auto px-4 mt-8">
+        <RetouchReminders />
+      </div>
 
       {/* First-Timer Guide Sheet */}
       {showGuideSheet && guideSheetTreatment && (

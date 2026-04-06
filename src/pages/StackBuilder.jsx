@@ -65,7 +65,7 @@ export default function StackBuilder() {
     }
 
     prefill();
-  }, [user]);
+  }, [user?.id]);
 
   // Fetch stacking data + prices when moving to results
   useEffect(() => {

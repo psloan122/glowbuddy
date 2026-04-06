@@ -20,7 +20,7 @@ export default function Specials() {
     if (user) {
       getWalletBalance(user.id).then(setWalletBalance);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // SEO
   useEffect(() => {

@@ -24,7 +24,7 @@ export default function Alerts() {
       return;
     }
     loadAlerts();
-  }, [user]);
+  }, [user?.id]);
 
   async function loadAlerts() {
     setLoading(true);

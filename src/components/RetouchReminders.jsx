@@ -65,7 +65,7 @@ export default function RetouchReminders() {
     }
 
     fetchReminders();
-  }, [user]);
+  }, [user?.id]);
 
   if (!user) return null;
   if (reminders.length === 0) return null;

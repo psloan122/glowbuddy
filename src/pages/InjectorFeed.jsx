@@ -44,7 +44,7 @@ export default function InjectorFeed() {
       setLoading(false);
     }
     load();
-  }, [user]);
+  }, [user?.id]);
 
   if (!user) {
     return (

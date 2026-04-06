@@ -154,7 +154,7 @@ export default function Navbar() {
     getUnreadCount().then(setUnreadCount);
     const interval = setInterval(() => getUnreadCount().then(setUnreadCount), 60000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.id]);
 
   // Check if a dropdown should show active state
   function isDropdownActive(dropdown) {

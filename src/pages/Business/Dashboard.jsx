@@ -105,7 +105,7 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchProvider();

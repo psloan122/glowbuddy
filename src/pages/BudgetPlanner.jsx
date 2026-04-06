@@ -108,7 +108,7 @@ export default function BudgetPlanner() {
     }
 
     fetchUserData();
-  }, [user]);
+  }, [user?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();

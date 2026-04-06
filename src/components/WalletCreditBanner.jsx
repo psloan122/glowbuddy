@@ -16,7 +16,7 @@ export default function WalletCreditBanner() {
   useEffect(() => {
     if (!user) return;
     getWalletBalance(user.id).then(setBalanceCents);
-  }, [user]);
+  }, [user?.id]);
 
   if (!user || balanceCents <= 0 || dismissed) return null;
 

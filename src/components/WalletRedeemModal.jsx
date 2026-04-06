@@ -26,7 +26,7 @@ export default function WalletRedeemModal({ special, onClose, onSuccess }) {
       setCredits(creds.filter((c) => !c.redeemed_at && (!c.expires_at || new Date(c.expires_at) > new Date())));
       setLoading(false);
     });
-  }, [user]);
+  }, [user?.id]);
 
   const specialPrice = Number(special.special_price || special.original_price || 0);
   const creditToApply = Math.min(balanceCents, 1000); // max $10 per redemption

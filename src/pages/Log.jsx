@@ -131,7 +131,7 @@ export default function Log() {
         .eq('status', 'active')
         .then(({ count }) => setActiveCount(count || 0));
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Result photo state
   const [resultPhotoUrl, setResultPhotoUrl] = useState(null);
