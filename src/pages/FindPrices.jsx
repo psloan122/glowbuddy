@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useContext } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Map, List, TrendingDown } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Map, List, TrendingDown, LocateFixed } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   getCity as getGatingCity, setCity as persistCity,
@@ -27,6 +27,7 @@ import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import ProviderMap from '../components/ProviderMap';
 import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
+import { providerProfileUrl } from '../lib/slugify';
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -44,8 +45,11 @@ function computeTrustWeight(procedure) {
   return weight;
 }
 
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+
 export default function FindPrices() {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Procedures / feed
@@ -107,6 +111,8 @@ export default function FindPrices() {
   const [mapZoom, setMapZoom] = useState(5);
   const [selectedMapProvider, setSelectedMapProvider] = useState(null);
   const mapBoundsRef = useRef(null);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
+  const [hasPricesOnly, setHasPricesOnly] = useState(() => searchParams.get('has_prices') === '1');
 
   // ── SEO meta tags — dynamic per spec ──
   useEffect(() => {
@@ -143,8 +149,9 @@ export default function FindPrices() {
     if (selectedLoc?.city) params.city = selectedLoc.city;
     if (selectedLoc?.state) params.state = selectedLoc.state;
     if (sortBy !== 'most_verified') params.sort = sortBy;
+    if (hasPricesOnly) params.has_prices = '1';
     setSearchParams(params, { replace: true });
-  }, [selectedProc, selectedLoc, sortBy]);
+  }, [selectedProc, selectedLoc, sortBy, hasPricesOnly]);
 
   // Fetch user's active price alerts for match badges
   useEffect(() => {
@@ -459,7 +466,7 @@ export default function FindPrices() {
     fetchAvgs();
   }, [procedures, filterCity, filterState]);
 
-  const hasActiveFilters = selectedProc || selectedLoc || filterProviderType || priceMin || priceMax || minRating;
+  const hasActiveFilters = selectedProc || selectedLoc || filterProviderType || priceMin || priceMax || minRating || hasPricesOnly;
 
   // ��─ Map view helpers ──
   function handleSwitchToMap() {
@@ -487,7 +494,7 @@ export default function FindPrices() {
             if (status === 'OK' && results?.[0]) {
               const loc = results[0].geometry.location;
               setMapCenter({ lat: loc.lat(), lng: loc.lng() });
-              setMapZoom(11);
+              setMapZoom(IS_MOBILE ? 12 : 11);
             }
           }
         );
@@ -506,6 +513,24 @@ export default function FindPrices() {
     fetchMapProviders(bounds);
   }
 
+  // Recenter map on user's current location
+  async function handleRecenterOnUser() {
+    if (!navigator.geolocation) return;
+    try {
+      const coords = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          reject,
+          { timeout: 5000 }
+        );
+      });
+      setMapCenter(coords);
+      setMapZoom(IS_MOBILE ? 12 : 11);
+    } catch {
+      // Permission denied or timeout
+    }
+  }
+
   function clearAllFilters() {
     setSelectedProc('');
     setProcQuery('');
@@ -516,6 +541,7 @@ export default function FindPrices() {
     setPriceMax('');
     setMinRating('');
     setSortBy('most_verified');
+    setHasPricesOnly(false);
   }
 
   // ── Fair price indicator for a procedure ──
@@ -625,6 +651,76 @@ export default function FindPrices() {
       {/* Sticky search header */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">
+          {/* Mobile map: collapsed search pill */}
+          {IS_MOBILE && viewMode === 'map' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSearchSheet(true)}
+                className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary truncate"
+              >
+                <Search size={15} className="shrink-0 text-text-secondary" />
+                <span className="truncate">
+                  {selectedProc || selectedLoc
+                    ? [selectedProc, selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : ''].filter(Boolean).join(' \u00B7 ')
+                    : 'Search treatments & location'}
+                </span>
+              </button>
+              <button
+                onClick={() => setShowFilters(true)}
+                className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl border text-sm transition ${
+                  showFilters
+                    ? 'border-rose-accent bg-rose-light text-rose-dark'
+                    : 'border-gray-200 bg-white text-text-secondary'
+                }`}
+              >
+                <SlidersHorizontal size={16} />
+              </button>
+              <button
+                onClick={() => setHasPricesOnly((prev) => !prev)}
+                className="shrink-0"
+                style={{
+                  padding: '7px 14px',
+                  background: hasPricesOnly ? '#FBE8EF' : 'white',
+                  border: `1px solid ${hasPricesOnly ? '#C94F78' : '#E5E7EB'}`,
+                  borderRadius: '100px',
+                  color: hasPricesOnly ? '#C94F78' : '#6B7280',
+                  fontSize: '13px',
+                  fontWeight: hasPricesOnly ? '500' : '400',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {hasPricesOnly && <span style={{ fontSize: '11px' }}>&#10003;</span>}
+                Has prices
+              </button>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium transition ${
+                    viewMode === 'list'
+                      ? 'bg-rose-accent text-white'
+                      : 'bg-white text-text-secondary'
+                  }`}
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  onClick={handleSwitchToMap}
+                  className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium transition border-l border-gray-200 ${
+                    viewMode === 'map'
+                      ? 'bg-rose-accent text-white'
+                      : 'bg-white text-text-secondary'
+                  }`}
+                >
+                  <Map size={14} />
+                </button>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="flex flex-col md:flex-row gap-2">
             {/* Procedure search */}
             <div ref={procRef} className="relative md:flex-1">
@@ -763,7 +859,7 @@ export default function FindPrices() {
               )}
             </div>
 
-            {/* Filter toggle + view toggle */}
+            {/* Filter toggle + Has prices chip + view toggle */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -775,6 +871,28 @@ export default function FindPrices() {
               >
                 <SlidersHorizontal size={16} />
                 <span className="hidden sm:inline">Filters</span>
+              </button>
+
+              <button
+                onClick={() => setHasPricesOnly((prev) => !prev)}
+                style={{
+                  padding: '7px 14px',
+                  background: hasPricesOnly ? '#FBE8EF' : 'white',
+                  border: `1px solid ${hasPricesOnly ? '#C94F78' : '#E5E7EB'}`,
+                  borderRadius: '100px',
+                  color: hasPricesOnly ? '#C94F78' : '#6B7280',
+                  fontSize: '13px',
+                  fontWeight: hasPricesOnly ? '500' : '400',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {hasPricesOnly && <span style={{ fontSize: '11px' }}>&#10003;</span>}
+                Has prices
               </button>
 
               <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -810,8 +928,109 @@ export default function FindPrices() {
               {renderFilterControls()}
             </div>
           )}
+          </>
+          )}
         </div>
       </div>
+
+      {/* Mobile search sheet (expands from collapsed pill) */}
+      {showSearchSheet && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSearchSheet(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-text-primary">Search</h3>
+              <button onClick={() => setShowSearchSheet(false)} className="text-text-secondary hover:text-text-primary">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Procedure search */}
+              <div ref={procRef}>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Treatment</label>
+                {selectedProc ? (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                      {selectedProc}
+                      <button onClick={clearProcedure}><X size={14} /></button>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <input
+                      type="text"
+                      placeholder="Search treatments..."
+                      value={procQuery}
+                      onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent outline-none text-sm"
+                    />
+                    {procOpen && procQuery.trim() && procMatches.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                        {procMatches.map((p) => (
+                          <button key={p} onClick={() => selectProcedure(p)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 text-text-primary">
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Location search */}
+              <div ref={locRef}>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Location</label>
+                {selectedLoc ? (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                      <MapPin size={12} />
+                      {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
+                      <button onClick={clearLocation}><X size={14} /></button>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                    <input
+                      type="text"
+                      placeholder="City or zip code"
+                      value={locQuery}
+                      onChange={(e) => handleLocInput(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent outline-none text-sm"
+                    />
+                    {locOpen && locQuery.trim() && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                        {locLoading ? (
+                          <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                        ) : locResults.length > 0 ? (
+                          locResults.map((loc, i) => (
+                            <button key={`${loc.city}-${loc.state}-${i}`} onClick={() => selectLocation(loc)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 flex items-center gap-2 text-text-primary">
+                              <MapPin size={14} className="text-text-secondary shrink-0" />
+                              {loc.city}{loc.state ? `, ${loc.state}` : ''}{loc.zip ? ` (${loc.zip})` : ''}
+                            </button>
+                          ))
+                        ) : locQuery.trim().length >= 2 ? (
+                          <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4">
+              <button
+                onClick={() => setShowSearchSheet(false)}
+                className="w-full py-3 rounded-xl text-white font-semibold text-sm hover:opacity-90 transition"
+                style={{ backgroundColor: '#C94F78' }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile filter bottom sheet */}
       {showFilters && (
@@ -849,27 +1068,34 @@ export default function FindPrices() {
       )}
 
       {/* Results area */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Results header */}
+      <div className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}>
+        {/* Results header — hidden in mobile map */}
+        {!(IS_MOBILE && viewMode === 'map') && (
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-text-primary">
-              {selectedProc
-                ? `${selectedProc} Prices`
-                : 'All Treatment Prices'}
+              {hasPricesOnly
+                ? (selectedProc
+                    ? `Providers with ${selectedProc} Prices`
+                    : 'Providers with Prices')
+                : (selectedProc
+                    ? `${selectedProc} Prices`
+                    : 'All Treatment Prices')}
               {selectedLoc && !fallbackScope ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}
             </h1>
             {!loadingProcedures && (
               <p className="text-sm text-text-secondary mt-0.5">
-                {procedures.length} result{procedures.length !== 1 ? 's' : ''}
+                {procedures.length}{hasPricesOnly ? ' provider' : ' result'}{procedures.length !== 1 ? 's' : ''}
+                {hasPricesOnly ? ' with prices' : ''}
                 {totalCount > 0 && !hasActiveFilters && ` of ${totalCount.toLocaleString()} total`}
               </p>
             )}
           </div>
         </div>
+        )}
 
-        {/* First-Timer Mode Banner */}
-        {firstTimerActive && (
+        {/* First-Timer Mode Banner — hidden in map view */}
+        {viewMode !== 'map' && firstTimerActive && (
           <FirstTimerModeBanner
             onOpenGuide={() => {
               const treatments = getFirstTimerTreatments();
@@ -883,8 +1109,8 @@ export default function FindPrices() {
           />
         )}
 
-        {/* First-Timer Onboarding Prompt */}
-        {selectedProc && !firstTimerActive && (
+        {/* First-Timer Onboarding Prompt — hidden in map view */}
+        {viewMode !== 'map' && selectedProc && !firstTimerActive && (
           <FirstTimerOnboardingPrompt
             key={selectedProc}
             treatmentName={selectedProc}
@@ -899,8 +1125,8 @@ export default function FindPrices() {
           />
         )}
 
-        {/* Dosage Calculator */}
-        {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
+        {/* Dosage Calculator — hidden in map view */}
+        {viewMode !== 'map' && firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
           <DosageCalculator treatmentName={selectedProc} />
         )}
 
@@ -917,8 +1143,14 @@ export default function FindPrices() {
         {/* Map view */}
         {mapLoaded && (
           <div
-            className="rounded-xl overflow-hidden border border-gray-200"
-            style={{ height: 'calc(100vh - 220px)', minHeight: 400, display: viewMode === 'map' ? 'block' : 'none' }}
+            className={`relative overflow-hidden ${IS_MOBILE ? '' : 'rounded-xl border border-gray-200'}`}
+            style={{
+              height: IS_MOBILE
+                ? 'calc(100dvh - 64px - 60px - 56px - env(safe-area-inset-bottom, 0px))'
+                : 'calc(100vh - 220px)',
+              minHeight: IS_MOBILE ? 0 : 400,
+              display: viewMode === 'map' ? 'block' : 'none',
+            }}
           >
             <ProviderMap
               providers={mapProviders}
@@ -928,7 +1160,97 @@ export default function FindPrices() {
               onSelectProvider={setSelectedMapProvider}
               onBoundsChanged={handleMapBoundsChanged}
               procedureFilter={filterProcedureType}
+              hasPricesOnly={hasPricesOnly}
             />
+
+            {/* Floating "Has prices" pill on mobile map */}
+            {IS_MOBILE && (
+              <button
+                onClick={() => setHasPricesOnly((prev) => !prev)}
+                className="absolute top-3 left-1/2 -translate-x-1/2 z-10"
+                style={{
+                  padding: '8px 16px',
+                  background: hasPricesOnly ? '#C94F78' : 'white',
+                  color: hasPricesOnly ? 'white' : '#1A1A1A',
+                  border: 'none',
+                  borderRadius: '100px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  cursor: 'pointer',
+                }}
+              >
+                {hasPricesOnly ? '\u2713 Showing prices only' : 'Show spas with prices'}
+              </button>
+            )}
+
+            {/* Floating locate button */}
+            <button
+              onClick={handleRecenterOnUser}
+              className="absolute bottom-4 right-3 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md border border-gray-200 hover:bg-gray-50 active:scale-95 transition"
+              aria-label="Center on my location"
+            >
+              <LocateFixed size={18} className="text-text-primary" />
+            </button>
+          </div>
+        )}
+
+        {/* Mobile bottom sheet for selected provider */}
+        {IS_MOBILE && viewMode === 'map' && selectedMapProvider && (
+          <div className="fixed inset-0 z-50" onClick={() => setSelectedMapProvider(null)}>
+            <div className="absolute inset-0 bg-black/30" />
+            <div
+              className="absolute bottom-14 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-slide-up"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+              </div>
+              <div className="px-5 pb-5">
+                <h3 className="text-base font-bold text-text-primary truncate">
+                  {selectedMapProvider.provider_name}
+                </h3>
+                <p className="text-sm text-text-secondary mt-0.5">
+                  {[selectedMapProvider.city, selectedMapProvider.state].filter(Boolean).join(', ')}
+                  {selectedMapProvider.google_rating ? ` \u00B7 \u2605 ${Number(selectedMapProvider.google_rating).toFixed(1)}` : ''}
+                </p>
+
+                {selectedMapProvider.has_submissions && selectedMapProvider.avg_price > 0 && (
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-2xl font-bold" style={{ color: '#C94F78' }}>
+                      ${Math.round(selectedMapProvider.avg_price)}
+                    </span>
+                    <span className="text-xs text-text-secondary">avg reported price</span>
+                    {selectedMapProvider.submission_count > 0 && (
+                      <span className="text-xs text-text-secondary">
+                        ({selectedMapProvider.submission_count} submission{selectedMapProvider.submission_count !== 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => {
+                      setSelectedMapProvider(null);
+                      navigate(providerProfileUrl(selectedMapProvider));
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:opacity-90"
+                    style={{ backgroundColor: '#C94F78' }}
+                  >
+                    View Profile
+                  </button>
+                  <Link
+                    to={`/log?provider=${encodeURIComponent(selectedMapProvider.provider_name)}`}
+                    onClick={() => setSelectedMapProvider(null)}
+                    className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold border border-gray-200 text-text-primary hover:bg-gray-50 transition"
+                  >
+                    Add Price
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

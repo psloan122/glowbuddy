@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Calendar, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const TREATMENT_COLORS = {
   'Botox / Dysport / Xeomin': '#C94F78',
@@ -21,19 +22,23 @@ function getColor(name) {
   return TREATMENT_COLORS[name] || '#6B7280';
 }
 
-export default function RoutineVisualizer({ treatments, conflicts }) {
-  const [cadenceMap, setCadenceMap] = useState({});
+export default function RoutineVisualizer({ treatments, conflicts, cadenceMap: cadenceMapProp, localPrices }) {
+  const [fetchedCadence, setFetchedCadence] = useState({});
 
+  // Fallback fetch if cadenceMap not passed as prop (backward compat with StackBuilder)
   useEffect(() => {
+    if (cadenceMapProp) return;
     supabase
       .from('treatment_cadence')
       .select('treatment_name, recommended_weeks_between')
       .then(({ data }) => {
         const map = {};
         (data || []).forEach((c) => { map[c.treatment_name] = c.recommended_weeks_between; });
-        setCadenceMap(map);
+        setFetchedCadence(map);
       });
-  }, []);
+  }, [cadenceMapProp]);
+
+  const cadenceMap = cadenceMapProp || fetchedCadence;
 
   // Build 6-month calendar with treatments plotted
   const calendar = useMemo(() => {
@@ -43,18 +48,17 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       months.push({
-        label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+        label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
+        shortLabel: `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
         year: d.getFullYear(),
         month: d.getMonth(),
         events: [],
       });
     }
 
-    // Plot each treatment by cadence
+    // Plot each treatment by cadence (default 12 weeks if missing)
     (treatments || []).forEach((name) => {
-      const weeks = cadenceMap[name];
-      if (!weeks) return;
-
+      const weeks = cadenceMap[name] || 12;
       const intervalDays = weeks * 7;
       let date = new Date(now);
 
@@ -67,6 +71,8 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
             treatment: name,
             day: date.getDate(),
             date: new Date(date),
+            weeks,
+            price: (localPrices && localPrices[name]) || null,
           });
         }
         date = new Date(date.getTime() + intervalDays * 24 * 60 * 60 * 1000);
@@ -75,21 +81,26 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
     });
 
     return months;
-  }, [treatments, cadenceMap]);
+  }, [treatments, cadenceMap, localPrices]);
 
-  // Find conflicts in the calendar
-  const conflictDates = useMemo(() => {
-    const results = [];
-    if (!conflicts || conflicts.length === 0) return results;
-
-    const conflictMap = {};
+  // Build conflict map for inline warnings
+  const conflictMap = useMemo(() => {
+    const map = {};
+    if (!conflicts || conflicts.length === 0) return map;
     conflicts.forEach((c) => {
       const key = [c.treatment_a, c.treatment_b].sort().join('|');
-      conflictMap[key] = c;
+      map[key] = c;
     });
+    return map;
+  }, [conflicts]);
+
+  // Find conflicts per month
+  const monthConflicts = useMemo(() => {
+    const result = {};
+    if (!conflicts || conflicts.length === 0) return result;
 
     calendar.forEach((month) => {
-      // Check for events within 14 days of each other that have conflicts
+      const monthWarnings = [];
       for (let i = 0; i < month.events.length; i++) {
         for (let j = i + 1; j < month.events.length; j++) {
           const a = month.events[i];
@@ -98,8 +109,7 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
           if (conflictMap[key]) {
             const dayDiff = Math.abs(a.day - b.day);
             if (dayDiff < 14) {
-              results.push({
-                month: month.label,
+              monthWarnings.push({
                 treatments: [a.treatment, b.treatment],
                 rule: conflictMap[key],
               });
@@ -107,10 +117,13 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
           }
         }
       }
+      if (monthWarnings.length > 0) {
+        result[month.label] = monthWarnings;
+      }
     });
 
-    return results;
-  }, [calendar, conflicts]);
+    return result;
+  }, [calendar, conflicts, conflictMap]);
 
   if (!treatments || treatments.length === 0) {
     return (
@@ -120,6 +133,9 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
       </div>
     );
   }
+
+  // Filter to months that have events
+  const activeMonths = calendar.filter((m) => m.events.length > 0);
 
   return (
     <div>
@@ -136,56 +152,68 @@ export default function RoutineVisualizer({ treatments, conflicts }) {
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {calendar.map((month) => (
-          <div key={month.label} className="glow-card p-3">
-            <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
-              {month.label}
-            </h4>
-            {month.events.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No treatments</p>
-            ) : (
-              <div className="space-y-1.5">
+      {/* Month-by-month vertical list */}
+      <div className="space-y-4">
+        {activeMonths.map((month) => {
+          const monthTotal = month.events.reduce((sum, e) => sum + (e.price || 150), 0);
+          const warnings = monthConflicts[month.label] || [];
+
+          return (
+            <div key={month.label} className="glow-card p-4">
+              {/* Month header */}
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#C94F78' }}>
+                  {month.label}
+                </h4>
+                <span className="text-sm font-medium text-text-secondary">
+                  ~${monthTotal.toLocaleString()}
+                </span>
+              </div>
+              <div className="border-t border-gray-200 mb-3" />
+
+              {/* Treatment rows */}
+              <div className="space-y-3">
                 {month.events.map((event, i) => (
-                  <div key={`${event.treatment}-${i}`} className="flex items-center gap-1.5">
+                  <div key={`${event.treatment}-${i}`} className="flex items-start gap-2.5">
                     <span
-                      className="w-2 h-2 rounded-full shrink-0"
+                      className="w-2.5 h-2.5 rounded-full shrink-0 mt-1"
                       style={{ backgroundColor: getColor(event.treatment) }}
                     />
-                    <span className="text-xs text-text-primary truncate">
-                      {event.treatment.split(' / ')[0]}
-                    </span>
-                    <span className="text-[10px] text-text-secondary ml-auto">
-                      ~{event.day}th
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium text-text-primary">
+                          {event.treatment}
+                        </span>
+                        <span className="text-xs text-text-secondary shrink-0">
+                          ~{MONTHS_SHORT[month.month]} {event.day}
+                        </span>
+                      </div>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        Every {event.weeks} weeks{event.price ? ` · ~$${event.price.toLocaleString()}` : ''}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
 
-      {/* Conflict warnings */}
-      {conflictDates.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {conflictDates.map((conflict, i) => (
-            <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
-              <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-700">
-                  Potential conflict in {conflict.month}
-                </p>
-                <p className="text-xs text-red-600 mt-0.5">
-                  {conflict.treatments[0]} and {conflict.treatments[1]} are scheduled too close together.
-                  {conflict.rule.timing_note && ` ${conflict.rule.timing_note}`}
-                </p>
-              </div>
+              {/* Inline conflict warnings for this month */}
+              {warnings.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {warnings.map((warning, i) => (
+                    <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                      <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-700">
+                        {warning.treatments[0]} and {warning.treatments[1]} are scheduled close together.
+                        {warning.rule.timing_note && ` ${warning.rule.timing_note}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       <p className="text-xs text-text-secondary italic text-center mt-4">
         This calendar is an estimate based on recommended treatment cadences — not a booking tool. Consult your provider for personalized scheduling.

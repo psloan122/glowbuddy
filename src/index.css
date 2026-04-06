@@ -119,9 +119,14 @@ body::after {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Map container — full viewport minus navbar */
+/* Map container — full viewport minus navbar + bottom nav on mobile */
 .map-container {
-  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+}
+@media (max-width: 767px) {
+  .map-container {
+    height: calc(100dvh - 64px - 56px - env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Badge icon circle */

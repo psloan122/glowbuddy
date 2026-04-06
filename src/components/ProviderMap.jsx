@@ -9,12 +9,16 @@ const MAP_STYLES = {
   height: '100%',
 };
 
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+
 const DEFAULT_OPTIONS = {
   disableDefaultUI: false,
-  zoomControl: true,
+  zoomControl: !IS_MOBILE,
   streetViewControl: false,
   mapTypeControl: false,
-  fullscreenControl: true,
+  fullscreenControl: false,
+  rotateControl: false,
+  gestureHandling: IS_MOBILE ? 'greedy' : 'cooperative',
   styles: [
     { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
@@ -63,6 +67,48 @@ function createPricePillIcon(label) {
   return result;
 }
 
+// ── Canvas-based cluster icon ──
+const clusterCache = new Map();
+
+function createClusterIcon(count, size) {
+  const key = `${count}-${size}`;
+  if (clusterCache.has(key)) return clusterCache.get(key);
+
+  const canvas = document.createElement('canvas');
+  const scale = 2; // retina
+  canvas.width = size * scale;
+  canvas.height = size * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  // Shadow
+  ctx.shadowColor = 'rgba(201,79,120,0.25)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+
+  // White circle with rose border
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 3, 0, Math.PI * 2);
+  ctx.fillStyle = 'white';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#C94F78';
+  ctx.stroke();
+
+  // Count text
+  const fontSize = size < 44 ? 13 : 15;
+  ctx.fillStyle = '#C94F78';
+  ctx.font = `600 ${fontSize}px "DM Sans", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(count), size / 2, size / 2);
+
+  const result = { url: canvas.toDataURL(), width: size, height: size };
+  clusterCache.set(key, result);
+  return result;
+}
+
 // ── Format price label for pin ──
 function formatPinLabel(provider, procedureFilter) {
   if (!provider.has_submissions || provider.avg_price <= 0) return null;
@@ -94,10 +140,12 @@ export default function ProviderMap({
   onSelectProvider,
   onBoundsChanged,
   procedureFilter,
+  hasPricesOnly = false,
 }) {
   const [mapsReady, setMapsReady] = useState(false);
   const [mapRef, setMapRef] = useState(null);
   const markersRef = useRef([]);
+  const emptyMarkersRef = useRef([]);
   const clustererRef = useRef(null);
   const hoverInfoRef = useRef(null);
 
@@ -273,30 +321,27 @@ export default function ProviderMap({
       markersRef.current.push(marker);
     }
 
+    // Store empty markers for visibility toggling
+    emptyMarkersRef.current = emptyMarkers;
+
     // ── Cluster empty pins ──
     if (emptyMarkers.length > 0) {
       clustererRef.current = new MarkerClusterer({
         map: mapRef,
         markers: emptyMarkers,
+        algorithmOptions: { maxZoom: 13 },
         renderer: {
           render: ({ count, position }) => {
+            const size = count < 5 ? 36 : count < 20 ? 44 : count < 50 ? 52 : 60;
+            const icon = createClusterIcon(count, size);
             return new window.google.maps.Marker({
-              position: position,
-              label: {
-                text: String(count),
-                color: '#6B7280',
-                fontSize: '11px',
-                fontWeight: '500',
-              },
+              position,
               icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                fillColor: 'white',
-                fillOpacity: 1,
-                strokeColor: '#D1D5DB',
-                strokeWeight: 2,
-                scale: 16,
+                url: icon.url,
+                scaledSize: new window.google.maps.Size(size, size),
+                anchor: new window.google.maps.Point(size / 2, size / 2),
               },
-              zIndex: 2,
+              zIndex: 5,
             });
           },
         },
@@ -320,6 +365,20 @@ export default function ProviderMap({
     };
   }, [mapRef, providers, procedureFilter]);
 
+  // ── Toggle empty marker visibility when hasPricesOnly changes ──
+  useEffect(() => {
+    emptyMarkersRef.current.forEach((m) => {
+      if (typeof m.setVisible === 'function') m.setVisible(!hasPricesOnly);
+    });
+    if (clustererRef.current) {
+      if (hasPricesOnly) {
+        clustererRef.current.clearMarkers();
+      } else {
+        clustererRef.current.addMarkers(emptyMarkersRef.current);
+      }
+    }
+  }, [hasPricesOnly]);
+
   if (!mapsReady) {
     return (
       <div className="flex items-center justify-center h-full bg-warm-gray">
@@ -338,7 +397,7 @@ export default function ProviderMap({
         onLoad={handleLoad}
         onIdle={handleIdle}
       >
-        {selectedProvider && (
+        {selectedProvider && !IS_MOBILE && (
           <InfoWindowF
             position={{
               lat: Number(selectedProvider.lat),

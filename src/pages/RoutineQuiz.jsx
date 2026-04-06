@@ -20,10 +20,10 @@ const CONCERNS = [
 ];
 
 const BUDGET_RANGES = [
-  { label: 'Under $200/month', value: 200 },
-  { label: '$200–$500/month', value: 350 },
-  { label: '$500–$1,000/month', value: 750 },
-  { label: '$1,000+/month', value: 1500 },
+  { label: 'Under $200/month', value: 'under_200', max: 200 },
+  { label: '$200–$500/month', value: '200_500', max: 500 },
+  { label: '$500–$1,000/month', value: '500_1000', max: 1000 },
+  { label: '$1,000+/month', value: 'over_1000', max: Infinity },
 ];
 
 const DOWNTIME_OPTIONS = [
@@ -89,6 +89,12 @@ export default function RoutineQuiz() {
     }
   }
 
+  function monthlyCost(name, avgPrices, cadence) {
+    const price = avgPrices[name] || 150;
+    const weeks = cadence[name] || 12;
+    return price / (weeks / 4.33);
+  }
+
   async function generateRoutine() {
     setLoading(true);
 
@@ -137,10 +143,16 @@ export default function RoutineQuiz() {
       if (!hasConflict) {
         recommended.push(treatment);
       }
-      if (recommended.length >= 4) break;
     }
 
-    // Fetch local prices
+    // Fetch cadence data
+    const { data: cadenceRows } = await supabase
+      .from('treatment_cadence')
+      .select('treatment_name, recommended_weeks_between');
+    const cadence = {};
+    (cadenceRows || []).forEach((c) => { cadence[c.treatment_name] = c.recommended_weeks_between; });
+
+    // Fetch local prices for all candidates
     const { data: priceData } = await supabase
       .from('procedures')
       .select('procedure_type, price_paid')
@@ -160,23 +172,40 @@ export default function RoutineQuiz() {
     });
     setLocalPrices(avgs);
 
-    // Calculate cost estimate
-    const totalLow = recommended.reduce((sum, t) => sum + (avgs[t] || 100) * 0.8, 0);
-    const totalHigh = recommended.reduce((sum, t) => sum + (avgs[t] || 200) * 1.2, 0);
+    // Budget-constrained selection
+    const budgetRange = BUDGET_RANGES.find((b) => b.value === budget);
+    const budgetMax = budgetRange?.max ?? Infinity;
 
-    // Get relevant conflicts
+    let runningCost = 0;
+    const affordable = [];
+    for (const t of recommended) {
+      const mc = monthlyCost(t, avgs, cadence);
+      if (affordable.length < 6 && (runningCost + mc <= budgetMax || affordable.length === 0)) {
+        affordable.push(t);
+        runningCost += mc;
+      }
+    }
+
+    const monthlyEstimate = Math.round(runningCost);
+    const overBudget = budgetMax !== Infinity && monthlyEstimate > budgetMax;
+
+    // Get relevant conflicts for selected treatments
     const conflicts = (rules || []).filter(
       (r) =>
         (r.compatibility === 'space_apart' || r.compatibility === 'avoid') &&
-        recommended.includes(r.treatment_a) &&
-        recommended.includes(r.treatment_b)
+        affordable.includes(r.treatment_a) &&
+        affordable.includes(r.treatment_b)
     );
 
     setResults({
-      treatments: recommended,
-      costLow: Math.round(totalLow),
-      costHigh: Math.round(totalHigh),
+      treatments: affordable,
+      monthlyEstimate,
+      budgetMax: budgetMax === Infinity ? null : budgetMax,
+      budgetLabel: budgetRange?.label || '',
+      overBudget,
       conflicts,
+      cadenceMap: cadence,
+      localPrices: avgs,
     });
 
     setLoading(false);
@@ -191,8 +220,8 @@ export default function RoutineQuiz() {
       routine_name: 'My Routine',
       treatments: results.treatments,
       quiz_answers: { concerns, budget, downtime, priorTreatments, skinType },
-      cost_estimate_low: results.costLow,
-      cost_estimate_high: results.costHigh,
+      cost_estimate_low: results.monthlyEstimate,
+      cost_estimate_high: results.monthlyEstimate,
     });
 
     setSaving(false);
@@ -431,6 +460,29 @@ export default function RoutineQuiz() {
             <p className="text-text-secondary mt-1">Based on your concerns, budget, and preferences.</p>
           </div>
 
+          {/* Summary card */}
+          <div className="glow-card p-5 mb-6 border-l-4" style={{ borderLeftColor: '#C94F78' }}>
+            <h3 className="text-lg font-bold text-text-primary">Your Glow Routine</h3>
+            <p className="text-sm text-text-secondary mt-1">
+              {results.treatments.length} treatment{results.treatments.length !== 1 ? 's' : ''} · ~${results.monthlyEstimate.toLocaleString()}/month
+            </p>
+            {results.budgetMax && (
+              <p className={`text-sm font-medium mt-1.5 ${results.overBudget ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {results.overBudget ? '\u26a0 Near budget limit' : '\u2713 Within budget'} — {results.budgetLabel}
+              </p>
+            )}
+            {(() => {
+              const next = results.treatments
+                .map((name) => ({ name, weeks: results.cadenceMap[name] || 12 }))
+                .sort((a, b) => a.weeks - b.weeks)[0];
+              return next ? (
+                <p className="text-sm text-text-secondary mt-1.5">
+                  Next up: <span className="font-medium text-text-primary">{next.name}</span> — in ~{Math.round(next.weeks)} week{Math.round(next.weeks) !== 1 ? 's' : ''}
+                </p>
+              ) : null;
+            })()}
+          </div>
+
           {/* Recommended treatments */}
           <div className="glow-card p-5 mb-6">
             <h3 className="font-bold text-text-primary mb-3">Your Starter Stack</h3>
@@ -438,9 +490,9 @@ export default function RoutineQuiz() {
               {results.treatments.map((name) => (
                 <div key={name} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                   <span className="font-medium text-text-primary">{name}</span>
-                  {localPrices[name] && (
+                  {(results.localPrices[name] || localPrices[name]) && (
                     <span className="text-sm text-text-secondary">
-                      ~${localPrices[name].toLocaleString()} avg
+                      ~${(results.localPrices[name] || localPrices[name]).toLocaleString()} avg
                     </span>
                   )}
                 </div>
@@ -451,8 +503,16 @@ export default function RoutineQuiz() {
             <div className="mt-4 pt-4 border-t border-gray-100 text-center">
               <p className="text-sm text-text-secondary">Estimated monthly cost</p>
               <p className="text-2xl font-bold text-text-primary">
-                ${results.costLow.toLocaleString()} – ${results.costHigh.toLocaleString()}
+                ~${results.monthlyEstimate.toLocaleString()}/month
               </p>
+              {results.budgetMax && !results.overBudget && (
+                <p className="text-sm text-emerald-600 font-medium mt-1">{'\u2713'} Within your {results.budgetLabel} budget</p>
+              )}
+              {results.overBudget && (
+                <p className="text-sm text-amber-600 font-medium mt-1">
+                  {'\u26a0'} We couldn't fit a full routine within {results.budgetLabel} — here's the best fit
+                </p>
+              )}
             </div>
           </div>
 
@@ -462,6 +522,8 @@ export default function RoutineQuiz() {
             <RoutineVisualizer
               treatments={results.treatments}
               conflicts={results.conflicts}
+              cadenceMap={results.cadenceMap}
+              localPrices={results.localPrices}
             />
           </div>
 
