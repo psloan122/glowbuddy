@@ -50,6 +50,7 @@ export default function Home() {
 
   // Live stats — only show non-zero values
   const [statItems, setStatItems] = useState([]);
+  const [patientCount, setPatientCount] = useState(null);
 
   // Specials
   const [specials, setSpecials] = useState([]);
@@ -79,6 +80,7 @@ export default function Home() {
         .eq('status', 'active');
       if (totalPrices > 0) {
         results.push({ value: totalPrices, label: 'Real prices shared' });
+        setPatientCount(totalPrices);
       }
 
       // Cities covered
@@ -177,7 +179,8 @@ export default function Home() {
               Know before you glow.
             </h1>
             <p className="text-[17px] md:text-[20px] text-text-secondary font-normal mb-8 max-w-lg mx-auto">
-              Med spas don't post their prices. Patients do.
+              Real prices, shared by real patients.<br />
+              Free forever.
             </p>
 
             {/* Search CTA — links to Find Prices page */}
@@ -198,6 +201,19 @@ export default function Home() {
                 Find Prices
               </span>
             </Link>
+
+            {patientCount && (
+              <p className="text-center mt-2" style={{ fontSize: '13px', color: '#9CA3AF' }}>
+                {patientCount >= 10000
+                  ? `${Math.floor(patientCount / 1000).toLocaleString()},000+`
+                  : patientCount >= 1000
+                    ? `${patientCount.toLocaleString()}+`
+                    : patientCount > 100
+                      ? `Over ${Math.floor(patientCount / 100) * 100}`
+                      : patientCount}{' '}
+                patients shared what they paid. Now you know too.
+              </p>
+            )}
 
             <div className="flex items-center justify-center gap-4 md:gap-6 mt-6 text-sm text-text-secondary/70">
               <span>Botox</span>
