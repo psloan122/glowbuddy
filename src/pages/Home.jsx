@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
-  getCity, setCity as persistCity,
+  setCity as persistCity,
   getState as getGatingState, setState as persistState,
   setZip as persistZip,
 } from '../lib/gating';
@@ -11,6 +11,7 @@ import ProcedureCard from '../components/ProcedureCard';
 import SpecialCard from '../components/SpecialCard';
 import SpecialOfferCard from '../components/SpecialOfferCard';
 import PriceStatsBar from '../components/PriceStatsBar';
+import FounderStory from '../components/FounderStory';
 import HeroPattern from '../components/HeroPattern';
 import FirstTimerBadge from '../components/FirstTimerBadge';
 import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
@@ -23,19 +24,29 @@ import {
   isFirstTimerFor,
 } from '../lib/firstTimerMode';
 import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
+import { searchCitiesViaGoogle } from '../lib/places';
+import { assignTrustTier } from '../lib/trustTiers';
+import { setPageMeta } from '../lib/seo';
 import OutcomeSelector from '../components/OutcomeSelector';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import RetouchReminders from '../components/RetouchReminders';
 import SavingsCalculator from '../components/SavingsCalculator';
+import { SkeletonGrid } from '../components/SkeletonCard';
+
+function computeTrustWeight(procedure) {
+  const { trust_weight } = assignTrustTier({
+    receipt_verified: procedure.receipt_verified,
+    has_result_photo: !!procedure.result_photo_url,
+  });
+  let weight = trust_weight;
+  if (procedure.rating) weight += 0.1;
+  if (procedure.review_body) weight += 0.1;
+  if (procedure.has_receipt && !procedure.receipt_verified) weight += 0.1;
+  return weight;
+}
 
 export default function Home() {
-  // Stats
-  const [stats] = useState({
-    totalSubmissions: 4821,
-    avgBotoxUnit: 13.40,
-    avgLipFiller: 672,
-    avgRfMicroneedling: 400,
-  });
+  // (stats are now live-queried inside PriceStatsBar)
 
   // Specials
   const [specials, setSpecials] = useState([]);
@@ -61,7 +72,7 @@ export default function Home() {
   const locDebounce = useRef(null);
 
   // Sort & extra filters
-  const [sortBy, setSortBy] = useState('most_recent');
+  const [sortBy, setSortBy] = useState('most_verified');
   const [filterProviderType, setFilterProviderType] = useState('');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
@@ -86,13 +97,14 @@ export default function Home() {
   const [calcOpen, setCalcOpen] = useState(false);
 
   // Location personalization
-  const [userCity, setUserCity] = useState(() => getCity());
   const [userState] = useState(() => getGatingState());
-  const [localCount, setLocalCount] = useState(null);
 
   // SEO
   useEffect(() => {
-    document.title = 'GlowBuddy \u2014 Know Before You Glow';
+    setPageMeta({
+      title: 'GlowBuddy \u2014 Know Before You Glow',
+      description: 'Real prices for Botox, lip filler, and med spa treatments reported by patients. See what people actually paid near you.',
+    });
   }, []);
 
   // Fetch user's active price alerts for match badges
@@ -102,7 +114,7 @@ export default function Home() {
 
   // Switch to lowest_price sort when first-timer mode activates
   useEffect(() => {
-    if (firstTimerActive && selectedProc && sortBy === 'most_recent') {
+    if (firstTimerActive && selectedProc && (sortBy === 'most_recent' || sortBy === 'most_verified')) {
       setSortBy('lowest_price');
     }
   }, [firstTimerActive, selectedProc]);
@@ -116,17 +128,6 @@ export default function Home() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  // Fetch local count
-  useEffect(() => {
-    if (!userState) return;
-    supabase
-      .from('procedures')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active')
-      .eq('state', userState)
-      .then(({ count }) => setLocalCount(count));
-  }, [userState]);
 
   // Fetch specials
   useEffect(() => {
@@ -215,7 +216,7 @@ export default function Home() {
       return;
     }
 
-    // City name path — query Supabase distinct cities
+    // City/town name path — query Supabase, fallback to Google Places
     if (trimmed.length < 2) { setLocResults([]); return; }
     setLocLoading(true);
     try {
@@ -238,6 +239,20 @@ export default function Home() {
         }
         if (unique.length >= 8) break;
       }
+
+      // If few Supabase results, supplement with Google Places
+      if (unique.length < 3) {
+        const googleResults = await searchCitiesViaGoogle(trimmed);
+        for (const g of googleResults) {
+          const key = `${g.city}|${g.state}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(g);
+          }
+          if (unique.length >= 8) break;
+        }
+      }
+
       setLocResults(unique);
     } catch {
       setLocResults([]);
@@ -258,7 +273,7 @@ export default function Home() {
     setLocQuery('');
     setLocOpen(false);
     // Persist to localStorage for personalization
-    if (loc.city) { persistCity(loc.city); setUserCity(loc.city); }
+    if (loc.city) persistCity(loc.city);
     if (loc.state) persistState(loc.state);
     if (loc.zip) persistZip(loc.zip);
   }
@@ -293,7 +308,16 @@ export default function Home() {
       if (priceMax) query = query.lte('price_paid', parseInt(priceMax, 10));
       if (minRating) query = query.gte('rating', parseInt(minRating, 10));
 
-      if (sortBy === 'lowest_price') {
+      if (sortBy === 'most_verified') {
+        query = query.order('created_at', { ascending: false }).limit(40);
+        const { data } = await query;
+        const sorted = (data || [])
+          .sort((a, b) => computeTrustWeight(b) - computeTrustWeight(a))
+          .slice(0, 20);
+        setProcedures(sorted);
+        setLoadingProcedures(false);
+        return;
+      } else if (sortBy === 'lowest_price') {
         query = query.order('price_paid', { ascending: true });
       } else if (sortBy === 'highest_price') {
         query = query.order('price_paid', { ascending: false });
@@ -347,10 +371,11 @@ export default function Home() {
 
         <div className="relative z-10 py-16 md:py-[100px] md:pb-[80px] px-5 md:px-0">
           <div className="max-w-[580px] ml-[max(5vw,40px)]">
-            <h1 className="font-display italic text-[36px] md:text-[56px] leading-[1.1] font-light tracking-[-0.5px] text-text-primary mb-4">
+            <h1 className="font-display italic text-[36px] md:text-[52px] leading-[1.1] font-normal tracking-[-0.5px] text-text-primary mb-1">
               Know before you glow.
             </h1>
-            <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mb-6">
+            <PriceStatsBar />
+            <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mt-5 mb-6">
               Real prices for Botox, fillers, and med spa treatments — reported by
               patients like you.
             </p>
@@ -376,19 +401,39 @@ export default function Home() {
               className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition mb-4"
               style={{ backgroundColor: '#C94F78' }}
             >
-              Log Your Treatment
+              Share what you paid
             </Link>
 
             <p className="text-[13px] italic" style={{ color: '#9CA3AF' }}>
-              Join the women who refused to overpay.
+              Real prices from real patients.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Stats Bar */}
-      <section className="max-w-4xl mx-auto px-4 -mt-6 relative z-10">
-        <PriceStatsBar stats={stats} city={userCity} localCount={localCount} />
+      {/* Founder Story */}
+      <section className="max-w-3xl mx-auto px-4 mt-8">
+        <FounderStory />
+      </section>
+
+      {/* How It Works */}
+      <section className="max-w-4xl mx-auto px-4 mt-12">
+        <h2 className="font-display text-[26px] font-semibold text-text-primary text-center mb-8">
+          How It Works
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { icon: '💉', title: 'Someone pays for Botox', body: 'A patient gets a treatment at a med spa near you.' },
+            { icon: '📱', title: 'They share what they paid', body: 'They log the real price on GlowBuddy — anonymously.' },
+            { icon: '📍', title: 'You know before you book', body: 'See real prices in your city so you never overpay.' },
+          ].map((step, i) => (
+            <div key={i} className="glow-card p-6 text-center">
+              <span className="text-3xl block mb-3">{step.icon}</span>
+              <p className="text-sm font-bold text-text-primary mb-1">{step.title}</p>
+              <p className="text-xs text-text-secondary leading-relaxed">{step.body}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Savings Calculator Widget */}
@@ -529,7 +574,9 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
         <div className="flex items-center gap-6 mb-6">
           <h2 className="font-display text-[26px] font-semibold text-text-primary">
-            {browseMode === 'treatment' ? 'Recent Prices' : 'Browse by Goal'}
+            {browseMode === 'treatment'
+              ? (sortBy === 'most_verified' ? 'Most Verified Prices' : 'Recent Prices')
+              : 'Browse by Goal'}
           </h2>
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             <button
@@ -654,7 +701,7 @@ export default function Home() {
                 />
                 <input
                   type="text"
-                  placeholder="City or zip code"
+                  placeholder="City, town, or zip code"
                   value={locQuery}
                   onChange={(e) => handleLocInput(e.target.value)}
                   onFocus={() => locQuery.trim() && setLocOpen(true)}
@@ -692,7 +739,7 @@ export default function Home() {
                   </div>
                 ) : locQuery.trim().length >= 2 ? (
                   <div className="px-4 py-3 text-sm text-text-secondary">
-                    No cities found
+                    No locations found
                   </div>
                 ) : null}
               </div>
@@ -708,6 +755,7 @@ export default function Home() {
               onChange={(e) => setSortBy(e.target.value)}
               className="appearance-none pl-4 pr-10 py-2 rounded-xl border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition cursor-pointer"
             >
+              <option value="most_verified">Most Verified</option>
               <option value="most_recent">Most Recent</option>
               <option value="lowest_price">Lowest Price</option>
               <option value="highest_price">Highest Price</option>
@@ -838,25 +886,21 @@ export default function Home() {
 
         {/* Procedures grid */}
         {loadingProcedures ? (
-          <div className="text-center py-12">
-            <p className="text-text-secondary animate-pulse">
-              Loading prices...
-            </p>
-          </div>
+          <SkeletonGrid count={6} />
         ) : procedures.length === 0 ? (
           <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary mb-4">
-              Be the first to log a price in your area.
+            <p className="text-text-secondary mb-2">
+              No prices in your area yet.
             </p>
             <p className="text-sm text-text-secondary mb-6">
-              Help other women know before they glow.
+              Be the first to share what you paid here.
             </p>
             <Link
               to="/log"
               className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
               style={{ backgroundColor: '#C94F78' }}
             >
-              Log Your Treatment
+              + Share my price
             </Link>
           </div>
         ) : (

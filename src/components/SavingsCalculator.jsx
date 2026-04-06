@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { fetchBenchmark } from '../lib/priceBenchmark';
 import { PROCEDURE_TYPES } from '../lib/constants';
+import { searchCitiesViaGoogle } from '../lib/places';
 import SavingsShareCard from './SavingsShareCard';
 
 const TYPICAL_UNITS = {
@@ -303,6 +304,20 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
         }
         if (unique.length >= 6) break;
       }
+
+      // If few Supabase results, supplement with Google Places
+      if (unique.length < 3) {
+        const googleResults = await searchCitiesViaGoogle(trimmed);
+        for (const g of googleResults) {
+          const key = `${g.city}|${g.state}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(g);
+          }
+          if (unique.length >= 8) break;
+        }
+      }
+
       setCityResults(unique);
     } catch {
       setCityResults([]);

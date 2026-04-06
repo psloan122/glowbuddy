@@ -191,7 +191,7 @@ export default function CreatePriceAlert({
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      placeholder="City"
+                      placeholder="City or town"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       className={inputClass}
@@ -203,8 +203,8 @@ export default function CreatePriceAlert({
                     >
                       <option value="">State</option>
                       {US_STATES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
+                        <option key={s.value} value={s.value}>
+                          {s.label}
                         </option>
                       ))}
                     </select>

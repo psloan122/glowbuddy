@@ -216,7 +216,7 @@ export default function Step2({ formData, setFormData }) {
           </label>
           <input
             type="text"
-            placeholder="City"
+            placeholder="City or town"
             value={formData.city}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, city: e.target.value }))

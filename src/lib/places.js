@@ -1,5 +1,6 @@
 /**
  * Parse Google Places address_components into structured fields.
+ * Handles cities, towns, villages, CDPs, and neighborhoods.
  */
 export function parseAddressComponents(components) {
   const result = {
@@ -26,6 +27,12 @@ export function parseAddressComponents(components) {
       result.city = component.long_name;
     } else if (types.includes('sublocality_level_1') && !result.city) {
       result.city = component.long_name;
+    } else if (types.includes('postal_town') && !result.city) {
+      result.city = component.long_name;
+    } else if (types.includes('administrative_area_level_3') && !result.city) {
+      result.city = component.long_name;
+    } else if (types.includes('neighborhood') && !result.city) {
+      result.city = component.long_name;
     } else if (types.includes('administrative_area_level_1')) {
       result.state = component.short_name;
     } else if (types.includes('postal_code')) {
@@ -42,6 +49,69 @@ export function parseAddressComponents(components) {
   }
 
   return result;
+}
+
+/**
+ * Search for cities/towns via Google Places Autocomplete.
+ * Used as a fallback when Supabase has few/no results for a city name.
+ * Returns array of { city, state } objects for US localities.
+ */
+export function searchCitiesViaGoogle(query) {
+  return new Promise((resolve) => {
+    const places = window.google?.maps?.places;
+    if (!places?.AutocompleteService) {
+      resolve([]);
+      return;
+    }
+
+    const service = new places.AutocompleteService();
+    service.getPlacePredictions(
+      {
+        input: query,
+        types: ['(regions)'],
+        componentRestrictions: { country: 'us' },
+      },
+      (predictions, status) => {
+        if (status !== places.PlacesServiceStatus.OK || !predictions) {
+          resolve([]);
+          return;
+        }
+
+        // Types that represent a city, town, village, or neighborhood
+        const localityTypes = [
+          'locality', 'sublocality', 'neighborhood',
+          'administrative_area_level_3', 'postal_town',
+          'colloquial_area',
+        ];
+
+        const results = [];
+        for (const p of predictions) {
+          const types = p.types || [];
+
+          // Only keep locality-level results (skip states, countries)
+          if (!types.some((t) => localityTypes.includes(t))) continue;
+
+          const city = p.structured_formatting?.main_text || '';
+          if (!city) continue;
+
+          // Parse state abbreviation from secondary text (e.g. "CT, USA")
+          const secondary = p.structured_formatting?.secondary_text || '';
+          const statePart = secondary.split(',')[0]?.trim() || '';
+
+          let state = '';
+          if (/^[A-Z]{2}$/.test(statePart)) {
+            state = statePart;
+          }
+
+          if (city && state) {
+            results.push({ city, state });
+          }
+        }
+
+        resolve(results);
+      }
+    );
+  });
 }
 
 /**
