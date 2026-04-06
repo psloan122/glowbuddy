@@ -22,6 +22,7 @@ import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
 import {
   PROCEDURE_TYPES,
+  PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
 } from '../../lib/constants';
 import InjectorsTab from '../../components/DashboardTabs/InjectorsTab';
@@ -364,10 +365,12 @@ export default function Dashboard() {
               className={INPUT_CLASS + ' text-sm'}
             >
               <option value="">Select...</option>
-              {PROCEDURE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
+              {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                <optgroup key={category} label={category}>
+                  {procedures.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

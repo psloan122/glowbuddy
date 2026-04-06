@@ -166,10 +166,10 @@ export default function Step3({
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
-        Anything else?
+        Verify for bonus entries
       </h2>
       <p className="text-sm text-text-secondary mb-6">
-        Optional details to help the community.
+        Each detail you add earns more giveaway entries and helps others trust the price.
       </p>
 
       <div className="space-y-5">
@@ -347,23 +347,17 @@ export default function Step3({
 
         {/* Receipt Upload Section */}
         <div>
-          <p className="text-sm font-semibold text-text-primary mb-3">
-            Boost your giveaway entries
-          </p>
           <div className="bg-rose-light/30 rounded-xl p-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="sm:flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Trophy className="w-4 h-4 text-rose-accent shrink-0" />
-                  <p className="text-sm font-semibold text-text-primary">
-                    Upload your receipt
-                  </p>
-                </div>
-                <p className="text-sm text-rose-dark mb-0.5">
-                  Earn 3 entries instead of 1
+                <p className="text-sm font-semibold text-text-primary mb-1">
+                  📸 Add receipt for verified status
+                </p>
+                <p className="text-sm text-rose-dark mb-1">
+                  Verified prices get 3x more visibility and earn you 3 bonus giveaway entries.
                 </p>
                 <p className="text-xs text-text-secondary">
-                  Receipt stays private — never shown publicly
+                  Takes 30 seconds. Your name is never shown.
                 </p>
               </div>
               <div className="sm:flex-1">

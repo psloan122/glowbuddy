@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowRight, Trophy, Mail } from 'lucide-react';
+import { Check, ArrowRight, Trophy, Mail, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { getEntryBreakdown } from '../lib/points';
@@ -128,12 +128,11 @@ export default function ThankYou({
 
       {/* Headline */}
       <h2 className="text-2xl font-bold text-text-primary mb-2">
-        You&apos;re officially a GlowBuddy.
+        ✨ Your price is live!
       </h2>
 
       <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
-        Thank you for helping women know what things actually cost. Your
-        submission has been saved.
+        You just helped people{procedure.city ? ` in ${procedure.city}` : ''} who are researching {procedure.procedure_type} prices know what to expect.
       </p>
 
       {/* Entry count card */}
@@ -171,6 +170,28 @@ export default function ThankYou({
           </p>
         )}
       </div>
+
+      {/* Share button */}
+      <button
+        onClick={() => {
+          if (navigator.share) {
+            navigator.share({
+              title: 'I shared my price on GlowBuddy',
+              text: `I just shared what I paid for ${procedure.procedure_type}${procedure.city ? ` in ${procedure.city}` : ''}. Check out real prices from real patients.`,
+              url: 'https://glowbuddy.com',
+            }).catch(() => {});
+          } else {
+            navigator.clipboard.writeText('https://glowbuddy.com');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+        }}
+        className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors mb-5"
+        style={{ backgroundColor: '#C94F78' }}
+      >
+        <Share2 size={14} />
+        Share your contribution
+      </button>
 
       {/* Credit breakdown card */}
       {creditResult && creditResult.totalCredits > 0 && (
@@ -331,7 +352,7 @@ export default function ThankYou({
 
       {/* Skip toast (rendered briefly before navigation) */}
       {skipToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3 animate-fade-in">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3 animate-fade-in">
           <span className="text-lg">&check;</span>
           <p className="text-sm text-text-primary">
             Price submitted! It&apos;ll appear once our team reviews it.

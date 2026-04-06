@@ -14,7 +14,7 @@ export default function PioneerToast({ providerName, tier, onClose }) {
   const message = getPioneerToastMessage(providerName, tier);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[80] animate-[slideUp_0.4s_ease-out]">
+    <div className="fixed bottom-20 md:bottom-6 right-6 z-[80] animate-[slideUp_0.4s_ease-out]">
       <div
         className="glow-card p-4 pr-10 max-w-xs shadow-lg"
         style={{ border: '1px solid rgba(251, 191, 36, 0.4)', background: '#FFFBEB' }}

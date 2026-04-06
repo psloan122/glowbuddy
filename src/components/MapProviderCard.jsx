@@ -10,6 +10,7 @@ export default function MapProviderCard({ provider }) {
     state,
     avg_price,
     submission_count,
+    verified_count,
     has_submissions,
     provider_type,
     google_rating,
@@ -35,6 +36,7 @@ export default function MapProviderCard({ provider }) {
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-text-secondary">
               {submission_count} {submission_count === 1 ? 'price' : 'prices'}
+              {verified_count > 0 && ` · ${verified_count} verified`}
             </span>
             {provider_type && (
               <span className="text-xs text-text-secondary bg-warm-gray px-1.5 py-0.5 rounded-full truncate max-w-[140px]">

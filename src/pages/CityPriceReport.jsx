@@ -55,9 +55,9 @@ export default function CityPriceReport() {
     const topProc = report?.priceTable?.[0]?.procedure || 'Botox, Filler & Facial';
     const count = report?.totalSubmissions || 0;
 
-    document.title = `${topProc} Prices in ${city}, ${state} \u2014 ${displayMonth} | GlowBuddy`;
+    document.title = `Botox Prices in ${city}, ${state} (${displayMonth}) | GlowBuddy`;
 
-    const desc = `Compare real ${topProc.toLowerCase()} prices in ${city}, ${state}. ${count} patient-reported prices. Updated ${displayMonth}.`;
+    const desc = `Real patient-reported Botox and med spa prices in ${city}. Based on ${count} verified submissions. Updated monthly.`;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute('content', desc);

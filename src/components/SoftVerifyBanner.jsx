@@ -1,8 +1,7 @@
 import { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import { AuthContext } from '../App';
-import { isEmailVerified } from '../lib/auth';
-import { supabase } from '../lib/supabase';
+import { isEmailVerified, sendVerificationEmail } from '../lib/auth';
 
 const DISMISS_KEY = 'verify_banner_dismissed';
 
@@ -20,10 +19,7 @@ export default function SoftVerifyBanner() {
     if (!user?.email || sending) return;
     setSending(true);
     try {
-      await supabase.auth.resend({
-        type: 'signup',
-        email: user.email,
-      });
+      await sendVerificationEmail(user.email);
     } catch {
       // Rate limit or other error — show sent state regardless
     }

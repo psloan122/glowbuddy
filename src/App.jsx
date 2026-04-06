@@ -2,7 +2,7 @@ import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, createContext, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded } from './lib/gating';
-import { syncLocalPrefsToProfile, claimPendingSubmission } from './lib/auth';
+import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission } from './lib/auth';
 import { checkAndAwardBadges } from './lib/badgeLogic';
 import { checkLoginStreak } from './lib/creditLogic';
 import Navbar from './components/Navbar';
@@ -48,7 +48,10 @@ import Wrapped from './pages/Wrapped';
 import ReferralRedirect from './pages/ReferralRedirect';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import About from './pages/About';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
+import MobileBottomNav from './components/MobileBottomNav';
+import Footer from './components/Footer';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
 
@@ -93,10 +96,17 @@ function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
         const wasSignedOut = !session;
         const isNowSignedIn = !!newSession;
-        setSession(newSession);
+
+        // Force React re-render on USER_UPDATED (e.g. email verified)
+        // so SoftVerifyBanner and isEmailVerified checks update app-wide
+        if (event === 'USER_UPDATED' && newSession) {
+          setSession({ ...newSession });
+        } else {
+          setSession(newSession);
+        }
 
         // User just signed in
         if (wasSignedOut && isNowSignedIn) {
@@ -105,14 +115,15 @@ function App() {
 
           const userId = newSession.user?.id;
 
-          // Sync localStorage prefs to profile
+          // Sync localStorage prefs to/from profile
           if (userId) {
-            syncLocalPrefsToProfile(userId);
-            syncToSupabase(userId);
-            loadFromSupabase(userId);
-            checkLoginStreak(userId);
+            syncProfileToLocal(userId).catch(() => {});
+            syncLocalPrefsToProfile(userId).catch(() => {});
+            syncToSupabase(userId).catch(() => {});
+            loadFromSupabase(userId).catch(() => {});
+            checkLoginStreak(userId).catch(() => {});
             // Create referral record if user signed up via referral link
-            createReferralOnSignup(userId);
+            createReferralOnSignup(userId).catch(() => {});
           }
 
           // Claim any pending submission from the log form
@@ -143,12 +154,21 @@ function App() {
                 }
               }
 
+              // If user signed up from a /business page, stay there
+              if (window.location.pathname.startsWith('/business')) {
+                showToast('Welcome to GlowBuddy!');
+                return;
+              }
+
               // No pending submission or action — normal post-auth flow
               if (!isOnboarded()) {
                 setShowOnboarding(true);
               } else {
                 handlePostAuth();
               }
+            }).catch(() => {
+              // If anything in the chain fails, don't leave user stuck
+              handlePostAuth();
             });
           } else {
             // No user id — normal flow
@@ -250,22 +270,16 @@ function App() {
             <Route path="/prices" element={<CityPriceIndex />} />
             <Route path="/prices/:citySlug" element={<CityPriceReport />} />
             <Route path="/prices/:citySlug/:yearMonth" element={<CityPriceReport />} />
+            <Route path="/about" element={<About />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
-        <footer className="text-center py-8 text-sm text-text-secondary border-t border-gray-100 mt-12 space-y-2">
-          <p>&copy; {new Date().getFullYear()} GlowBuddy. All data is crowdsourced and self-reported.</p>
-          <p className="text-xs text-text-secondary/60">
-            GlowBuddy is a pricing tool, not medical advice. Always consult a qualified provider.
-          </p>
-          <div className="flex justify-center gap-4 text-xs">
-            <a href="/privacy" className="text-text-secondary hover:text-rose-accent transition">Privacy Policy</a>
-            <a href="/terms" className="text-text-secondary hover:text-rose-accent transition">Terms of Service</a>
-            <a href="/privacy#ccpa" className="text-text-secondary hover:text-rose-accent transition">Do Not Sell My Information</a>
-          </div>
-        </footer>
+        <Footer />
+
+        {/* Mobile bottom nav */}
+        <MobileBottomNav />
 
         {/* Auth modal */}
         {authModal.open && (

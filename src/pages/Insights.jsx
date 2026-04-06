@@ -418,7 +418,7 @@ export default function Insights() {
       {/* Chart 5: Most Logged Procedures (Pie) */}
       <div className="glow-card p-6 mb-8">
         <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Most Submitted Procedures
+          Most Shared Procedures
         </h2>
         {mostSubmitted.length > 0 ? (
           <ResponsiveContainer width="100%" height={400}>
@@ -574,7 +574,7 @@ export default function Insights() {
 
       {/* Footer note */}
       <p className="italic text-sm text-text-secondary text-center">
-        All data is crowdsourced and self-reported. Provider-listed prices are submitted by providers.
+        Real prices from real patients. All data is self-reported. Provider-listed prices are submitted by providers.
       </p>
     </div>
   );

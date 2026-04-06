@@ -17,6 +17,7 @@ import {
   calculateTrustScore,
   checkDuplicate,
 } from '../lib/trustDetection';
+import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import { calculateEntries, calculateEntriesFromCount } from '../lib/points';
 import { awardSubmissionCredits } from '../lib/creditLogic';
 import { assignTrustTier } from '../lib/trustTiers';
@@ -78,8 +79,8 @@ export default function Log() {
     const state = searchParams.get('state');
     if (procedure) prefill.procedureType = procedure;
     if (provider) prefill.providerName = provider;
-    if (city) prefill.city = city;
-    if (state) prefill.state = state;
+    prefill.city = city || getGatingCity() || '';
+    prefill.state = state || getGatingState() || '';
     return prefill;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,7 +118,7 @@ export default function Log() {
 
   // SEO
   useEffect(() => {
-    document.title = 'Log a Treatment | GlowBuddy';
+    document.title = 'Share What You Paid | GlowBuddy';
   }, []);
 
   // Fetch user's active submission count for entry calculation
@@ -692,9 +693,9 @@ export default function Log() {
 
   // Step labels for progress indicator
   const steps = [
-    { num: 1, label: 'What you got' },
-    { num: 2, label: 'Where you went' },
-    { num: 3, label: 'Last step' },
+    { num: 1, label: 'The basics' },
+    { num: 2, label: 'Your experience' },
+    { num: 3, label: 'Verify for bonus entries' },
   ];
 
   return (
@@ -840,7 +841,7 @@ export default function Log() {
                   {isSubmitting ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Submitting...
+                      Sharing...
                     </>
                   ) : (
                     'Share my price'

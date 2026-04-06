@@ -23,10 +23,15 @@ export default function VerifiedBadge({ tier, size = 'sm' }) {
 
   return (
     <span
-      className={`relative inline-flex items-center gap-1 font-medium rounded-full whitespace-nowrap cursor-default ${sizeClasses}`}
+      className={`relative inline-flex items-center gap-1 font-medium rounded-full whitespace-nowrap cursor-default min-h-[44px] ${sizeClasses}`}
       style={{ backgroundColor: tierData.bgColor, color: tierData.color }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowTooltip((v) => !v);
+      }}
     >
       <Icon size={iconSize} />
       {tierData.label}

@@ -329,14 +329,17 @@ export default function ProcedureDetail() {
           </div>
         ) : (
           <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary mb-4">
-              No prices reported yet for {procedureName}. Be the first!
+            <p className="text-text-secondary mb-2">
+              No prices shared for {procedureName} yet.
+            </p>
+            <p className="text-sm text-text-secondary mb-4">
+              Be the first to share what you paid.
             </p>
             <Link
               to="/log"
               className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
             >
-              Log a Treatment
+              + Share what you paid
             </Link>
           </div>
         )
@@ -385,14 +388,17 @@ export default function ProcedureDetail() {
         </div>
       ) : (
         <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary mb-4">
-            No verified prices yet for {procedureName}. Be the first!
+          <p className="text-text-secondary mb-2">
+            No verified prices for {procedureName} yet.
+          </p>
+          <p className="text-sm text-text-secondary mb-4">
+            Be the first to share what you paid.
           </p>
           <Link
             to="/log"
             className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
-            Log a Treatment
+            + Share what you paid
           </Link>
         </div>
       )}

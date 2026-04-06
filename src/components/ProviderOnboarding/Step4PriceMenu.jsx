@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Lightbulb } from 'lucide-react';
 import {
   PROCEDURE_TYPES,
+  PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
   PRICE_LABEL_OPTIONS,
   REQUIRES_TREATMENT_AREA,
@@ -120,8 +121,12 @@ export default function Step4PriceMenu({ existingItems, onComplete }) {
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
                   >
                     <option value="">Select...</option>
-                    {PROCEDURE_TYPES.map((type) => (
-                      <option key={type} value={type}>{type}</option>
+                    {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                      <optgroup key={category} label={category}>
+                        {procedures.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>

@@ -298,14 +298,14 @@ export default function TreatmentTimeline() {
           <h1 className="text-2xl font-bold text-text-primary mb-2">My Treatment History</h1>
           <p className="text-text-secondary mb-6">
             Your treatment history will appear here.
-            Log your first treatment to get started.
+            Share your first price to get started.
           </p>
           <Link
             to="/log"
             className="inline-flex items-center gap-1.5 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
             <Plus size={16} />
-            Log a Treatment
+            Share a price
           </Link>
         </div>
       </div>

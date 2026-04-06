@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { Tag, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { PROCEDURE_TYPES, US_STATES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, US_STATES } from '../lib/constants';
 import { AuthContext } from '../App';
 import { getWalletBalance } from '../lib/referral';
 import SpecialCard from '../components/SpecialCard';
@@ -105,10 +105,12 @@ export default function Specials() {
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-accent/50"
         >
           <option value="">All Procedures</option>
-          {PROCEDURE_TYPES.map((pt) => (
-            <option key={pt} value={pt}>
-              {pt}
-            </option>
+          {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+            <optgroup key={category} label={category}>
+              {procedures.map((pt) => (
+                <option key={pt} value={pt}>{pt}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
 

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { getZip, getCity, getState, getInterests } from './gating';
+import { getZip, getCity, getState, getInterests, setCity, setState, setZip } from './gating';
 
 /**
  * Map Supabase auth error messages to user-friendly text.
@@ -141,6 +141,14 @@ export function isEmailVerified(user) {
 }
 
 /**
+ * Send (or resend) the verification email for the current user.
+ * Wraps supabase.auth.resend() so callers don't duplicate the call.
+ */
+export async function sendVerificationEmail(email) {
+  return supabase.auth.resend({ type: 'signup', email });
+}
+
+/**
  * Sign out the current user.
  */
 export async function signOut() {
@@ -218,5 +226,29 @@ export async function syncLocalPrefsToProfile(userId) {
     );
   } catch {
     // profiles table may not exist yet — safe to ignore
+  }
+}
+
+/**
+ * On login, pull city/state/zip from the user's profile into localStorage
+ * if localStorage is empty. Handles: user logs in on a new device.
+ */
+export async function syncProfileToLocal(userId) {
+  // Only fill in missing localStorage values — don't overwrite existing
+  if (getCity() && getState()) return;
+
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('city, state, zip')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!data) return;
+    if (data.city && !getCity()) setCity(data.city);
+    if (data.state && !getState()) setState(data.state);
+    if (data.zip && !getZip()) setZip(data.zip);
+  } catch {
+    // Non-blocking
   }
 }

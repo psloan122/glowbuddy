@@ -1,0 +1,3 @@
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;

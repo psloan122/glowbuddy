@@ -154,7 +154,10 @@ export default function HowdIDoScreen({
       >
         <Check size={32} className="text-white" />
       </div>
-      <h2 className="text-xl font-bold text-text-primary mb-6">Treatment logged!</h2>
+      <h2 className="text-xl font-bold text-text-primary mb-2">✨ Your price is live!</h2>
+      <p className="text-sm text-text-secondary mb-6">
+        You just helped {comparison?.sample_size || ''} people in {comparison?.city || comparison?.state || 'your area'} who are researching {procedure.procedure_type} prices.
+      </p>
 
       {/* Pioneer celebration */}
       {pioneerResult && (() => {
@@ -272,17 +275,15 @@ export default function HowdIDoScreen({
           )}
         </div>
 
-        {/* Share your savings button */}
-        {absDiff > 0 && (
-          <button
-            onClick={() => setShowShareCard(true)}
-            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors"
-            style={{ backgroundColor: '#C94F78' }}
-          >
-            <Share2 size={14} />
-            Share your savings
-          </button>
-        )}
+        {/* Share button */}
+        <button
+          onClick={() => setShowShareCard(true)}
+          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors"
+          style={{ backgroundColor: '#C94F78' }}
+        >
+          <Share2 size={14} />
+          {absDiff > 0 ? 'Share your savings' : 'Share your price'}
+        </button>
 
         {/* Cheaper providers (only when user paid above avg) */}
         {paidAbove && cheaperProviders.length > 0 && (

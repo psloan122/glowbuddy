@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { GoogleMap, InfoWindowF } from '@react-google-maps/api';
 import MapInfoCard from './MapInfoCard';
 
 const MAP_STYLES = {
@@ -26,7 +26,9 @@ export default function ProviderMap({
 }) {
   const [mapsReady, setMapsReady] = useState(false);
   const [mapRef, setMapRef] = useState(null);
+  const markersRef = useRef([]);
 
+  // Wait for Google Maps to load
   useEffect(() => {
     if (window.google?.maps?.Map) {
       setMapsReady(true);
@@ -45,6 +47,24 @@ export default function ProviderMap({
     setMapRef(map);
   }, []);
 
+  // Pan/zoom the map when center or zoom props change
+  const prevCenter = useRef(center);
+  const prevZoom = useRef(zoom);
+  useEffect(() => {
+    if (!mapRef) return;
+    const centerChanged =
+      prevCenter.current.lat !== center.lat || prevCenter.current.lng !== center.lng;
+    const zoomChanged = prevZoom.current !== zoom;
+    if (centerChanged) {
+      mapRef.panTo(center);
+      prevCenter.current = center;
+    }
+    if (zoomChanged) {
+      mapRef.setZoom(zoom);
+      prevZoom.current = zoom;
+    }
+  }, [center, zoom, mapRef]);
+
   const handleIdle = useCallback(() => {
     if (!mapRef || !onBoundsChanged) return;
     const bounds = mapRef.getBounds();
@@ -59,52 +79,110 @@ export default function ProviderMap({
     });
   }, [mapRef, onBoundsChanged]);
 
+  // ── Create/update markers imperatively ──
+  // We keep a stable ref to onSelectProvider to avoid re-creating markers
+  // when the callback identity changes
+  const onSelectRef = useRef(onSelectProvider);
+  onSelectRef.current = onSelectProvider;
+
+  useEffect(() => {
+    if (!mapRef) return;
+
+    // Clear old markers
+    markersRef.current.forEach((m) => (m.map = null));
+    markersRef.current = [];
+
+    const useAdvanced = !!window.google?.maps?.marker?.AdvancedMarkerElement;
+
+    const validProviders = providers.filter((p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+    });
+
+    for (const p of validProviders) {
+      const position = { lat: Number(p.lat), lng: Number(p.lng) };
+      const hasData = p.has_submissions;
+
+      if (useAdvanced) {
+        // Custom HTML pill markers via AdvancedMarkerElement
+        const el = document.createElement('div');
+
+        if (hasData) {
+          el.className = 'map-pin map-pin--priced';
+          if (procedureFilter && p.avg_price > 0) {
+            el.textContent = `$${p.avg_price}`;
+          } else if (p.submission_count > 0) {
+            el.textContent =
+              p.submission_count === 1 ? '1 price' : `${p.submission_count} prices`;
+          }
+        } else {
+          el.className = 'map-pin map-pin--empty';
+          el.textContent = p.provider_name.split(' ').slice(0, 2).join(' ');
+        }
+
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+          map: mapRef,
+          position,
+          content: el,
+          title: p.provider_name,
+        });
+
+        marker.addListener('click', () => onSelectRef.current(p));
+        markersRef.current.push(marker);
+      } else {
+        // Fallback: standard google.maps.Marker
+        const icon = hasData
+          ? undefined // default red pin
+          : {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#9CA3AF',
+              fillOpacity: 0.9,
+              strokeColor: '#6B7280',
+              strokeWeight: 1.5,
+            };
+
+        let labelText;
+        if (!hasData) {
+          labelText = '?';
+        } else if (procedureFilter && p.avg_price > 0) {
+          labelText = `$${p.avg_price}`;
+        } else {
+          labelText =
+            p.submission_count === 1 ? '1 price' : `${p.submission_count} prices`;
+        }
+
+        const marker = new window.google.maps.Marker({
+          map: mapRef,
+          position,
+          title: p.provider_name,
+          icon,
+          label: {
+            text: labelText,
+            color: hasData ? '#1A1A2E' : '#FFFFFF',
+            fontSize: hasData ? '10px' : '10px',
+            fontWeight: hasData ? '500' : '700',
+          },
+        });
+
+        marker.addListener('click', () => onSelectRef.current(p));
+        markersRef.current.push(marker);
+      }
+    }
+
+    return () => {
+      markersRef.current.forEach((m) => (m.map = null));
+      markersRef.current = [];
+    };
+  }, [mapRef, providers, procedureFilter]);
+
   if (!mapsReady) {
     return (
       <div className="flex items-center justify-center h-full bg-warm-gray">
         <span className="text-sm text-text-secondary animate-pulse">Loading map...</span>
       </div>
     );
-  }
-
-  function getMarkerIcon(p) {
-    if (!p.has_submissions) {
-      // Gray pin for providers without price data
-      return {
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale: 8,
-        fillColor: '#9CA3AF',
-        fillOpacity: 0.9,
-        strokeColor: '#6B7280',
-        strokeWeight: 1.5,
-      };
-    }
-    return undefined; // default red marker
-  }
-
-  function getMarkerLabel(p) {
-    if (!p.has_submissions) {
-      return {
-        text: '?',
-        color: '#FFFFFF',
-        fontSize: '10px',
-        fontWeight: '700',
-      };
-    }
-    if (procedureFilter && p.avg_price > 0) {
-      return {
-        text: `$${p.avg_price}`,
-        color: '#1A1A2E',
-        fontSize: '11px',
-        fontWeight: '600',
-      };
-    }
-    return {
-      text: p.submission_count === 1 ? '1 price' : `${p.submission_count} prices`,
-      color: '#1A1A2E',
-      fontSize: '10px',
-      fontWeight: '500',
-    };
   }
 
   return (
@@ -116,20 +194,12 @@ export default function ProviderMap({
       onLoad={handleLoad}
       onIdle={handleIdle}
     >
-      {providers.map((p) => (
-        <MarkerF
-          key={p.key}
-          position={{ lat: p.lat, lng: p.lng }}
-          title={p.provider_name}
-          icon={getMarkerIcon(p)}
-          label={getMarkerLabel(p)}
-          onClick={() => onSelectProvider(p)}
-        />
-      ))}
-
       {selectedProvider && (
         <InfoWindowF
-          position={{ lat: selectedProvider.lat, lng: selectedProvider.lng }}
+          position={{
+            lat: Number(selectedProvider.lat),
+            lng: Number(selectedProvider.lng),
+          }}
           onCloseClick={() => onSelectProvider(null)}
           options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
         >

@@ -3,7 +3,7 @@ import { X, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
-import { PROCEDURE_TYPES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES } from '../lib/constants';
 import { assignTrustTier } from '../lib/trustTiers';
 import { runReviewSafetyChecks } from '../lib/reviewSafety';
 import { checkTextSimilarity, analyzeReviewAuthenticity } from '../lib/reviewDetection';
@@ -266,10 +266,12 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
               >
                 <option value="">Select...</option>
-                {PROCEDURE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
+                {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                  <optgroup key={category} label={category}>
+                    {procedures.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>

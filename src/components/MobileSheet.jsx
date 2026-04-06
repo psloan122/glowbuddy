@@ -28,7 +28,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
 
   return (
     <div
-      className="md:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.1)] z-30 transition-transform duration-300 ease-out"
+      className="md:hidden fixed bottom-14 left-0 right-0 bg-white rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.1)] z-30 transition-all duration-300 ease-out"
       style={{
         height: expanded ? '60vh' : COLLAPSED_HEIGHT,
         transform: 'translateZ(0)', // GPU layer
@@ -48,7 +48,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
         </span>
         <button
           onClick={() => onToggle(!expanded)}
-          className="text-xs font-medium text-rose-accent"
+          className="text-xs font-medium text-rose-accent min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           {expanded ? 'Collapse' : 'View all'}
         </button>
@@ -62,7 +62,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
           ))}
           {providers.length === 0 && (
             <p className="text-sm text-text-secondary text-center py-6">
-              No providers in this area yet.
+              No providers in this area yet. GlowBuddy is growing &mdash; your city might be next.
             </p>
           )}
         </div>

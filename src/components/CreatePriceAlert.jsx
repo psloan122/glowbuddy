@@ -3,7 +3,7 @@ import { X, Bell, TrendingDown, CheckCircle } from 'lucide-react';
 import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
 import { createAlert } from '../lib/priceAlerts';
-import { PROCEDURE_TYPES, US_STATES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, US_STATES } from '../lib/constants';
 import { supabase } from '../lib/supabase';
 import VerifyEmailModal from './VerifyEmailModal';
 
@@ -175,10 +175,12 @@ export default function CreatePriceAlert({
                     className={inputClass}
                   >
                     <option value="">Select a procedure</option>
-                    {PROCEDURE_TYPES.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
+                    {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                      <optgroup key={category} label={category}>
+                        {procedures.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>

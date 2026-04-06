@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
-  setCity as persistCity,
+  getCity as getGatingCity, setCity as persistCity,
   getState as getGatingState, setState as persistState,
   setZip as persistZip,
 } from '../lib/gating';
@@ -27,6 +27,7 @@ import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
 import { searchCitiesViaGoogle } from '../lib/places';
 import { assignTrustTier } from '../lib/trustTiers';
 import { setPageMeta } from '../lib/seo';
+import { AuthContext } from '../App';
 import OutcomeSelector from '../components/OutcomeSelector';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import RetouchReminders from '../components/RetouchReminders';
@@ -46,6 +47,7 @@ function computeTrustWeight(procedure) {
 }
 
 export default function Home() {
+  const { user } = useContext(AuthContext);
   // (stats are now live-queried inside PriceStatsBar)
 
   // Specials
@@ -67,8 +69,13 @@ export default function Home() {
   const [locOpen, setLocOpen] = useState(false);
   const [locResults, setLocResults] = useState([]);
   const [locLoading, setLocLoading] = useState(false);
-  const [selectedLoc, setSelectedLoc] = useState(null); // { city, state, zip? }
+  const [selectedLoc, setSelectedLoc] = useState(() => {
+    const city = getGatingCity();
+    const state = getGatingState();
+    return (city && state) ? { city, state } : null;
+  });
   const locRef = useRef(null);
+  const locInputRef = useRef(null);
   const locDebounce = useRef(null);
 
   // Sort & extra filters
@@ -97,7 +104,7 @@ export default function Home() {
   const [calcOpen, setCalcOpen] = useState(false);
 
   // Location personalization
-  const [userState] = useState(() => getGatingState());
+  const [fallbackLabel, setFallbackLabel] = useState('');
 
   // SEO
   useEffect(() => {
@@ -291,33 +298,15 @@ export default function Home() {
 
   // Fetch procedures (with filters)
   useEffect(() => {
-    async function fetchProcedures() {
-      setLoadingProcedures(true);
-
-      let query = supabase
-        .from('procedures')
-        .select('*')
-        .eq('status', 'active');
-
-      if (filterProcedureType) query = query.eq('procedure_type', filterProcedureType);
-      if (filterState) query = query.eq('state', filterState);
-      if (filterCity) query = query.ilike('city', `%${filterCity}%`);
-      if (filterZip) query = query.eq('zip_code', filterZip);
-      if (filterProviderType) query = query.eq('provider_type', filterProviderType);
-      if (priceMin) query = query.gte('price_paid', parseInt(priceMin, 10));
-      if (priceMax) query = query.lte('price_paid', parseInt(priceMax, 10));
-      if (minRating) query = query.gte('rating', parseInt(minRating, 10));
-
+    async function applySort(query) {
       if (sortBy === 'most_verified') {
         query = query.order('created_at', { ascending: false }).limit(40);
         const { data } = await query;
-        const sorted = (data || [])
+        return (data || [])
           .sort((a, b) => computeTrustWeight(b) - computeTrustWeight(a))
           .slice(0, 20);
-        setProcedures(sorted);
-        setLoadingProcedures(false);
-        return;
-      } else if (sortBy === 'lowest_price') {
+      }
+      if (sortBy === 'lowest_price') {
         query = query.order('price_paid', { ascending: true });
       } else if (sortBy === 'highest_price') {
         query = query.order('price_paid', { ascending: false });
@@ -326,10 +315,48 @@ export default function Home() {
       } else {
         query = query.order('created_at', { ascending: false });
       }
-
       query = query.limit(20);
       const { data } = await query;
-      setProcedures(data || []);
+      return data || [];
+    }
+
+    function buildQuery({ city, state, zip }) {
+      let query = supabase
+        .from('procedures')
+        .select('*')
+        .eq('status', 'active');
+
+      if (filterProcedureType) query = query.eq('procedure_type', filterProcedureType);
+      if (state) query = query.eq('state', state);
+      if (city) query = query.ilike('city', `%${city}%`);
+      if (zip) query = query.eq('zip_code', zip);
+      if (filterProviderType) query = query.eq('provider_type', filterProviderType);
+      if (priceMin) query = query.gte('price_paid', parseInt(priceMin, 10));
+      if (priceMax) query = query.lte('price_paid', parseInt(priceMax, 10));
+      if (minRating) query = query.gte('rating', parseInt(minRating, 10));
+      return query;
+    }
+
+    async function fetchProcedures() {
+      setLoadingProcedures(true);
+      setFallbackLabel('');
+
+      const query = buildQuery({ city: filterCity, state: filterState, zip: filterZip });
+      const results = await applySort(query);
+
+      // State-level fallback: if city filter produced 0 results, retry with state only
+      if (results.length === 0 && filterCity && filterState) {
+        const fallbackQuery = buildQuery({ city: '', state: filterState, zip: '' });
+        const fallbackResults = await applySort(fallbackQuery);
+        if (fallbackResults.length > 0) {
+          setFallbackLabel(filterState);
+          setProcedures(fallbackResults);
+          setLoadingProcedures(false);
+          return;
+        }
+      }
+
+      setProcedures(results);
       setLoadingProcedures(false);
     }
 
@@ -346,15 +373,16 @@ export default function Home() {
     minRating,
   ]);
 
-  // Filter specials by user state client-side
-  const filteredSpecials = userState
-    ? specials.filter((s) => s.providers?.state === userState)
+  // Filter specials by selected location (reactive) or localStorage fallback
+  const specialsState = selectedLoc?.state || getGatingState();
+  const filteredSpecials = specialsState
+    ? specials.filter((s) => s.providers?.state === specialsState)
     : [];
   const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
 
-  // Filter promoted specials by user state
-  const filteredPromoted = userState
-    ? promotedSpecials.filter((s) => s.providers?.state === userState)
+  // Filter promoted specials by location
+  const filteredPromoted = specialsState
+    ? promotedSpecials.filter((s) => s.providers?.state === specialsState)
     : [];
   const displayPromoted = filteredPromoted.length > 0 ? filteredPromoted : promotedSpecials;
 
@@ -374,7 +402,7 @@ export default function Home() {
             <h1 className="font-display italic text-[36px] md:text-[52px] leading-[1.1] font-normal tracking-[-0.5px] text-text-primary mb-1">
               Know before you glow.
             </h1>
-            <PriceStatsBar />
+            <PriceStatsBar city={selectedLoc?.city} state={selectedLoc?.state} />
             <p className="text-base text-text-secondary max-w-[460px] leading-relaxed mt-5 mb-6">
               Real prices for Botox, fillers, and med spa treatments — reported by
               patients like you.
@@ -570,12 +598,34 @@ export default function Home() {
         <RetouchReminders />
       </div>
 
+      {/* Set your city banner */}
+      {user && !selectedLoc && (
+        <section className="max-w-7xl mx-auto px-4 mt-8">
+          <div className="flex items-center justify-between gap-4 px-5 py-4 rounded-xl bg-rose-light border border-rose-accent/20">
+            <p className="text-sm text-rose-dark font-medium">
+              Set your city to see local prices
+            </p>
+            <button
+              onClick={() => {
+                locInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => locInputRef.current?.focus(), 400);
+              }}
+              className="shrink-0 px-4 py-2 rounded-full text-sm font-semibold text-white bg-rose-accent hover:bg-rose-dark transition"
+            >
+              Set location
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Browse Feed */}
       <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
         <div className="flex items-center gap-6 mb-6">
           <h2 className="font-display text-[26px] font-semibold text-text-primary">
             {browseMode === 'treatment'
-              ? (sortBy === 'most_verified' ? 'Most Verified Prices' : 'Recent Prices')
+              ? (sortBy === 'most_verified'
+                  ? `Most Verified Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`
+                  : `Recent Prices${selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}`)
               : 'Browse by Goal'}
           </h2>
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -700,6 +750,7 @@ export default function Home() {
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
                 />
                 <input
+                  ref={locInputRef}
                   type="text"
                   placeholder="City, town, or zip code"
                   value={locQuery}
@@ -882,6 +933,13 @@ export default function Home() {
         {/* Dosage Calculator */}
         {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
           <DosageCalculator treatmentName={selectedProc} />
+        )}
+
+        {/* Fallback note */}
+        {fallbackLabel && (
+          <p className="text-sm text-text-secondary mb-4">
+            No prices in {filterCity} yet — showing {fallbackLabel} prices
+          </p>
         )}
 
         {/* Procedures grid */}

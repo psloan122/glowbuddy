@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, Eye, EyeOff, CheckCircle, ArrowLeft } from 'lucide-react';
 import { signUpWithPassword, signInWithPassword, signInWithGoogle, resetPassword, getAuthErrorMessage } from '../lib/auth';
 
@@ -44,7 +44,10 @@ export default function AuthModal({ mode: initialMode, onClose }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+  const [loadingText, setLoadingText] = useState('Setting up your experience...');
+  const [showEscape, setShowEscape] = useState(false);
 
   // Inline validation
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -110,7 +113,8 @@ export default function AuthModal({ mode: initialMode, onClose }) {
         setError(getAuthErrorMessage(authError));
       } else if (data?.user) {
         setSuccess(true);
-        // onAuthStateChange in App.jsx handles the rest
+        setHasSession(!!data.session);
+        // onAuthStateChange in App.jsx handles the rest when session exists
       }
     } else {
       const { error: authError } = await signInWithPassword(email, password);
@@ -133,8 +137,66 @@ export default function AuthModal({ mode: initialMode, onClose }) {
 
   const strength = mode === 'signup' ? getPasswordStrength(password) : null;
 
+  // Safety timeout: if session exists but onAuthStateChange hasn't redirected
+  // after 3s, update the text; after 5s show escape hatch
+  useEffect(() => {
+    if (!success) return;
+
+    if (hasSession) {
+      const textTimer = setTimeout(() => {
+        setLoadingText('Almost there — taking a little longer...');
+      }, 3000);
+
+      const escapeTimer = setTimeout(() => {
+        setShowEscape(true);
+      }, 5000);
+
+      // Hard fallback: if modal is STILL showing after 8s, force close
+      const hardTimer = setTimeout(() => {
+        onClose();
+      }, 8000);
+
+      return () => {
+        clearTimeout(textTimer);
+        clearTimeout(escapeTimer);
+        clearTimeout(hardTimer);
+      };
+    }
+  }, [success, hasSession, onClose]);
+
   // Success state after signup
   if (success) {
+    // No session = email confirmation required
+    if (!hasSession) {
+      return (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl text-center">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E1F5EE' }}>
+              <CheckCircle size={32} style={{ color: '#0F6E56' }} />
+            </div>
+            <h2 className="text-xl font-bold text-text-primary mb-2">
+              Check your email!
+            </h2>
+            <p className="text-sm text-text-secondary mb-1">
+              We sent a verification link to
+            </p>
+            <p className="text-sm font-medium text-text-primary mb-4">{email}</p>
+            <p className="text-xs text-text-secondary mb-6">
+              Click the link to finish setting up your account. Check spam if you don't see it.
+            </p>
+            <button
+              onClick={onClose}
+              className="text-sm font-medium transition"
+              style={{ color: '#C94F78' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Session exists — auto-confirm is on, onAuthStateChange should redirect soon
     return (
       <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
         <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl text-center">
@@ -144,9 +206,18 @@ export default function AuthModal({ mode: initialMode, onClose }) {
           <h2 className="text-xl font-bold text-text-primary mb-2">
             Account created!
           </h2>
-          <p className="text-sm text-text-secondary">
-            Setting up your experience...
+          <p className="text-sm text-text-secondary animate-pulse">
+            {loadingText}
           </p>
+          {showEscape && (
+            <button
+              onClick={onClose}
+              className="mt-4 text-sm font-medium transition"
+              style={{ color: '#C94F78' }}
+            >
+              Continue to GlowBuddy →
+            </button>
+          )}
         </div>
       </div>
     );
@@ -229,7 +300,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
               </h2>
               {mode === 'signup' && (
                 <p className="text-sm text-text-secondary mt-1">
-                  Log prices, earn badges, and enter our monthly $250 giveaway.
+                  Share prices, earn badges, and enter our monthly $250 giveaway.
                 </p>
               )}
             </>

@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify-seed": "node --env-file=.env scripts/verify-seed-data.js",
-    "import-quotes": "node --env-file=.env scripts/import-quotes.js"
+    "import-quotes": "node --env-file=.env scripts/import-quotes.js",
+    "seed:providers": "node --env-file=.env scripts/seed-all-providers.js",
+    "seed:refresh": "REFRESH=true node --env-file=.env scripts/seed-all-providers.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",

@@ -71,7 +71,10 @@ function emailWrapper(content: string, previewText: string): string {
                 &nbsp;&middot;&nbsp;
                 <a href="${BASE_URL}/settings" style="color:${TEXT_SECONDARY};text-decoration:underline;">Manage email preferences</a>
               </p>
-              <p style="margin:8px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};">
+              <p style="margin:8px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};font-style:italic;">
+                Know before you glow.
+              </p>
+              <p style="margin:6px 0 0;font-size:11px;color:${TEXT_SECONDARY};font-family:${FONT};">
                 GlowBuddy &middot; New Orleans, LA
               </p>
             </td>
@@ -135,8 +138,8 @@ function buildWelcomeUser(): { html: string; text: string } {
             <tr>
               <td style="width:40px;vertical-align:top;font-size:20px;">&#128203;</td>
               <td style="font-family:${FONT};">
-                <p style="margin:0;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};">Log your treatments</p>
-                <p style="margin:4px 0 0;font-size:14px;color:${TEXT_SECONDARY};">Share anonymously and help others make informed decisions.</p>
+                <p style="margin:0;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};">Share your prices</p>
+                <p style="margin:4px 0 0;font-size:14px;color:${TEXT_SECONDARY};">Share what you paid and help others know what to expect.</p>
               </td>
             </tr>
           </table>

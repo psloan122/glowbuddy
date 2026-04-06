@@ -396,7 +396,7 @@ export default function CompetitorAds({
                     style={{ backgroundColor: '#EFF6FF', color: '#1E40AF' }}
                   >
                     <Users size={10} />
-                    Community reported
+                    Patient reported
                   </span>
                 )}
               </div>

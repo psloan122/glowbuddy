@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { PROCEDURE_TYPES, TREATMENT_AREAS } from '../../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, TREATMENT_AREAS } from '../../lib/constants';
 import BeforeAfterUpload from '../BeforeAfterUpload';
 import BeforeAfterCard from '../BeforeAfterCard';
 
@@ -112,8 +112,12 @@ export default function DashboardBeforeAfterTab({
                   className={INPUT_CLASS + ' text-sm'}
                 >
                   <option value="">Select...</option>
-                  {PROCEDURE_TYPES.map((type) => (
-                    <option key={type} value={type}>{type}</option>
+                  {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                    <optgroup key={category} label={category}>
+                      {procedures.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

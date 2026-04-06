@@ -180,7 +180,7 @@ export default function Community() {
               Monthly $250 Treatment Giveaway
             </h2>
             <p className="text-text-secondary">
-              Log a treatment price to automatically enter our monthly $250 giveaway.
+              Share what you paid to automatically enter our monthly $250 giveaway.
               One winner announced the first of each month.
             </p>
           </div>
@@ -188,7 +188,7 @@ export default function Community() {
             to="/log"
             className="inline-block bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition whitespace-nowrap"
           >
-            Log a Treatment to Enter
+            Share a Price to Enter
           </Link>
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function Community() {
               Pioneer Giveaway &mdash; $200/month
             </h2>
             <p style={{ color: '#92400E' }}>
-              Be the first to verify a price at a new location. Every pioneer earns bonus giveaway entries.
+              Be the first to share a price at a new location &mdash; every pioneer earns bonus entries.
             </p>
           </div>
           <Link
@@ -318,7 +318,7 @@ export default function Community() {
           </div>
         ) : (
           <p className="text-text-secondary text-center py-8">
-            Be the first to contribute!
+            No contributions yet. Be the first to share what you paid!
           </p>
         )}
       </div>

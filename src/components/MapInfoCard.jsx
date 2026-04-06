@@ -37,11 +37,13 @@ const styles = {
     color: '#6B7280',
   },
   link: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
     fontSize: 13,
     fontWeight: 500,
     color: '#F4A7B9',
     textDecoration: 'none',
+    minHeight: 44,
   },
 };
 
@@ -53,6 +55,7 @@ export default function MapInfoCard({ provider }) {
     state,
     avg_price,
     submission_count,
+    verified_count,
     has_submissions,
     provider_type,
     google_rating,
@@ -78,6 +81,9 @@ export default function MapInfoCard({ provider }) {
             )}
             <span style={styles.count}>
               {submission_count} {submission_count === 1 ? 'price' : 'prices'}
+              {verified_count > 0 && (
+                <span style={{ color: '#0F6E56', fontWeight: 500 }}> · {verified_count} verified</span>
+              )}
             </span>
           </div>
           {provider_type && (
@@ -91,7 +97,7 @@ export default function MapInfoCard({ provider }) {
             </Link>
           ) : (
             <Link to="/log" style={styles.link}>
-              Log a Treatment →
+              Share what you paid →
             </Link>
           )}
         </>
@@ -107,10 +113,10 @@ export default function MapInfoCard({ provider }) {
             </div>
           )}
           <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 8, lineHeight: 1.4 }}>
-            No prices logged yet.{city ? ` Be the first in ${city} to share what you paid.` : ' Be the first to share what you paid.'}
+            No prices shared yet.{city ? ` Be the first in ${city} to share yours.` : ' Be the first to share yours.'}
           </div>
-          <Link to="/log" style={{ ...styles.link, color: '#C94F78', fontWeight: 600 }}>
-            Log a Price →
+          <Link to="/log" style={{ ...styles.link, color: '#C94F78', fontWeight: 600, minHeight: 44 }}>
+            Share your price →
           </Link>
         </>
       )}

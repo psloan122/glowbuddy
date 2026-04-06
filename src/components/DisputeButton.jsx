@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useContext } from 'react';
 import { Flag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
+import { isEmailVerified } from '../lib/auth';
+import VerifyEmailModal from './VerifyEmailModal';
 
 const REASONS = [
   { value: 'price_wrong', label: 'Price seems too low/high' },
@@ -19,6 +21,7 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
   const ref = useRef(null);
 
   // Don't render if user is the submitter
@@ -55,6 +58,10 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
 
     if (!user) {
       openAuthModal('signin');
+      return;
+    }
+    if (!isEmailVerified(user)) {
+      setShowVerifyModal(true);
       return;
     }
     if (hasDisputed) return;
@@ -127,7 +134,7 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
     <div ref={ref} className="relative inline-block">
       <button
         onClick={handleFlagClick}
-        className={`inline-flex items-center gap-1 text-xs transition-opacity ${
+        className={`inline-flex items-center justify-center gap-1 text-xs min-w-[44px] min-h-[44px] transition-opacity ${
           hasDisputed
             ? 'text-rose-accent opacity-100 cursor-default'
             : 'text-gray-400 opacity-40 hover:opacity-100'
@@ -182,13 +189,20 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
               <button
                 onClick={handleSubmit}
                 disabled={!reason || submitting}
-                className="w-full bg-rose-accent text-white text-xs font-semibold py-2 rounded-lg hover:bg-rose-dark transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full bg-rose-accent text-white text-xs font-semibold py-3 rounded-lg hover:bg-rose-dark transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Flag'}
               </button>
             </>
           )}
         </div>
+      )}
+
+      {showVerifyModal && (
+        <VerifyEmailModal
+          action="flag a price"
+          onClose={() => setShowVerifyModal(false)}
+        />
       )}
     </div>
   );

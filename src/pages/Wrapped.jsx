@@ -164,14 +164,14 @@ export default function Wrapped() {
           <Sparkles className="w-12 h-12 text-rose-accent mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-text-primary mb-2">{year} Wrapped</h1>
           <p className="text-text-secondary mb-6">
-            You don't have any treatments logged for {year}. Start tracking to unlock your Wrapped!
+            You haven&apos;t shared any prices in {year} yet. Share your first to unlock your Wrapped!
           </p>
           <Link
             to="/log"
             className="inline-flex items-center gap-1.5 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
             <Plus size={16} />
-            Log a Treatment
+            Share a price
           </Link>
         </div>
       </div>

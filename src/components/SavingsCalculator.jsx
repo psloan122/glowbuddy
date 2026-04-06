@@ -4,7 +4,7 @@ import { Calculator, ChevronDown, MapPin, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { fetchBenchmark } from '../lib/priceBenchmark';
-import { PROCEDURE_TYPES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES } from '../lib/constants';
 import { searchCitiesViaGoogle } from '../lib/places';
 import SavingsShareCard from './SavingsShareCard';
 
@@ -385,8 +385,12 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
                 className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm bg-white"
               >
                 <option value="">Select procedure</option>
-                {PROCEDURE_TYPES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                  <optgroup key={category} label={category}>
+                    {procedures.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />

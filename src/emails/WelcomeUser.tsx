@@ -37,7 +37,7 @@ export default function WelcomeUser() {
               <tbody>
                 {[
                   { icon: '\u{1F4B0}', title: 'Browse real prices', desc: 'See what others actually pay for Botox, fillers, and more.' },
-                  { icon: '\u{1F4CB}', title: 'Log your treatments', desc: 'Share anonymously and help others make informed decisions.' },
+                  { icon: '\u{1F4CB}', title: 'Share your prices', desc: 'Share what you paid and help others know what to expect.' },
                   { icon: '\u{1F381}', title: 'Win monthly giveaways', desc: 'Every submission earns you entries into our monthly drawing.' },
                 ].map((item) => (
                   <tr key={item.title}>

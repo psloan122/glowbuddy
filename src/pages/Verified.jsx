@@ -2,12 +2,15 @@ import { useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { AuthContext } from '../App';
+import { supabase } from '../lib/supabase';
 
 export default function Verified() {
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
     document.title = 'Email Verified | GlowBuddy';
+    // Refresh the session so email_confirmed_at is current
+    supabase.auth.getSession();
   }, []);
 
   return (
@@ -36,7 +39,7 @@ export default function Verified() {
           className="inline-block w-full py-3 text-white font-semibold rounded-xl hover:opacity-90 transition text-center"
           style={{ backgroundColor: '#C94F78' }}
         >
-          Log your first treatment &rarr;
+          Share your first price &rarr;
         </Link>
 
         <Link

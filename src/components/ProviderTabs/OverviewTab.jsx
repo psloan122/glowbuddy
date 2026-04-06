@@ -204,7 +204,7 @@ export default function OverviewTab({
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-text-primary">
-              Recent Patient Prices
+              Reported by patients
             </h2>
             <button
               onClick={() => onSwitchTab?.('Prices')}

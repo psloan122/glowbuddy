@@ -10,12 +10,12 @@ import {
   Lock,
   Clock,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Heart,
   Sparkles,
+  ShieldCheck,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -38,6 +38,7 @@ import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
 import RedemptionModal from '../components/RedemptionModal';
+import { SkeletonGrid } from '../components/SkeletonCard';
 
 const PROFILE_TABS = ['Overview', 'Before & Afters', 'Reviews', 'Prices'];
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -61,9 +62,9 @@ export default function ProviderProfile() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [googleData, setGoogleData] = useState(null);
-  const [photoIndex, setPhotoIndex] = useState(0);
   const [competitorCount, setCompetitorCount] = useState(0);
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [pageViews, setPageViews] = useState(0);
   const carouselRef = useRef(null);
 
   const isClaimed = provider?.is_claimed === true;
@@ -211,6 +212,19 @@ export default function ProviderProfile() {
       })
       .then(() => {});
   }, [loading, provider?.id, slug]);
+
+  // Fetch page views this week (for unclaimed banner)
+  useEffect(() => {
+    if (loading || isClaimed) return;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    supabase
+      .from('custom_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_name', 'provider_page_view')
+      .contains('properties', { provider_slug: slug })
+      .gte('created_at', oneWeekAgo)
+      .then(({ count }) => setPageViews(count || 0));
+  }, [loading, isClaimed, slug]);
 
   // 5. Auto-fetch Google Places for unclaimed providers
   useEffect(() => {
@@ -381,7 +395,12 @@ export default function ProviderProfile() {
       ? `${name} Prices & Reviews in ${location} | GlowBuddy`
       : `${name} Prices & Reviews | GlowBuddy`;
 
-    const content = `See real prices, reviews${ratingStr}, and verified menu for ${name}${location ? ` in ${location}` : ''}. Compare what patients paid on GlowBuddy.`;
+    const submissionCount = communityData.length;
+    const verifiedCount = communityData.filter(p => p.receipt_verified).length;
+    const countStr = submissionCount > 0
+      ? `${submissionCount} submission${submissionCount !== 1 ? 's' : ''}${verifiedCount > 0 ? `, ${verifiedCount} verified receipt${verifiedCount !== 1 ? 's' : ''}` : ''}.`
+      : '';
+    const content = `See what patients paid at ${name}${location ? ` in ${location}` : ''}. ${countStr} Real prices, not starting-at guesses.`;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute('content', content);
@@ -444,9 +463,7 @@ export default function ProviderProfile() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="animate-pulse text-rose-accent text-center text-lg">
-          Loading provider...
-        </div>
+        <SkeletonGrid count={3} />
       </div>
     );
   }
@@ -478,6 +495,18 @@ export default function ProviderProfile() {
   const providerLat = googleData?.lat || provider?.lat || null;
   const providerLng = googleData?.lng || provider?.lng || null;
 
+  // Computed stats for unclaimed banner
+  const avgPrice = communityData.length > 0
+    ? Math.round(communityData.reduce((sum, p) => sum + Number(p.price_paid), 0) / communityData.length)
+    : null;
+
+  // Combine all photos: provider uploads + Google
+  const allPhotos = [
+    ...(providerPhotos || []).map((p) => ({ url: p.url, source: 'provider' })),
+    ...(photos || []).map((p) => ({ url: p.displayUrl, source: 'google', attribution: p.attribution })),
+  ].slice(0, 5);
+  const hasGooglePhotos = allPhotos.some((p) => p.source === 'google');
+
   // Claim URL with pre-filled params
   const claimUrl =
     `/business/onboarding?name=${encodeURIComponent(providerName || '')}` +
@@ -487,124 +516,67 @@ export default function ProviderProfile() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Unclaimed Banner */}
-      {!isClaimed && (
-        <div
-          className="mb-6 rounded-xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
-          style={{ background: '#FBE8EF', border: '0.5px solid #F4C0D1' }}
-        >
-          <div>
-            <p className="font-semibold" style={{ color: '#9B2C5E', fontSize: 14 }}>
-              Is this your business?
-            </p>
-            <p className="text-sm" style={{ color: '#C94F78' }}>
-              Claim this listing to manage your profile, respond to reviews, and publish your prices.
-            </p>
-            {competitorCount > 0 && (
-              <p
-                className="text-xs font-medium mt-2 pt-2"
-                style={{ color: '#92400E', borderTop: '0.5px solid #F4C0D1' }}
-              >
-                &#9888;&#65039; {competitorCount} verified competitor{' '}
-                {competitorCount === 1 ? 'practice is' : 'practices are'} appearing on
-                your page.
-              </p>
-            )}
-          </div>
-          <div className="shrink-0 text-right">
-            <Link
-              to={claimUrl}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap text-white px-4 py-2 rounded-xl text-sm font-semibold transition"
-              style={{ background: '#C94F78' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
-            >
-              Claim This Listing &rarr;
-            </Link>
-            <p className="mt-1.5" style={{ fontSize: 11, color: '#9B2C5E' }}>
-              {competitorCount > 0
-                ? 'Claim free to remove competitor ads'
-                : 'Free forever \u00b7 Takes 2 minutes'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Google Photos Carousel */}
-      {photos.length > 0 && (
-        <div className="mb-6">
-          <div
-            ref={carouselRef}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowLeft') setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
-              if (e.key === 'ArrowRight') setPhotoIndex((i) => (i + 1) % photos.length);
-            }}
-            className="relative rounded-xl overflow-hidden h-48 sm:h-64 bg-gray-100 outline-none"
-          >
-            <img
-              src={photos[photoIndex].displayUrl}
-              alt={`${providerName} photo ${photoIndex + 1}`}
-              className="w-full h-full object-cover"
-            />
-            {photos.length > 1 && (
-              <>
-                <button
-                  onClick={() => setPhotoIndex((i) => (i - 1 + photos.length) % photos.length)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  onClick={() => setPhotoIndex((i) => (i + 1) % photos.length)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 hover:bg-black/60 transition"
-                >
-                  <ChevronRight size={18} />
-                </button>
-                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-                  {photoIndex + 1} / {photos.length}
-                </div>
-              </>
-            )}
-            {photos[photoIndex].attribution && (
-              <div className="absolute bottom-2 left-2 text-[10px] text-white/70">
-                {photos[photoIndex].attribution.replace(/<[^>]*>/g, '')}
-              </div>
-            )}
-          </div>
-          <p className="text-[10px] text-gray-400 text-right pr-2 mt-1">
-            Powered by Google
-          </p>
-        </div>
-      )}
-
-      {/* Provider Header */}
+      {/* 1. Provider Header — identity always first */}
       <div className="glow-card p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            {photos.length === 0 && <ProviderAvatar name={providerName} size={64} />}
+            <ProviderAvatar name={providerName} size={80} />
             <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-2">
-                {providerName}
-              </h1>
-
-              {(providerCity || providerState) && (
-                <p className="flex items-center gap-1 text-text-secondary mb-3">
-                  <MapPin size={14} />
-                  {[providerCity, providerState].filter(Boolean).join(', ')}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2 mb-3">
+              {/* Name + inline badges */}
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">
+                  {providerName}
+                </h1>
                 {provider?.provider_type && (
                   <span className="inline-block bg-rose-light text-rose-dark px-3 py-1 text-xs font-medium rounded-full">
                     {provider.provider_type}
                   </span>
                 )}
-                {provider?.is_verified && (
+                {isClaimed && provider?.is_verified && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-2.5 py-1 rounded-full">
+                    <CheckCircle size={13} />
+                    Verified Practice
+                  </span>
+                )}
+              </div>
+
+              {/* Location + Google rating inline */}
+              <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-2">
+                {(providerCity || providerState) && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    {[providerCity, providerState].filter(Boolean).join(', ')}
+                  </span>
+                )}
+                {googleRating && (
+                  <span className="flex items-center gap-1">
+                    <Star size={14} style={{ color: '#F59E0B', fill: '#F59E0B' }} />
+                    <span className="font-medium text-text-primary">
+                      {Number(googleRating).toFixed(1)}
+                    </span>
+                    {googleReviewCount && (
+                      <span>({googleReviewCount.toLocaleString()})</span>
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {/* Social proof line — claimed only */}
+              {isClaimed && (
+                <p className="text-sm text-text-secondary mb-2">
+                  {[
+                    verifiedPricing.length > 0 && `${verifiedPricing.length} verified price${verifiedPricing.length !== 1 ? 's' : ''}`,
+                    reviews.length > 0 && `${reviews.length} patient review${reviews.length !== 1 ? 's' : ''}`,
+                    baPhotos.length > 0 && `${baPhotos.length} before/after${baPhotos.length !== 1 ? 's' : ''}`,
+                  ].filter(Boolean).join(' \u00b7 ') || 'Claimed and verified on GlowBuddy'}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {!isClaimed && provider?.is_verified && (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-3 py-1 rounded-full">
                     <CheckCircle size={14} />
-                    Verified Provider
+                    Verified Practice
                   </span>
                 )}
                 {provider?.first_timer_friendly && (
@@ -666,32 +638,18 @@ export default function ProviderProfile() {
                 </div>
               )}
 
-              {/* Google Rating */}
-              {googleRating && (
-                <div className="flex items-center gap-1.5 text-sm text-text-secondary mb-2">
-                  <Star size={14} style={{ color: '#F59E0B', fill: '#F59E0B' }} />
-                  <span className="font-medium text-text-primary">
-                    {Number(googleRating).toFixed(1)}
-                  </span>
-                  {googleReviewCount && (
-                    <span>
-                      &middot; {googleReviewCount.toLocaleString()} Google reviews
-                    </span>
-                  )}
-                  {googleMapsUrl && (
-                    <>
-                      <span>&middot;</span>
-                      <a
-                        href={googleMapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-rose-accent hover:text-rose-dark transition inline-flex items-center gap-0.5"
-                      >
-                        View on Google Maps
-                        <ExternalLink size={12} />
-                      </a>
-                    </>
-                  )}
+              {/* Google Maps link */}
+              {googleMapsUrl && (
+                <div className="mb-2">
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-rose-accent hover:text-rose-dark transition inline-flex items-center gap-0.5"
+                  >
+                    View on Google Maps
+                    <ExternalLink size={12} />
+                  </a>
                 </div>
               )}
 
@@ -870,45 +828,35 @@ export default function ProviderProfile() {
         </div>
       </div>
 
-      {/* First-Timer Special */}
-      {provider?.first_timer_special && (
-        <div className="glow-card p-5 mb-6 border border-sky-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={16} className="text-[#0369A1]" />
-            <h3 className="text-sm font-semibold text-[#0369A1]">First-Timer Special</h3>
-          </div>
-          <p className="text-sm text-text-primary">{provider.first_timer_special}</p>
-        </div>
-      )}
-
-      {/* Empty State — no submissions yet */}
-      {communityData.length === 0 && !isClaimed && (
-        <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
-          <p className="text-lg font-semibold text-text-primary mb-1">
-            No prices logged here yet
-          </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Be the first{providerCity ? ` in ${providerCity}` : ''} to share what you paid at {providerName}.
-          </p>
-          <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
-            Be the Pioneer &mdash; first to verify a price here earns a permanent badge.
-          </p>
-          <Link
-            to="/log"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            <Plus size={18} />
-            Log What You Paid
-          </Link>
-        </div>
-      )}
-
-      {/* What Patients Paid — always show when community data exists */}
+      {/* 2. Community Prices + Verification Breakdown — trust level 1 (unclaimed) */}
       {communityData.length > 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6">
-          <h2 className="text-lg font-bold text-text-primary mb-4">
-            What Patients Paid
+          <h2 className="text-lg font-bold text-text-primary mb-1">
+            What patients report paying at {providerName}
           </h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Real prices shared by patients &middot; Not advertised rates
+          </p>
+          {(() => {
+            const receiptCount = communityData.filter(p => p.receipt_verified).length;
+            const photoCount = communityData.filter(p => p.result_photo_url).length;
+            return (receiptCount > 0 || photoCount > 0) && (
+              <div className="flex items-center gap-4 text-sm text-text-secondary mb-4">
+                {receiptCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck size={14} className="text-verified" />
+                    {receiptCount} receipt-verified
+                  </span>
+                )}
+                {photoCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Camera size={14} />
+                    {photoCount} with photos
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           <PioneerCredit providerSlug={slug} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {Object.entries(
@@ -953,28 +901,174 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* Locked Provider Prices — unclaimed only */}
+      {/* 3. Empty State — no submissions yet (unclaimed) */}
+      {communityData.length === 0 && !isClaimed && (
+        <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
+          <p className="text-lg font-semibold text-text-primary mb-1">
+            0 prices shared at {providerName} yet.
+          </p>
+          <p className="text-sm text-text-secondary mb-4">
+            Had a treatment here? You&apos;d be the first to share what you paid.
+          </p>
+          <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
+            First to share = Pioneer badge + bonus entries 🏅
+          </p>
+          <Link
+            to="/log"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+          >
+            <Plus size={18} />
+            + Share what I paid here
+          </Link>
+        </div>
+      )}
+
+      {/* 4. Photo Carousel — visual proof (demoted for unclaimed) */}
+      {allPhotos.length > 0 ? (
+        <div className="mb-6">
+          <div
+            ref={carouselRef}
+            className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory rounded-xl"
+          >
+            {allPhotos.map((photo, i) => (
+              <div
+                key={i}
+                className="snap-start shrink-0 w-[85%] sm:w-auto sm:flex-1 h-48 sm:h-64 rounded-xl overflow-hidden bg-gray-100"
+              >
+                <img
+                  src={photo.url}
+                  alt={`${providerName} photo ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+          {hasGooglePhotos && (
+            <p className="text-[10px] text-gray-400 text-right pr-2 mt-1">
+              Photos via Google
+            </p>
+          )}
+        </div>
+      ) : (
+        <div
+          className="mb-6 rounded-xl h-48 sm:h-64 flex items-center justify-center"
+          style={{ background: 'linear-gradient(135deg, #FBF0EC, #FFF0F3)' }}
+        >
+          <span className="text-5xl font-bold text-rose-accent/30">
+            {(providerName || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      {/* 5. Unclaimed Banner — claim CTA (demoted) */}
+      {!isClaimed && (
+        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+          {/* Part 1: What's happening — live stats */}
+          {(pageViews > 0 || communityData.length > 0) && (
+            <div className="p-5" style={{ background: '#F9FAFB' }}>
+              <div className="flex flex-wrap gap-8">
+                {pageViews > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{pageViews.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">viewed this page this week</p>
+                  </div>
+                )}
+                {communityData.length > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
+                    <p className="text-xs text-text-secondary">patients shared prices here</p>
+                  </div>
+                )}
+                {avgPrice && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">average reported</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Part 2: What they're missing */}
+          <div className="p-5">
+            <p className="font-semibold text-text-primary text-[15px] mb-3">Claim your free listing to:</p>
+            <ul className="space-y-2 text-sm text-text-secondary mb-5">
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Add your official price menu
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Respond to patient submissions
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Remove competitor ads from this page
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Post specials and promotions
+              </li>
+            </ul>
+
+            <Link
+              to={claimUrl}
+              className="block w-full sm:w-auto sm:inline-flex items-center justify-center gap-1.5 text-center text-white px-6 py-3 rounded-xl text-sm font-semibold transition"
+              style={{ background: '#C94F78' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
+            >
+              Claim This Listing &mdash; It&rsquo;s Free
+            </Link>
+            <p className="text-xs text-text-secondary mt-2 sm:text-left text-center">
+              Takes 2 minutes. Free forever.
+            </p>
+
+            {competitorCount > 0 && (
+              <div className="mt-4 p-3 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <p className="text-sm font-medium" style={{ color: '#92400E' }}>
+                  &#9888;&#65039; {competitorCount} competitor{competitorCount !== 1 ? 's' : ''} currently advertising on your unclaimed page.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 6. First-Timer Special */}
+      {provider?.first_timer_special && (
+        <div className="glow-card p-5 mb-6 border border-sky-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-[#0369A1]" />
+            <h3 className="text-sm font-semibold text-[#0369A1]">First-Timer Special</h3>
+          </div>
+          <p className="text-sm text-text-primary">{provider.first_timer_special}</p>
+        </div>
+      )}
+
+      {/* 7. Locked Provider Prices — unclaimed only */}
       {!isClaimed && (
         <div className="glow-card p-6 mb-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
             <Lock size={28} className="text-gray-400 mb-2" />
             <p className="text-sm font-semibold text-text-primary mb-1">
-              Provider&rsquo;s Listed Prices
+              Official prices from {providerName}
             </p>
             <p className="text-xs text-text-secondary mb-3 text-center max-w-xs">
-              Claim this listing to publish your official price menu and attract new patients.
+              Claim your free listing to publish your price menu and attract new patients.
             </p>
             <Link
               to={claimUrl}
               className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-rose-dark transition"
             >
-              Claim & Add Prices &rarr;
+              Claim &amp; Add Prices &rarr;
             </Link>
           </div>
           {/* Placeholder rows behind the blur */}
           <div className="opacity-40 pointer-events-none" aria-hidden="true">
             <h2 className="text-lg font-bold text-text-primary mb-4">
-              Provider&rsquo;s Menu
+              Published by {providerName}
             </h2>
             {['Botox / Dysport', 'Lip Filler', 'RF Microneedling'].map((name) => (
               <div
@@ -989,7 +1083,7 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* Competitor Ads — unclaimed only, after What Patients Paid */}
+      {/* 8. Competitor Ads — unclaimed only, last */}
       {!isClaimed && (providerCity || providerState) && (
         <CompetitorAds
           providerSlug={slug}

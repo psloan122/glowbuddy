@@ -72,7 +72,7 @@ export default function ReviewsTab({ reviews, provider, onReviewSubmitted }) {
       ) : (
         <div className="glow-card p-8 text-center">
           <p className="text-text-secondary mb-3">
-            No reviews yet. Be the first!
+            No reviews yet &mdash; yours could be the first!
           </p>
           <button
             onClick={() => setShowReviewModal(true)}

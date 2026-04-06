@@ -7,7 +7,7 @@ import {
   UNITS_PLACEHOLDER,
   AVG_PRICES,
 } from '../../lib/constants';
-import { getState } from '../../lib/gating';
+import { getCity, getState } from '../../lib/gating';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -50,10 +50,10 @@ export default function Step1({ formData, setFormData }) {
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
-        What did you get?
+        Share what you paid
       </h2>
       <p className="text-sm text-text-secondary mb-6">
-        Tell us about your treatment.
+        Your price helps women{getCity() ? ` in ${getCity()}` : ''} know what to expect before they book.
       </p>
 
       <div className="space-y-5">

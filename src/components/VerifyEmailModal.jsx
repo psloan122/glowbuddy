@@ -2,25 +2,42 @@ import { useState, useContext } from 'react';
 import { X, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
+import { sendVerificationEmail } from '../lib/auth';
 
-export default function VerifyEmailModal({ action = 'do this', onClose }) {
+export default function VerifyEmailModal({ action = 'do this', onClose, onVerified }) {
   const { user } = useContext(AuthContext);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkFailed, setCheckFailed] = useState(false);
 
   async function handleResend() {
     if (!user?.email || sending) return;
     setSending(true);
     try {
-      await supabase.auth.resend({
-        type: 'signup',
-        email: user.email,
-      });
+      await sendVerificationEmail(user.email);
     } catch {
       // Rate limit or other error — show sent state regardless
     }
     setSent(true);
     setSending(false);
+  }
+
+  async function handleCheckVerification() {
+    setChecking(true);
+    setCheckFailed(false);
+    try {
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (freshUser?.email_confirmed_at) {
+        onVerified?.();
+        onClose();
+      } else {
+        setCheckFailed(true);
+      }
+    } catch {
+      setCheckFailed(true);
+    }
+    setChecking(false);
   }
 
   return (
@@ -73,6 +90,26 @@ export default function VerifyEmailModal({ action = 'do this', onClose }) {
         >
           {sending ? 'Sending...' : sent ? 'Email sent' : 'Resend verification email'}
         </button>
+
+        <button
+          onClick={handleCheckVerification}
+          disabled={checking}
+          className="w-full py-3 font-semibold rounded-xl transition mb-3 text-sm border"
+          style={{
+            borderColor: '#C94F78',
+            color: checking ? '#9CA3AF' : '#C94F78',
+            backgroundColor: 'transparent',
+            cursor: checking ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {checking ? 'Checking...' : "I've verified — continue"}
+        </button>
+
+        {checkFailed && (
+          <p className="text-[13px] text-rose-accent mb-3">
+            Email not verified yet. Please click the link in your inbox and try again.
+          </p>
+        )}
 
         <button
           onClick={onClose}

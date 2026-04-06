@@ -219,14 +219,17 @@ export default function MyTreatments() {
 
       {entries.length === 0 ? (
         <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary mb-4">
-            You haven't logged any treatments yet. Start tracking to see when you're due for a refresh.
+          <p className="text-text-secondary mb-2">
+            Your price history will live here.
+          </p>
+          <p className="text-sm text-text-secondary mb-4">
+            Every treatment you share helps someone in your city know what to expect.
           </p>
           <button
             onClick={() => setShowForm(true)}
             className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
-            Log Your First Treatment
+            Share your first price
           </button>
         </div>
       ) : (

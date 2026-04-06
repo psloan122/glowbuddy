@@ -16,10 +16,11 @@ export default function PricesTab({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left column: Provider's Listed Prices */}
       <div>
-        <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center gap-2">
           <ShieldCheck size={20} className="text-verified" />
-          Provider&apos;s Listed Prices
+          Published by {provider?.name || 'this provider'}
         </h2>
+        <p className="text-sm text-text-secondary mb-4">Official prices &middot; Updated by provider</p>
 
         {verifiedPricing.length > 0 ? (
           <div className="glow-card overflow-hidden">
@@ -79,10 +80,11 @@ export default function PricesTab({
 
       {/* Right column: Community Prices */}
       <div>
-        <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center gap-2">
           <Users size={20} className="text-community" />
-          What Patients Actually Paid
+          Reported by patients
         </h2>
+        <p className="text-sm text-text-secondary mb-4">Real prices shared by patients &middot; Not advertised rates</p>
 
         {/* Staleness warning when >50% of community prices are stale */}
         {communityData.length > 0 && getStalenessPercentage(communityData) > 50 && (
@@ -98,7 +100,7 @@ export default function PricesTab({
                 className="font-medium ml-1 hover:underline"
                 style={{ color: '#B45309' }}
               >
-                Submit a fresh price &rarr;
+                Share a fresh price &rarr;
               </Link>
             </p>
           </div>

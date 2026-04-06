@@ -109,7 +109,7 @@ export default function PioneerLeaderboard({ userCity, userState }) {
         </div>
       ) : (
         <p className="text-text-secondary text-center py-4">
-          No pioneers yet{scope === 'city' && userCity ? ` in ${userCity}` : ''}. Be the first!
+          No pioneers yet{scope === 'city' && userCity ? ` in ${userCity}` : ''}. Share a price at a new location to be first!
         </p>
       )}
 
@@ -119,7 +119,7 @@ export default function PioneerLeaderboard({ userCity, userState }) {
           className="block mt-4 p-3 rounded-lg text-center text-sm font-medium transition-colors"
           style={{ background: 'rgba(251, 191, 36, 0.08)', color: '#B45309' }}
         >
-          🏅 Be the first to verify a price at{' '}
+          🏅 Share a price at{' '}
           <strong>{unclaimedCount} unclaimed location{unclaimedCount !== 1 ? 's' : ''}</strong>
           {scope === 'city' && userCity ? ` near you` : ''} →
         </Link>

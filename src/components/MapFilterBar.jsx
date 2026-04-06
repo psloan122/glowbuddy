@@ -1,5 +1,5 @@
 import { MapPin, LocateFixed } from 'lucide-react';
-import { PROCEDURE_TYPES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES } from '../lib/constants';
 
 const DISTANCES = [
   { value: 5, label: '5 mi' },
@@ -24,8 +24,12 @@ export default function MapFilterBar({
         className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-accent/30 min-w-0"
       >
         <option value="">All Procedures</option>
-        {PROCEDURE_TYPES.map((p) => (
-          <option key={p} value={p}>{p}</option>
+        {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+          <optgroup key={category} label={category}>
+            {procedures.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </optgroup>
         ))}
       </select>
 
@@ -34,7 +38,7 @@ export default function MapFilterBar({
         <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary" />
         <input
           type="text"
-          placeholder="City or zip"
+          placeholder="City, town, or zip"
           value={filters.cityOrZip}
           onChange={(e) => onFilterChange({ cityOrZip: e.target.value })}
           className="w-full text-sm border border-gray-200 rounded-lg pl-8 pr-3 py-2 bg-white text-text-primary placeholder:text-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-rose-accent/30"

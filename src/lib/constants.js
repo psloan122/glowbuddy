@@ -423,6 +423,33 @@ export const AVG_PRICES = {
 // Set of valid 2-letter state codes for validation
 export const VALID_STATE_CODES = new Set(US_STATES.map((s) => s.value));
 
+// Maps PROCEDURE_CATEGORIES keys to normalized tags stored in providers.procedure_tags
+export const CATEGORY_TAG_MAP = {
+  Neurotoxins: 'neurotoxin',
+  Fillers: 'filler',
+  Body: 'body',
+  Microneedling: 'microneedling',
+  Skin: 'skin',
+  Laser: 'laser',
+  'RF / Tightening': 'rf-tightening',
+  'Weight Loss / GLP-1': 'weight-loss',
+  'IV / Wellness': 'iv-wellness',
+  Hormone: 'hormone',
+  Hair: 'hair',
+  Specialty: 'specialty',
+  Beauty: 'beauty',
+};
+
+// Given a procedure type, return its category tag for Supabase filtering
+export function getCategoryTag(procedureType) {
+  for (const [category, procedures] of Object.entries(PROCEDURE_CATEGORIES)) {
+    if (procedures.includes(procedureType)) {
+      return CATEGORY_TAG_MAP[category] || null;
+    }
+  }
+  return null;
+}
+
 export function procedureToSlug(name) {
   return name
     .toLowerCase()

@@ -3,7 +3,7 @@ import { X, Bell } from 'lucide-react';
 import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
 import { createAlert } from '../lib/priceAlerts';
-import { PROCEDURE_TYPES, US_STATES } from '../lib/constants';
+import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, US_STATES } from '../lib/constants';
 import VerifyEmailModal from './VerifyEmailModal';
 
 export default function PriceAlertModal({ onClose, defaultProcedure, defaultCity, defaultState }) {
@@ -94,8 +94,12 @@ export default function PriceAlertModal({ onClose, defaultProcedure, defaultCity
                 required
               >
                 <option value="">Select a procedure</option>
-                {PROCEDURE_TYPES.map((pt) => (
-                  <option key={pt} value={pt}>{pt}</option>
+                {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
+                  <optgroup key={category} label={category}>
+                    {procedures.map((pt) => (
+                      <option key={pt} value={pt}>{pt}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
@@ -110,7 +114,7 @@ export default function PriceAlertModal({ onClose, defaultProcedure, defaultCity
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Austin"
+                  placeholder="e.g. Austin or New Canaan"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent"
                 />
               </div>

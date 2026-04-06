@@ -235,12 +235,12 @@ export default function Rewards() {
       <h2 className="text-xl font-bold text-text-primary mb-4">Credit History</h2>
       {history.length === 0 ? (
         <div className="glow-card p-6 text-center mb-8">
-          <p className="text-text-secondary mb-3">No credits yet.</p>
+          <p className="text-text-secondary mb-3">No credits yet — share a price to start earning.</p>
           <Link
             to="/log"
             className="text-sm font-medium text-rose-accent hover:text-rose-dark transition"
           >
-            Log a treatment to start earning
+            Share a price to start earning
           </Link>
         </div>
       ) : (
@@ -309,7 +309,7 @@ export default function Rewards() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {[
-                  ['Submit a price', CREDIT_VALUES.base_submission],
+                  ['Share a price', CREDIT_VALUES.base_submission],
                   ['Leave a rating', CREDIT_VALUES.rating],
                   ['Write a review', CREDIT_VALUES.review],
                   ['Upload a verified receipt', CREDIT_VALUES.receipt_verified],
