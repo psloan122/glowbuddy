@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, MapPin, Bell, User, Plus } from 'lucide-react';
+import { Home, Search, Bell, User, Plus } from 'lucide-react';
 import { useContext } from 'react';
 import { AuthContext } from '../App';
 
@@ -21,6 +21,9 @@ export default function MobileBottomNav() {
 
   const path = location.pathname;
 
+  // Dashboard has its own QuickActionsBar
+  if (path === '/' && user) return null;
+
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100"
@@ -29,15 +32,15 @@ export default function MobileBottomNav() {
       <div className="flex items-end justify-around px-2 h-14">
         <NavTab
           to="/"
-          icon={Search}
-          label="Browse"
+          icon={Home}
+          label="Home"
           active={path === '/'}
         />
         <NavTab
-          to="/map"
-          icon={MapPin}
-          label="Map"
-          active={path === '/map'}
+          to="/browse"
+          icon={Search}
+          label="Prices"
+          active={path === '/browse'}
         />
 
         {/* Center [+] — elevated pink FAB */}

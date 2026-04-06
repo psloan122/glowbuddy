@@ -23,6 +23,7 @@ import BusinessDashboard from './pages/Business/Dashboard';
 import BusinessOnboarding from './pages/Business/Onboarding';
 import Admin from './pages/Admin';
 import Rewards from './pages/Rewards';
+import FindPrices from './pages/FindPrices';
 import MapView from './pages/MapView';
 import Alerts from './pages/Alerts';
 import Verified from './pages/Verified';
@@ -66,6 +67,9 @@ function App() {
   const [authModal, setAuthModal] = useState({ open: false, mode: 'signup' });
   const pendingRedirectRef = useRef(null);
 
+  // Track session in a ref so the onAuthStateChange closure always has the current value
+  const sessionRef = useRef(null);
+
   // Post-signup onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -87,6 +91,7 @@ function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      sessionRef.current = session;
       setSession(session);
       setLoading(false);
       // Check login streak for existing sessions
@@ -97,8 +102,12 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
-        const wasSignedOut = !session;
+        // Use ref for current session so this closure never goes stale
+        const wasSignedOut = !sessionRef.current;
         const isNowSignedIn = !!newSession;
+
+        // Update ref immediately
+        sessionRef.current = newSession;
 
         // Force React re-render on USER_UPDATED (e.g. email verified)
         // so SoftVerifyBanner and isEmailVerified checks update app-wide
@@ -183,7 +192,7 @@ function App() {
     );
 
     return () => subscription.unsubscribe();
-  }, [session]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePostAuth() {
     if (pendingRedirectRef.current) {
@@ -233,6 +242,7 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/browse" element={<FindPrices />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/log" element={<Log />} />
             <Route path="/procedure/:slug" element={<ProcedureDetail />} />

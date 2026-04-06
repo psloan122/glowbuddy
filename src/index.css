@@ -194,3 +194,12 @@ body::after {
   0% { background-position: -300px 0; }
   100% { background-position: 300px 0; }
 }
+
+/* Mobile bottom sheet slide-up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}

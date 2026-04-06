@@ -914,7 +914,7 @@ export default function ProviderProfile() {
             First to share = Pioneer badge + bonus entries 🏅
           </p>
           <Link
-            to="/log"
+            to={`/log?provider_id=${provider?.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider?.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
             className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
             <Plus size={18} />
@@ -1190,7 +1190,7 @@ export default function ProviderProfile() {
       {/* CTAs */}
       <div className="flex flex-wrap gap-4 mt-8">
         <Link
-          to="/log"
+          to={`/log?provider_id=${provider?.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider?.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
         >
           <Plus size={18} />

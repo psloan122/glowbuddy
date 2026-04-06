@@ -9,14 +9,14 @@ import NotificationBell from './NotificationBell';
 // ─── Navigation structure ───
 
 const TOP_LINKS = [
-  { to: '/', label: 'Browse' },
-  { to: '/map', label: 'Map' },
+  { to: '/browse', label: 'Find Prices' },
 ];
 
 const DISCOVER_LINKS = [
   { to: '/specials', label: 'Specials', icon: '\u2728', sub: 'New deals from verified providers' },
   { to: '/insights', label: 'Insights', icon: '\uD83D\uDCCA', sub: 'Price trends & data' },
-  { to: '/prices', label: 'City Reports', icon: '\uD83D\uDDFA\uFE0F', sub: 'Prices by location' },
+  { to: '/map', label: 'Price Map', icon: '\uD83D\uDDFA\uFE0F', sub: 'Browse providers on a map' },
+  { to: '/prices', label: 'City Reports', icon: '\uD83C\uDFD9\uFE0F', sub: 'Prices by location' },
   { to: '/calculator', label: 'Savings Calc', icon: '\uD83D\uDCB0', sub: 'See how much you save' },
 ];
 

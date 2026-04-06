@@ -39,10 +39,10 @@ export default function About() {
 
       <div className="mt-10 pt-8 border-t border-gray-100 flex flex-wrap gap-4">
         <Link
-          to="/"
+          to="/browse"
           className="text-sm text-rose-accent hover:text-rose-dark transition-colors"
         >
-          Browse prices &rarr;
+          Find prices &rarr;
         </Link>
         <Link
           to="/log"

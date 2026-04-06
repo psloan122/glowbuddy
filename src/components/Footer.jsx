@@ -17,7 +17,7 @@ export default function Footer() {
           <div>
             <p className="text-xs font-semibold text-text-primary uppercase tracking-wide mb-3">Product</p>
             <ul className="space-y-2">
-              <li><Link to="/" className="text-sm text-text-secondary hover:text-rose-accent transition">Browse Prices</Link></li>
+              <li><Link to="/browse" className="text-sm text-text-secondary hover:text-rose-accent transition">Find Prices</Link></li>
               <li><Link to="/prices" className="text-sm text-text-secondary hover:text-rose-accent transition">City Reports</Link></li>
               <li><Link to="/map" className="text-sm text-text-secondary hover:text-rose-accent transition">Map View</Link></li>
               <li><Link to="/business" className="text-sm text-text-secondary hover:text-rose-accent transition">For Providers</Link></li>

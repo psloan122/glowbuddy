@@ -170,10 +170,10 @@ export default function DealShare() {
             Set a Price Alert
           </Link>
           <Link
-            to="/"
+            to="/browse"
             className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
           >
-            Browse All Prices
+            Find All Prices
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

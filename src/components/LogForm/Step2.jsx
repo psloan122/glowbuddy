@@ -6,7 +6,7 @@ import PlacesSearch from '../PlacesSearch';
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-export default function Step2({ formData, setFormData }) {
+export default function Step2({ formData, setFormData, prefilledProvider }) {
   // Reactive check: detect Google Maps even if it loads after mount
   const [hasPlaces, setHasPlaces] = useState(
     () => !!window.google?.maps?.places
@@ -22,20 +22,48 @@ export default function Step2({ formData, setFormData }) {
     }, 200);
     return () => clearInterval(interval);
   }, [hasPlaces]);
-  const [selectedPlace, setSelectedPlace] = useState(
-    formData.googlePlaceId
-      ? {
-          name: formData.providerName,
-          formattedAddress: formData.providerAddress || '',
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode,
-          phone: formData.providerPhone || '',
-          website: formData.providerWebsite || '',
-          placeId: formData.googlePlaceId,
-        }
-      : null
-  );
+  const [selectedPlace, setSelectedPlace] = useState(() => {
+    // Pre-filled from provider page — show confirmed card immediately
+    if (prefilledProvider) {
+      return {
+        name: prefilledProvider.name || formData.providerName,
+        formattedAddress: prefilledProvider.address || formData.providerAddress || '',
+        city: prefilledProvider.city || formData.city,
+        state: prefilledProvider.state || formData.state,
+        zipCode: prefilledProvider.zip_code || formData.zipCode,
+        phone: prefilledProvider.phone || formData.providerPhone || '',
+        website: prefilledProvider.website || formData.providerWebsite || '',
+        placeId: prefilledProvider.google_place_id || formData.googlePlaceId,
+      };
+    }
+    // Existing Google Place ID from URL params or receipt parse
+    if (formData.googlePlaceId) {
+      return {
+        name: formData.providerName,
+        formattedAddress: formData.providerAddress || '',
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        phone: formData.providerPhone || '',
+        website: formData.providerWebsite || '',
+        placeId: formData.googlePlaceId,
+      };
+    }
+    // Provider name from URL without place_id — also show as pre-selected
+    if (formData.providerName && formData.city) {
+      return {
+        name: formData.providerName,
+        formattedAddress: [formData.city, formData.state].filter(Boolean).join(', '),
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        phone: formData.providerPhone || '',
+        website: formData.providerWebsite || '',
+        placeId: '',
+      };
+    }
+    return null;
+  });
 
   // Fallback state for when Places API is not available
   const [providerSuggestions, setProviderSuggestions] = useState([]);

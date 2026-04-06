@@ -25,10 +25,10 @@ export default function Calculator() {
           Powered by crowdsourced prices from real patients.
         </p>
         <Link
-          to="/"
+          to="/browse"
           className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors"
         >
-          Browse all prices &rarr;
+          Find all prices &rarr;
         </Link>
       </div>
     </div>

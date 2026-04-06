@@ -186,11 +186,11 @@ export default function GoalDetail() {
       {/* CTA */}
       <section className="mb-8">
         <Link
-          to="/"
+          to="/browse"
           className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-white font-semibold hover:opacity-90 transition"
           style={{ backgroundColor: '#C94F78' }}
         >
-          Browse prices near you
+          Find prices near you
           <ArrowRight size={18} />
         </Link>
       </section>

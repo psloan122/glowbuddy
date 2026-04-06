@@ -13,6 +13,7 @@ export default function Alerts() {
   const [currentAvgs, setCurrentAvgs] = useState({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     document.title = 'Price Alerts | GlowBuddy';
@@ -23,53 +24,62 @@ export default function Alerts() {
       setLoading(false);
       return;
     }
-    loadAlerts();
-  }, [user?.id]);
 
-  async function loadAlerts() {
-    setLoading(true);
-    try {
-      const alertList = await getUserAlerts();
-      setAlerts(alertList);
+    let cancelled = false;
 
-      // Load triggers for each alert
-      if (alertList.length > 0) {
-        const { data: triggerData } = await supabase
-          .from('price_alert_triggers')
-          .select('*, procedures(procedure_type, price_paid, provider_name, city, state, created_at)')
-          .in('alert_id', alertList.map((a) => a.id))
-          .order('triggered_at', { ascending: false })
-          .limit(50);
+    async function loadAlerts() {
+      setLoading(true);
+      try {
+        const alertList = await getUserAlerts();
+        if (cancelled) return;
+        setAlerts(alertList);
 
-        const grouped = {};
-        (triggerData || []).forEach((t) => {
-          if (!grouped[t.alert_id]) grouped[t.alert_id] = [];
-          grouped[t.alert_id].push(t);
-        });
-        setTriggers(grouped);
+        // Load triggers for each alert
+        if (alertList.length > 0) {
+          const { data: triggerData } = await supabase
+            .from('price_alert_triggers')
+            .select('*, procedures(procedure_type, price_paid, provider_name, city, state, created_at)')
+            .in('alert_id', alertList.map((a) => a.id))
+            .order('triggered_at', { ascending: false })
+            .limit(50);
 
-        // Mark all as read
-        for (const alert of alertList) {
-          if (grouped[alert.id]?.some((t) => !t.was_read)) {
-            await markTriggersRead(alert.id);
+          if (cancelled) return;
+
+          const grouped = {};
+          (triggerData || []).forEach((t) => {
+            if (!grouped[t.alert_id]) grouped[t.alert_id] = [];
+            grouped[t.alert_id].push(t);
+          });
+          setTriggers(grouped);
+
+          // Mark all as read
+          for (const alert of alertList) {
+            if (grouped[alert.id]?.some((t) => !t.was_read)) {
+              await markTriggersRead(alert.id);
+            }
           }
-        }
 
-        // Fetch current averages for each alert
-        const avgs = {};
-        await Promise.all(
-          alertList.map(async (alert) => {
-            const avg = await fetchCurrentAvg(alert.procedure_type, alert.city, alert.state);
-            if (avg !== null) avgs[alert.id] = avg;
-          })
-        );
-        setCurrentAvgs(avgs);
+          // Fetch current averages for each alert
+          const avgs = {};
+          await Promise.all(
+            alertList.map(async (alert) => {
+              const avg = await fetchCurrentAvg(alert.procedure_type, alert.city, alert.state);
+              if (avg !== null) avgs[alert.id] = avg;
+            })
+          );
+          if (cancelled) return;
+          setCurrentAvgs(avgs);
+        }
+      } catch {
+        // Silent fail
       }
-    } catch {
-      // Silent fail
+      if (!cancelled) setLoading(false);
     }
-    setLoading(false);
-  }
+
+    loadAlerts();
+
+    return () => { cancelled = true; };
+  }, [user?.id, refreshKey]);
 
   async function handleDelete(alertId) {
     try {
@@ -167,7 +177,7 @@ export default function Alerts() {
       )}
 
       {showModal && (
-        <CreatePriceAlert onClose={() => { setShowModal(false); loadAlerts(); }} />
+        <CreatePriceAlert onClose={() => { setShowModal(false); setRefreshKey((k) => k + 1); }} />
       )}
     </div>
   );

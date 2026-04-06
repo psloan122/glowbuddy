@@ -22,7 +22,7 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     .lte('lat', bounds.north)
     .gte('lng', bounds.west)
     .lte('lng', bounds.east)
-    .limit(200);
+    .limit(300);
 
   // Filter providers by procedure category tag
   if (categoryTag) {

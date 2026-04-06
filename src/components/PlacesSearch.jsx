@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MapPin, X, CheckCircle, ExternalLink, Phone } from 'lucide-react';
+import { MapPin, X, CheckCircle, ExternalLink, Phone, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { extractPlaceData } from '../lib/places';
 import { supabase } from '../lib/supabase';
@@ -13,10 +13,12 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
   const detailsServiceRef = useRef(null);
   const sessionTokenRef = useRef(null);
   const debounceRef = useRef(null);
+  const localDebounceRef = useRef(null);
 
   const [ready, setReady] = useState(false);
   const [value, setValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [localResults, setLocalResults] = useState([]);
   const [existingProvider, setExistingProvider] = useState(null);
 
   // Initialize AutocompleteService when Google Maps loads
@@ -46,6 +48,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setSuggestions([]);
+        setLocalResults([]);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -82,11 +85,38 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     checkExisting();
   }, [selectedPlace?.placeId]);
 
+  // Search GlowBuddy's own providers table
+  function searchLocalProviders(input) {
+    if (localDebounceRef.current) clearTimeout(localDebounceRef.current);
+
+    if (input.length < 2) {
+      setLocalResults([]);
+      return;
+    }
+
+    localDebounceRef.current = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('providers')
+          .select('id, name, city, state, slug, google_place_id, address, phone, website, lat, lng, zip_code')
+          .ilike('name', `%${input}%`)
+          .limit(5);
+
+        setLocalResults(data || []);
+      } catch {
+        setLocalResults([]);
+      }
+    }, 200);
+  }
+
   // Fetch predictions from native AutocompleteService
   function handleInputChange(input) {
     setValue(input);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // Always search local providers
+    searchLocalProviders(input);
 
     if (input.length < 2 || !serviceRef.current) {
       setSuggestions([]);
@@ -114,11 +144,33 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     }, 300);
   }
 
+  // Select a local GlowBuddy provider — no Google API call needed
+  function handleSelectLocal(provider) {
+    setValue(provider.name);
+    setSuggestions([]);
+    setLocalResults([]);
+
+    onSelect({
+      name: provider.name,
+      formattedAddress: provider.address || [provider.city, provider.state].filter(Boolean).join(', '),
+      address: provider.address || '',
+      city: provider.city || '',
+      state: provider.state || '',
+      zipCode: provider.zip_code || '',
+      phone: provider.phone || '',
+      website: provider.website || '',
+      placeId: provider.google_place_id || '',
+      lat: provider.lat || null,
+      lng: provider.lng || null,
+    });
+  }
+
   // On selection: call getDetails for full address_components
   const handleSelect = useCallback(
     (suggestion) => {
       setValue(suggestion.description);
       setSuggestions([]);
+      setLocalResults([]);
 
       // Lazily create a PlacesService (needs a DOM node)
       if (!detailsServiceRef.current) {
@@ -169,6 +221,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
   function handleClear() {
     setValue('');
     setSuggestions([]);
+    setLocalResults([]);
     setExistingProvider(null);
     onClear();
   }
@@ -245,6 +298,8 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     );
   }
 
+  const hasDropdown = localResults.length > 0 || suggestions.length > 0;
+
   // Search input
   return (
     <div ref={wrapperRef} className="relative">
@@ -269,6 +324,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
             onClick={() => {
               setValue('');
               setSuggestions([]);
+              setLocalResults([]);
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-0.5"
             aria-label="Clear search"
@@ -278,31 +334,75 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
         )}
       </div>
 
-      {/* Suggestions dropdown */}
-      {suggestions.length > 0 && (
-        <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.place_id}>
-              <button
-                type="button"
-                onClick={() => handleSelect(suggestion)}
-                className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3"
-              >
-                <MapPin
-                  size={14}
-                  className="text-text-secondary mt-0.5 flex-shrink-0"
-                />
-                <div>
-                  <span className="text-sm text-text-primary font-medium block">
-                    {suggestion.structured_formatting?.main_text}
-                  </span>
-                  <span className="text-xs text-text-secondary">
-                    {suggestion.structured_formatting?.secondary_text}
-                  </span>
-                </div>
-              </button>
-            </li>
-          ))}
+      {/* Combined dropdown: local results first, then Google suggestions */}
+      {hasDropdown && (
+        <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
+          {/* GlowBuddy local providers */}
+          {localResults.length > 0 && (
+            <>
+              <li className="px-4 py-1.5 text-[10px] font-semibold text-text-secondary uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+                On GlowBuddy
+              </li>
+              {localResults.map((provider) => (
+                <li key={`local-${provider.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectLocal(provider)}
+                    className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3"
+                  >
+                    <Sparkles
+                      size={14}
+                      className="text-rose-accent mt-0.5 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-text-primary font-medium block truncate">
+                        {provider.name}
+                      </span>
+                      <span className="text-xs text-text-secondary">
+                        {[provider.city, provider.state].filter(Boolean).join(', ')}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-medium text-rose-accent bg-rose-light px-2 py-0.5 rounded-full shrink-0 mt-0.5">
+                      GB
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+
+          {/* Google Places suggestions */}
+          {suggestions.length > 0 && (
+            <>
+              {localResults.length > 0 && (
+                <li className="px-4 py-1.5 text-[10px] font-semibold text-text-secondary uppercase tracking-wider bg-gray-50 border-t border-b border-gray-100">
+                  Google Places
+                </li>
+              )}
+              {suggestions.map((suggestion) => (
+                <li key={suggestion.place_id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(suggestion)}
+                    className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3"
+                  >
+                    <MapPin
+                      size={14}
+                      className="text-text-secondary mt-0.5 flex-shrink-0"
+                    />
+                    <div>
+                      <span className="text-sm text-text-primary font-medium block">
+                        {suggestion.structured_formatting?.main_text}
+                      </span>
+                      <span className="text-xs text-text-secondary">
+                        {suggestion.structured_formatting?.secondary_text}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
         </ul>
       )}
 

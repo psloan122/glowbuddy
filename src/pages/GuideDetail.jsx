@@ -92,7 +92,7 @@ export default function GuideDetail() {
     );
   }
 
-  const feedUrl = `/?procedure=${encodeURIComponent(procedureToSlug(guide.treatment_name))}`;
+  const feedUrl = `/browse?procedure=${encodeURIComponent(procedureToSlug(guide.treatment_name))}`;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">

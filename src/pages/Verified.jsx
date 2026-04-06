@@ -43,10 +43,10 @@ export default function Verified() {
         </Link>
 
         <Link
-          to="/"
+          to="/browse"
           className="block mt-3 py-2 text-sm text-text-secondary hover:text-text-primary transition"
         >
-          Browse prices
+          Find prices
         </Link>
       </div>
     </div>

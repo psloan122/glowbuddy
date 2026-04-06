@@ -450,11 +450,11 @@ export default function HowdIDoScreen({
         ) : (
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/browse')}
               className="inline-flex items-center gap-2 px-6 py-2.5 text-white font-semibold rounded-full hover:opacity-90 transition text-sm"
               style={{ backgroundColor: '#C94F78' }}
             >
-              Browse more providers
+              Find more providers
               <ArrowRight size={16} />
             </button>
             <button

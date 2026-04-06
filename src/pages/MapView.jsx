@@ -45,7 +45,7 @@ export default function MapView() {
   // SEO
   useEffect(() => {
     setPageMeta({
-      title: 'Browse Botox Prices Near You | GlowBuddy',
+      title: 'Find Botox Prices Near You | GlowBuddy',
       description: 'Patient-reported prices for Botox, fillers, and med spa treatments. Real prices. Verified receipts. Know before you glow.',
     });
   }, []);
@@ -55,28 +55,14 @@ export default function MapView() {
     setLoading(true);
     try {
       const merged = await fetchAllProvidersInBounds(bounds, filters.procedureType);
-
-      // Apply city/zip filter client-side if set
-      let filtered = merged;
-      const cityOrZip = filters.cityOrZip.trim();
-      if (cityOrZip) {
-        if (/^\d{5}$/.test(cityOrZip)) {
-          // Zip filter not available on providers table — keep all
-          filtered = merged;
-        } else {
-          filtered = merged.filter((p) =>
-            p.city?.toLowerCase().includes(cityOrZip.toLowerCase())
-          );
-        }
-      }
-
-      setProviders(filtered);
+      console.log(`Fetched ${merged.length} providers in viewport`);
+      setProviders(merged);
     } catch (err) {
       console.error('MapView fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters.procedureType]);
 
   // ── Geocode city/zip to pan the map ──
   useEffect(() => {
@@ -108,14 +94,18 @@ export default function MapView() {
     fetchMarkers(DEFAULT_BOUNDS);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Re-fetch when filters change ──
+  // ── Re-fetch when procedure filter changes ──
+  // City/zip changes are handled by the geocode effect + onBoundsChanged
+  const prevProcFilter = useRef(filters.procedureType);
   useEffect(() => {
+    if (prevProcFilter.current === filters.procedureType) return;
+    prevProcFilter.current = filters.procedureType;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       fetchMarkers(boundsRef.current);
-    }, 500);
+    }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [filters, fetchMarkers]);
+  }, [filters.procedureType, fetchMarkers]);
 
   // ── Resolve user location on mount: saved location → browser geolocation → US center ──
   useEffect(() => {
@@ -277,7 +267,7 @@ export default function MapView() {
   function getCountText() {
     if (loading) return 'Searching...';
     const n = providers.length;
-    if (n === 0) return null;
+    if (n === 0) return 'No providers in this area yet';
     const area = cityLabel.trim()
       ? ` in ${cityLabel}`
       : mapMoved
@@ -309,9 +299,14 @@ export default function MapView() {
 
       {/* View toggle */}
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
-        <span className="text-sm text-text-secondary">
-          {countText || (loading ? 'Searching...' : '')}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-sm text-text-secondary">
+            {countText || (loading ? 'Searching...' : '')}
+          </span>
+          {!loading && providers.length === 0 && (
+            <span className="text-xs text-text-secondary/70">Zoom out or search a different city</span>
+          )}
+        </div>
         <div className="flex items-center gap-1 bg-warm-gray rounded-lg p-0.5">
           <button
             onClick={() => setView('map')}

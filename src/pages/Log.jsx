@@ -71,18 +71,81 @@ export default function Log() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
+  // Pre-filled provider from provider profile page
+  const [prefilledProvider, setPrefilledProvider] = useState(null);
+
   const [formData, setFormData] = useState(() => {
     const prefill = { ...INITIAL_FORM_DATA };
     const procedure = searchParams.get('procedure');
-    const provider = searchParams.get('provider');
+    const providerName = searchParams.get('provider');
     const city = searchParams.get('city');
     const state = searchParams.get('state');
+    const placeId = searchParams.get('place_id');
     if (procedure) prefill.procedureType = procedure;
-    if (provider) prefill.providerName = provider;
+    if (providerName) prefill.providerName = providerName;
+    // Use provider's city/state from URL params first, then user's saved location as fallback
     prefill.city = city || getGatingCity() || '';
     prefill.state = state || getGatingState() || '';
+    if (placeId) prefill.googlePlaceId = placeId;
     return prefill;
   });
+
+  // Fetch provider details when linked from a provider page
+  useEffect(() => {
+    const providerId = searchParams.get('provider_id');
+    const placeId = searchParams.get('place_id');
+    const providerSlugParam = searchParams.get('slug');
+    if (!providerId && !placeId && !providerSlugParam) return;
+
+    async function fetchProvider() {
+      let providerRow = null;
+
+      // Try by ID first, then place_id, then slug
+      if (providerId) {
+        const { data } = await supabase
+          .from('providers')
+          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .eq('id', providerId)
+          .maybeSingle();
+        providerRow = data;
+      }
+      if (!providerRow && placeId) {
+        const { data } = await supabase
+          .from('providers')
+          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .eq('google_place_id', placeId)
+          .maybeSingle();
+        providerRow = data;
+      }
+      if (!providerRow && providerSlugParam) {
+        const { data } = await supabase
+          .from('providers')
+          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .eq('slug', providerSlugParam)
+          .maybeSingle();
+        providerRow = data;
+      }
+
+      if (providerRow) {
+        setPrefilledProvider(providerRow);
+        setFormData((prev) => ({
+          ...prev,
+          providerName: providerRow.name || prev.providerName,
+          city: providerRow.city || prev.city,
+          state: providerRow.state || prev.state,
+          zipCode: providerRow.zip_code || prev.zipCode,
+          googlePlaceId: providerRow.google_place_id || prev.googlePlaceId,
+          providerAddress: providerRow.address || prev.providerAddress,
+          providerPhone: providerRow.phone || prev.providerPhone,
+          providerWebsite: providerRow.website || prev.providerWebsite,
+          lat: providerRow.lat || prev.lat,
+          lng: providerRow.lng || prev.lng,
+        }));
+      }
+    }
+
+    fetchProvider();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
   const [outlierFlagged, setOutlierFlagged] = useState(false);
@@ -755,7 +818,7 @@ export default function Log() {
               <Step1 formData={formData} setFormData={setFormData} />
             )}
             {currentStep === 2 && (
-              <Step2 formData={formData} setFormData={setFormData} />
+              <Step2 formData={formData} setFormData={setFormData} prefilledProvider={prefilledProvider} />
             )}
             {currentStep === 3 && (
               <Step3
