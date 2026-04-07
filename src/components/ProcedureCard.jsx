@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileCheck, RotateCcw, Camera, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
@@ -335,7 +336,14 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
               addSuffix: true,
             })}
           </span>
+        ) : (
+          <span />
         )}
+        <div className="opacity-40 group-hover:opacity-100 transition-opacity">
+          {procedure.data_source !== 'provider_website' && (
+            <DisputeButton procedureId={procedure.id} procedureUserId={procedure.user_id} />
+          )}
+        </div>
       </div>
 
       {/* Provider response (collapsible) */}
@@ -368,51 +376,6 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           )}
         </div>
       )}
-
-      {/* Price */}
-      <div className="price-display mb-2">
-        ${Number(procedure.price_paid).toLocaleString()}
-      </div>
-
-      {/* Units / volume */}
-      {procedure.units_or_volume && (
-        <p className="text-sm text-text-secondary mb-3">
-          {procedure.units_or_volume}
-        </p>
-      )}
-
-      {/* Provider name + location — blurred until user contributes */}
-      <div className="flex items-center justify-between mb-2">
-        <p className={`text-sm text-text-primary ${shouldBlur ? 'blur-sm select-none' : ''}`}>
-          {procedure.provider_name}
-          {procedure.city && procedure.state && (
-            <span className="text-text-secondary">
-              {' '}
-              &middot; {procedure.city}, {procedure.state}
-            </span>
-          )}
-        </p>
-      </div>
-
-      {shouldBlur && (
-        <p className="text-xs text-rose-accent font-medium">
-          Log a treatment to see provider details
-        </p>
-      )}
-
-      {/* Provider type badge */}
-      {procedure.provider_type && !shouldBlur && (
-        <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-3">
-          {procedure.provider_type}
-        </span>
-      )}
-
-      {/* Notes */}
-      {procedure.notes && (
-        <p className="text-sm italic text-text-secondary line-clamp-2 mt-2">
-          {procedure.notes}
-        </p>
-      )}
-    </Link>
+    </Wrapper>
   );
 }

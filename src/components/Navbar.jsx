@@ -1,16 +1,15 @@
-import { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { useState, useContext, useRef, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { AuthContext } from '../App';
-import { supabase } from '../lib/supabase';
+import { signOut } from '../lib/auth';
+import { getUnreadCount } from '../lib/priceAlerts';
+import NotificationBell from './NotificationBell';
 
-const NAV_LINKS = [
-  { to: '/', label: 'Browse' },
-  { to: '/log', label: 'Log a Treatment' },
-  { to: '/insights', label: 'Insights' },
-  { to: '/specials', label: 'Specials' },
-  { to: '/community', label: 'Community' },
-  { to: '/business', label: 'Business' },
+// ─── Navigation structure ───
+
+const TOP_LINKS = [
+  { to: '/browse', label: 'Find Prices' },
 ];
 
 const DISCOVER_LINKS = [
@@ -115,24 +114,21 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
 // ─── Main Navbar ───
 
 export default function Navbar() {
-  const { user } = useContext(AuthContext);
+  const { user, openAuthModal } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [email, setEmail] = useState('');
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInMsg, setSignInMsg] = useState('');
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [openKey, setOpenKey] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const avatarRef = useRef(null);
 
-  async function handleSignIn(e) {
-    e.preventDefault();
-    if (!email) return;
-    setSigningIn(true);
-    setSignInMsg('');
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) {
-      setSignInMsg(error.message);
-    } else {
-      setSignInMsg('Check your email for a magic link!');
-      setEmail('');
+  // Close avatar dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (avatarRef.current && !avatarRef.current.contains(e.target)) {
+        setAvatarOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -191,8 +187,10 @@ export default function Navbar() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await signOut();
+    setAvatarOpen(false);
     setMobileOpen(false);
+    navigate('/');
   }
 
   return (
