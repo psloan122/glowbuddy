@@ -14,7 +14,11 @@ import FinancingWidget from '../FinancingWidget';
 import PriceTooltip from '../PriceTooltip';
 import { getStalenessPercentage } from '../../lib/freshness';
 import { AVG_PRICES } from '../../lib/constants';
-import { normalizePrice, groupForProviderDisplay } from '../../lib/priceUtils';
+import {
+  normalizePrice,
+  groupForProviderDisplay,
+  inferNeurotoxinBrand,
+} from '../../lib/priceUtils';
 import useProviderPrices from '../../hooks/useProviderPrices';
 
 const STALE_DAYS = 90;
@@ -44,6 +48,23 @@ function SourceBadge({ item }) {
     );
   }
   return null;
+}
+
+function BrandChip({ item, perUnitPrice }) {
+  const info = inferNeurotoxinBrand({
+    procedureType: item.procedure_type,
+    brand: item.brand || null,
+    perUnitPrice,
+  });
+  if (!info) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-dark bg-rose-light/40 px-2 py-0.5 rounded-full"
+      title={info.tooltip}
+    >
+      {info.label}
+    </span>
+  );
 }
 
 function StalenessPill({ item }) {
@@ -156,6 +177,7 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
           <p className="text-[11px] text-text-secondary mt-0.5">{item.units_or_volume}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+          <BrandChip item={item} perUnitPrice={normalized.comparableValue} />
           <SourceBadge item={item} />
           <StalenessPill item={item} />
         </div>

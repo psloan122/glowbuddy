@@ -399,7 +399,7 @@ export default function FindPrices() {
       let query = supabase
         .from('provider_pricing')
         .select(
-          'id, provider_id, procedure_type, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type)'
+          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type)'
         )
         .eq('is_active', true);
 
@@ -442,6 +442,7 @@ export default function FindPrices() {
           // rather than silently corrupt the wrong row.
           id: `pp_${row.id}`,
           procedure_type: row.procedure_type,
+          brand: row.brand || null,
           treatment_area: row.treatment_area || null,
           price_paid: Number(row.price) || 0,
           unit: null,
@@ -463,7 +464,10 @@ export default function FindPrices() {
           is_anonymous: false,
           provider_slug: provider.slug || null,
           provider_id: row.provider_id,
-          notes: row.notes || null,
+          // Defense in depth: never pipe scraped notes into the consumer card.
+          // Notes from scraped rows can only have come from internal classifier
+          // diagnostics — they are never genuine provider copy.
+          notes: row.source === 'scrape' ? null : (row.notes || null),
           data_source: 'provider_website',
           // Normalized fields consumed by ProcedureCard
           normalized_display: normalized.displayPrice,

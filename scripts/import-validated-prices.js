@@ -88,6 +88,78 @@ function extractTreatmentArea(rawText, priceValue) {
   return null;
 }
 
+// ── Brand extraction ──
+// When a scraped page lists prices per brand (e.g. "Botox $15 / Dysport $5 /
+// Xeomin $14"), each CSV row maps to a single price match. We need to attach
+// the *closest* brand name to that price so the row stores the right brand
+// rather than collapsing all three into one ambiguous "neurotoxin" row.
+//
+// Strategy: find every brand mention in raw_text, find the price match in
+// raw_text, and pick the brand whose mention is closest to the price (within
+// 60 chars). Returns null when no brand is within range.
+const NEUROTOXIN_BRANDS = [
+  { name: 'Daxxify', re: /\bdaxxify\b/i },
+  { name: 'Jeuveau', re: /\bjeuveau\b/i },
+  { name: 'Xeomin',  re: /\bxeomin\b/i },
+  { name: 'Dysport', re: /\bdysport\b/i },
+  { name: 'Botox',   re: /\bbotox\b/i },
+];
+
+const FILLER_BRANDS = [
+  { name: 'Juvederm',  re: /\bjuv[eé]derm\b/i },
+  { name: 'Restylane', re: /\brestylane\b/i },
+  { name: 'RHA',       re: /\brha\b/i },
+  { name: 'Versa',     re: /\bversa\b/i },
+  { name: 'Belotero',  re: /\bbelotero\b/i },
+];
+
+function brandsForProcedure(procedureType) {
+  if (!procedureType) return [];
+  const t = String(procedureType).toLowerCase();
+  if (t.includes('botox') || t.includes('neurotoxin') || t.includes('dysport')) {
+    return NEUROTOXIN_BRANDS;
+  }
+  if (t.includes('filler') || t.includes('lip')) return FILLER_BRANDS;
+  return [];
+}
+
+function extractBrand(rawText, priceValue, procedureType) {
+  const brands = brandsForProcedure(procedureType);
+  if (brands.length === 0 || !rawText) return null;
+  const text = String(rawText);
+
+  // Locate the price string in raw_text — preferred anchor for proximity.
+  let priceIdx = null;
+  if (priceValue != null) {
+    const priceStr = String(priceValue).replace(/\.0+$/, '');
+    const dollarRe = new RegExp(
+      `\\$\\s*${priceStr.replace(/\./g, '\\.')}(?:\\.\\d+)?`,
+      'i',
+    );
+    const m = text.match(dollarRe);
+    if (m && m.index != null) priceIdx = m.index;
+  }
+
+  // Walk every brand mention; track the closest one to the price anchor.
+  let best = null;
+  for (const b of brands) {
+    const r = new RegExp(b.re.source, 'gi');
+    let bm;
+    while ((bm = r.exec(text)) !== null) {
+      const dist = priceIdx == null ? bm.index : Math.abs(bm.index - priceIdx);
+      if (!best || dist < best.dist) {
+        best = { name: b.name, dist };
+      }
+    }
+  }
+
+  // Only accept if the brand is reasonably close to the price (or anywhere in
+  // text when there's no price anchor).
+  if (!best) return null;
+  if (priceIdx == null) return best.name;
+  return best.dist <= 60 ? best.name : null;
+}
+
 // Pull "N units" or "N syringes" from the same window.
 function extractUnitsText(rawText, priceValue) {
   if (!rawText || priceValue == null) return null;
@@ -206,10 +278,12 @@ async function main() {
         ? extractTreatmentArea(row.raw_text, row.price_value)
         : null;
     const unitsText = extractUnitsText(row.raw_text, row.price_value);
+    const brand = extractBrand(row.raw_text, row.price_value, procedureType);
 
     inserts.push({
       provider_id: provider.id,
       procedure_type: procedureType,
+      brand,
       price: Math.round(price),
       price_label: row.new_price_type, // 'per_unit' / 'per_syringe' / 'flat_rate_area' / etc.
       treatment_area: treatmentArea,
@@ -218,7 +292,10 @@ async function main() {
       verified: false,
       source_url: row.page_url || null,
       scraped_at: row.scraped_at || new Date().toISOString(),
-      notes: row.reclassify_reason || null,
+      // IMPORTANT: never write reclassify_reason (or any internal classifier
+      // diagnostic) into notes — that field is consumer-facing copy. The
+      // classifier reason is debug-only and stays out of the database.
+      notes: null,
       is_active: true,
     });
   }

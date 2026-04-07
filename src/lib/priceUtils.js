@@ -418,6 +418,59 @@ export function normalizePrice(listing) {
   return NULL_RESULT(price, label);
 }
 
+// Below this per-unit price, the row is almost certainly Dysport or Xeomin
+// (both are typically 1/3 the per-unit price of Botox). Used by the
+// inferNeurotoxinBrand display helper.
+const NEUROTOXIN_BUDGET_THRESHOLD = 8;
+
+/**
+ * Decide what brand label to show for a neurotoxin row.
+ *
+ *   1. If `brand` is set on the row → use it directly (isInferred=false)
+ *   2. If no brand AND we have a per-unit comparable value:
+ *      - < $8/unit → "Dysport / Xeomin est." (with explanatory tooltip)
+ *      - >= $8/unit → "Botox / neurotoxin"
+ *   3. If no brand AND no per-unit value → "Botox / neurotoxin" (generic)
+ *
+ * Returns null when the row isn't a neurotoxin (caller should not render).
+ *
+ * @param {Object} args
+ * @param {string} args.procedureType
+ * @param {string|null} args.brand
+ * @param {number|null} args.perUnitPrice
+ * @returns {{label: string, isInferred: boolean, tooltip: string}|null}
+ */
+export function inferNeurotoxinBrand({ procedureType, brand, perUnitPrice }) {
+  if (!isNeurotoxin(procedureType)) return null;
+
+  if (brand) {
+    return {
+      label: brand,
+      isInferred: false,
+      tooltip: `Provider listed this as ${brand}.`,
+    };
+  }
+
+  const valid =
+    perUnitPrice != null && Number.isFinite(perUnitPrice) && perUnitPrice > 0;
+
+  if (valid && perUnitPrice < NEUROTOXIN_BUDGET_THRESHOLD) {
+    return {
+      label: 'Dysport / Xeomin est.',
+      isInferred: true,
+      tooltip:
+        'This may be Dysport or Xeomin pricing. Botox typically costs more per unit.',
+    };
+  }
+
+  return {
+    label: 'Botox / neurotoxin',
+    isInferred: true,
+    tooltip:
+      'Brand not specified by the provider — most clinics in this price range carry Botox.',
+  };
+}
+
 /**
  * Map pin label rules:
  *   - Only show a chip when comparableValue is not null AND < 500

@@ -15,6 +15,7 @@ import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
 import DisputeButton from './DisputeButton';
 import { getGuideUrl } from '../lib/guideMapping';
+import { inferNeurotoxinBrand, parseUnitsFromText } from '../lib/priceUtils';
 
 export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
@@ -34,6 +35,31 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   );
   const Wrapper = profileUrl ? Link : 'div';
   const wrapperProps = profileUrl ? { to: profileUrl } : {};
+
+  // Per-unit equivalent used for brand inference on neurotoxin cards.
+  // Prefer the normalized comparable value when present (already accounts
+  // for area→per-unit estimation); otherwise parse units count from the
+  // freeform units_or_volume field and divide.
+  const perUnitForBrand = (() => {
+    if (
+      procedure.normalized_compare_value &&
+      procedure.normalized_compare_unit === 'per unit'
+    ) {
+      return Number(procedure.normalized_compare_value);
+    }
+    if (procedure.units_or_volume && procedure.price_paid) {
+      const parsed = parseUnitsFromText(procedure.units_or_volume);
+      if (parsed && parsed.kind === 'unit' && parsed.count > 0) {
+        return Math.round((Number(procedure.price_paid) / parsed.count) * 100) / 100;
+      }
+    }
+    return null;
+  })();
+  const brandInfo = inferNeurotoxinBrand({
+    procedureType: procedure.procedure_type,
+    brand: procedure.brand || null,
+    perUnitPrice: perUnitForBrand,
+  });
 
   return (
     <Wrapper
@@ -73,11 +99,19 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       )}
 
       {/* Procedure type + treatment area */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
         <ProcedureIcon type={procedure.procedure_type} size={22} className="text-rose-dark" />
         <span className="text-[15px] font-semibold text-text-primary">{procedure.procedure_type}</span>
         {procedure.treatment_area && (
           <span className="text-sm text-text-secondary">&middot; {procedure.treatment_area}</span>
+        )}
+        {brandInfo && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-dark bg-rose-light/40 px-2 py-0.5 rounded-full"
+            title={brandInfo.tooltip}
+          >
+            {brandInfo.label}
+          </span>
         )}
       </div>
 
@@ -238,8 +272,9 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
         </p>
       )}
 
-      {/* Notes */}
-      {procedure.notes && (
+      {/* Notes — only show genuine consumer notes (from real submissions),
+          never anything that came from a scraped provider page. */}
+      {procedure.notes && procedure.data_source !== 'provider_website' && (
         <p className="text-sm italic text-text-secondary line-clamp-2 mb-2">
           {procedure.notes}
         </p>
