@@ -911,9 +911,9 @@ export default function FindPrices() {
   }
 
   return (
-    <div className="min-h-screen bg-warm-white">
+    <div className="min-h-screen bg-cream">
       {/* Sticky search header */}
-      <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
+      <div className="sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
         <div className="max-w-7xl mx-auto px-4 py-3">
           {/* Mobile map: collapsed search pill */}
           {IS_MOBILE && viewMode === 'map' ? (
@@ -941,31 +941,24 @@ export default function FindPrices() {
               </button>
               <button
                 onClick={() => setHasPricesOnly((prev) => !prev)}
-                className="shrink-0"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase whitespace-nowrap transition-colors"
                 style={{
-                  padding: '7px 14px',
-                  background: hasPricesOnly ? '#FBE8EF' : 'white',
-                  border: `1px solid ${hasPricesOnly ? '#C94F78' : '#E5E7EB'}`,
-                  borderRadius: '100px',
-                  color: hasPricesOnly ? '#C94F78' : '#6B7280',
-                  fontSize: '13px',
-                  fontWeight: hasPricesOnly ? '500' : '400',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease',
+                  letterSpacing: '0.08em',
+                  borderRadius: '4px',
+                  background: hasPricesOnly ? '#E8347A' : 'white',
+                  border: `1px solid ${hasPricesOnly ? '#E8347A' : '#E8E8E8'}`,
+                  color: hasPricesOnly ? 'white' : '#666',
                 }}
               >
-                {hasPricesOnly && <span style={{ fontSize: '11px' }}>&#10003;</span>}
+                {hasPricesOnly && <span style={{ fontSize: '10px' }}>&#10003;</span>}
                 Has prices
               </button>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+              <div className="flex border border-rule overflow-hidden shrink-0" style={{ borderRadius: '2px' }}>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium transition ${
+                  className={`flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase transition ${
                     viewMode === 'list'
-                      ? 'bg-rose-accent text-white'
+                      ? 'bg-hot-pink text-white'
                       : 'bg-white text-text-secondary'
                   }`}
                 >
@@ -973,9 +966,9 @@ export default function FindPrices() {
                 </button>
                 <button
                   onClick={handleSwitchToMap}
-                  className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium transition border-l border-gray-200 ${
+                  className={`flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase transition border-l border-rule ${
                     viewMode === 'map'
-                      ? 'bg-rose-accent text-white'
+                      ? 'bg-hot-pink text-white'
                       : 'bg-white text-text-secondary'
                   }`}
                 >
@@ -1167,45 +1160,40 @@ export default function FindPrices() {
 
               <button
                 onClick={() => setHasPricesOnly((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase whitespace-nowrap transition-colors cursor-pointer"
                 style={{
-                  padding: '7px 14px',
-                  background: hasPricesOnly ? '#FBE8EF' : 'white',
-                  border: `1px solid ${hasPricesOnly ? '#C94F78' : '#E5E7EB'}`,
-                  borderRadius: '100px',
-                  color: hasPricesOnly ? '#C94F78' : '#6B7280',
-                  fontSize: '13px',
-                  fontWeight: hasPricesOnly ? '500' : '400',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease',
+                  letterSpacing: '0.08em',
+                  borderRadius: '4px',
+                  background: hasPricesOnly ? '#E8347A' : 'white',
+                  border: `1px solid ${hasPricesOnly ? '#E8347A' : '#E8E8E8'}`,
+                  color: hasPricesOnly ? 'white' : '#666',
                 }}
               >
-                {hasPricesOnly && <span style={{ fontSize: '11px' }}>&#10003;</span>}
+                {hasPricesOnly && <span style={{ fontSize: '10px' }}>&#10003;</span>}
                 Has prices
               </button>
 
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <div className="flex border border-rule overflow-hidden" style={{ borderRadius: '2px' }}>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase transition ${
                     viewMode === 'list'
-                      ? 'bg-rose-accent text-white'
-                      : 'bg-white text-text-secondary hover:bg-gray-50'
+                      ? 'bg-hot-pink text-white'
+                      : 'bg-white text-text-secondary hover:bg-cream'
                   }`}
+                  style={{ letterSpacing: '0.08em' }}
                 >
                   <List size={14} />
                   List
                 </button>
                 <button
                   onClick={handleSwitchToMap}
-                  className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition border-l border-gray-200 ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase transition border-l border-rule ${
                     viewMode === 'map'
-                      ? 'bg-rose-accent text-white'
-                      : 'bg-white text-text-secondary hover:bg-gray-50'
+                      ? 'bg-hot-pink text-white'
+                      : 'bg-white text-text-secondary hover:bg-cream'
                   }`}
+                  style={{ letterSpacing: '0.08em' }}
                 >
                   <Map size={14} />
                   Map
@@ -1311,11 +1299,10 @@ export default function FindPrices() {
                 )}
               </div>
             </div>
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4">
+            <div className="sticky bottom-0 bg-white border-t border-rule p-4">
               <button
                 onClick={() => setShowSearchSheet(false)}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm hover:opacity-90 transition"
-                style={{ backgroundColor: '#C94F78' }}
+                className="btn-editorial btn-editorial-primary w-full"
               >
                 Apply
               </button>
@@ -1329,16 +1316,16 @@ export default function FindPrices() {
         <div className="md:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-ink/60"
             onClick={() => setShowFilters(false)}
           />
           {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-text-primary">Filters</h3>
+          <div className="absolute bottom-0 left-0 right-0 bg-white max-h-[80vh] overflow-y-auto animate-slide-up" style={{ borderTop: '2px solid #111111' }}>
+            <div className="sticky top-0 bg-white border-b border-rule px-5 py-3 flex items-center justify-between">
+              <h3 className="editorial-kicker">Filters</h3>
               <button
                 onClick={() => setShowFilters(false)}
-                className="text-text-secondary hover:text-text-primary"
+                className="text-text-secondary hover:text-ink"
               >
                 <X size={20} />
               </button>
@@ -1346,11 +1333,10 @@ export default function FindPrices() {
             <div className="p-5">
               {renderFilterControls()}
             </div>
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4">
+            <div className="sticky bottom-0 bg-white border-t border-rule p-4">
               <button
                 onClick={() => setShowFilters(false)}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm hover:opacity-90 transition"
-                style={{ backgroundColor: '#C94F78' }}
+                className="btn-editorial btn-editorial-primary w-full"
               >
                 Apply filters
               </button>
@@ -1359,40 +1345,55 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Results area */}
-      <div className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}>
-        {/* Results header — hidden in mobile map */}
-        {!(IS_MOBILE && viewMode === 'map') && (
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">
+      {/* Editorial dark hero header — when procedure selected OR location set */}
+      {!(IS_MOBILE && viewMode === 'map') && (procFilter || selectedLoc) && (
+        <div className="bg-ink">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+            <p className="editorial-kicker mb-3" style={{ color: '#E8B4C8' }}>
+              {hasPricesOnly ? 'Verified providers' : 'Real prices · No consultations'}
+            </p>
+            <h1
+              className="font-display text-white"
+              style={{ fontWeight: 900, fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1, letterSpacing: '-0.02em' }}
+            >
               {(() => {
-                const label = procFilter?.label;
-                if (hasPricesOnly) {
-                  return label ? `Providers with ${label} Prices` : 'Providers with Prices';
-                }
-                if (label) return `${label} prices`;
-                return 'All Treatment Prices';
+                const label = procFilter?.label || 'Treatment';
+                const loc = selectedLoc && !fallbackScope
+                  ? `${selectedLoc.city}, ${selectedLoc.state}`
+                  : null;
+                return loc
+                  ? `${label} prices in ${loc}.`
+                  : `${label} prices.`;
               })()}
-              {selectedLoc && !fallbackScope ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}
-              {procFilter && !loadingProcedures && procedures.length > 0
-                ? ` — ${procedures.length} ${procedures.length === 1 ? 'provider' : 'providers'}`
-                : ''}
             </h1>
-            {!loadingProcedures && !procFilter && (
-              <p className="text-sm text-text-secondary mt-0.5">
-                Pick a treatment to see real prices from providers near you
-              </p>
-            )}
             {!loadingProcedures && procFilter && (
-              <p className="text-sm text-text-secondary mt-0.5">
+              <p className="font-body font-light text-[#999] mt-4 text-[15px]">
                 {procedures.length}{hasPricesOnly ? ' provider' : ' result'}{procedures.length !== 1 ? 's' : ''}
-                {hasPricesOnly ? ' with prices' : ''}
-                {totalCount > 0 && !hasActiveFilters && ` of ${totalCount.toLocaleString()} total`}
+                {hasPricesOnly ? ' with verified prices' : ''}
+                {totalCount > 0 && !hasActiveFilters && ` · of ${totalCount.toLocaleString()} total`}
               </p>
             )}
           </div>
         </div>
+      )}
+
+      {/* Results area */}
+      <div className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}>
+        {/* Editorial gate state — no procedure picked */}
+        {!(IS_MOBILE && viewMode === 'map') && !procFilter && !selectedLoc && (
+          <div className="text-center py-12 mb-6">
+            <p className="editorial-kicker mb-4">Med spa price transparency</p>
+            <h1
+              className="font-display text-ink mx-auto max-w-3xl"
+              style={{ fontWeight: 900, fontSize: 'clamp(32px, 5vw, 48px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}
+            >
+              Pick a treatment.<br />
+              <span className="italic text-hot-pink">See what people actually paid.</span>
+            </h1>
+            <p className="font-body font-light text-text-secondary mt-4 text-[15px] max-w-xl mx-auto">
+              Real prices from real med spas. Use the search above to start.
+            </p>
+          </div>
         )}
 
         {/* First-Timer Mode Banner — hidden in map view */}
@@ -1477,17 +1478,13 @@ export default function FindPrices() {
             {IS_MOBILE && (
               <button
                 onClick={() => setHasPricesOnly((prev) => !prev)}
-                className="absolute top-3 left-1/2 -translate-x-1/2 z-10"
+                className="absolute top-3 left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-1.5 px-4 py-2 text-[10px] font-semibold uppercase transition-colors cursor-pointer"
                 style={{
-                  padding: '8px 16px',
-                  background: hasPricesOnly ? '#C94F78' : 'white',
-                  color: hasPricesOnly ? 'white' : '#1A1A1A',
-                  border: 'none',
-                  borderRadius: '100px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                  cursor: 'pointer',
+                  letterSpacing: '0.08em',
+                  borderRadius: '4px',
+                  background: hasPricesOnly ? '#E8347A' : 'white',
+                  color: hasPricesOnly ? 'white' : '#111111',
+                  border: `1px solid ${hasPricesOnly ? '#E8347A' : '#E8E8E8'}`,
                 }}
               >
                 {hasPricesOnly ? '\u2713 Showing prices only' : 'Show spas with prices'}
@@ -1497,10 +1494,11 @@ export default function FindPrices() {
             {/* Floating locate button */}
             <button
               onClick={handleRecenterOnUser}
-              className="absolute bottom-4 right-3 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md border border-gray-200 hover:bg-gray-50 active:scale-95 transition"
+              className="absolute bottom-4 right-3 z-10 flex items-center justify-center w-10 h-10 bg-white border border-rule hover:bg-cream active:scale-95 transition"
+              style={{ borderRadius: '2px' }}
               aria-label="Center on my location"
             >
-              <LocateFixed size={18} className="text-text-primary" />
+              <LocateFixed size={18} className="text-ink" />
             </button>
           </div>
         )}
@@ -1508,53 +1506,60 @@ export default function FindPrices() {
         {/* Mobile bottom sheet for selected provider */}
         {IS_MOBILE && viewMode === 'map' && selectedMapProvider && (
           <div className="fixed inset-0 z-50" onClick={() => setSelectedMapProvider(null)}>
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-ink/60" />
             <div
-              className="absolute bottom-14 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-slide-up"
-              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+              className="absolute bottom-14 left-0 right-0 bg-white animate-slide-up"
+              style={{
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                borderTop: '2px solid #111111',
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-center pt-2 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
+                <div className="w-10 h-1 bg-rule" />
               </div>
               <div className="px-5 pb-5">
-                <h3 className="text-base font-bold text-text-primary truncate">
+                <p className="editorial-kicker mb-2">
+                  Provider
+                </p>
+                <h3 className="font-display font-bold text-[22px] leading-tight text-ink truncate">
                   {selectedMapProvider.provider_name}
                 </h3>
-                <p className="text-sm text-text-secondary mt-0.5">
+                <p className="text-[12px] text-text-secondary mt-1 font-light">
                   {[selectedMapProvider.city, selectedMapProvider.state].filter(Boolean).join(', ')}
                   {selectedMapProvider.google_rating ? ` \u00B7 \u2605 ${Number(selectedMapProvider.google_rating).toFixed(1)}` : ''}
                 </p>
 
                 {selectedMapProvider.has_submissions && selectedMapProvider.avg_price > 0 && (
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold" style={{ color: '#C94F78' }}>
+                    <span className="price-display-sm">
                       ${Math.round(selectedMapProvider.avg_price)}
                     </span>
-                    <span className="text-xs text-text-secondary">avg reported price</span>
+                    <span className="text-[11px] uppercase text-text-secondary font-medium" style={{ letterSpacing: '0.06em' }}>
+                      avg reported
+                    </span>
                     {selectedMapProvider.submission_count > 0 && (
-                      <span className="text-xs text-text-secondary">
-                        ({selectedMapProvider.submission_count} submission{selectedMapProvider.submission_count !== 1 ? 's' : ''})
+                      <span className="text-[11px] text-text-secondary font-light">
+                        ({selectedMapProvider.submission_count})
                       </span>
                     )}
                   </div>
                 )}
 
-                <div className="flex gap-3 mt-4">
+                <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => {
                       setSelectedMapProvider(null);
                       navigate(providerProfileUrl(selectedMapProvider));
                     }}
-                    className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:opacity-90"
-                    style={{ backgroundColor: '#C94F78' }}
+                    className="btn-editorial btn-editorial-primary flex-1"
                   >
                     View Profile
                   </button>
                   <Link
                     to={`/log?provider=${encodeURIComponent(selectedMapProvider.provider_name)}`}
                     onClick={() => setSelectedMapProvider(null)}
-                    className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold border border-gray-200 text-text-primary hover:bg-gray-50 transition"
+                    className="btn-editorial btn-editorial-secondary flex-1 text-center"
                   >
                     Add Price
                   </Link>

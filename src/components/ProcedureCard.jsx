@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, FileCheck, RotateCcw, Camera, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
 import StarRating from './StarRating';
 import FairPriceBadge from './FairPriceBadge';
@@ -37,9 +36,6 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   const wrapperProps = profileUrl ? { to: profileUrl } : {};
 
   // Per-unit equivalent used for brand inference on neurotoxin cards.
-  // Prefer the normalized comparable value when present (already accounts
-  // for area→per-unit estimation); otherwise parse units count from the
-  // freeform units_or_volume field and divide.
   const perUnitForBrand = (() => {
     if (
       procedure.normalized_compare_value &&
@@ -64,13 +60,21 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   return (
     <Wrapper
       {...wrapperProps}
-      className="group block glow-card p-4 hover:no-underline"
+      className="group block glow-card p-5 hover:no-underline"
     >
-      {/* Layer 1: Price hero */}
-      <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+      {/* Kicker — procedure type as tracked uppercase label */}
+      <p className="editorial-kicker mb-2">
+        {procedure.procedure_type}
+        {procedure.treatment_area && (
+          <span className="text-text-secondary font-normal normal-case tracking-normal">
+            {' '}&middot; {procedure.treatment_area}
+          </span>
+        )}
+      </p>
+
+      {/* Layer 1: Price hero — Playfair 900 huge */}
+      <div className="flex items-baseline gap-2 mb-3 flex-wrap">
         {procedure.normalized_display ? (
-          // Provider-website price — use the normalized display so flat-rate
-          // areas show as "$200 area (~$10/u est.)" instead of bare "$200".
           <span className="price-display whitespace-normal">
             {procedure.normalized_display}
           </span>
@@ -80,34 +84,26 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
               ${Number(procedure.price_paid).toLocaleString()}
             </span>
             {procedure.units_or_volume && (
-              <span className="text-base text-[#6B7280]">{procedure.units_or_volume}</span>
+              <span className="text-[12px] font-light text-text-secondary">
+                {procedure.units_or_volume}
+              </span>
             )}
           </>
         )}
+      </div>
+
+      {/* FairPrice + Brand chips row */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
         <FairPriceBadge
           price={procedure.normalized_compare_value || procedure.price_paid}
           procedureType={procedure.procedure_type}
           state={procedure.state}
           city={procedure.city}
         />
-      </div>
-
-      {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
-        <div className="mb-1">
-          <PriceAnnotation price={procedure.price_paid} treatmentName={procedure.procedure_type} />
-        </div>
-      )}
-
-      {/* Procedure type + treatment area */}
-      <div className="flex items-center gap-2 mb-1 flex-wrap">
-        <ProcedureIcon type={procedure.procedure_type} size={22} className="text-rose-dark" />
-        <span className="text-[15px] font-semibold text-text-primary">{procedure.procedure_type}</span>
-        {procedure.treatment_area && (
-          <span className="text-sm text-text-secondary">&middot; {procedure.treatment_area}</span>
-        )}
         {brandInfo && (
           <span
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-dark bg-rose-light/40 px-2 py-0.5 rounded-full"
+            className="inline-flex items-center text-[10px] font-medium uppercase text-hot-pink border border-hot-pink/40 px-2 py-0.5"
+            style={{ letterSpacing: '0.06em', borderRadius: '4px' }}
             title={brandInfo.tooltip}
           >
             {brandInfo.label}
@@ -115,72 +111,93 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
         )}
       </div>
 
+      {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
+        <div className="mb-2">
+          <PriceAnnotation price={procedure.price_paid} treatmentName={procedure.procedure_type} />
+        </div>
+      )}
+
       {/* Guide link */}
       {getGuideUrl(procedure.procedure_type) && (
         <Link
           to={getGuideUrl(procedure.procedure_type)}
-          className="text-[11px] font-medium text-[#0369A1] hover:text-sky-800 transition-colors mb-2 inline-block"
+          className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors mb-3 inline-block"
+          style={{ letterSpacing: '0.08em' }}
           onClick={(e) => e.stopPropagation()}
         >
           First timer? Read the guide &rarr;
         </Link>
       )}
 
-      {/* Layer 2: Provider name */}
-      <div className="flex items-center gap-2 mb-0.5">
-        <ProviderAvatar name={procedure.provider_name} size={24} />
-        <span className="text-lg font-semibold text-[#1A1A1A]">
-          {procedure.provider_name}
-        </span>
+      {/* Provider row — divider above */}
+      <div className="pt-3 mt-1" style={{ borderTop: '1px solid #F0F0F0' }}>
+        <div className="flex items-center gap-2.5 mb-1">
+          <ProviderAvatar name={procedure.provider_name} size={28} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-ink truncate">
+              {procedure.provider_name}
+            </p>
+            {procedure.city && procedure.state && (
+              <p className="text-[11px] font-light text-text-secondary">
+                {procedure.city}, {procedure.state}
+              </p>
+            )}
+          </div>
+        </div>
+        {procedure.injector_name && (
+          <p className="ml-[38px] text-[11px] font-light text-text-secondary">
+            Injected by {procedure.injector_name}
+          </p>
+        )}
       </div>
 
-      {/* Layer 3: Location + injector */}
-      {(procedure.city || procedure.injector_name) && (
-        <div className="ml-8 mb-3">
-          {procedure.city && procedure.state && (
-            <p className="text-sm text-[#6B7280]">
-              {procedure.city}, {procedure.state}
-            </p>
-          )}
-          {procedure.injector_name && (
-            <p className="text-xs text-[#0369A1]">
-              Injected by {procedure.injector_name}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Layer 4: Badges */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+      {/* Badges row — square pills, editorial tracked */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-3">
         {/* Source type */}
         <span
-          className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-          style={{ color: sourceBadge.color, backgroundColor: sourceBadge.background }}
+          className="inline-flex items-center gap-1 text-[10px] font-medium uppercase px-2 py-0.5"
+          style={{
+            color: sourceBadge.color,
+            backgroundColor: sourceBadge.background,
+            borderRadius: '4px',
+            letterSpacing: '0.06em',
+          }}
           title={sourceBadge.tooltip}
         >
-          <span className="text-[11px]">{sourceBadge.icon}</span>
           {sourceBadge.label}
         </span>
 
-        {/* Receipt verified (single instance) */}
+        {/* Receipt verified */}
         {procedure.has_receipt && procedure.receipt_verified && (
           <span
-            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: '#E1F5EE', color: '#0F6E56', border: '1px solid #0F6E56' }}
+            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase px-2 py-0.5"
+            style={{
+              backgroundColor: '#F0FAF5',
+              color: '#1A7A3A',
+              border: '1px solid #1A7A3A',
+              borderRadius: '4px',
+              letterSpacing: '0.06em',
+            }}
             title="This price was verified with an uploaded receipt"
           >
-            <FileCheck size={12} />
-            Receipt verified
+            <FileCheck size={10} />
+            Receipt
           </span>
         )}
 
         {/* Disputed */}
         {procedure.is_disputed && (
           <span
-            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
+            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase px-2 py-0.5"
+            style={{
+              backgroundColor: '#FFF7ED',
+              color: '#B45309',
+              borderRadius: '4px',
+              letterSpacing: '0.06em',
+            }}
             title="Multiple users have flagged this price as potentially inaccurate."
           >
-            <AlertTriangle size={11} />
+            <AlertTriangle size={10} />
             Disputed
           </span>
         )}
@@ -188,17 +205,29 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
         {/* Result photo */}
         {!procedure.receipt_verified && procedure.result_photo_url && (
           <span
-            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: '#E6F1FB', color: '#185FA5' }}
+            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase px-2 py-0.5"
+            style={{
+              backgroundColor: '#F5F2EE',
+              color: '#666',
+              borderRadius: '4px',
+              letterSpacing: '0.06em',
+            }}
           >
-            <Camera size={11} />
-            Has photo
+            <Camera size={10} />
+            Photo
           </span>
         )}
 
         {/* Provider type */}
         {procedure.provider_type && (
-          <span className="inline-block bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full">
+          <span
+            className="inline-flex items-center text-[10px] font-medium uppercase px-2 py-0.5 text-hot-pink"
+            style={{
+              backgroundColor: '#FFE8F0',
+              borderRadius: '4px',
+              letterSpacing: '0.06em',
+            }}
+          >
             {procedure.provider_type}
           </span>
         )}
@@ -208,8 +237,16 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           <span className="inline-flex items-center gap-1">
             <StarRating value={procedure.rating} readOnly size={12} />
             {procedure.would_return && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] bg-verified/10 text-verified px-1.5 py-0.5 rounded-full">
-                <RotateCcw size={8} />
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-medium uppercase px-1.5 py-0.5"
+                style={{
+                  backgroundColor: '#F0FAF5',
+                  color: '#1A7A3A',
+                  borderRadius: '4px',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                <RotateCcw size={9} />
                 Would return
               </span>
             )}
@@ -230,10 +267,15 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
 
       {/* Freshness indicators */}
       {priceFreshness && (
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mt-3">
           <span
-            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
-            style={{ color: priceFreshness.color, backgroundColor: priceFreshness.bg }}
+            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase px-2 py-0.5"
+            style={{
+              color: priceFreshness.color,
+              backgroundColor: priceFreshness.bg,
+              borderRadius: '4px',
+              letterSpacing: '0.06em',
+            }}
           >
             {priceFreshness.showWarning && <span>&#9888;</span>}
             {priceFreshness.label} &middot; {getFreshnessAge(priceFreshness.daysOld)}
@@ -241,33 +283,36 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           {priceFreshness.tier.key === 'stale' && (
             <Link
               to={`/log?procedure=${encodeURIComponent(procedure.procedure_type)}&provider=${encodeURIComponent(procedure.provider_name || '')}&city=${encodeURIComponent(procedure.city || '')}&state=${encodeURIComponent(procedure.state || '')}`}
-              className="text-[11px] font-medium text-rose-accent hover:text-rose-dark transition-colors py-2 -my-2"
+              className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
+              style={{ letterSpacing: '0.08em' }}
               onClick={(e) => e.stopPropagation()}
             >
-              Update this price &rarr;
+              Update price &rarr;
             </Link>
           )}
         </div>
       )}
       {freshness && (
         <span
-          className="block text-[11px] mb-2"
-          style={{ color: freshness.color }}
+          className="block text-[10px] mt-2 uppercase font-medium"
+          style={{ color: freshness.color, letterSpacing: '0.06em' }}
         >
-          {freshness.icon} {freshness.text}
+          {freshness.text}
         </span>
       )}
 
       {/* Financing */}
-      <FinancingWidget
-        procedureName={procedure.procedure_type}
-        estimatedCost={Number(procedure.price_paid)}
-        variant="compact"
-      />
+      <div className="mt-3">
+        <FinancingWidget
+          procedureName={procedure.procedure_type}
+          estimatedCost={Number(procedure.price_paid)}
+          variant="compact"
+        />
+      </div>
 
       {/* Review snippet */}
       {procedure.review_body && (
-        <p className="text-xs italic text-text-secondary mb-2 line-clamp-1">
+        <p className="font-display italic text-[14px] text-text-secondary mt-3 line-clamp-2 leading-snug">
           &ldquo;{procedure.review_body}&rdquo;
         </p>
       )}
@@ -275,15 +320,18 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       {/* Notes — only show genuine consumer notes (from real submissions),
           never anything that came from a scraped provider page. */}
       {procedure.notes && procedure.data_source !== 'provider_website' && (
-        <p className="text-sm italic text-text-secondary line-clamp-2 mb-2">
+        <p className="text-[12px] text-text-secondary line-clamp-2 mt-2 font-light">
           {procedure.notes}
         </p>
       )}
 
       {/* Layer 5: Date + dispute */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-50 mt-1">
+      <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: '1px solid #F0F0F0' }}>
         {procedure.created_at ? (
-          <span className="text-[11px] text-[#9CA3AF]">
+          <span
+            className="text-[10px] uppercase font-medium text-text-secondary"
+            style={{ letterSpacing: '0.06em' }}
+          >
             {formatDistanceToNow(new Date(procedure.created_at), {
               addSuffix: true,
             })}
@@ -301,7 +349,8 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       {/* Provider response (collapsible) */}
       {procedure.provider_response && (
         <div
-          className="mt-3 pt-3 border-t border-gray-100"
+          className="mt-3 pt-3"
+          style={{ borderTop: '1px solid #E8E8E8' }}
           onClick={(e) => e.preventDefault()}
         >
           <button
@@ -310,7 +359,8 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
               e.stopPropagation();
               setResponseExpanded(!responseExpanded);
             }}
-            className="flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors min-h-[44px]"
+            className="flex items-center gap-1 text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors min-h-[44px]"
+            style={{ letterSpacing: '0.08em' }}
           >
             Provider response
             {responseExpanded ? (
@@ -320,7 +370,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
             )}
           </button>
           {responseExpanded && (
-            <p className="text-xs text-text-secondary mt-1.5 bg-warm-gray rounded-lg px-3 py-2">
+            <p className="font-display italic text-[14px] text-ink mt-2 bg-cream px-3 py-2 leading-snug">
               {procedure.provider_response}
             </p>
           )}

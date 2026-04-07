@@ -1,10 +1,10 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight, CheckCircle, Shield } from 'lucide-react';
+import { Search, MapPin, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import FounderStory from '../components/FounderStory';
-import HeroPattern from '../components/HeroPattern';
+import DarkPriceCard from '../components/DarkPriceCard';
 import SpecialCard from '../components/SpecialCard';
 import SpecialOfferCard from '../components/SpecialOfferCard';
 import { setPageMeta } from '../lib/seo';
@@ -12,8 +12,6 @@ import { AuthContext } from '../App';
 import LoggedInHome from '../components/home/LoggedInHome';
 
 // ── Placeholder testimonials ──
-// These use realistic savings math and real city/treatment combos.
-// Replace with real user testimonials when available.
 const PLACEHOLDER_TESTIMONIALS = [
   {
     name: 'Sarah M.',
@@ -38,11 +36,50 @@ const PLACEHOLDER_TESTIMONIALS = [
   },
 ];
 
-// ── Mock price cards for "screenshot" section ──
-const MOCK_CARDS = [
-  { treatment: 'Botox', price: '$13/unit', badge: 'Receipt verified', badgeColor: '#059669', icon: '\u2713' },
-  { treatment: 'Lip Filler', price: '$680/syr', badge: 'Patient reported', badgeColor: '#C94F78', icon: null },
-  { treatment: 'RF Microneedling', price: '$350/session', badge: 'Verified', badgeColor: '#059669', icon: '\u2713' },
+// Procedure pills shown in hero (editorial pink)
+const HERO_PROCS = [
+  'Botox',
+  'Lip Filler',
+  'Laser Hair Removal',
+  'Microneedling',
+  'Dermal Fillers',
+  'Hydrafacial',
+];
+
+// Sample featured prices for hero right column (cream bg, dark cards)
+const HERO_FEATURED = [
+  {
+    procedureLabel: 'Botox / Per Unit',
+    price: 11,
+    unit: '/unit',
+    brand: 'Botox',
+    vsAvg: { type: 'below', label: '15% below avg' },
+    source: 'patient',
+    providerName: 'Glow Med Spa',
+    providerCity: 'Austin',
+    providerState: 'TX',
+  },
+  {
+    procedureLabel: 'Lip Filler / Per Syringe',
+    price: 680,
+    unit: '/syringe',
+    brand: 'Juvederm',
+    vsAvg: { type: 'below', label: '8% below avg' },
+    source: 'website',
+    providerName: 'Luxe Aesthetics',
+    providerCity: 'Nashville',
+    providerState: 'TN',
+  },
+  {
+    procedureLabel: 'RF Microneedling',
+    price: 350,
+    unit: '/session',
+    vsAvg: { type: 'at', label: 'at average' },
+    source: 'patient',
+    providerName: 'Radiant Skin Co.',
+    providerCity: 'Denver',
+    providerState: 'CO',
+  },
 ];
 
 export default function Home() {
@@ -163,47 +200,90 @@ export default function Home() {
   if (user) return <LoggedInHome />;
 
   return (
-    <div>
+    <div className="bg-cream">
       {/* ═══════════════════════════════════════════════════════
-          1. HERO — mission statement + search CTA
+          1. HERO — editorial two-section split
           ═══════════════════════════════════════════════════════ */}
-      <section
-        className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #FDF6F0 0%, #FBE8EF 100%)' }}
-      >
-        <HeroPattern />
-
-        <div className="relative z-10 py-12 md:py-20 px-5 md:px-0">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="font-display italic text-[42px] md:text-[64px] leading-[1.08] font-normal tracking-[-0.5px] mb-4" style={{ color: '#C94F78' }}>
-              Know before you glow.
-            </h1>
-            <p className="text-[17px] md:text-[20px] text-text-secondary font-normal mb-8 max-w-lg mx-auto">
-              Real prices, shared by real patients.<br />
-              Free forever.
+      <section className="grid grid-cols-1 lg:grid-cols-[60%_40%] min-h-[560px]">
+        {/* LEFT — black 60%, headline + pills + search */}
+        <div
+          className="bg-ink px-6 md:px-12 lg:px-16 py-14 md:py-20 flex flex-col justify-center"
+          style={{ borderBottom: '2px solid #E8347A' }}
+        >
+          <div className="max-w-xl">
+            {/* Kicker */}
+            <p
+              className="text-[10px] font-semibold uppercase text-blush mb-5"
+              style={{ letterSpacing: '0.18em' }}
+            >
+              The Price Report
             </p>
 
-            {/* Search CTA — links to Find Prices page */}
-            <Link
-              to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
-              className="inline-flex items-center gap-3 bg-white rounded-full pl-5 pr-3 py-3 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow max-w-lg w-full mx-auto"
+            {/* Headline — Playfair 900, tight */}
+            <h1
+              className="font-display text-white mb-4"
+              style={{
+                fontWeight: 900,
+                fontSize: 'clamp(40px, 6vw, 80px)',
+                lineHeight: 0.96,
+                letterSpacing: '-0.015em',
+              }}
             >
-              <Search size={20} className="text-text-secondary shrink-0" />
-              <span className="text-text-secondary text-sm md:text-base text-left flex-1">
-                {savedCity
-                  ? `Search prices in ${savedCity}, ${savedState}...`
-                  : 'Search treatments near you...'}
-              </span>
-              <span
-                className="shrink-0 px-4 py-2 rounded-full text-white text-sm font-semibold"
-                style={{ backgroundColor: '#C94F78' }}
+              Know before<br />
+              you <span className="italic text-hot-pink">glow.</span>
+            </h1>
+
+            {/* Deck */}
+            <p className="text-[16px] md:text-[18px] text-[#bbb] font-light mb-8 max-w-md leading-relaxed">
+              Real prices. Real patients. Real receipts. The injectable industry has gotten away with hiding prices for too long.
+            </p>
+
+            {/* Procedure pills — editorial */}
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              {HERO_PROCS.map((proc) => (
+                <Link
+                  key={proc}
+                  to={`/browse?procedure=${encodeURIComponent(proc)}`}
+                  className="inline-flex items-center text-[10px] font-semibold uppercase px-3 py-1.5 text-white transition-colors hover:bg-hot-pink hover:border-hot-pink"
+                  style={{
+                    letterSpacing: '0.10em',
+                    borderRadius: '2px',
+                    border: '1px solid #333',
+                    background: 'transparent',
+                  }}
+                >
+                  {proc}
+                </Link>
+              ))}
+            </div>
+
+            {/* Search / CTA row */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link
+                to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
+                className="flex-1 flex items-center gap-2 bg-white px-4 py-3 text-[12px] text-text-secondary hover:bg-cream transition"
+                style={{ borderRadius: '2px' }}
+              >
+                <Search size={14} className="shrink-0 text-text-secondary" />
+                <span className="truncate">
+                  {savedCity
+                    ? `Search ${savedCity}, ${savedState}...`
+                    : 'Search treatments near you...'}
+                </span>
+              </Link>
+              <Link
+                to="/browse"
+                className="btn-editorial btn-editorial-primary"
               >
                 Find Prices
-              </span>
-            </Link>
+              </Link>
+            </div>
 
             {patientCount && (
-              <p className="text-center mt-2" style={{ fontSize: '13px', color: '#9CA3AF' }}>
+              <p
+                className="text-[11px] text-[#777] font-light uppercase mt-5"
+                style={{ letterSpacing: '0.08em' }}
+              >
                 {patientCount >= 10000
                   ? `${Math.floor(patientCount / 1000).toLocaleString()},000+`
                   : patientCount >= 1000
@@ -211,40 +291,62 @@ export default function Home() {
                     : patientCount > 100
                       ? `Over ${Math.floor(patientCount / 100) * 100}`
                       : patientCount}{' '}
-                patients shared what they paid. Now you know too.
+                patients shared what they paid.
               </p>
             )}
-
-            <div className="flex items-center justify-center gap-4 md:gap-6 mt-6 text-sm text-text-secondary/70">
-              <span>Botox</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span>Lip Filler</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span>Laser</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span className="hidden sm:inline">Microneedling</span>
-              <span className="hidden sm:inline w-1 h-1 rounded-full bg-text-secondary/30" />
-              <Link to="/browse" className="text-rose-accent hover:text-rose-dark font-medium transition-colors">
-                + more
-              </Link>
-            </div>
           </div>
+        </div>
+
+        {/* RIGHT — cream 40%, featured dark cards */}
+        <div className="bg-cream px-6 md:px-8 py-14 md:py-20 flex flex-col justify-center">
+          <p
+            className="editorial-kicker mb-4"
+          >
+            Today's Featured / {HERO_FEATURED.length} prices
+          </p>
+          <div className="space-y-3">
+            {HERO_FEATURED.map((card, i) => (
+              <DarkPriceCard key={i} {...card} />
+            ))}
+          </div>
+          <Link
+            to="/browse"
+            className="mt-5 text-[11px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors inline-flex items-center gap-1 self-start"
+            style={{ letterSpacing: '0.10em' }}
+          >
+            View all prices <ArrowRight size={12} />
+          </Link>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          2. BIG NUMBERS BAR — live stats (hide zeros)
+          2. BIG NUMBERS BAR — editorial stats
           ═══════════════════════════════════════════════════════ */}
       {statItems.length > 0 && (
-        <section className="border-y border-gray-100 bg-white">
-          <div className="max-w-5xl mx-auto px-4 py-8">
-            <div className={`grid gap-4 text-center`} style={{ gridTemplateColumns: `repeat(${statItems.length}, 1fr)` }}>
+        <section className="bg-white" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
+          <div className="max-w-5xl mx-auto px-4 py-10">
+            <div
+              className="grid gap-0"
+              style={{ gridTemplateColumns: `repeat(${statItems.length}, 1fr)` }}
+            >
               {statItems.map((item, i) => (
-                <div key={i}>
-                  <p className="text-3xl md:text-4xl font-bold text-text-primary">
+                <div
+                  key={i}
+                  className="px-4 text-center"
+                  style={{ borderRight: i < statItems.length - 1 ? '1px solid #E8E8E8' : 'none' }}
+                >
+                  <p
+                    className="font-display text-ink"
+                    style={{ fontWeight: 900, fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1 }}
+                  >
                     {item.isFormatted ? item.value : item.value.toLocaleString()}
                   </p>
-                  <p className="text-sm text-text-secondary mt-1">{item.label}</p>
+                  <p
+                    className="text-[10px] font-semibold uppercase text-text-secondary mt-3"
+                    style={{ letterSpacing: '0.12em' }}
+                  >
+                    {item.label}
+                  </p>
                 </div>
               ))}
             </div>
@@ -253,88 +355,63 @@ export default function Home() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-          3. HOW IT WORKS + SCREENSHOT MOCKUP
+          3. HOW IT WORKS — editorial
           ═══════════════════════════════════════════════════════ */}
       <section className="max-w-5xl mx-auto px-4 py-16">
-        <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-10">
-          How It Works
-        </h2>
+        <p className="editorial-kicker text-center mb-3">The Method</p>
+        <h2 className="editorial-headline text-center mb-2">How it works.</h2>
+        <p className="editorial-deck text-center max-w-xl mx-auto mb-12">
+          Three steps. No fluff. No hidden menus.
+        </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-          {/* Left: 3 steps */}
-          <div className="space-y-8">
-            {[
-              {
-                num: '1',
-                icon: '\u{1F489}',
-                title: 'Someone gets a treatment',
-                body: 'A patient visits a med spa and gets Botox, filler, or another treatment near you.',
-              },
-              {
-                num: '2',
-                icon: '\uD83D\uDCF1',
-                title: 'They share what they paid',
-                body: 'They log the real price on GlowBuddy — anonymously and in seconds.',
-              },
-              {
-                num: '3',
-                icon: '\uD83D\uDCCD',
-                title: 'You know before you book',
-                body: 'See real prices in your city so you never overpay.',
-              },
-            ].map((step, i) => (
-              <div key={i} className="flex gap-4">
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: '#FBE8EF' }}
-                >
-                  <span className="text-xl">{step.icon}</span>
-                </div>
-                <div>
-                  <p className="text-base font-bold text-text-primary mb-0.5">{step.title}</p>
-                  <p className="text-sm text-text-secondary leading-relaxed">{step.body}</p>
-                </div>
-              </div>
-            ))}
-            <Link
-              to="/log"
-              className="inline-block text-white px-7 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition"
-              style={{ backgroundColor: '#C94F78' }}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-y border-ink">
+          {[
+            {
+              num: '01',
+              title: 'Someone gets a treatment',
+              body: 'A patient visits a med spa and gets Botox, filler, or another treatment near you.',
+            },
+            {
+              num: '02',
+              title: 'They share what they paid',
+              body: 'They log the real price on GlowBuddy — anonymously and in seconds.',
+            },
+            {
+              num: '03',
+              title: 'You know before you book',
+              body: 'See real prices in your city so you never overpay again.',
+            },
+          ].map((step, i, arr) => (
+            <div
+              key={i}
+              className="p-6 md:p-8"
+              style={{
+                borderRight: i < arr.length - 1 ? '1px solid #E8E8E8' : 'none',
+              }}
             >
-              Share what you paid
-            </Link>
-          </div>
+              <p
+                className="font-display text-hot-pink mb-3"
+                style={{ fontWeight: 900, fontSize: '42px', lineHeight: 1 }}
+              >
+                {step.num}
+              </p>
+              <p
+                className="text-[10px] font-semibold uppercase text-ink mb-2"
+                style={{ letterSpacing: '0.12em' }}
+              >
+                {step.title}
+              </p>
+              <p className="text-[13px] text-text-secondary leading-relaxed font-light">
+                {step.body}
+              </p>
+            </div>
+          ))}
+        </div>
 
-          {/* Right: Stylized mock price cards */}
-          <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-300" />
-              <div className="w-3 h-3 rounded-full bg-yellow-300" />
-              <div className="w-3 h-3 rounded-full bg-green-300" />
-              <span className="ml-2 text-[11px] text-text-secondary/50">glowbuddy.com/browse</span>
-            </div>
-            <div className="space-y-3">
-              {MOCK_CARDS.map((card, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-text-primary">{card.treatment}</span>
-                    <span className="text-lg font-bold text-text-primary">{card.price}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {card.icon && (
-                      <CheckCircle size={12} style={{ color: card.badgeColor }} />
-                    )}
-                    <span className="text-[11px] font-medium" style={{ color: card.badgeColor }}>
-                      {card.badge}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="text-center mt-10">
+          <Link to="/log" className="btn-editorial btn-editorial-primary">
+            Share what you paid
+          </Link>
         </div>
       </section>
 
@@ -346,32 +423,41 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          5. TESTIMONIALS — placeholder with disclaimer
+          5. TESTIMONIALS — editorial
           ═══════════════════════════════════════════════════════ */}
-      <section className="bg-white border-y border-gray-100 py-12">
+      <section className="bg-white py-16" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-            What Patients Are Saying
+          <p className="editorial-kicker text-center mb-3">The Chorus</p>
+          <h2 className="editorial-headline text-center mb-10">
+            What <span className="italic text-hot-pink">patients</span> are saying.
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {PLACEHOLDER_TESTIMONIALS.map((t, i) => (
               <div key={i} className="glow-card p-5">
-                <div className="flex items-center gap-1 mb-3">
+                <div className="flex items-center gap-0.5 mb-3">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={14} className="text-amber-400 fill-amber-400" />
+                    <Star key={s} size={12} className="text-hot-pink fill-hot-pink" />
                   ))}
                 </div>
-                <p className="text-sm text-text-secondary leading-relaxed mb-4 italic">
+                <p className="font-display italic text-[15px] text-ink leading-snug mb-4">
                   &ldquo;{t.quote}&rdquo;
                 </p>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #E8E8E8' }}>
                   <div>
-                    <p className="text-sm font-semibold text-text-primary">{t.name}</p>
-                    <p className="text-xs text-text-secondary">{t.city}</p>
+                    <p className="text-[11px] font-semibold uppercase text-ink" style={{ letterSpacing: '0.08em' }}>
+                      {t.name}
+                    </p>
+                    <p className="text-[10px] text-text-secondary font-light mt-0.5">{t.city}</p>
                   </div>
                   <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: '#ECFDF5', color: '#059669' }}
+                    className="text-[10px] font-semibold uppercase px-2 py-0.5"
+                    style={{
+                      letterSpacing: '0.06em',
+                      borderRadius: '4px',
+                      background: '#F0FAF5',
+                      color: '#1A7A3A',
+                      border: '1px solid #1A7A3A',
+                    }}
                   >
                     Saved {t.savings}
                   </span>
@@ -379,13 +465,14 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="text-center mt-4">
-            <p className="text-[11px] text-text-secondary/60 mb-2">
+          <div className="text-center mt-6">
+            <p className="text-[10px] text-text-secondary/60 font-light uppercase mb-2" style={{ letterSpacing: '0.06em' }}>
               Based on community-reported savings. Individual results vary.
             </p>
             <a
               href="mailto:hello@glowbuddy.com?subject=My GlowBuddy Story"
-              className="text-xs text-rose-accent hover:text-rose-dark font-medium transition-colors"
+              className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
+              style={{ letterSpacing: '0.10em' }}
             >
               Share your story &rarr;
             </a>
@@ -396,12 +483,11 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════════
           6. MAP CTA — stylized mockup
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14">
+      <section className="py-16">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-            Find Providers Near You
-          </h2>
-          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+          <p className="editorial-kicker text-center mb-3">Near You</p>
+          <h2 className="editorial-headline text-center mb-10">Find providers near you.</h2>
+          <div className="overflow-hidden" style={{ border: '1px solid #E8E8E8', borderRadius: '2px' }}>
             {/* Stylized map mockup */}
             <div
               className="relative h-[280px] md:h-[340px]"
@@ -415,12 +501,12 @@ export default function Home() {
 
               {/* Mock price pills */}
               {[
-                { top: '18%', left: '22%', price: '$12/unit', treatment: 'Botox' },
-                { top: '35%', left: '55%', price: '$680', treatment: 'Lip Filler' },
-                { top: '55%', left: '30%', price: '$350', treatment: 'Microneedling' },
-                { top: '28%', left: '72%', price: '$14/unit', treatment: 'Botox' },
-                { top: '65%', left: '60%', price: '$425', treatment: 'Laser' },
-                { top: '45%', left: '15%', price: '$11/unit', treatment: 'Botox' },
+                { top: '18%', left: '22%', price: '$12/unit' },
+                { top: '35%', left: '55%', price: '$680' },
+                { top: '55%', left: '30%', price: '$350' },
+                { top: '28%', left: '72%', price: '$14/unit' },
+                { top: '65%', left: '60%', price: '$425' },
+                { top: '45%', left: '15%', price: '$11/unit' },
               ].map((pin, i) => (
                 <div
                   key={i}
@@ -428,8 +514,13 @@ export default function Home() {
                   style={{ top: pin.top, left: pin.left }}
                 >
                   <div
-                    className="px-2.5 py-1 rounded-full text-white text-[11px] font-bold shadow-md whitespace-nowrap"
-                    style={{ backgroundColor: '#C94F78' }}
+                    className="font-display px-2.5 py-1 bg-white text-ink whitespace-nowrap"
+                    style={{
+                      fontWeight: 900,
+                      fontSize: '12px',
+                      border: '1px solid #E8347A',
+                      borderRadius: '2px',
+                    }}
                   >
                     {pin.price}
                   </div>
@@ -438,34 +529,31 @@ export default function Home() {
 
               {/* Center pin */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg" />
+                <div className="w-4 h-4 rounded-full bg-hot-pink border-2 border-white" />
               </div>
             </div>
 
             {/* CTA below mock map */}
-            <div className="bg-white px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-white px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid #E8E8E8' }}>
               <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  See med spas and clinics with real prices from patients
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Receipt-verified data you can trust
+                <p className="editorial-kicker mb-1">On the Map</p>
+                <p className="text-[14px] font-display font-bold text-ink">
+                  See med spas with real prices from patients
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Link
                   to="/browse"
-                  className="inline-flex items-center gap-1.5 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:opacity-90 transition"
-                  style={{ backgroundColor: '#C94F78' }}
+                  className="btn-editorial btn-editorial-primary"
                 >
-                  <Search size={15} />
+                  <Search size={12} />
                   Find Prices
                 </Link>
                 <Link
                   to="/map"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-medium border border-gray-200 text-text-primary hover:border-rose-accent transition"
+                  className="btn-editorial btn-editorial-secondary"
                 >
-                  <MapPin size={15} />
+                  <MapPin size={12} />
                   Map
                 </Link>
               </div>
@@ -475,13 +563,12 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          7. TOOLS GRID — what else you can do
+          7. TOOLS GRID — editorial
           ═══════════════════════════════════════════════════════ */}
       <section className="max-w-5xl mx-auto px-4 pb-14">
-        <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-          Your Glow Toolkit
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <p className="editorial-kicker text-center mb-3">The Toolkit</p>
+        <h2 className="editorial-headline text-center mb-10">Your glow toolkit.</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { to: '/calculator', icon: Calculator, label: 'Savings Calculator', desc: 'See how much you could save' },
             { to: '/budget', icon: TrendingDown, label: 'Budget Planner', desc: 'Plan your treatment spend' },
@@ -491,16 +578,16 @@ export default function Home() {
             <Link
               key={to}
               to={to}
-              className="glow-card p-5 text-center hover:shadow-md hover:border-rose-accent/30 transition-all group"
+              className="glow-card p-5 group"
             >
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform"
-                style={{ backgroundColor: '#FBE8EF' }}
+              <Icon size={20} className="text-hot-pink mb-3" />
+              <p
+                className="text-[10px] font-semibold uppercase text-ink mb-1"
+                style={{ letterSpacing: '0.10em' }}
               >
-                <Icon size={20} className="text-rose-accent" />
-              </div>
-              <p className="text-sm font-semibold text-text-primary mb-0.5">{label}</p>
-              <p className="text-[11px] text-text-secondary leading-snug">{desc}</p>
+                {label}
+              </p>
+              <p className="text-[11px] text-text-secondary leading-snug font-light">{desc}</p>
             </Link>
           ))}
         </div>
@@ -510,17 +597,21 @@ export default function Home() {
           8. SPECIALS — hidden when empty
           ═══════════════════════════════════════════════════════ */}
       {(displaySpecials.length > 0 || displayPromoted.length > 0) && (
-        <section className="bg-white border-y border-gray-100 py-12">
+        <section className="bg-white py-16" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
           <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-[26px] font-semibold text-text-primary">
-                Specials {savedCity ? `Near ${savedCity}` : 'Near You'}
-              </h2>
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="editorial-kicker mb-2">The Deal Sheet</p>
+                <h2 className="editorial-headline">
+                  Specials {savedCity ? `near ${savedCity}` : 'near you'}.
+                </h2>
+              </div>
               <Link
                 to="/specials"
-                className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors flex items-center gap-1"
+                className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors flex items-center gap-1"
+                style={{ letterSpacing: '0.10em' }}
               >
-                View all <ArrowRight size={14} />
+                View all <ArrowRight size={12} />
               </Link>
             </div>
 
@@ -546,25 +637,40 @@ export default function Home() {
           9. SIGN-UP CTA (logged-out users only)
           ═══════════════════════════════════════════════════════ */}
       {!user && (
-        <section className="py-16">
+        <section className="bg-ink py-20" style={{ borderTop: '2px solid #E8347A' }}>
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <h2 className="font-display text-[28px] font-semibold text-text-primary mb-3">
-              Join thousands of patients
+            <p
+              className="text-[10px] font-semibold uppercase text-blush mb-4"
+              style={{ letterSpacing: '0.18em' }}
+            >
+              Join the Movement
+            </p>
+            <h2
+              className="font-display text-white mb-4"
+              style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05 }}
+            >
+              Stop overpaying.<br />
+              <span className="italic text-hot-pink">Start knowing.</span>
             </h2>
-            <p className="text-text-secondary mb-6 max-w-md mx-auto">
+            <p className="text-[14px] text-[#999] mb-8 max-w-md mx-auto font-light">
               Create a free account to set price alerts, track your treatments, and earn rewards for sharing prices.
             </p>
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <button
                 onClick={() => openAuthModal('signup')}
-                className="px-8 py-3 rounded-full text-white font-semibold hover:opacity-90 transition"
-                style={{ backgroundColor: '#C94F78' }}
+                className="btn-editorial btn-editorial-primary"
               >
                 Sign up free
               </button>
               <Link
                 to="/browse"
-                className="px-6 py-3 rounded-full font-medium border border-gray-200 text-text-primary hover:border-rose-accent transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors"
+                style={{
+                  letterSpacing: '0.12em',
+                  border: '1px solid #333',
+                  borderRadius: '2px',
+                  background: 'transparent',
+                }}
               >
                 Find prices first
               </Link>
