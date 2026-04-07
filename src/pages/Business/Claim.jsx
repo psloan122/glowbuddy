@@ -128,13 +128,7 @@ export default function Claim() {
 
     const { error: updateError } = await supabase
       .from('providers')
-      .update({
-        owner_user_id: user.id,
-        is_claimed: true,
-        is_verified: true,
-        claimed_at: new Date().toISOString(),
-        onboarding_completed: false,
-      })
+      .update({ owner_user_id: user.id, is_claimed: true })
       .eq('id', provider.id);
 
     if (updateError) {
@@ -150,9 +144,6 @@ export default function Claim() {
     if (metaError) {
       console.error('Failed to update user role:', metaError);
     }
-
-    // Sync role to profiles table for DB-level checks
-    await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
 
     setClaiming(false);
     navigate('/business/dashboard');
@@ -181,7 +172,7 @@ export default function Claim() {
       slug,
       owner_user_id: user.id,
       is_claimed: true,
-      is_verified: true,
+      is_verified: false,
     });
 
     if (error) {
@@ -197,9 +188,6 @@ export default function Claim() {
     if (metaError) {
       console.error('Failed to update user role:', metaError);
     }
-
-    // Sync role to profiles table for DB-level checks
-    await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
 
     setCreating(false);
     navigate('/business/dashboard');

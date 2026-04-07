@@ -11,7 +11,6 @@
   --color-verified: #10B981;
   --color-community: #8B5CF6;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Cormorant Garamond', 'Georgia', serif;
 }
 
 body {
@@ -28,10 +27,10 @@ body {
 }
 
 .price-display {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  color: #C94F78;
+  color: var(--color-text-primary);
 }
 
 .price-display-sm {
@@ -42,169 +41,18 @@ body {
 
 .glow-card {
   background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
   border: 1px solid rgba(0, 0, 0, 0.04);
   transition: box-shadow 0.2s ease;
 }
 
 .glow-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(1rem); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-/* Noise texture overlay */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
+.blurred-feed {
+  filter: blur(6px);
   pointer-events: none;
-  z-index: 9999;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-  mix-blend-mode: overlay;
-}
-
-/* Blush blobs for hero */
-@keyframes float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-20px) scale(1.05); }
-}
-
-.blush-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.15;
-  animation: float 6s ease-in-out infinite;
-}
-
-/* Hero illustrated pattern */
-.hero-pattern {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-@keyframes gentleFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-.hero-icon-float {
-  animation: gentleFloat var(--float-duration, 5s) ease-in-out infinite;
-  animation-delay: var(--float-delay, 0s);
-}
-
-@media (max-width: 768px) {
-  .hero-icon-desktop { display: none; }
-  .hero-pattern { opacity: 0.78; }
-  .hero-icon-float { animation: none; }
-}
-
-/* Scrollbar hide utility */
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Map container — full viewport minus navbar + bottom nav on mobile */
-.map-container {
-  height: calc(100dvh - 64px);
-}
-@media (max-width: 767px) {
-  .map-container {
-    height: calc(100dvh - 64px - 56px - env(safe-area-inset-bottom, 0px));
-  }
-}
-
-/* Badge icon circle */
-.badge-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* Range slider thumb */
-.range-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #0369A1;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-.range-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #0369A1;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-/* Map marker pills (AdvancedMarkerElement) */
-.map-pin {
-  padding: 4px 10px;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: 'DM Mono', monospace, system-ui;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 0.1s;
-  border: 1.5px solid transparent;
-  line-height: 1.2;
-}
-.map-pin:hover {
-  transform: scale(1.05);
-  z-index: 100;
-}
-.map-pin--priced {
-  background: #C94F78;
-  color: white;
-  border-color: #A03060;
-}
-.map-pin--empty {
-  background: white;
-  color: #6B7280;
-  border-color: #D1D5DB;
-  font-family: var(--font-sans);
-  font-size: 11px;
-}
-
-/* Skeleton shimmer */
-@keyframes shimmer {
-  0% { background-position: -300px 0; }
-  100% { background-position: 300px 0; }
-}
-
-/* Mobile bottom sheet slide-up */
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
+  user-select: none;
 }

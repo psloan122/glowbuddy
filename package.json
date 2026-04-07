@@ -5,19 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:sitemap": "node --env-file-if-exists=.env scripts/generate-sitemap.js",
-    "build": "npm run build:sitemap || true && vite build",
+    "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "verify-seed": "node --env-file=.env scripts/verify-seed-data.js",
-    "import-quotes": "node --env-file=.env scripts/import-quotes.js",
-    "seed:providers": "node --env-file=.env scripts/seed-all-providers.js",
-    "seed:refresh": "REFRESH=true node --env-file=.env scripts/seed-all-providers.js"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.82.0",
-    "@googlemaps/markerclusterer": "^2.6.2",
-    "@marsidev/react-turnstile": "^1.5.0",
     "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.101.1",
     "@tailwindcss/vite": "^4.2.2",
@@ -33,16 +25,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@react-email/components": "^1.0.11",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "csv-parse": "^6.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
-    "react-email": "^5.2.10",
     "vite": "^8.0.1"
   }
 }

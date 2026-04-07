@@ -2,70 +2,27 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PROVIDER_TYPES, US_STATES } from '../../lib/constants';
 import PlacesSearch from '../PlacesSearch';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-export default function Step2({ formData, setFormData, prefilledProvider }) {
-  // Reactive check: detect Google Maps even if it loads after mount
-  const [hasPlaces, setHasPlaces] = useState(
-    () => !!window.google?.maps?.places
-  );
+const hasPlacesKey = !!import.meta.env.VITE_GOOGLE_PLACES_KEY;
 
-  useEffect(() => {
-    if (hasPlaces) return;
-    loadGoogleMaps().catch(() => {});
-    const interval = setInterval(() => {
-      if (window.google?.maps?.places) {
-        setHasPlaces(true);
-        clearInterval(interval);
-      }
-    }, 200);
-    return () => clearInterval(interval);
-  }, [hasPlaces]);
-  const [selectedPlace, setSelectedPlace] = useState(() => {
-    // Pre-filled from provider page — show confirmed card immediately
-    if (prefilledProvider) {
-      return {
-        name: prefilledProvider.name || formData.providerName,
-        formattedAddress: prefilledProvider.address || formData.providerAddress || '',
-        city: prefilledProvider.city || formData.city,
-        state: prefilledProvider.state || formData.state,
-        zipCode: prefilledProvider.zip_code || formData.zipCode,
-        phone: prefilledProvider.phone || formData.providerPhone || '',
-        website: prefilledProvider.website || formData.providerWebsite || '',
-        placeId: prefilledProvider.google_place_id || formData.googlePlaceId,
-      };
-    }
-    // Existing Google Place ID from URL params or receipt parse
-    if (formData.googlePlaceId) {
-      return {
-        name: formData.providerName,
-        formattedAddress: formData.providerAddress || '',
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zipCode,
-        phone: formData.providerPhone || '',
-        website: formData.providerWebsite || '',
-        placeId: formData.googlePlaceId,
-      };
-    }
-    // Provider name from URL without place_id — also show as pre-selected
-    if (formData.providerName && formData.city) {
-      return {
-        name: formData.providerName,
-        formattedAddress: [formData.city, formData.state].filter(Boolean).join(', '),
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zipCode,
-        phone: formData.providerPhone || '',
-        website: formData.providerWebsite || '',
-        placeId: '',
-      };
-    }
-    return null;
-  });
+export default function Step2({ formData, setFormData }) {
+  const [selectedPlace, setSelectedPlace] = useState(
+    formData.googlePlaceId
+      ? {
+          name: formData.providerName,
+          formattedAddress: formData.providerAddress || '',
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          phone: formData.providerPhone || '',
+          website: formData.providerWebsite || '',
+          placeId: formData.googlePlaceId,
+        }
+      : null
+  );
 
   // Fallback state for when Places API is not available
   const [providerSuggestions, setProviderSuggestions] = useState([]);
@@ -74,7 +31,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
 
   // Close dropdown on outside click (fallback mode)
   useEffect(() => {
-    if (hasPlaces) return;
+    if (hasPlacesKey) return;
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setShowSuggestions(false);
@@ -86,7 +43,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
 
   // Fallback autocomplete from Supabase
   useEffect(() => {
-    if (hasPlaces) return;
+    if (hasPlacesKey) return;
     async function fetchProviders() {
       if (formData.providerName.length < 2) {
         setProviderSuggestions([]);
@@ -162,7 +119,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
 
       <div className="space-y-5">
         {/* Provider search — Google Places or fallback */}
-        {hasPlaces ? (
+        {hasPlacesKey ? (
           <div className="relative">
             <PlacesSearch
               onSelect={handlePlaceSelect}
@@ -246,7 +203,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
           </label>
           <input
             type="text"
-            placeholder="City or town"
+            placeholder="City"
             value={formData.city}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, city: e.target.value }))

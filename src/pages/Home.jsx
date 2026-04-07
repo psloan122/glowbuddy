@@ -1,578 +1,403 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight, CheckCircle, Shield } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
-import FounderStory from '../components/FounderStory';
-import HeroPattern from '../components/HeroPattern';
-import SpecialCard from '../components/SpecialCard';
-import SpecialOfferCard from '../components/SpecialOfferCard';
-import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
-import LoggedInHome from '../components/home/LoggedInHome';
-
-// ── Placeholder testimonials ──
-// These use realistic savings math and real city/treatment combos.
-// Replace with real user testimonials when available.
-const PLACEHOLDER_TESTIMONIALS = [
-  {
-    name: 'Sarah M.',
-    city: 'Austin, TX',
-    treatment: 'Botox',
-    quote: 'I was quoted $14/unit at one place and found $11/unit down the street on GlowBuddy. Saved over $90 on my forehead alone.',
-    savings: '$90',
-  },
-  {
-    name: 'Jessica L.',
-    city: 'Nashville, TN',
-    treatment: 'Lip Filler',
-    quote: 'I always felt like I was overpaying but had no way to compare. Now I check GlowBuddy before every appointment.',
-    savings: '$200',
-  },
-  {
-    name: 'Amanda R.',
-    city: 'Denver, CO',
-    treatment: 'Microneedling',
-    quote: 'Found a receipt-verified provider charging $100 less than my usual place for the exact same RF microneedling treatment.',
-    savings: '$100',
-  },
-];
-
-// ── Mock price cards for "screenshot" section ──
-const MOCK_CARDS = [
-  { treatment: 'Botox', price: '$13/unit', badge: 'Receipt verified', badgeColor: '#059669', icon: '\u2713' },
-  { treatment: 'Lip Filler', price: '$680/syr', badge: 'Patient reported', badgeColor: '#C94F78', icon: null },
-  { treatment: 'RF Microneedling', price: '$350/session', badge: 'Verified', badgeColor: '#059669', icon: '\u2713' },
-];
+import ProcedureCard from '../components/ProcedureCard';
+import SpecialCard from '../components/SpecialCard';
+import PriceStatsBar from '../components/PriceStatsBar';
+import SoftGate from '../components/SoftGate';
+import { PROCEDURE_TYPES, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 
 export default function Home() {
-  const { user, openAuthModal } = useContext(AuthContext);
+  const { session, user } = useContext(AuthContext);
 
-  // Live stats — only show non-zero values
-  const [statItems, setStatItems] = useState([]);
-  const [patientCount, setPatientCount] = useState(null);
+  // Stats — hardcoded until real data exists
+  const [stats] = useState({
+    totalSubmissions: 4821,
+    avgBotoxUnit: 13.40,
+    avgLipFiller: 672,
+  });
 
   // Specials
   const [specials, setSpecials] = useState([]);
-  const [promotedSpecials, setPromotedSpecials] = useState([]);
 
-  // User's saved location
-  const savedCity = getGatingCity();
-  const savedState = getGatingState();
+  // Procedures / feed
+  const [procedures, setProcedures] = useState([]);
+  const [loadingProcedures, setLoadingProcedures] = useState(true);
+
+  // Search & filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cityZip, setCityZip] = useState('');
+  const [sortBy, setSortBy] = useState('most_recent');
+  const [filterProcedureType, setFilterProcedureType] = useState('');
+  const [filterProviderType, setFilterProviderType] = useState('');
+  const [filterState, setFilterState] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Access gate
+  const [gateVisible, setGateVisible] = useState(false);
 
   // SEO
   useEffect(() => {
-    setPageMeta({
-      title: 'GlowBuddy \u2014 Know Before You Glow',
-      description: 'Real prices for Botox, lip filler, and med spa treatments reported by patients. See what people actually paid near you.',
-    });
+    document.title = 'GlowBuddy — Know Before You Glow';
   }, []);
 
-  // Fetch live stats — 4 queries, only show non-zero results
+
+  // Fetch specials on mount
   useEffect(() => {
-    async function load() {
-      const results = [];
+    async function fetchSpecials() {
+      const { data } = await supabase
+        .from('specials')
+        .select('*, providers(*)')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(6);
 
-      // Total submissions
-      const { count: totalPrices } = await supabase
+      setSpecials(data || []);
+    }
+
+    fetchSpecials();
+  }, []);
+
+  // Fetch procedures (with filters)
+  useEffect(() => {
+    async function fetchProcedures() {
+      setLoadingProcedures(true);
+
+      let query = supabase
         .from('procedures')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('status', 'active');
-      if (totalPrices > 0) {
-        results.push({ value: totalPrices, label: 'Real prices shared' });
-        setPatientCount(totalPrices);
+
+      // Text search on procedure type
+      if (searchQuery.trim()) {
+        query = query.ilike('procedure_type', `%${searchQuery.trim()}%`);
       }
 
-      // Cities covered
-      const { data: cityRows } = await supabase
-        .from('procedures')
-        .select('city')
-        .eq('status', 'active')
-        .not('city', 'is', null);
-      const uniqueCities = new Set();
-      for (const row of cityRows || []) {
-        if (row.city) uniqueCities.add(row.city);
-      }
-      if (uniqueCities.size > 0) {
-        results.push({ value: uniqueCities.size, label: 'Cities covered' });
-      }
-
-      // Avg Botox per unit
-      const { data: botoxRows } = await supabase
-        .from('procedures')
-        .select('price_paid')
-        .eq('status', 'active')
-        .ilike('procedure_type', '%botox%')
-        .eq('unit', 'per unit');
-      if (botoxRows && botoxRows.length >= 3) {
-        const avg = botoxRows.reduce((sum, r) => sum + r.price_paid, 0) / botoxRows.length;
-        if (avg > 0) {
-          results.push({ value: `$${avg.toFixed(0)}`, label: 'Avg Botox per unit', isFormatted: true });
+      // City / zip filter
+      if (cityZip.trim()) {
+        const term = cityZip.trim();
+        if (/^\d{5}$/.test(term)) {
+          query = query.eq('zip_code', term);
+        } else {
+          query = query.ilike('city', `%${term}%`);
         }
       }
 
-      // Providers mapped
-      const { count: providerCount } = await supabase
-        .from('providers')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-        .not('lat', 'is', null);
-      if (providerCount > 0) {
-        results.push({ value: providerCount, label: 'Providers mapped' });
+      // Dropdown filters
+      if (filterProcedureType) {
+        query = query.eq('procedure_type', filterProcedureType);
+      }
+      if (filterProviderType) {
+        query = query.eq('provider_type', filterProviderType);
+      }
+      if (filterState) {
+        query = query.eq('state', filterState);
+      }
+      if (priceMin) {
+        query = query.gte('price_paid', parseInt(priceMin, 10));
+      }
+      if (priceMax) {
+        query = query.lte('price_paid', parseInt(priceMax, 10));
       }
 
-      setStatItems(results);
+      // Sort
+      if (sortBy === 'lowest_price') {
+        query = query.order('price_paid', { ascending: true });
+      } else if (sortBy === 'highest_price') {
+        query = query.order('price_paid', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.limit(20);
+
+      const { data } = await query;
+      setProcedures(data || []);
+      setLoadingProcedures(false);
     }
-    load();
-  }, []);
 
-  // Fetch specials
+    fetchProcedures();
+  }, [
+    searchQuery,
+    cityZip,
+    sortBy,
+    filterProcedureType,
+    filterProviderType,
+    filterState,
+    priceMin,
+    priceMax,
+  ]);
+
+  // Access gate check after procedures load
   useEffect(() => {
-    supabase
-      .from('specials')
-      .select('*, providers(*)')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(3)
-      .then(({ data }) => setSpecials(data || []));
-  }, []);
+    if (!loadingProcedures && procedures.length > 3) {
+      const unlocked = localStorage.getItem('gb_unlocked');
+      if (!unlocked) {
+        setGateVisible(true);
+      }
+    }
+  }, [loadingProcedures, procedures]);
 
-  useEffect(() => {
-    supabase
-      .from('provider_specials')
-      .select('*, providers(*)')
-      .eq('is_active', true)
-      .gt('ends_at', new Date().toISOString())
-      .order('placement_tier', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(3)
-      .then(({ data }) => setPromotedSpecials(data || []));
-  }, []);
-
-  // Filter specials by user location
-  const specialsState = savedState;
-  const filteredSpecials = specialsState
-    ? specials.filter((s) => s.providers?.state === specialsState)
-    : [];
-  const displaySpecials = filteredSpecials.length > 0 ? filteredSpecials : specials;
-  const filteredPromoted = specialsState
-    ? promotedSpecials.filter((s) => s.providers?.state === specialsState)
-    : [];
-  const displayPromoted = filteredPromoted.length > 0 ? filteredPromoted : promotedSpecials;
-
-  if (user) return <LoggedInHome />;
+  function handleGateUnlock() {
+    localStorage.setItem('gb_unlocked', 'true');
+    setGateVisible(false);
+  }
 
   return (
     <div>
-      {/* ═══════════════════════════════════════════════════════
-          1. HERO — mission statement + search CTA
-          ═══════════════════════════════════════════════════════ */}
-      <section
-        className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #FDF6F0 0%, #FBE8EF 100%)' }}
-      >
-        <HeroPattern />
-
-        <div className="relative z-10 py-12 md:py-20 px-5 md:px-0">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="font-display italic text-[42px] md:text-[64px] leading-[1.08] font-normal tracking-[-0.5px] mb-4" style={{ color: '#C94F78' }}>
-              Know before you glow.
-            </h1>
-            <p className="text-[17px] md:text-[20px] text-text-secondary font-normal mb-8 max-w-lg mx-auto">
-              Real prices, shared by real patients.<br />
-              Free forever.
-            </p>
-
-            {/* Search CTA — links to Find Prices page */}
-            <Link
-              to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
-              className="inline-flex items-center gap-3 bg-white rounded-full pl-5 pr-3 py-3 shadow-lg border border-gray-100 hover:shadow-xl transition-shadow max-w-lg w-full mx-auto"
-            >
-              <Search size={20} className="text-text-secondary shrink-0" />
-              <span className="text-text-secondary text-sm md:text-base text-left flex-1">
-                {savedCity
-                  ? `Search prices in ${savedCity}, ${savedState}...`
-                  : 'Search treatments near you...'}
-              </span>
-              <span
-                className="shrink-0 px-4 py-2 rounded-full text-white text-sm font-semibold"
-                style={{ backgroundColor: '#C94F78' }}
-              >
-                Find Prices
-              </span>
-            </Link>
-
-            {patientCount && (
-              <p className="text-center mt-2" style={{ fontSize: '13px', color: '#9CA3AF' }}>
-                {patientCount >= 10000
-                  ? `${Math.floor(patientCount / 1000).toLocaleString()},000+`
-                  : patientCount >= 1000
-                    ? `${patientCount.toLocaleString()}+`
-                    : patientCount > 100
-                      ? `Over ${Math.floor(patientCount / 100) * 100}`
-                      : patientCount}{' '}
-                patients shared what they paid. Now you know too.
-              </p>
-            )}
-
-            <div className="flex items-center justify-center gap-4 md:gap-6 mt-6 text-sm text-text-secondary/70">
-              <span>Botox</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span>Lip Filler</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span>Laser</span>
-              <span className="w-1 h-1 rounded-full bg-text-secondary/30" />
-              <span className="hidden sm:inline">Microneedling</span>
-              <span className="hidden sm:inline w-1 h-1 rounded-full bg-text-secondary/30" />
-              <Link to="/browse" className="text-rose-accent hover:text-rose-dark font-medium transition-colors">
-                + more
-              </Link>
-            </div>
-          </div>
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-b from-rose-light/30 to-warm-white py-16 md:py-24">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-medium text-text-primary mb-4 leading-tight">
+            Know before you glow.
+          </h1>
+          <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-8">
+            Real prices for Botox, fillers, and med spa treatments — reported by
+            patients like you.
+          </p>
+          <Link
+            to="/log"
+            className="inline-block text-white px-8 py-3.5 rounded-full text-lg font-semibold hover:opacity-90 transition"
+            style={{ backgroundColor: '#C94F78' }}
+          >
+            Log Your Treatment
+          </Link>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          2. BIG NUMBERS BAR — live stats (hide zeros)
-          ═══════════════════════════════════════════════════════ */}
-      {statItems.length > 0 && (
-        <section className="border-y border-gray-100 bg-white">
-          <div className="max-w-5xl mx-auto px-4 py-8">
-            <div className={`grid gap-4 text-center`} style={{ gridTemplateColumns: `repeat(${statItems.length}, 1fr)` }}>
-              {statItems.map((item, i) => (
-                <div key={i}>
-                  <p className="text-3xl md:text-4xl font-bold text-text-primary">
-                    {item.isFormatted ? item.value : item.value.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-text-secondary mt-1">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Stats Bar */}
+      <section className="max-w-4xl mx-auto px-4 -mt-6 relative z-10">
+        <PriceStatsBar stats={stats} />
+      </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          3. HOW IT WORKS + SCREENSHOT MOCKUP
-          ═══════════════════════════════════════════════════════ */}
-      <section className="max-w-5xl mx-auto px-4 py-16">
-        <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-10">
-          How It Works
+      {/* Specials Near You */}
+      <section className="max-w-7xl mx-auto px-4 mt-12">
+        <h2 className="text-2xl font-bold text-text-primary mb-6">
+          Specials Near You
+        </h2>
+        {specials.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {specials.map((special) => (
+              <SpecialCard
+                key={special.id}
+                special={special}
+                provider={special.providers}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="glow-card p-8 text-center">
+            <p className="text-text-secondary mb-2">
+              No specials posted yet. Are you a provider?{' '}
+              <Link
+                to="/business"
+                className="text-rose-accent font-medium hover:text-rose-dark transition-colors"
+              >
+                Post yours free.
+              </Link>
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* Browse Feed */}
+      <section className="max-w-7xl mx-auto px-4 mt-12 pb-12">
+        <h2 className="text-2xl font-bold text-text-primary mb-6">
+          Recent Prices
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-          {/* Left: 3 steps */}
-          <div className="space-y-8">
-            {[
-              {
-                num: '1',
-                icon: '\u{1F489}',
-                title: 'Someone gets a treatment',
-                body: 'A patient visits a med spa and gets Botox, filler, or another treatment near you.',
-              },
-              {
-                num: '2',
-                icon: '\uD83D\uDCF1',
-                title: 'They share what they paid',
-                body: 'They log the real price on GlowBuddy — anonymously and in seconds.',
-              },
-              {
-                num: '3',
-                icon: '\uD83D\uDCCD',
-                title: 'You know before you book',
-                body: 'See real prices in your city so you never overpay.',
-              },
-            ].map((step, i) => (
-              <div key={i} className="flex gap-4">
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: '#FBE8EF' }}
+        {/* Search bar row */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+            />
+            <input
+              type="text"
+              placeholder="Search procedure type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition"
+            />
+          </div>
+          <div className="relative sm:w-48">
+            <input
+              type="text"
+              placeholder="City or zip code"
+              value={cityZip}
+              onChange={(e) => setCityZip(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition"
+            />
+          </div>
+        </div>
+
+        {/* Sort & filter controls */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          {/* Sort dropdown */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="appearance-none pl-4 pr-10 py-2 rounded-xl border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition cursor-pointer"
+            >
+              <option value="most_recent">Most Recent</option>
+              <option value="lowest_price">Lowest Price</option>
+              <option value="highest_price">Highest Price</option>
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
+            />
+          </div>
+
+          {/* Toggle filter panel */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary hover:text-text-primary hover:border-rose-accent transition"
+          >
+            <SlidersHorizontal size={16} />
+            Filters
+          </button>
+        </div>
+
+        {/* Expanded filter controls */}
+        {showFilters && (
+          <div className="glow-card p-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Procedure type */}
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Procedure Type
+                </label>
+                <select
+                  value={filterProcedureType}
+                  onChange={(e) => setFilterProcedureType(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
                 >
-                  <span className="text-xl">{step.icon}</span>
-                </div>
-                <div>
-                  <p className="text-base font-bold text-text-primary mb-0.5">{step.title}</p>
-                  <p className="text-sm text-text-secondary leading-relaxed">{step.body}</p>
+                  <option value="">All Types</option>
+                  {PROCEDURE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Provider type */}
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Provider Type
+                </label>
+                <select
+                  value={filterProviderType}
+                  onChange={(e) => setFilterProviderType(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                >
+                  <option value="">All Providers</option>
+                  {PROVIDER_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* State */}
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  State
+                </label>
+                <select
+                  value={filterState}
+                  onChange={(e) => setFilterState(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                >
+                  <option value="">All States</option>
+                  {US_STATES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price range */}
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Price Range
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                    className="w-full px-3 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                  />
+                  <span className="text-text-secondary text-sm">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                    className="w-full px-3 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                  />
                 </div>
               </div>
-            ))}
+            </div>
+          </div>
+        )}
+
+        {/* Procedures grid */}
+        {loadingProcedures ? (
+          <div className="text-center py-12">
+            <p className="text-text-secondary animate-pulse">
+              Loading prices...
+            </p>
+          </div>
+        ) : procedures.length === 0 ? (
+          <div className="glow-card p-8 text-center">
+            <p className="text-text-secondary mb-4">
+              Be the first to log a price in your area.
+            </p>
+            <p className="text-sm text-text-secondary mb-6">
+              Help other women know before they glow.
+            </p>
             <Link
               to="/log"
-              className="inline-block text-white px-7 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition"
+              className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition"
               style={{ backgroundColor: '#C94F78' }}
             >
-              Share what you paid
+              Log Your Treatment
             </Link>
           </div>
-
-          {/* Right: Stylized mock price cards */}
-          <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-300" />
-              <div className="w-3 h-3 rounded-full bg-yellow-300" />
-              <div className="w-3 h-3 rounded-full bg-green-300" />
-              <span className="ml-2 text-[11px] text-text-secondary/50">glowbuddy.com/browse</span>
-            </div>
-            <div className="space-y-3">
-              {MOCK_CARDS.map((card, i) => (
+        ) : (
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {procedures.map((proc, index) => (
                 <div
-                  key={i}
-                  className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+                  key={proc.id}
+                  className={
+                    gateVisible && index >= 3 ? 'blurred-feed' : ''
+                  }
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-text-primary">{card.treatment}</span>
-                    <span className="text-lg font-bold text-text-primary">{card.price}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {card.icon && (
-                      <CheckCircle size={12} style={{ color: card.badgeColor }} />
-                    )}
-                    <span className="text-[11px] font-medium" style={{ color: card.badgeColor }}>
-                      {card.badge}
-                    </span>
-                  </div>
+                  <ProcedureCard procedure={proc} blurProvider />
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          4. FOUNDER STORY — trust
-          ═══════════════════════════════════════════════════════ */}
-      <section className="max-w-3xl mx-auto px-4 pb-12">
-        <FounderStory />
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          5. TESTIMONIALS — placeholder with disclaimer
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-white border-y border-gray-100 py-12">
-        <div className="max-w-5xl mx-auto px-4">
-          <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-            What Patients Are Saying
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {PLACEHOLDER_TESTIMONIALS.map((t, i) => (
-              <div key={i} className="glow-card p-5">
-                <div className="flex items-center gap-1 mb-3">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={14} className="text-amber-400 fill-amber-400" />
-                  ))}
-                </div>
-                <p className="text-sm text-text-secondary leading-relaxed mb-4 italic">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">{t.name}</p>
-                    <p className="text-xs text-text-secondary">{t.city}</p>
-                  </div>
-                  <span
-                    className="text-xs font-bold px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: '#ECFDF5', color: '#059669' }}
-                  >
-                    Saved {t.savings}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-4">
-            <p className="text-[11px] text-text-secondary/60 mb-2">
-              Based on community-reported savings. Individual results vary.
-            </p>
-            <a
-              href="mailto:hello@glowbuddy.com?subject=My GlowBuddy Story"
-              className="text-xs text-rose-accent hover:text-rose-dark font-medium transition-colors"
-            >
-              Share your story &rarr;
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          6. MAP CTA — stylized mockup
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-            Find Providers Near You
-          </h2>
-          <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-            {/* Stylized map mockup */}
-            <div
-              className="relative h-[280px] md:h-[340px]"
-              style={{ backgroundColor: '#F1F0EC' }}
-            >
-              {/* Fake map grid lines */}
-              <div className="absolute inset-0 opacity-[0.08]" style={{
-                backgroundImage: 'linear-gradient(#999 1px, transparent 1px), linear-gradient(90deg, #999 1px, transparent 1px)',
-                backgroundSize: '60px 60px',
-              }} />
-
-              {/* Mock price pills */}
-              {[
-                { top: '18%', left: '22%', price: '$12/unit', treatment: 'Botox' },
-                { top: '35%', left: '55%', price: '$680', treatment: 'Lip Filler' },
-                { top: '55%', left: '30%', price: '$350', treatment: 'Microneedling' },
-                { top: '28%', left: '72%', price: '$14/unit', treatment: 'Botox' },
-                { top: '65%', left: '60%', price: '$425', treatment: 'Laser' },
-                { top: '45%', left: '15%', price: '$11/unit', treatment: 'Botox' },
-              ].map((pin, i) => (
-                <div
-                  key={i}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                  style={{ top: pin.top, left: pin.left }}
-                >
-                  <div
-                    className="px-2.5 py-1 rounded-full text-white text-[11px] font-bold shadow-md whitespace-nowrap"
-                    style={{ backgroundColor: '#C94F78' }}
-                  >
-                    {pin.price}
-                  </div>
-                </div>
-              ))}
-
-              {/* Center pin */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg" />
-              </div>
-            </div>
-
-            {/* CTA below mock map */}
-            <div className="bg-white px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  See med spas and clinics with real prices from patients
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Receipt-verified data you can trust
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Link
-                  to="/browse"
-                  className="inline-flex items-center gap-1.5 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:opacity-90 transition"
-                  style={{ backgroundColor: '#C94F78' }}
-                >
-                  <Search size={15} />
-                  Find Prices
-                </Link>
-                <Link
-                  to="/map"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-medium border border-gray-200 text-text-primary hover:border-rose-accent transition"
-                >
-                  <MapPin size={15} />
-                  Map
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          7. TOOLS GRID — what else you can do
-          ═══════════════════════════════════════════════════════ */}
-      <section className="max-w-5xl mx-auto px-4 pb-14">
-        <h2 className="font-display text-[28px] font-semibold text-text-primary text-center mb-8">
-          Your Glow Toolkit
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { to: '/calculator', icon: Calculator, label: 'Savings Calculator', desc: 'See how much you could save' },
-            { to: '/budget', icon: TrendingDown, label: 'Budget Planner', desc: 'Plan your treatment spend' },
-            { to: '/build-my-routine', icon: Calendar, label: 'Routine Builder', desc: 'Build your treatment schedule' },
-            { to: '/my-stack', icon: Layers, label: 'My Stack', desc: 'Track your treatment stack' },
-          ].map(({ to, icon: Icon, label, desc }) => (
-            <Link
-              key={to}
-              to={to}
-              className="glow-card p-5 text-center hover:shadow-md hover:border-rose-accent/30 transition-all group"
-            >
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform"
-                style={{ backgroundColor: '#FBE8EF' }}
-              >
-                <Icon size={20} className="text-rose-accent" />
-              </div>
-              <p className="text-sm font-semibold text-text-primary mb-0.5">{label}</p>
-              <p className="text-[11px] text-text-secondary leading-snug">{desc}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          8. SPECIALS — hidden when empty
-          ═══════════════════════════════════════════════════════ */}
-      {(displaySpecials.length > 0 || displayPromoted.length > 0) && (
-        <section className="bg-white border-y border-gray-100 py-12">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display text-[26px] font-semibold text-text-primary">
-                Specials {savedCity ? `Near ${savedCity}` : 'Near You'}
-              </h2>
-              <Link
-                to="/specials"
-                className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors flex items-center gap-1"
-              >
-                View all <ArrowRight size={14} />
-              </Link>
-            </div>
-
-            {displayPromoted.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                {displayPromoted.map((special) => (
-                  <SpecialOfferCard key={special.id} special={special} provider={special.providers} />
-                ))}
-              </div>
-            )}
-            {displaySpecials.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {displaySpecials.map((special) => (
-                  <SpecialCard key={special.id} special={special} provider={special.providers} />
-                ))}
-              </div>
+            {/* Soft Gate overlay */}
+            {gateVisible && (
+              <SoftGate onUnlock={handleGateUnlock} />
             )}
           </div>
-        </section>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════
-          9. SIGN-UP CTA (logged-out users only)
-          ═══════════════════════════════════════════════════════ */}
-      {!user && (
-        <section className="py-16">
-          <div className="max-w-2xl mx-auto px-4 text-center">
-            <h2 className="font-display text-[28px] font-semibold text-text-primary mb-3">
-              Join thousands of patients
-            </h2>
-            <p className="text-text-secondary mb-6 max-w-md mx-auto">
-              Create a free account to set price alerts, track your treatments, and earn rewards for sharing prices.
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={() => openAuthModal('signup')}
-                className="px-8 py-3 rounded-full text-white font-semibold hover:opacity-90 transition"
-                style={{ backgroundColor: '#C94F78' }}
-              >
-                Sign up free
-              </button>
-              <Link
-                to="/browse"
-                className="px-6 py-3 rounded-full font-medium border border-gray-200 text-text-primary hover:border-rose-accent transition"
-              >
-                Find prices first
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
+        )}
+      </section>
     </div>
   );
 }

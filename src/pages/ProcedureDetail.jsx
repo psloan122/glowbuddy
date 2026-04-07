@@ -4,9 +4,6 @@ import { ShieldCheck, Users, TrendingDown, TrendingUp, BarChart3 } from 'lucide-
 import { supabase } from '../lib/supabase';
 import { slugToProcedure, PROVIDER_TYPES, US_STATES } from '../lib/constants';
 import ProcedureCard from '../components/ProcedureCard';
-import PriceAlertButton from '../components/PriceAlertButton';
-import PairsWellWith from '../components/PairsWellWith';
-import StackCaution from '../components/StackCaution';
 
 export default function ProcedureDetail() {
   const { slug } = useParams();
@@ -164,12 +161,9 @@ export default function ProcedureDetail() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Heading */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-text-primary">
-          {procedureName} Prices
-        </h1>
-        <PriceAlertButton procedureType={procedureName} />
-      </div>
+      <h1 className="text-3xl font-bold text-text-primary mb-6">
+        {procedureName} Prices
+      </h1>
 
       {/* Price Stats Card */}
       {stats && (
@@ -177,7 +171,7 @@ export default function ProcedureDetail() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <div>
               <span className="text-xs uppercase tracking-wide text-text-secondary">
-                Avg Patient-Reported Price
+                Avg Community Price
               </span>
               <p className="text-2xl font-bold text-text-primary mt-1">
                 {stats.avgCommunity != null
@@ -187,7 +181,7 @@ export default function ProcedureDetail() {
             </div>
             <div>
               <span className="text-xs uppercase tracking-wide text-text-secondary">
-                Avg Provider-Listed Price
+                Avg Verified Price
               </span>
               <p className="text-2xl font-bold text-text-primary mt-1">
                 {stats.avgVerified != null
@@ -261,7 +255,7 @@ export default function ProcedureDetail() {
           }`}
         >
           <Users size={16} />
-          Patient Reported
+          Community Prices
         </button>
         <button
           onClick={() => setActiveTab('verified')}
@@ -272,7 +266,7 @@ export default function ProcedureDetail() {
           }`}
         >
           <ShieldCheck size={16} />
-          Provider-Listed Prices
+          Verified Prices
         </button>
       </div>
 
@@ -324,22 +318,20 @@ export default function ProcedureDetail() {
               <ProcedureCard
                 key={procedure.id}
                 procedure={procedure}
+                blurProvider
               />
             ))}
           </div>
         ) : (
           <div className="glow-card p-8 text-center">
-            <p className="text-text-secondary mb-2">
-              No prices shared for {procedureName} yet.
-            </p>
-            <p className="text-sm text-text-secondary mb-4">
-              Be the first to share what you paid.
+            <p className="text-text-secondary mb-4">
+              No prices reported yet for {procedureName}. Be the first!
             </p>
             <Link
               to="/log"
               className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
             >
-              + Share what you paid
+              Log a Treatment
             </Link>
           </div>
         )
@@ -354,7 +346,7 @@ export default function ProcedureDetail() {
               <div className="flex items-center justify-between mb-3">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
                   <ShieldCheck size={14} />
-                  Provider-listed price
+                  Verified
                 </span>
               </div>
 
@@ -388,24 +380,17 @@ export default function ProcedureDetail() {
         </div>
       ) : (
         <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary mb-2">
-            No verified prices for {procedureName} yet.
-          </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Be the first to share what you paid.
+          <p className="text-text-secondary mb-4">
+            No verified prices yet for {procedureName}. Be the first!
           </p>
           <Link
             to="/log"
             className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
-            + Share what you paid
+            Log a Treatment
           </Link>
         </div>
       )}
-
-      {/* Treatment Stacking */}
-      <PairsWellWith treatmentName={procedureName} />
-      <StackCaution treatmentName={procedureName} />
     </div>
   );
 }

@@ -9,17 +9,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  db: {
-    schema: 'public',
-  },
-  global: {
-    headers: {
-      'x-application-name': 'glowbuddy-web',
-    },
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

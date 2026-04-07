@@ -11,7 +11,7 @@ export default function BadgeToast({ badge, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 right-6 z-[80] animate-[slideUp_0.4s_ease-out]">
+    <div className="fixed bottom-6 right-6 z-[80] animate-[slideUp_0.4s_ease-out]">
       <div className="glow-card p-4 pr-10 max-w-xs shadow-lg border border-rose-accent/20">
         <button
           onClick={onClose}

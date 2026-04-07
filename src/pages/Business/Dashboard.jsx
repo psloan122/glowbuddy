@@ -1,47 +1,31 @@
-import { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  Eye,
   Users,
   DollarSign,
   BarChart3,
   Plus,
   Pencil,
   Trash2,
+  X,
   Check,
   Loader2,
   AlertTriangle,
   ArrowUpRight,
-  RefreshCw,
-  Star,
-  Settings as SettingsIcon,
-  Sparkles,
-  Eye,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
-import { extractPlaceData } from '../../lib/places';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import {
   PROCEDURE_TYPES,
-  PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
+  DISCOUNT_TYPES,
 } from '../../lib/constants';
-import InjectorsTab from '../../components/DashboardTabs/InjectorsTab';
-import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterTab';
-import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
-import SpecialsManager from '../../components/SpecialsManager';
-import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
-import SubmissionsTab from '../../components/DashboardTabs/SubmissionsTab';
-import CallVolumeChart from '../../components/CallVolumeChart';
-import VagaroConnectFlow from '../../components/VagaroConnectFlow';
-import IntegrationStats from '../../components/IntegrationStats';
-
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Submissions', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Menu', 'Specials', 'Disputes'];
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -64,31 +48,25 @@ export default function Dashboard() {
   });
   const [pricingSaving, setPricingSaving] = useState(false);
 
+  // Specials state
+  const [specials, setSpecials] = useState([]);
+  const [showAddSpecial, setShowAddSpecial] = useState(false);
+  const [specialForm, setSpecialForm] = useState({
+    title: '',
+    description: '',
+    procedure_type: '',
+    discount_type: '',
+    original_price: '',
+    special_price: '',
+    expires_at: '',
+  });
+  const [specialSaving, setSpecialSaving] = useState(false);
+
   // Disputes state
   const [disputes, setDisputes] = useState([]);
 
   // Community procedures state
   const [communityProcedures, setCommunityProcedures] = useState([]);
-
-  // Page view analytics state
-  const [pageViewsByWeek, setPageViewsByWeek] = useState([]);
-  const [pageViewsLoading, setPageViewsLoading] = useState(false);
-
-  // Dispute resolution state
-  const [disputeFilter, setDisputeFilter] = useState('all');
-  const [resolvingDisputeId, setResolvingDisputeId] = useState(null);
-  const [disputeAction, setDisputeAction] = useState('resolved');
-  const [disputeNote, setDisputeNote] = useState('');
-  const [disputeSaving, setDisputeSaving] = useState(false);
-
-  // New tab states
-  const [dashInjectors, setDashInjectors] = useState([]);
-  const [dashBAPhotos, setDashBAPhotos] = useState([]);
-  const [dashReviews, setDashReviews] = useState([]);
-
-  // Settings state
-  const [refreshing, setRefreshing] = useState(false);
-  const detailsServiceRef = useRef(null);
 
   useEffect(() => {
     document.title = 'Provider Dashboard | GlowBuddy';
@@ -97,7 +75,7 @@ export default function Dashboard() {
   // Auth redirect
   useEffect(() => {
     if (!session) {
-      navigate('/business/onboarding');
+      navigate('/business/claim');
     }
   }, [session, navigate]);
 
@@ -117,24 +95,10 @@ export default function Dashboard() {
       setProvider(null);
     } else {
       setProvider(data);
-
-      // Ensure profile role is synced (may have been missed during onboarding)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profile && profile.role !== 'provider') {
-        await supabase
-          .from('profiles')
-          .update({ role: 'provider' })
-          .eq('id', user.id);
-      }
     }
 
     setLoading(false);
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     fetchProvider();
@@ -149,6 +113,16 @@ export default function Dashboard() {
       .eq('provider_id', provider.id)
       .order('procedure_type');
     setPricing(data || []);
+  }, [provider]);
+
+  const fetchSpecials = useCallback(async () => {
+    if (!provider) return;
+    const { data } = await supabase
+      .from('specials')
+      .select('*')
+      .eq('provider_id', provider.id)
+      .order('created_at', { ascending: false });
+    setSpecials(data || []);
   }, [provider]);
 
   const fetchDisputes = useCallback(async () => {
@@ -171,79 +145,14 @@ export default function Dashboard() {
     setCommunityProcedures(data || []);
   }, [provider]);
 
-  const fetchInjectors = useCallback(async () => {
-    if (!provider) return;
-    const { data } = await supabase
-      .from('injectors')
-      .select('*')
-      .eq('provider_id', provider.id)
-      .order('created_at', { ascending: false });
-    setDashInjectors(data || []);
-  }, [provider]);
-
-  const fetchBAPhotos = useCallback(async () => {
-    if (!provider) return;
-    const { data } = await supabase
-      .from('before_after_photos')
-      .select('*, injectors(name)')
-      .eq('provider_id', provider.id)
-      .order('created_at', { ascending: false });
-    setDashBAPhotos(data || []);
-  }, [provider]);
-
-  const fetchDashReviews = useCallback(async () => {
-    if (!provider) return;
-    const { data } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('provider_id', provider.id)
-      .order('created_at', { ascending: false });
-    setDashReviews(data || []);
-  }, [provider]);
-
-  const fetchPageViewAnalytics = useCallback(async () => {
-    if (!provider?.slug) return;
-    setPageViewsLoading(true);
-    const twentyEightDaysAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await supabase
-      .from('custom_events')
-      .select('created_at')
-      .eq('event_name', 'provider_page_view')
-      .contains('properties', { provider_slug: provider.slug })
-      .gte('created_at', twentyEightDaysAgo);
-
-    const events = data || [];
-    const now = new Date();
-    const weeks = [];
-    for (let i = 3; i >= 0; i--) {
-      const start = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
-      const end = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
-      weeks.push({ label: `Week ${4 - i}`, calls: 0, start, end });
-    }
-    for (const event of events) {
-      const eventDate = new Date(event.created_at);
-      for (const week of weeks) {
-        if (eventDate >= week.start && eventDate < week.end) {
-          week.calls++;
-          break;
-        }
-      }
-    }
-    setPageViewsByWeek(weeks.map(({ label, calls }) => ({ label, calls })));
-    setPageViewsLoading(false);
-  }, [provider?.slug]);
-
   useEffect(() => {
     if (provider) {
       fetchPricing();
+      fetchSpecials();
       fetchDisputes();
       fetchCommunityProcedures();
-      fetchInjectors();
-      fetchBAPhotos();
-      fetchDashReviews();
-      fetchPageViewAnalytics();
     }
-  }, [provider, fetchPricing, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews, fetchPageViewAnalytics]);
+  }, [provider, fetchPricing, fetchSpecials, fetchDisputes, fetchCommunityProcedures]);
 
   // --- Menu Handlers ---
 
@@ -311,110 +220,62 @@ export default function Dashboard() {
     fetchPricing();
   }
 
-  // --- Settings: Refresh from Google ---
+  // --- Specials Handlers ---
 
-  async function handleRefreshFromGoogle() {
-    if (!provider?.google_place_id) return;
-    setRefreshing(true);
-
-    try {
-      // Load Google Maps if not loaded
-      if (!window.google?.maps?.places) {
-        await loadGoogleMaps();
-        await new Promise((r) => {
-          const check = () => window.google?.maps?.places ? r() : setTimeout(check, 100);
-          check();
-        });
-      }
-      if (!detailsServiceRef.current) {
-        const el = document.createElement('div');
-        detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
-      }
-
-      const place = await new Promise((resolve, reject) => {
-        detailsServiceRef.current.getDetails(
-          {
-            placeId: provider.google_place_id,
-            fields: [
-              'name', 'address_components', 'formatted_address', 'formatted_phone_number',
-              'website', 'place_id', 'geometry',
-              'opening_hours', 'photos', 'rating', 'user_ratings_total', 'price_level', 'types', 'url',
-            ],
-          },
-          (result, status) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK && result) {
-              resolve(result);
-            } else {
-              reject(new Error('Places lookup failed'));
-            }
-          }
-        );
-      });
-
-      const placeData = extractPlaceData(place);
-
-      // Update Google metadata only (don't overwrite custom fields)
-      const { data } = await supabase
-        .from('providers')
-        .update({
-          google_rating: placeData.googleRating,
-          google_review_count: placeData.googleReviewCount,
-          google_maps_url: placeData.googleMapsUrl,
-          google_price_level: placeData.googlePriceLevel,
-          hours_text: placeData.hoursText || null,
-          google_synced_at: new Date().toISOString(),
-        })
-        .eq('id', provider.id)
-        .select()
-        .single();
-
-      if (data) setProvider(data);
-
-      // Import photos if none exist yet
-      if (!provider.photos_imported && placeData.googlePhotos.length > 0) {
-        try {
-          await fetch('/api/import-google-photos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              providerId: provider.id,
-              photos: placeData.googlePhotos,
-            }),
-          });
-          await supabase
-            .from('providers')
-            .update({ photos_imported: true })
-            .eq('id', provider.id);
-        } catch (err) {
-          console.error('Photo import during refresh failed:', err);
-        }
-      }
-    } catch (err) {
-      console.error('Refresh from Google failed:', err);
-    }
-
-    setRefreshing(false);
+  function resetSpecialForm() {
+    setSpecialForm({
+      title: '',
+      description: '',
+      procedure_type: '',
+      discount_type: '',
+      original_price: '',
+      special_price: '',
+      expires_at: '',
+    });
   }
 
-  // --- Dispute Resolution Handler ---
+  async function handleSaveSpecial(e) {
+    e.preventDefault();
+    setSpecialSaving(true);
 
-  async function handleResolveDispute(disputeId, newStatus) {
-    setDisputeSaving(true);
+    const payload = {
+      provider_id: provider.id,
+      title: specialForm.title,
+      description: specialForm.description || null,
+      procedure_type: specialForm.procedure_type || null,
+      discount_type: specialForm.discount_type || null,
+      original_price: specialForm.original_price
+        ? parseFloat(specialForm.original_price)
+        : null,
+      special_price: specialForm.special_price
+        ? parseFloat(specialForm.special_price)
+        : null,
+      expires_at: specialForm.expires_at || null,
+      is_active: true,
+    };
+
+    await supabase.from('specials').insert(payload);
+
+    resetSpecialForm();
+    setShowAddSpecial(false);
+    setSpecialSaving(false);
+    fetchSpecials();
+  }
+
+  async function handleToggleSpecialActive(special) {
     await supabase
-      .from('disputes')
-      .update({
-        status: newStatus,
-        resolved_at: new Date().toISOString(),
-        resolved_by: user.id,
-        response_note: disputeNote.trim() || null,
-      })
-      .eq('id', disputeId);
+      .from('specials')
+      .update({ is_active: !special.is_active })
+      .eq('id', special.id);
+    fetchSpecials();
+  }
 
-    setResolvingDisputeId(null);
-    setDisputeAction('resolved');
-    setDisputeNote('');
-    setDisputeSaving(false);
-    fetchDisputes();
+  async function handleDeleteSpecial(id) {
+    if (!window.confirm('Are you sure you want to delete this special?')) {
+      return;
+    }
+    await supabase.from('specials').delete().eq('id', id);
+    fetchSpecials();
   }
 
   // --- Computed Stats ---
@@ -456,12 +317,10 @@ export default function Dashboard() {
               className={INPUT_CLASS + ' text-sm'}
             >
               <option value="">Select...</option>
-              {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
-                <optgroup key={category} label={category}>
-                  {procedures.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </optgroup>
+              {PROCEDURE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </div>
@@ -589,10 +448,10 @@ export default function Dashboard() {
             dashboard.
           </p>
           <Link
-            to="/business/onboarding"
+            to="/business/claim"
             className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
-            Set Up Your Practice
+            Claim Your Listing
           </Link>
         </div>
       </div>
@@ -628,12 +487,12 @@ export default function Dashboard() {
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-8">
-        <nav className="flex gap-6 -mb-px overflow-x-auto">
+        <nav className="flex gap-6 -mb-px">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium transition whitespace-nowrap ${
+              className={`pb-3 text-sm font-medium transition ${
                 activeTab === tab
                   ? 'border-b-2 border-rose-accent text-text-primary'
                   : 'text-text-secondary hover:text-text-primary'
@@ -651,7 +510,7 @@ export default function Dashboard() {
       {activeTab === 'Overview' && (
         <div>
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="glow-card p-5">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-9 h-9 rounded-lg bg-rose-light flex items-center justify-center">
@@ -661,29 +520,8 @@ export default function Dashboard() {
                   Profile Views
                 </span>
               </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {provider.page_view_count_week || 0}
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                this week &middot; {provider.page_view_count_total || 0} all time
-              </p>
-            </div>
-
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Star size={18} className="text-amber-500" />
-                </div>
-                <span className="text-sm text-text-secondary">
-                  GlowBuddy Rating
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {provider.avg_rating || '--'}
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                {dashReviews.length} review{dashReviews.length !== 1 ? 's' : ''}
-              </p>
+              <p className="text-2xl font-bold text-text-primary">--</p>
+              <p className="text-xs text-text-secondary mt-1">Coming soon</p>
             </div>
 
             <div className="glow-card p-5">
@@ -728,14 +566,6 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-
-          {/* Page Views Weekly Chart */}
-          {!pageViewsLoading && pageViewsByWeek.some((w) => w.calls > 0) && (
-            <div className="glow-card p-6 mb-8">
-              <h3 className="text-sm font-semibold text-text-primary mb-4">Profile Views by Week</h3>
-              <CallVolumeChart data={pageViewsByWeek} chart="bar" />
-            </div>
-          )}
 
           {/* Quick Comparison */}
           {communityAvgPrice !== null && menuAvgPrice !== null && (
@@ -878,55 +708,288 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ===== PROMOTED SPECIALS TAB ===== */}
-      {activeTab === 'Promoted Specials' && (
-        <SpecialsManager provider={provider} />
-      )}
-
-      {/* ===== CALL ANALYTICS TAB ===== */}
-      {activeTab === 'Call Analytics' && (
-        <CallAnalyticsTab providerId={provider?.id} />
-      )}
-
-      {/* ===== INTEGRATIONS TAB ===== */}
-      {activeTab === 'Integrations' && (
+      {/* ===== SPECIALS TAB ===== */}
+      {activeTab === 'Specials' && (
         <div>
-          <VagaroConnectFlow providerId={provider?.id} />
-          <IntegrationStats providerId={provider?.id} />
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-text-primary">
+              Your Specials
+            </h2>
+            {!showAddSpecial && (
+              <button
+                onClick={() => {
+                  resetSpecialForm();
+                  setShowAddSpecial(true);
+                }}
+                className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
+              >
+                <Plus size={16} /> Create Special
+              </button>
+            )}
+          </div>
+
+          {/* Add special form */}
+          {showAddSpecial && (
+            <div className="glow-card p-5 mb-6">
+              <form onSubmit={handleSaveSpecial} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Title
+                    </label>
+                    <input
+                      type="text"
+                      value={specialForm.title}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          title: e.target.value,
+                        }))
+                      }
+                      required
+                      placeholder="e.g. Summer Botox Special"
+                      className={INPUT_CLASS + ' text-sm'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Procedure Type (optional)
+                    </label>
+                    <select
+                      value={specialForm.procedure_type}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          procedure_type: e.target.value,
+                        }))
+                      }
+                      className={INPUT_CLASS + ' text-sm'}
+                    >
+                      <option value="">Select...</option>
+                      {PROCEDURE_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={specialForm.description}
+                    onChange={(e) =>
+                      setSpecialForm((f) => ({
+                        ...f,
+                        description: e.target.value,
+                      }))
+                    }
+                    rows={3}
+                    placeholder="Describe your special offer..."
+                    className={INPUT_CLASS + ' text-sm'}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Discount Type
+                    </label>
+                    <select
+                      value={specialForm.discount_type}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          discount_type: e.target.value,
+                        }))
+                      }
+                      className={INPUT_CLASS + ' text-sm'}
+                    >
+                      <option value="">Select...</option>
+                      {DISCOUNT_TYPES.map((dt) => (
+                        <option key={dt.value} value={dt.value}>
+                          {dt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Original Price ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={specialForm.original_price}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          original_price: e.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                      className={INPUT_CLASS + ' text-sm'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Special Price ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={specialForm.special_price}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          special_price: e.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                      className={INPUT_CLASS + ' text-sm'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Expires At
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={specialForm.expires_at}
+                      onChange={(e) =>
+                        setSpecialForm((f) => ({
+                          ...f,
+                          expires_at: e.target.value,
+                        }))
+                      }
+                      className={INPUT_CLASS + ' text-sm'}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={specialSaving}
+                    className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
+                  >
+                    {specialSaving ? 'Saving...' : 'Create Special'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSpecial(false);
+                      resetSpecialForm();
+                    }}
+                    className="text-text-secondary hover:text-text-primary transition text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Specials list */}
+          {specials.length === 0 && !showAddSpecial ? (
+            <div className="glow-card p-8 text-center">
+              <p className="text-text-secondary mb-3">
+                No specials created yet.
+              </p>
+              <button
+                onClick={() => {
+                  resetSpecialForm();
+                  setShowAddSpecial(true);
+                }}
+                className="text-rose-accent font-medium hover:text-rose-dark transition"
+              >
+                Create your first special
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {specials.map((special) => (
+                <div key={special.id} className="glow-card p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-text-primary">
+                          {special.title}
+                        </h3>
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            special.is_active
+                              ? 'bg-verified/10 text-verified'
+                              : 'bg-gray-100 text-text-secondary'
+                          }`}
+                        >
+                          {special.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      {special.description && (
+                        <p className="text-sm text-text-secondary mb-2">
+                          {special.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        {special.procedure_type && (
+                          <span className="bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full text-xs">
+                            {special.procedure_type}
+                          </span>
+                        )}
+                        {special.original_price != null && (
+                          <span className="text-text-secondary line-through">
+                            ${special.original_price}
+                          </span>
+                        )}
+                        {special.special_price != null && (
+                          <span className="font-bold text-rose-accent">
+                            ${special.special_price}
+                          </span>
+                        )}
+                        {special.expires_at && (
+                          <span className="text-text-secondary text-xs">
+                            Expires:{' '}
+                            {new Date(special.expires_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleToggleSpecialActive(special)}
+                        className={`text-xs font-medium px-3 py-1.5 rounded-full transition ${
+                          special.is_active
+                            ? 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                            : 'bg-verified/10 text-verified hover:bg-verified/20'
+                        }`}
+                      >
+                        {special.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSpecial(special.id)}
+                        className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upgrade CTA */}
+          <div className="mt-8">
+            <UpgradeCTA />
+          </div>
         </div>
-      )}
-
-      {/* ===== INJECTORS TAB ===== */}
-      {activeTab === 'Injectors' && (
-        <InjectorsTab
-          provider={provider}
-          injectors={dashInjectors}
-          onRefresh={fetchInjectors}
-        />
-      )}
-
-      {/* ===== BEFORE & AFTERS TAB ===== */}
-      {activeTab === 'Before & Afters' && (
-        <DashboardBeforeAfterTab
-          provider={provider}
-          photos={dashBAPhotos}
-          injectors={dashInjectors}
-          onRefresh={fetchBAPhotos}
-        />
-      )}
-
-      {/* ===== REVIEWS TAB ===== */}
-      {activeTab === 'Reviews' && (
-        <DashboardReviewsTab
-          reviews={dashReviews}
-          provider={provider}
-          onRefresh={fetchDashReviews}
-        />
-      )}
-
-      {/* ===== SUBMISSIONS TAB ===== */}
-      {activeTab === 'Submissions' && (
-        <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} />
       )}
 
       {/* ===== DISPUTES TAB ===== */}
@@ -936,33 +999,13 @@ export default function Dashboard() {
             Flagged Submissions
           </h2>
 
-          {/* Filter bar */}
-          {disputes.length > 0 && (
-            <div className="flex items-center gap-3 mb-4">
-              <select
-                value={disputeFilter}
-                onChange={(e) => setDisputeFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
-              >
-                <option value="all">All ({disputes.length})</option>
-                <option value="pending">
-                  Pending ({disputes.filter((d) => d.status === 'pending').length})
-                </option>
-                <option value="resolved">Resolved</option>
-                <option value="dismissed">Dismissed</option>
-              </select>
-            </div>
-          )}
-
           {disputes.length === 0 ? (
             <div className="glow-card p-8 text-center">
               <p className="text-text-secondary">No flagged submissions.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {disputes
-                .filter((d) => disputeFilter === 'all' || d.status === disputeFilter)
-                .map((dispute) => {
+              {disputes.map((dispute) => {
                 const proc = dispute.procedures;
                 const matchingMenu = pricing.find(
                   (p) => p.procedure_type === proc?.procedure_type
@@ -1041,104 +1084,7 @@ export default function Dashboard() {
                             </span>
                           </div>
                         )}
-
-                        {/* Resolution info for resolved/dismissed disputes */}
-                        {(dispute.status === 'resolved' || dispute.status === 'dismissed') && dispute.resolved_at && (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <p className="text-xs text-text-secondary">
-                              {dispute.status === 'resolved' ? 'Resolved' : 'Dismissed'} on{' '}
-                              {new Date(dispute.resolved_at).toLocaleDateString()}
-                            </p>
-                            {dispute.response_note && (
-                              <p className="text-sm text-text-primary mt-1">
-                                {dispute.response_note}
-                              </p>
-                            )}
-                          </div>
-                        )}
                       </div>
-
-                      {/* Action buttons for pending disputes */}
-                      {dispute.status === 'pending' && (
-                        <div className="shrink-0">
-                          {resolvingDisputeId === dispute.id ? (
-                            <div className="space-y-2 w-64">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => setDisputeAction('resolved')}
-                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
-                                    disputeAction === 'resolved'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                                  }`}
-                                >
-                                  Resolve
-                                </button>
-                                <button
-                                  onClick={() => setDisputeAction('dismissed')}
-                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
-                                    disputeAction === 'dismissed'
-                                      ? 'bg-gray-200 text-text-primary'
-                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                                  }`}
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                              <textarea
-                                value={disputeNote}
-                                onChange={(e) => setDisputeNote(e.target.value)}
-                                placeholder="Optional note..."
-                                rows={2}
-                                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm resize-none"
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleResolveDispute(dispute.id, disputeAction)}
-                                  disabled={disputeSaving}
-                                  className="bg-rose-accent text-white px-4 py-1.5 rounded-full text-xs font-semibold hover:bg-rose-dark transition disabled:opacity-50 inline-flex items-center gap-1"
-                                >
-                                  {disputeSaving && <Loader2 size={12} className="animate-spin" />}
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setResolvingDisputeId(null);
-                                    setDisputeAction('resolved');
-                                    setDisputeNote('');
-                                  }}
-                                  className="text-xs text-text-secondary hover:text-text-primary transition"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setResolvingDisputeId(dispute.id);
-                                  setDisputeAction('resolved');
-                                  setDisputeNote('');
-                                }}
-                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-50 text-green-700 hover:bg-green-100 transition"
-                              >
-                                Resolve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setResolvingDisputeId(dispute.id);
-                                  setDisputeAction('dismissed');
-                                  setDisputeNote('');
-                                }}
-                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-gray-100 text-text-secondary hover:bg-gray-200 transition"
-                              >
-                                Dismiss
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -1152,122 +1098,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* ===== SETTINGS TAB ===== */}
-      {activeTab === 'Settings' && (
-        <div>
-          <h2 className="text-xl font-bold text-text-primary mb-6">
-            Settings
-          </h2>
-
-          {/* Google Places Data */}
-          {provider.google_place_id && (
-            <div className="glow-card p-5 mb-6">
-              <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-                <SettingsIcon size={16} className="text-text-secondary" />
-                Google Places Data
-              </h3>
-
-              <div className="space-y-3">
-                {provider.google_synced_at && (
-                  <p className="text-sm text-text-secondary">
-                    Last synced from Google:{' '}
-                    <span className="text-text-primary font-medium">
-                      {formatDistanceToNow(new Date(provider.google_synced_at), { addSuffix: true })}
-                    </span>
-                  </p>
-                )}
-
-                {provider.google_rating && (
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <Star size={14} className="text-amber-400 fill-amber-400" />
-                    <span className="font-medium text-text-primary">{provider.google_rating}</span>
-                    {provider.google_review_count && (
-                      <span className="text-text-secondary">
-                        &middot; {provider.google_review_count.toLocaleString()} reviews
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  onClick={handleRefreshFromGoogle}
-                  disabled={refreshing}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-200 text-text-primary px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                  {refreshing ? 'Refreshing...' : 'Refresh from Google'}
-                </button>
-
-                <p className="text-xs text-text-secondary">
-                  Updates your Google rating, review count, and hours. Does not overwrite your tagline, about, or Instagram.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!provider.google_place_id && (
-            <div className="glow-card p-5">
-              <p className="text-sm text-text-secondary">
-                No Google Places data linked to this profile. Google sync is available for practices found via Google search during onboarding.
-              </p>
-            </div>
-          )}
-
-          {/* First-Timer Settings */}
-          <div className="glow-card p-5 mt-6">
-            <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-              <Sparkles size={16} className="text-[#0369A1]" />
-              First-Timer Settings
-            </h3>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={provider.first_timer_friendly || false}
-                  onChange={async (e) => {
-                    const val = e.target.checked;
-                    const { data } = await supabase
-                      .from('providers')
-                      .update({ first_timer_friendly: val })
-                      .eq('id', provider.id)
-                      .select()
-                      .single();
-                    if (data) setProvider(data);
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-                />
-                <span className="text-sm text-text-primary">We welcome first-timers</span>
-              </label>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1">
-                  First-Timer Special (shown on your profile)
-                </label>
-                <textarea
-                  defaultValue={provider.first_timer_special || ''}
-                  onBlur={async (e) => {
-                    const val = e.target.value.trim() || null;
-                    if (val === (provider.first_timer_special || null)) return;
-                    const { data } = await supabase
-                      .from('providers')
-                      .update({ first_timer_special: val })
-                      .eq('id', provider.id)
-                      .select()
-                      .single();
-                    if (data) setProvider(data);
-                  }}
-                  placeholder="e.g. 10% off your first Botox session"
-                  rows={2}
-                  className={INPUT_CLASS + ' text-sm'}
-                />
-                <p className="text-xs text-text-secondary mt-1">
-                  Saves automatically when you click away.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1278,7 +1108,7 @@ function UpgradeCTA() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-text-primary">
-            Upgrade to Pro for analytics, deals, and featured placement
+            Upgrade to Pro for analytics, specials, and featured placement
           </p>
           <p className="text-sm text-text-secondary">$149/mo</p>
         </div>

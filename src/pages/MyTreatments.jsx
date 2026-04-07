@@ -1,110 +1,152 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Sparkles, AlertTriangle, Check } from 'lucide-react';
+import { Trash2, Plus, Mail } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
-import { isStale } from '../lib/freshness';
-import TreatmentLogEntry from '../components/TreatmentLogEntry';
-import MonthlySpendSummary from '../components/MonthlySpendSummary';
-import LogTreatmentForm from '../components/LogTreatmentForm';
-import PioneerBadge from '../components/PioneerBadge';
-
+import ProcedureCard from '../components/ProcedureCard';
 
 export default function MyTreatments() {
-  const { user, openAuthModal } = useContext(AuthContext);
-  const [entries, setEntries] = useState([]);
-  const [cadenceNotes, setCadenceNotes] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editEntry, setEditEntry] = useState(null);
-  const [staleProcs, setStaleProcs] = useState([]);
-  const [confirming, setConfirming] = useState(null);
+  const { user } = useContext(AuthContext);
 
+  const [treatments, setTreatments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null);
+
+  // Sign-in state (for unauthenticated users)
+  const [email, setEmail] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInMsg, setSignInMsg] = useState('');
+
+  // SEO
   useEffect(() => {
     document.title = 'My Treatments | GlowBuddy';
   }, []);
 
+  // Fetch treatments
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
-    loadEntries();
-    loadCadence();
-    loadStaleSubmissions();
-  }, [user?.id]);
 
-  async function loadEntries() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('treatment_log')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date_received', { ascending: false });
-    setEntries(data || []);
-    setLoading(false);
+    async function fetchTreatments() {
+      setLoading(true);
+
+      const { data } = await supabase
+        .from('procedures')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      setTreatments(data || []);
+      setLoading(false);
+    }
+
+    fetchTreatments();
+  }, [user]);
+
+  async function handleSignIn(e) {
+    e.preventDefault();
+    if (!email) return;
+    setSigningIn(true);
+    setSignInMsg('');
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) {
+      setSignInMsg(error.message);
+    } else {
+      setSignInMsg('Check your email for a magic link!');
+      setEmail('');
+    }
+    setSigningIn(false);
   }
 
-  async function loadCadence() {
-    const { data } = await supabase
-      .from('treatment_cadence')
-      .select('treatment_name, notes');
-    const map = {};
-    (data || []).forEach((c) => { map[c.treatment_name] = c.notes; });
-    setCadenceNotes(map);
-  }
+  async function handleDelete(procedureId) {
+    if (!confirm('Are you sure you want to delete this treatment?')) return;
 
-  async function loadStaleSubmissions() {
-    const { data } = await supabase
+    setDeleting(procedureId);
+
+    const { error } = await supabase
       .from('procedures')
-      .select('id, procedure_type, provider_name, city, state, created_at, freshness_confirmed_at')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .is('freshness_confirmed_at', null)
-      .order('created_at', { ascending: false });
-    setStaleProcs((data || []).filter((p) => isStale(p.created_at)));
+      .delete()
+      .eq('id', procedureId);
+
+    if (!error) {
+      setTreatments((prev) => prev.filter((t) => t.id !== procedureId));
+    }
+
+    setDeleting(null);
   }
 
-  async function handleConfirmFresh(procId) {
-    setConfirming(procId);
-    await supabase
-      .from('procedures')
-      .update({ freshness_confirmed_at: new Date().toISOString() })
-      .eq('id', procId);
-    setStaleProcs((prev) => prev.filter((p) => p.id !== procId));
-    setConfirming(null);
+  function getStatusBadge(status) {
+    switch (status) {
+      case 'active':
+        return (
+          <span className="inline-block px-2 py-0.5 text-xs font-medium text-verified bg-verified/10 rounded-full">
+            Active
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-block px-2 py-0.5 text-xs font-medium text-yellow-600 bg-yellow-50 rounded-full">
+            Pending
+          </span>
+        );
+      case 'flagged':
+        return (
+          <span className="inline-block px-2 py-0.5 text-xs font-medium text-red-500 bg-red-50 rounded-full">
+            Flagged
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-block px-2 py-0.5 text-xs font-medium text-text-secondary bg-gray-100 rounded-full">
+            {status || 'Unknown'}
+          </span>
+        );
+    }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Delete this treatment entry?')) return;
-    const { error } = await supabase.from('treatment_log').delete().eq('id', id);
-    if (!error) setEntries((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function handleEdit(entry) {
-    setEditEntry(entry);
-    setShowForm(true);
-  }
-
-  function handleFormClose() {
-    setShowForm(false);
-    setEditEntry(null);
-  }
-
+  // Unauthenticated: show sign-in prompt
   if (!user) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="glow-card p-8">
-          <h1 className="text-2xl font-bold text-text-primary mb-2">My Treatments</h1>
+      <div className="max-w-md mx-auto px-4 py-16">
+        <div className="glow-card p-8 text-center">
+          <div className="flex justify-center mb-5">
+            <div className="flex items-center justify-center w-14 h-14 bg-rose-light rounded-full">
+              <Mail size={24} className="text-rose-accent" />
+            </div>
+          </div>
+
+          <h1 className="text-2xl font-bold text-text-primary mb-2">
+            My Treatments
+          </h1>
           <p className="text-text-secondary mb-6">
-            Sign in to track your treatments and see when you're due for a refresh.
+            Sign in to view and manage your logged treatments.
           </p>
-          <button
-            onClick={() => openAuthModal('signup')}
-            className="px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            Sign Up
-          </button>
+
+          <form onSubmit={handleSignIn} className="flex flex-col gap-4">
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent"
+              required
+            />
+            <button
+              type="submit"
+              disabled={signingIn}
+              className="w-full py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors disabled:opacity-50"
+            >
+              {signingIn ? 'Sending...' : 'Send Magic Link'}
+            </button>
+            {signInMsg && (
+              <p className="text-sm text-center text-text-secondary">
+                {signInMsg}
+              </p>
+            )}
+          </form>
         </div>
       </div>
     );
@@ -112,7 +154,7 @@ export default function MyTreatments() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="animate-pulse text-rose-accent text-center text-lg">
           Loading your treatments...
         </div>
@@ -121,129 +163,60 @@ export default function MyTreatments() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-text-primary">My Treatments</h1>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/budget"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-rose-accent/30 text-rose-accent text-sm font-medium rounded-xl hover:bg-rose-light/50 transition-colors"
-          >
-            <Sparkles size={14} />
-            Budget Planner
-          </Link>
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-accent text-white text-sm font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            <Plus size={16} />
-            Log Treatment
-          </button>
-        </div>
-      </div>
-
-      {/* Pioneer badge */}
-      <div className="mb-4">
-        <PioneerBadge userId={user.id} />
-      </div>
-
-      {/* Stale submissions banner */}
-      {staleProcs.length > 0 && (
-        <div
-          className="rounded-xl p-4 mb-4"
-          style={{ background: '#FFFBEB', border: '1px solid rgba(217, 119, 6, 0.2)' }}
+        <h1 className="text-3xl font-bold text-text-primary">
+          My Treatments
+        </h1>
+        <Link
+          to="/log"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-rose-accent text-white text-sm font-medium rounded-xl hover:bg-rose-dark transition-colors"
         >
-          <div className="flex items-start gap-2.5 mb-3">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: '#D97706' }} />
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                {staleProcs.length} price{staleProcs.length === 1 ? '' : 's'} may need updating
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: '#92400E' }}>
-                Confirm or update to help others &mdash; earn bonus giveaway entries!
-              </p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {staleProcs.slice(0, 3).map((proc) => (
-              <div key={proc.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{proc.procedure_type}</p>
-                  <p className="text-xs text-text-secondary truncate">
-                    {proc.provider_name}{proc.city ? ` \u00B7 ${proc.city}, ${proc.state}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <button
-                    onClick={() => handleConfirmFresh(proc.id)}
-                    disabled={confirming === proc.id}
-                    className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition"
-                    style={{ color: '#059669', background: '#ECFDF5' }}
-                  >
-                    <Check size={12} />
-                    {confirming === proc.id ? '...' : 'Still Accurate'}
-                  </button>
-                  <Link
-                    to={`/log?procedure=${encodeURIComponent(proc.procedure_type)}&provider=${encodeURIComponent(proc.provider_name || '')}&city=${encodeURIComponent(proc.city || '')}&state=${encodeURIComponent(proc.state || '')}`}
-                    className="text-xs font-medium px-2.5 py-1 rounded-full transition"
-                    style={{ color: '#C94F78', background: '#FBE8EF' }}
-                  >
-                    Update
-                  </Link>
-                </div>
-              </div>
-            ))}
-            {staleProcs.length > 3 && (
-              <p className="text-xs text-center" style={{ color: '#92400E' }}>
-                + {staleProcs.length - 3} more
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+          <Plus size={16} />
+          Log Treatment
+        </Link>
+      </div>
 
-      {/* Monthly spend summary */}
-      {entries.length > 0 && (
-        <div className="mb-6">
-          <MonthlySpendSummary entries={entries} />
-        </div>
-      )}
-
-      {entries.length === 0 ? (
+      {treatments.length === 0 ? (
         <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary mb-2">
-            Your price history will live here.
+          <p className="text-text-secondary mb-4">
+            You haven't logged any treatments yet.
           </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Every treatment you share helps someone in your city know what to expect.
-          </p>
-          <button
-            onClick={() => setShowForm(true)}
+          <Link
+            to="/log"
             className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
           >
-            Share your first price
-          </button>
+            Log Your First Treatment
+          </Link>
         </div>
       ) : (
-        <div className="space-y-3">
-          {entries.map((entry) => (
-            <TreatmentLogEntry
-              key={entry.id}
-              entry={entry}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              cadenceNotes={cadenceNotes}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {treatments.map((treatment, index) => (
+            <div key={treatment.id} className="relative">
+              <ProcedureCard procedure={treatment} index={index} />
+
+              {/* Status badge overlay */}
+              <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                {getStatusBadge(treatment.status)}
+              </div>
+
+              {/* Delete button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDelete(treatment.id);
+                }}
+                disabled={deleting === treatment.id}
+                className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 bg-white/90 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="Delete treatment"
+              >
+                <Trash2 size={12} />
+                {deleting === treatment.id ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           ))}
         </div>
-      )}
-
-      {showForm && (
-        <LogTreatmentForm
-          onClose={handleFormClose}
-          onSaved={loadEntries}
-          editEntry={editEntry}
-        />
       )}
     </div>
   );

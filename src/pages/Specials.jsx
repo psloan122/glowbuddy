@@ -1,26 +1,15 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Tag, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, US_STATES } from '../lib/constants';
-import { AuthContext } from '../App';
-import { getWalletBalance } from '../lib/referral';
+import { PROCEDURE_TYPES, US_STATES } from '../lib/constants';
 import SpecialCard from '../components/SpecialCard';
-import WalletCreditBanner from '../components/WalletCreditBanner';
 
 export default function Specials() {
-  const { user } = useContext(AuthContext);
   const [specials, setSpecials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [procedureFilter, setProcedureFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
-  const [walletBalance, setWalletBalance] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      getWalletBalance(user.id).then(setWalletBalance);
-    }
-  }, [user?.id]);
 
   // SEO
   useEffect(() => {
@@ -105,12 +94,10 @@ export default function Specials() {
           className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-accent/50"
         >
           <option value="">All Procedures</option>
-          {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
-            <optgroup key={category} label={category}>
-              {procedures.map((pt) => (
-                <option key={pt} value={pt}>{pt}</option>
-              ))}
-            </optgroup>
+          {PROCEDURE_TYPES.map((pt) => (
+            <option key={pt} value={pt}>
+              {pt}
+            </option>
           ))}
         </select>
 
@@ -128,9 +115,6 @@ export default function Specials() {
         </select>
       </div>
 
-      {/* Wallet credit banner */}
-      <WalletCreditBanner />
-
       {/* Specials Grid */}
       {filteredSpecials.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -139,7 +123,6 @@ export default function Specials() {
               key={special.id}
               special={special}
               provider={special.providers}
-              walletBalance={walletBalance}
             />
           ))}
         </div>
@@ -149,7 +132,7 @@ export default function Specials() {
             <Tag size={40} className="text-text-secondary/30" />
           </div>
           <p className="text-text-secondary mb-4">
-            No specials posted in this area yet.
+            No specials posted yet. Are you a provider? Post yours free.
           </p>
           <Link
             to="/business"

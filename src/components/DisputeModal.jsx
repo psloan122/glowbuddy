@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 
 export default function DisputeModal({ procedure, providerId, onClose, onSubmitted }) {
   const [reason, setReason] = useState('');
-  const [providerResponse, setProviderResponse] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +23,6 @@ export default function DisputeModal({ procedure, providerId, onClose, onSubmitt
           procedure_id: procedure.id,
           provider_id: providerId,
           reason: reason.trim(),
-          provider_response: providerResponse.trim() || null,
         });
 
       if (insertError) throw insertError;
@@ -102,22 +100,6 @@ export default function DisputeModal({ procedure, providerId, onClose, onSubmitt
               rows={4}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent resize-none mb-4"
               required
-            />
-
-            <label
-              htmlFor="provider-response"
-              className="block text-sm font-medium text-text-primary mb-2"
-            >
-              Your public response{' '}
-              <span className="font-normal text-text-secondary">(optional)</span>
-            </label>
-            <textarea
-              id="provider-response"
-              value={providerResponse}
-              onChange={(e) => setProviderResponse(e.target.value)}
-              placeholder="Add context or a correction that will be visible on this submission..."
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent resize-none mb-4"
             />
 
             {error && (
