@@ -351,10 +351,13 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ═══ Mobile full-screen overlay (ink background) ═══ */}
+      {/* ═══ Mobile full-screen overlay (cream background) ═══ */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] bg-ink md:hidden overflow-y-auto">
-          <div className="flex items-center justify-between h-16 px-4 border-b border-rule-dark">
+        <div
+          className="fixed inset-0 z-[60] bg-cream md:hidden overflow-y-auto"
+          style={{ borderTop: '3px solid #E8347A' }}
+        >
+          <div className="flex items-center justify-between h-16 px-4 border-b border-rule">
             <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-baseline">
               <span
                 className="font-display italic text-[26px] text-hot-pink"
@@ -363,14 +366,14 @@ export default function Navbar() {
                 Glow
               </span>
               <span
-                className="font-display text-[26px] text-white"
+                className="font-display text-[26px] text-ink"
                 style={{ fontWeight: 900, lineHeight: 1 }}
               >
                 Buddy
               </span>
             </Link>
             <button
-              className="p-2 text-white"
+              className="p-2 text-ink"
               onClick={() => setMobileOpen(false)}
               aria-label="Close menu"
             >
@@ -387,7 +390,7 @@ export default function Navbar() {
                   key={link.to}
                   to={link.to}
                   className={`block py-3 font-display text-[28px] transition-colors ${
-                    active ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+                    active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
                   }`}
                   style={{ fontWeight: 900 }}
                   onClick={() => setMobileOpen(false)}
@@ -400,7 +403,7 @@ export default function Navbar() {
             <Link
               to="/business"
               className={`block py-3 font-display text-[28px] transition-colors ${
-                location.pathname.startsWith('/business') ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+                location.pathname.startsWith('/business') ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
               }`}
               style={{ fontWeight: 900 }}
               onClick={() => setMobileOpen(false)}
@@ -410,7 +413,7 @@ export default function Navbar() {
 
             {/* Grouped sections */}
             {DROPDOWNS.map((dd) => (
-              <div key={dd.key} className="mt-8 pt-6 border-t border-rule-dark">
+              <div key={dd.key} className="mt-8 pt-6 border-t border-rule">
                 <p
                   className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
                   style={{ letterSpacing: '0.12em' }}
@@ -424,7 +427,7 @@ export default function Navbar() {
                       key={link.to}
                       to={link.to}
                       className={`flex items-center gap-2 py-2.5 text-[15px] transition-colors ${
-                        active ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+                        active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
                       }`}
                       onClick={() => setMobileOpen(false)}
                     >
@@ -448,19 +451,19 @@ export default function Navbar() {
             </Link>
 
             {/* Auth */}
-            <div className="mt-8 pt-6 border-t border-rule-dark">
+            <div className="mt-8 pt-6 border-t border-rule">
               {user ? (
                 <div className="flex flex-col gap-1">
-                  <Link to="/my-treatments" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                  <Link to="/my-treatments" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
                     My Treatments
                   </Link>
-                  <Link to="/rewards" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                  <Link to="/rewards" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
                     My Rewards
                   </Link>
                   <Link to="/refer" className="py-2 text-[14px] font-medium text-hot-pink" onClick={() => setMobileOpen(false)}>
                     Refer &amp; Earn $10
                   </Link>
-                  <Link to="/settings" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                  <Link to="/settings" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
                     Settings
                   </Link>
                   <button
@@ -474,7 +477,7 @@ export default function Navbar() {
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={() => { openAuthModal('signin'); setMobileOpen(false); }}
-                    className="btn-editorial btn-editorial-ghost w-full"
+                    className="btn-editorial btn-editorial-secondary w-full"
                   >
                     Log in
                   </button>

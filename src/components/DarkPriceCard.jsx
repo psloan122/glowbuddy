@@ -3,11 +3,12 @@ import ProviderAvatar from './ProviderAvatar';
 import { providerProfileUrl } from '../lib/slugify';
 
 /*
- * DarkPriceCard — the dark variant editorial price card.
+ * DarkPriceCard — pink-section editorial price card.
  *
- * Used on black/ink backgrounds (homepage hero, dark sections).
- * Hard 2px hot-pink top rule, ink-soft background, white prices,
- * blush procedure label.
+ * Despite the legacy name, this card now lives INSIDE hot-pink
+ * full-bleed sections (e.g. the homepage feature section). It is
+ * a translucent white-on-pink card with a 3px white top rule, white
+ * Playfair Display prices, and blush procedure labels.
  *
  * Props:
  *   - procedureLabel: short uppercase label e.g. "Botox / Per Unit"
@@ -46,8 +47,8 @@ export default function DarkPriceCard({
     >
       {/* Procedure label — tracked uppercase blush */}
       <p
-        className="text-[9px] font-semibold uppercase text-blush mb-2"
-        style={{ letterSpacing: '0.12em' }}
+        className="text-[9px] font-semibold uppercase mb-2"
+        style={{ letterSpacing: '0.12em', color: '#FBE4ED' }}
       >
         {procedureLabel}
       </p>
@@ -58,12 +59,22 @@ export default function DarkPriceCard({
           ${Number(price).toLocaleString()}
         </span>
         {unit && (
-          <span className="font-body text-[12px] font-light text-[#777]">{unit}</span>
+          <span
+            className="font-body text-[12px] font-light"
+            style={{ color: 'rgba(255,255,255,0.75)' }}
+          >
+            {unit}
+          </span>
         )}
       </div>
 
       {brand && (
-        <p className="font-body text-[11px] font-light text-[#888] mb-3">{brand}</p>
+        <p
+          className="font-body text-[11px] font-light mb-3"
+          style={{ color: 'rgba(255,255,255,0.75)' }}
+        >
+          {brand}
+        </p>
       )}
 
       {/* Badge row */}
@@ -71,15 +82,13 @@ export default function DarkPriceCard({
         <div className="flex flex-wrap gap-1.5 mb-3">
           {vsAvg && (
             <span
-              className="inline-flex items-center text-[10px] font-medium uppercase px-2 py-0.5"
+              className="inline-flex items-center text-[10px] font-semibold uppercase px-2 py-0.5"
               style={{
                 letterSpacing: '0.06em',
                 borderRadius: '4px',
-                ...(vsAvg.type === 'below'
-                  ? { background: '#0D2A1A', color: '#4CAF50', border: '1px solid #1A4A2A' }
-                  : vsAvg.type === 'above'
-                  ? { background: '#2A0A0A', color: '#E8347A', border: '1px solid #4A1A1A' }
-                  : { background: '#1A1A1A', color: '#666', border: '1px solid #222' }),
+                background: 'rgba(255,255,255,0.18)',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.35)',
               }}
             >
               {vsAvg.label}
@@ -87,13 +96,15 @@ export default function DarkPriceCard({
           )}
           {source && (
             <span
-              className="inline-flex items-center text-[10px] font-medium uppercase px-2 py-0.5"
+              className="inline-flex items-center text-[10px] font-semibold uppercase px-2 py-0.5"
               style={{
                 letterSpacing: '0.06em',
                 borderRadius: '4px',
-                background: '#111',
-                color: '#666',
-                border: source === 'website' ? '1px dashed #333' : '1px solid #222',
+                background: 'transparent',
+                color: '#ffffff',
+                border: source === 'website'
+                  ? '1px dashed rgba(255,255,255,0.50)'
+                  : '1px solid rgba(255,255,255,0.40)',
               }}
             >
               {source === 'website' ? 'From website' : 'Patient reported'}
@@ -103,7 +114,10 @@ export default function DarkPriceCard({
       )}
 
       {/* Provider row — divider above */}
-      <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid #222' }}>
+      <div
+        className="flex items-center gap-2 pt-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.20)' }}
+      >
         <ProviderAvatar name={providerName} size={24} />
         <div className="flex-1 min-w-0">
           <p
@@ -113,7 +127,10 @@ export default function DarkPriceCard({
             {providerName}
           </p>
           {(providerCity || providerState) && (
-            <p className="text-[11px] font-light text-[#666] truncate">
+            <p
+              className="text-[11px] font-light truncate"
+              style={{ color: 'rgba(255,255,255,0.70)' }}
+            >
               {providerCity}
               {providerCity && providerState ? ', ' : ''}
               {providerState}

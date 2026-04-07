@@ -568,8 +568,8 @@ export default function ProviderProfile() {
 
   return (
     <div className="bg-cream min-h-screen page-enter">
-      {/* 1. Provider Header — editorial dark masthead */}
-      <div className="bg-ink" style={{ borderBottom: '2px solid #E8347A' }}>
+      {/* 1. Provider Header — editorial white masthead */}
+      <div className="bg-white" style={{ borderBottom: '3px solid #E8347A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             <div className="flex items-start gap-5 min-w-0 flex-1">
@@ -578,8 +578,8 @@ export default function ProviderProfile() {
                 {/* Kicker — location */}
                 {(providerCity || providerState) && (
                   <p
-                    className="text-[10px] font-semibold uppercase mb-3"
-                    style={{ color: '#E8B4C8', letterSpacing: '0.12em' }}
+                    className="text-[10px] font-semibold uppercase mb-3 text-hot-pink"
+                    style={{ letterSpacing: '0.18em' }}
                   >
                     {[providerCity, providerState].filter(Boolean).join(' / ')}
                   </p>
@@ -587,7 +587,7 @@ export default function ProviderProfile() {
 
                 {/* Name — Playfair Display 900 */}
                 <h1
-                  className="font-display text-white mb-3"
+                  className="font-display text-ink mb-3"
                   style={{
                     fontWeight: 900,
                     fontSize: 'clamp(32px, 5vw, 56px)',
@@ -602,11 +602,11 @@ export default function ProviderProfile() {
                 <div className="flex flex-wrap items-center gap-1.5 mb-3">
                   {provider?.provider_type && (
                     <span
-                      className="inline-flex items-center text-[10px] font-semibold uppercase px-2 py-0.5 text-blush"
+                      className="inline-flex items-center text-[10px] font-semibold uppercase px-2 py-0.5 text-hot-pink"
                       style={{
                         letterSpacing: '0.08em',
                         borderRadius: '4px',
-                        border: '1px solid #E8B4C8',
+                        border: '1px solid #E8347A',
                       }}
                     >
                       {provider.provider_type}
@@ -618,9 +618,9 @@ export default function ProviderProfile() {
                       style={{
                         letterSpacing: '0.08em',
                         borderRadius: '4px',
-                        background: '#0D2A1A',
-                        color: '#4CAF50',
-                        border: '1px solid #1A4A2A',
+                        background: '#F0FAF5',
+                        color: '#1A7A3A',
+                        border: '1px solid #1A7A3A',
                       }}
                     >
                       <CheckCircle size={10} />
@@ -633,9 +633,9 @@ export default function ProviderProfile() {
                       style={{
                         letterSpacing: '0.08em',
                         borderRadius: '4px',
-                        background: '#1A1A1A',
-                        color: '#E8B4C8',
-                        border: '1px solid #333',
+                        background: '#FFF0F6',
+                        color: '#C8005A',
+                        border: '1px solid #E8347A',
                       }}
                     >
                       <Heart size={10} />
@@ -645,7 +645,7 @@ export default function ProviderProfile() {
                 </div>
 
                 {/* Ratings + location meta */}
-                <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#999] mb-3">
+                <div className="flex flex-wrap items-center gap-4 text-[12px] text-text-secondary mb-3">
                   {(providerCity || providerState) && (
                     <span className="flex items-center gap-1">
                       <MapPin size={12} />
@@ -655,7 +655,7 @@ export default function ProviderProfile() {
                   {googleRating && (
                     <span className="flex items-center gap-1">
                       <Star size={12} style={{ color: '#E8347A', fill: '#E8347A' }} />
-                      <span className="font-medium text-white">
+                      <span className="font-medium text-ink">
                         {Number(googleRating).toFixed(1)}
                       </span>
                       {googleReviewCount && (
@@ -667,7 +667,7 @@ export default function ProviderProfile() {
 
                 {/* Social proof line — claimed only */}
                 {isClaimed && (
-                  <p className="text-[11px] text-[#888] font-light mb-2">
+                  <p className="text-[11px] text-text-secondary font-light mb-2">
                     {[
                       verifiedPricing.length > 0 && `${verifiedPricing.length} verified price${verifiedPricing.length !== 1 ? 's' : ''}`,
                       reviews.length > 0 && `${reviews.length} patient review${reviews.length !== 1 ? 's' : ''}`,
@@ -679,16 +679,16 @@ export default function ProviderProfile() {
               {/* GlowBuddy Rating */}
               {(provider?.weighted_rating || provider?.avg_rating) && (
                 <div className="mb-2">
-                  <div className="flex items-center gap-1.5 text-[12px] text-[#999]">
+                  <div className="flex items-center gap-1.5 text-[12px] text-text-secondary">
                     <StarRating
                       value={Math.round(provider.weighted_rating || provider.avg_rating)}
                       readOnly
                       size={12}
                     />
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-ink">
                       {provider.weighted_rating || provider.avg_rating}
                     </span>
-                    <span className="text-[#666]">weighted</span>
+                    <span className="text-text-secondary">weighted</span>
                     {provider.review_count > 0 && (
                       <span>
                         &middot; {provider.review_count} review
@@ -706,7 +706,7 @@ export default function ProviderProfile() {
                     href={googleMapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-semibold uppercase text-hot-pink hover:text-blush transition inline-flex items-center gap-1"
+                    className="text-[11px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition inline-flex items-center gap-1"
                     style={{ letterSpacing: '0.08em' }}
                   >
                     View on Google Maps
@@ -737,21 +737,21 @@ export default function ProviderProfile() {
                     <div className="md:hidden">
                       <button
                         onClick={() => setHoursExpanded(!hoursExpanded)}
-                        className="flex items-center gap-1.5 text-[11px] text-[#999]"
+                        className="flex items-center gap-1.5 text-[11px] text-text-secondary"
                       >
                         <Clock size={11} className="shrink-0" />
                         {todayRow && (
                           <>
                             <span
                               className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"
-                              style={{ background: isOpenNow ? '#4CAF50' : '#666' }}
+                              style={{ background: isOpenNow ? '#1A7A3A' : '#999' }}
                             />
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-ink">
                               {todayRow.hours}
                             </span>
                           </>
                         )}
-                        <span className="text-[#666] uppercase" style={{ letterSpacing: '0.06em' }}>
+                        <span className="text-text-secondary uppercase" style={{ letterSpacing: '0.06em' }}>
                           {hoursExpanded ? 'Hide hours' : 'See all hours'}
                         </span>
                         {hoursExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
@@ -761,13 +761,13 @@ export default function ProviderProfile() {
                           {rows.map((r) => [
                             <span
                               key={`${r.day}-label`}
-                              className="text-[#888] flex items-center gap-1"
+                              className="text-text-secondary flex items-center gap-1"
                               style={r.isToday ? { fontWeight: 500 } : undefined}
                             >
                               {r.isToday && (
                                 <span
                                   className="inline-block w-1.5 h-1.5 rounded-full"
-                                  style={{ background: isClosed(r.hours) ? '#666' : '#4CAF50' }}
+                                  style={{ background: isClosed(r.hours) ? '#999' : '#1A7A3A' }}
                                 />
                               )}
                               {r.abbrev}
@@ -776,10 +776,10 @@ export default function ProviderProfile() {
                               key={`${r.day}-hours`}
                               style={
                                 isClosed(r.hours)
-                                  ? { color: '#666' }
+                                  ? { color: '#999' }
                                   : r.isToday
-                                    ? { fontWeight: 500, color: '#fff' }
-                                    : { color: '#bbb' }
+                                    ? { fontWeight: 500, color: '#111' }
+                                    : { color: '#666' }
                               }
                             >
                               {r.hours}
@@ -790,7 +790,7 @@ export default function ProviderProfile() {
                     </div>
                     {/* Desktop: always visible */}
                     <div className="hidden md:block">
-                      <div className="flex items-center gap-1.5 text-[10px] uppercase text-[#666] mb-2" style={{ letterSpacing: '0.08em' }}>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase text-text-secondary mb-2" style={{ letterSpacing: '0.08em' }}>
                         <Clock size={11} className="shrink-0" />
                         <span>Hours</span>
                       </div>
@@ -798,13 +798,13 @@ export default function ProviderProfile() {
                         {rows.map((r) => [
                           <span
                             key={`${r.day}-label`}
-                            className="text-[#888] flex items-center gap-1"
+                            className="text-text-secondary flex items-center gap-1"
                             style={r.isToday ? { fontWeight: 500 } : undefined}
                           >
                             {r.isToday && (
                               <span
                                 className="inline-block w-1.5 h-1.5 rounded-full"
-                                style={{ background: isClosed(r.hours) ? '#666' : '#4CAF50' }}
+                                style={{ background: isClosed(r.hours) ? '#999' : '#1A7A3A' }}
                               />
                             )}
                             {r.abbrev}
@@ -813,10 +813,10 @@ export default function ProviderProfile() {
                             key={`${r.day}-hours`}
                             style={
                               isClosed(r.hours)
-                                ? { color: '#666' }
+                                ? { color: '#999' }
                                 : r.isToday
-                                  ? { fontWeight: 500, color: '#fff' }
-                                  : { color: '#bbb' }
+                                  ? { fontWeight: 500, color: '#111' }
+                                  : { color: '#666' }
                             }
                           >
                             {r.hours}
@@ -847,13 +847,7 @@ export default function ProviderProfile() {
                   href={website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors"
-                  style={{
-                    letterSpacing: '0.12em',
-                    border: '1px solid #333',
-                    borderRadius: '2px',
-                    background: 'transparent',
-                  }}
+                  className="btn-editorial btn-editorial-secondary"
                 >
                   <ExternalLink size={11} />
                   Website
@@ -864,13 +858,7 @@ export default function ProviderProfile() {
                   href={`https://instagram.com/${provider.instagram.replace('@', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors"
-                  style={{
-                    letterSpacing: '0.12em',
-                    border: '1px solid #333',
-                    borderRadius: '2px',
-                    background: 'transparent',
-                  }}
+                  className="btn-editorial btn-editorial-secondary"
                 >
                   <Globe size={11} />
                   Instagram

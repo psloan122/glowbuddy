@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 export default function Footer() {
   return (
     <footer className="mt-16">
-      {/* Main dark footer body */}
-      <div className="bg-ink" style={{ borderTop: '2px solid #E8347A' }}>
+      {/* Main warm-ink footer body — only allowed dark surface in the app */}
+      <div style={{ background: '#1C1410', borderTop: '3px solid #E8347A' }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Three columns */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 mb-10">

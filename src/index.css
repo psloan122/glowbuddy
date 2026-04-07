@@ -20,8 +20,9 @@
   /* ── Editorial brand palette ── */
   --color-hot-pink: #E8347A;
   --color-hot-pink-dark: #C8005A;
-  --color-ink: #111111;
-  --color-ink-soft: #1A1A1A;
+  --color-ink: #111111;             /* TEXT only — never a background outside the footer */
+  --color-ink-soft: #1A1A1A;        /* legacy — kept for any orphan refs */
+  --color-warm-ink: #1C1410;        /* warm dark — footer only */
   --color-cream: #FBF9F7;
   --color-blush: #E8B4C8;
   --color-blush-soft: #F5DCE6;
@@ -30,6 +31,8 @@
   --color-above-avg: #C8001A;
   --color-rule: #E8E8E8;
   --color-rule-dark: #222222;
+  --color-card-rule: #EDE8E3;       /* warm cream card border */
+  --color-tagline-mute: #B8A89A;    /* warm taupe taglines / decks */
 
   /* ── Legacy token remap (preserves existing className references) ── */
   --color-rose-accent: #E8347A;       /* was #F4A7B9 — now hot-pink */
@@ -114,16 +117,16 @@ h1, h2, h3, h4 {
 }
 
 /* ── EDITORIAL CARDS ──
-   Hard borders, no shadows, 8px radius. The white card with a 2px
-   ink top-rule is the canonical "light variant" used everywhere on
-   cream/white backgrounds. */
+   Cream + white + hot-pink. The canonical light card has a 3px
+   hot-pink top rule, a warm 1px cream side rule, and 8px radius —
+   pink IS the drama, never black. */
 .glow-card {
   background: white;
   border-radius: 8px;
-  border: 1px solid var(--color-rule);
-  border-top: 2px solid var(--color-ink);
+  border: 1px solid var(--color-card-rule);
+  border-top: 3px solid var(--color-hot-pink);
   box-shadow: none;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .glow-card:hover {
@@ -131,18 +134,21 @@ h1, h2, h3, h4 {
   border-color: var(--color-hot-pink);
 }
 
+/* Translucent white card for use INSIDE hot-pink full-bleed sections.
+   (The class name is legacy — it no longer renders dark.) */
 .glow-card-dark {
-  background: var(--color-ink-soft);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  border: 1px solid var(--color-rule-dark);
-  border-top: 2px solid var(--color-hot-pink);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-top: 3px solid #ffffff;
   color: white;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  backdrop-filter: blur(2px);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .glow-card-dark:hover {
   transform: translateY(-2px);
-  border-color: var(--color-hot-pink);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ── EDITORIAL BUTTONS ──
@@ -200,6 +206,22 @@ h1, h2, h3, h4 {
   background: var(--color-glow-red);
   color: white;
   border-color: var(--color-glow-red);
+}
+
+/* ── EDITORIAL EYEBROW STRIP ──
+   Top-of-page hot-pink declaration bar. Sits flush above the navbar
+   or directly above hero sections. */
+.editorial-eyebrow-strip {
+  background: var(--color-hot-pink);
+  color: #ffffff;
+  text-align: center;
+  padding: 8px 16px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.4;
 }
 
 /* ── EDITORIAL ELEMENTS ── */
@@ -266,14 +288,17 @@ h1, h2, h3, h4 {
   color: white;
 }
 
+/* Pill variant for use INSIDE hot-pink full-bleed sections.
+   (Class name kept legacy — no longer renders on dark bg.) */
 .proc-pill-inactive-dark {
-  background: var(--color-ink-soft);
-  border-color: #222;
-  color: #888;
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.30);
+  color: #ffffff;
 }
 .proc-pill-inactive-dark:hover {
-  border-color: var(--color-hot-pink);
-  color: white;
+  background: rgba(255, 255, 255, 0.20);
+  border-color: #ffffff;
+  color: #ffffff;
 }
 
 .proc-pill-inactive-light {

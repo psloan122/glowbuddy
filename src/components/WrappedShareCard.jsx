@@ -160,12 +160,15 @@ export default function WrappedShareCard({ data, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-[#1A1A1A] rounded-2xl max-w-md w-full p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[80] bg-[#1C1410]/45 flex items-center justify-center p-4">
+      <div
+        className="bg-white max-w-md w-full p-5 max-h-[90vh] overflow-y-auto"
+        style={{ borderRadius: '8px', border: '1px solid #EDE8E3', borderTop: '3px solid #E8347A' }}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-white">Share Your Wrapped</h3>
+          <h3 className="text-lg font-bold text-ink">Share Your Wrapped</h3>
           {onClose && (
-            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+            <button onClick={onClose} className="text-text-secondary hover:text-ink transition-colors">
               <X size={18} />
             </button>
           )}

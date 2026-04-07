@@ -262,138 +262,174 @@ export default function Home() {
   return (
     <div className="bg-cream page-enter">
       {/* ═══════════════════════════════════════════════════════
-          1. HERO — editorial two-section split
+          0. EDITORIAL EYEBROW STRIP — hot pink declaration bar
           ═══════════════════════════════════════════════════════ */}
-      <section className="grid grid-cols-1 lg:grid-cols-[60%_40%] min-h-[560px]">
-        {/* LEFT — black 60%, headline + pills + search */}
-        <div
-          className="bg-ink px-6 md:px-12 lg:px-16 py-14 md:py-20 flex flex-col justify-center"
-          style={{ borderBottom: '2px solid #E8347A' }}
-        >
-          <div className="max-w-xl">
-            {/* Kicker */}
-            <p
-              className="text-[10px] font-semibold uppercase text-blush mb-5"
-              style={{ letterSpacing: '0.18em' }}
-            >
-              The Price Report
-            </p>
+      <div className="editorial-eyebrow-strip">
+        Price transparency for injectables &middot; Backed by real patient data
+      </div>
 
-            {/* Headline — Playfair 900, tight, ALL CAPS */}
-            <h1
-              className="font-display text-white mb-4"
+      {/* ═══════════════════════════════════════════════════════
+          1. HERO — full-bleed cream, centered editorial
+          ═══════════════════════════════════════════════════════ */}
+      <section
+        className="bg-cream"
+        style={{ borderBottom: '3px solid #E8347A' }}
+      >
+        <div className="max-w-[900px] mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-14 md:pb-20 text-center">
+          {/* Kicker */}
+          <p
+            className="text-[11px] font-semibold uppercase text-hot-pink mb-6"
+            style={{ letterSpacing: '0.20em' }}
+          >
+            The Price Report
+          </p>
+
+          {/* Massive headline — Playfair 900, ALL CAPS, pink italic GLOW */}
+          <h1
+            className="font-display text-ink mb-5"
+            style={{
+              fontWeight: 900,
+              fontSize: 'clamp(56px, 10vw, 120px)',
+              lineHeight: 0.92,
+              letterSpacing: '-0.02em',
+              textTransform: 'uppercase',
+            }}
+          >
+            KNOW BEFORE<br />
+            YOU <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
+          </h1>
+
+          {/* Tagline — warm taupe, single line aspirational */}
+          <p
+            className="font-display italic mb-3"
+            style={{
+              color: '#B8A89A',
+              fontSize: 'clamp(18px, 2.4vw, 26px)',
+              fontWeight: 400,
+              lineHeight: 1.3,
+            }}
+          >
+            Real prices. Real patients. Real receipts.
+          </p>
+
+          {/* Subhead — Outfit body, the longer line */}
+          <p
+            className="font-body font-light text-text-secondary mb-9 max-w-[620px] mx-auto"
+            style={{ fontSize: 'clamp(15px, 1.6vw, 17px)', lineHeight: 1.65 }}
+          >
+            The injectable industry has hidden prices for too long. We're putting
+            them in the open — Botox, filler, lasers, microneedling. Search what
+            people in your city actually paid.
+          </p>
+
+          {/* Search bar — pill, editorial, centered */}
+          <div className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto mb-7">
+            <Link
+              to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
+              className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5 text-[13px] text-text-secondary hover:border-hot-pink transition"
+              style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
+            >
+              <Search size={15} className="shrink-0 text-text-secondary" />
+              <span className="truncate text-left">
+                {savedCity
+                  ? `Search ${savedCity}, ${savedState}...`
+                  : 'Search treatments near you...'}
+              </span>
+            </Link>
+            <Link to="/browse" className="btn-editorial btn-editorial-primary">
+              Find Prices
+            </Link>
+          </div>
+
+          {/* Procedure pills — light variant, centered */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 mb-5">
+            {HERO_PROCS.map((proc) => (
+              <Link
+                key={proc}
+                to={`/browse?procedure=${encodeURIComponent(proc)}`}
+                className="proc-pill proc-pill-inactive-light"
+              >
+                {proc}
+              </Link>
+            ))}
+          </div>
+
+          {/* Recency / data freshness label */}
+          {(providerCountTotal || patientCount) && (
+            <p
+              className="font-light"
               style={{
-                fontWeight: 900,
-                fontSize: 'clamp(40px, 6vw, 80px)',
-                lineHeight: 0.96,
-                letterSpacing: '-0.015em',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '11px',
+                color: '#999',
+                letterSpacing: '0.10em',
                 textTransform: 'uppercase',
               }}
             >
-              KNOW BEFORE<br />
-              YOU <span className="italic text-hot-pink">GLOW.</span>
-            </h1>
-
-            {/* Deck */}
-            <p className="text-[16px] md:text-[18px] text-[#bbb] font-light mb-8 max-w-md leading-relaxed">
-              Real prices. Real patients. Real receipts. The injectable industry has gotten away with hiding prices for too long.
+              Updated today
+              {providerCountTotal && ` · ${providerCountTotal.toLocaleString()} providers mapped`}
+              {patientCount && ` · ${patientCount.toLocaleString()} patient prices shared`}
             </p>
+          )}
+        </div>
+      </section>
 
-            {/* Procedure pills — editorial */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {HERO_PROCS.map((proc) => (
-                <Link
-                  key={proc}
-                  to={`/browse?procedure=${encodeURIComponent(proc)}`}
-                  className="inline-flex items-center text-[10px] font-semibold uppercase px-3 py-1.5 text-white transition-colors hover:bg-hot-pink hover:border-hot-pink"
-                  style={{
-                    letterSpacing: '0.10em',
-                    borderRadius: '2px',
-                    border: '1px solid #333',
-                    background: 'transparent',
-                  }}
-                >
-                  {proc}
-                </Link>
-              ))}
-            </div>
-
-            {/* Recency / data freshness label */}
-            {providerCountTotal && (
+      {/* ═══════════════════════════════════════════════════════
+          1B. HOT-PINK FEATURE SECTION — full bleed, pink IS the drama
+          ═══════════════════════════════════════════════════════ */}
+      <section style={{ background: '#E8347A' }}>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-16 md:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-10 lg:gap-16 items-center">
+            {/* LEFT — text + CTA */}
+            <div>
               <p
-                className="font-light mb-5"
+                className="text-[11px] font-semibold uppercase mb-5"
+                style={{ letterSpacing: '0.20em', color: '#FBE4ED' }}
+              >
+                Today's Featured Prices
+              </p>
+              <h2
+                className="font-display text-white mb-4"
                 style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 300,
-                  fontSize: '11px',
-                  color: '#888',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
+                  fontWeight: 900,
+                  fontSize: 'clamp(36px, 5.5vw, 64px)',
+                  lineHeight: 0.98,
+                  letterSpacing: '-0.015em',
                 }}
               >
-                Updated today &middot; {providerCountTotal.toLocaleString()} providers mapped
-              </p>
-            )}
-
-            {/* Search / CTA row */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link
-                to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
-                className="flex-1 flex items-center gap-2 bg-white px-4 py-3 text-[12px] text-text-secondary hover:bg-cream transition"
-                style={{ borderRadius: '2px' }}
+                What patients<br />
+                actually paid<br />
+                <span className="italic">this week.</span>
+              </h2>
+              <p
+                className="font-body font-light mb-8 max-w-md"
+                style={{ color: 'rgba(255,255,255,0.85)', fontSize: '15px', lineHeight: 1.6 }}
               >
-                <Search size={14} className="shrink-0 text-text-secondary" />
-                <span className="truncate">
-                  {savedCity
-                    ? `Search ${savedCity}, ${savedState}...`
-                    : 'Search treatments near you...'}
-                </span>
-              </Link>
+                No consultations. No "starting at." Just receipts from real patients
+                in real chairs at real providers. The price report nobody else publishes.
+              </p>
               <Link
                 to="/browse"
-                className="btn-editorial btn-editorial-primary"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
+                style={{
+                  fontSize: '11px',
+                  letterSpacing: '0.14em',
+                  borderRadius: '2px',
+                  fontFamily: 'var(--font-body)',
+                }}
               >
-                Find Prices
+                See all prices <ArrowRight size={12} />
               </Link>
             </div>
 
-            {patientCount && (
-              <p
-                className="text-[11px] text-[#777] font-light uppercase mt-5"
-                style={{ letterSpacing: '0.08em' }}
-              >
-                {patientCount >= 10000
-                  ? `${Math.floor(patientCount / 1000).toLocaleString()},000+`
-                  : patientCount >= 1000
-                    ? `${patientCount.toLocaleString()}+`
-                    : patientCount > 100
-                      ? `Over ${Math.floor(patientCount / 100) * 100}`
-                      : patientCount}{' '}
-                patients shared what they paid.
-              </p>
-            )}
+            {/* RIGHT — 3 pink-section price cards */}
+            <div className="space-y-3">
+              {HERO_FEATURED.map((card, i) => (
+                <DarkPriceCard key={i} {...card} />
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* RIGHT — cream 40%, featured dark cards */}
-        <div className="bg-cream px-6 md:px-8 py-14 md:py-20 flex flex-col justify-center">
-          <p
-            className="editorial-kicker mb-4"
-          >
-            Today's Featured / {HERO_FEATURED.length} prices
-          </p>
-          <div className="space-y-3">
-            {HERO_FEATURED.map((card, i) => (
-              <DarkPriceCard key={i} {...card} />
-            ))}
-          </div>
-          <Link
-            to="/browse"
-            className="mt-5 text-[11px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors inline-flex items-center gap-1 self-start"
-            style={{ letterSpacing: '0.10em' }}
-          >
-            View all prices <ArrowRight size={12} />
-          </Link>
         </div>
       </section>
 
@@ -712,14 +748,14 @@ export default function Home() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-          9. SIGN-UP CTA (logged-out users only)
+          9. SIGN-UP CTA (logged-out users only) — hot-pink full bleed
           ═══════════════════════════════════════════════════════ */}
       {!user && (
-        <section className="bg-ink py-20" style={{ borderTop: '2px solid #E8347A' }}>
+        <section style={{ background: '#E8347A' }} className="py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
             <p
-              className="text-[10px] font-semibold uppercase text-blush mb-4"
-              style={{ letterSpacing: '0.18em' }}
+              className="text-[10px] font-semibold uppercase mb-4"
+              style={{ letterSpacing: '0.20em', color: '#FBE4ED' }}
             >
               Join the Movement
             </p>
@@ -728,24 +764,33 @@ export default function Home() {
               style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05 }}
             >
               Stop overpaying.<br />
-              <span className="italic text-hot-pink">Start knowing.</span>
+              <span className="italic">Start knowing.</span>
             </h2>
-            <p className="text-[14px] text-[#999] mb-8 max-w-md mx-auto font-light">
+            <p
+              className="text-[14px] mb-8 max-w-md mx-auto font-light"
+              style={{ color: 'rgba(255,255,255,0.88)' }}
+            >
               Create a free account to set price alerts, track your treatments, and earn rewards for sharing prices.
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <button
                 onClick={() => openAuthModal('signup')}
-                className="btn-editorial btn-editorial-primary"
+                className="inline-flex items-center justify-center px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
+                style={{
+                  fontSize: '11px',
+                  letterSpacing: '0.14em',
+                  borderRadius: '2px',
+                  fontFamily: 'var(--font-body)',
+                }}
               >
                 Sign up free
               </button>
               <Link
                 to="/browse"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors hover:bg-white hover:text-hot-pink"
                 style={{
-                  letterSpacing: '0.12em',
-                  border: '1px solid #333',
+                  letterSpacing: '0.14em',
+                  border: '1px solid rgba(255,255,255,0.50)',
                   borderRadius: '2px',
                   background: 'transparent',
                 }}

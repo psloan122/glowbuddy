@@ -837,9 +837,9 @@ export default function FindPrices() {
       appearance: 'none',
       padding: '8px 32px 8px 12px',
       borderRadius: '2px',
-      border: '1px solid #333',
-      background: '#111',
-      color: '#fff',
+      border: '1px solid #EDE8E3',
+      background: '#fff',
+      color: '#111',
       fontFamily: 'var(--font-body)',
       fontSize: '11px',
       fontWeight: 600,
@@ -852,7 +852,7 @@ export default function FindPrices() {
       width: '88px',
       padding: '8px 12px',
       borderRadius: '2px',
-      border: '1px solid #333',
+      border: '1px solid #EDE8E3',
       background: '#fff',
       color: '#111',
       fontFamily: 'var(--font-body)',
@@ -875,7 +875,7 @@ export default function FindPrices() {
               <option value="highest_price">Highest Price</option>
               <option value="highest_rated">Highest Rated</option>
             </select>
-            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#666' }} />
           </div>
         </div>
 
@@ -892,7 +892,7 @@ export default function FindPrices() {
               <option value="4">4+ Stars</option>
               <option value="5">5 Stars Only</option>
             </select>
-            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#666' }} />
           </div>
         </div>
 
@@ -909,7 +909,7 @@ export default function FindPrices() {
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
-            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#666' }} />
           </div>
         </div>
 
@@ -966,7 +966,7 @@ export default function FindPrices() {
               <button
                 onClick={() => setShowSearchSheet(true)}
                 className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white text-sm text-text-secondary truncate"
-                style={{ borderRadius: '2px', border: '1px solid #333', fontFamily: 'var(--font-body)' }}
+                style={{ borderRadius: '2px', border: '1px solid #EDE8E3', fontFamily: 'var(--font-body)' }}
               >
                 <Search size={15} className="shrink-0 text-text-secondary" />
                 <span className="truncate">
@@ -980,7 +980,7 @@ export default function FindPrices() {
                 className="shrink-0 inline-flex items-center justify-center w-10 h-10 transition"
                 style={{
                   borderRadius: '2px',
-                  border: `1px solid ${showFilters ? '#E8347A' : '#333'}`,
+                  border: `1px solid ${showFilters ? '#E8347A' : '#EDE8E3'}`,
                   background: showFilters ? '#E8347A' : '#fff',
                   color: showFilters ? '#fff' : '#666',
                 }}
@@ -1032,7 +1032,7 @@ export default function FindPrices() {
               {selectedProc ? (
                 <div
                   className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                  style={{ borderRadius: '2px', border: '1px solid #333' }}
+                  style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
                 >
                   <span
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
@@ -1088,7 +1088,7 @@ export default function FindPrices() {
                     className="w-full pl-10 pr-4 py-2.5 outline-none transition-colors focus:border-hot-pink text-sm"
                     style={{
                       borderRadius: '2px',
-                      border: '1px solid #333',
+                      border: '1px solid #EDE8E3',
                       background: '#fff',
                       fontFamily: 'var(--font-body)',
                     }}
@@ -1158,12 +1158,12 @@ export default function FindPrices() {
               {selectedLoc ? (
                 <div
                   className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                  style={{ borderRadius: '2px', border: '1px solid #333' }}
+                  style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
                 >
                   <span
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
                     style={{
-                      background: '#111',
+                      background: '#E8347A',
                       borderRadius: '2px',
                       letterSpacing: '0.08em',
                     }}
@@ -1200,7 +1200,7 @@ export default function FindPrices() {
                     className="w-full pl-10 pr-4 py-2.5 outline-none transition-colors focus:border-hot-pink text-sm"
                     style={{
                       borderRadius: '2px',
-                      border: '1px solid #333',
+                      border: '1px solid #EDE8E3',
                       background: '#fff',
                       fontFamily: 'var(--font-body)',
                     }}
@@ -1253,7 +1253,7 @@ export default function FindPrices() {
                 className="inline-flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-semibold uppercase transition-colors"
                 style={{
                   borderRadius: '2px',
-                  border: `1px solid ${showFilters ? '#E8347A' : '#333'}`,
+                  border: `1px solid ${showFilters ? '#E8347A' : '#EDE8E3'}`,
                   background: showFilters ? '#E8347A' : '#fff',
                   color: showFilters ? '#fff' : '#666',
                   letterSpacing: '0.10em',
@@ -1322,7 +1322,7 @@ export default function FindPrices() {
       {/* Mobile search sheet (expands from collapsed pill) — editorial flat */}
       {showSearchSheet && (
         <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-ink/60" onClick={() => setShowSearchSheet(false)} />
+          <div className="absolute inset-0 bg-[#1C1410]/45" onClick={() => setShowSearchSheet(false)} />
           <div
             className="absolute bottom-0 left-0 right-0 bg-white max-h-[85vh] overflow-y-auto animate-slide-up"
             style={{ borderTop: '2px solid #E8347A' }}
@@ -1345,7 +1345,7 @@ export default function FindPrices() {
                 {selectedProc ? (
                   <div
                     className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                    style={{ borderRadius: '2px', border: '1px solid #333' }}
+                    style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
                   >
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
@@ -1370,7 +1370,7 @@ export default function FindPrices() {
                       className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
                       style={{
                         borderRadius: '2px',
-                        border: '1px solid #333',
+                        border: '1px solid #EDE8E3',
                         fontFamily: 'var(--font-body)',
                       }}
                     />
@@ -1410,12 +1410,12 @@ export default function FindPrices() {
                 {selectedLoc ? (
                   <div
                     className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                    style={{ borderRadius: '2px', border: '1px solid #333' }}
+                    style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
                   >
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
                       style={{
-                        background: '#111',
+                        background: '#E8347A',
                         borderRadius: '2px',
                         letterSpacing: '0.08em',
                       }}
@@ -1436,7 +1436,7 @@ export default function FindPrices() {
                       className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
                       style={{
                         borderRadius: '2px',
-                        border: '1px solid #333',
+                        border: '1px solid #EDE8E3',
                         fontFamily: 'var(--font-body)',
                       }}
                     />
@@ -1489,11 +1489,11 @@ export default function FindPrices() {
         <div className="md:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-ink/60"
+            className="absolute inset-0 bg-[#1C1410]/45"
             onClick={() => setShowFilters(false)}
           />
           {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white max-h-[80vh] overflow-y-auto animate-slide-up" style={{ borderTop: '2px solid #111111' }}>
+          <div className="absolute bottom-0 left-0 right-0 bg-white max-h-[80vh] overflow-y-auto animate-slide-up" style={{ borderTop: '3px solid #E8347A' }}>
             <div className="sticky top-0 bg-white border-b border-rule px-5 py-3 flex items-center justify-between">
               <h3 className="editorial-kicker">Filters</h3>
               <button
@@ -1518,15 +1518,15 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Editorial dark hero header — when procedure selected OR location set */}
+      {/* Editorial cream hero header — when procedure selected OR location set */}
       {!(IS_MOBILE && viewMode === 'map') && (procFilter || selectedLoc) && (
-        <div className="bg-ink">
+        <div className="bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-            <p className="editorial-kicker mb-3" style={{ color: '#E8B4C8' }}>
+            <p className="editorial-kicker mb-3">
               {hasPricesOnly ? 'Verified providers' : 'Real prices · No consultations'}
             </p>
             <h1
-              className="font-display text-white"
+              className="font-display text-ink"
               style={{ fontWeight: 900, fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1, letterSpacing: '-0.02em' }}
             >
               {(() => {
@@ -1540,7 +1540,7 @@ export default function FindPrices() {
               })()}
             </h1>
             {!loadingProcedures && procFilter && (
-              <p className="font-body font-light text-[#999] mt-4 text-[15px]">
+              <p className="font-body font-light text-text-secondary mt-4 text-[15px]">
                 {procedures.length}{hasPricesOnly ? ' provider' : ' result'}{procedures.length !== 1 ? 's' : ''}
                 {hasPricesOnly ? ' with verified prices' : ''}
                 {totalCount > 0 && !hasActiveFilters && ` · of ${totalCount.toLocaleString()} total`}
@@ -1695,12 +1695,12 @@ export default function FindPrices() {
         {/* Mobile bottom sheet for selected provider */}
         {IS_MOBILE && viewMode === 'map' && selectedMapProvider && (
           <div className="fixed inset-0 z-50" onClick={() => setSelectedMapProvider(null)}>
-            <div className="absolute inset-0 bg-ink/60" />
+            <div className="absolute inset-0 bg-[#1C1410]/45" />
             <div
               className="absolute bottom-14 left-0 right-0 bg-white animate-slide-up"
               style={{
                 paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-                borderTop: '2px solid #111111',
+                borderTop: '3px solid #E8347A',
               }}
               onClick={(e) => e.stopPropagation()}
             >

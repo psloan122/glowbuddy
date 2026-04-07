@@ -413,15 +413,15 @@ export default function CityPriceReport() {
           </section>
         )}
 
-        {/* Submit CTA — editorial dark block */}
+        {/* Submit CTA — hot-pink full-bleed block */}
         <section className="mb-10">
           <div
-            className="bg-ink p-8 sm:p-12 text-center"
-            style={{ borderTop: '2px solid #E8347A' }}
+            className="p-8 sm:p-12 text-center"
+            style={{ background: '#E8347A' }}
           >
             <p
-              className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
-              style={{ letterSpacing: '0.18em' }}
+              className="text-[10px] font-semibold uppercase mb-3"
+              style={{ letterSpacing: '0.18em', color: '#FBE4ED' }}
             >
               Your turn
             </p>
@@ -429,17 +429,23 @@ export default function CityPriceReport() {
               className="font-display text-white mb-3"
               style={{ fontWeight: 900, fontSize: 'clamp(28px, 4vw, 48px)', lineHeight: 1.0 }}
             >
-              Know a price in <span className="italic text-hot-pink">{city}</span>?
+              Know a price in <span className="italic">{city}</span>?
             </h2>
             <p
               className="text-[13px] font-light mb-6 max-w-md mx-auto"
-              style={{ color: '#bbb' }}
+              style={{ color: 'rgba(255,255,255,0.88)' }}
             >
               Help others by sharing what you paid. It only takes 30 seconds.
             </p>
             <Link
               to={`/log?city=${encodeURIComponent(city)}&state=${state}`}
-              className="btn-editorial btn-editorial-primary"
+              className="inline-flex items-center justify-center px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
+              style={{
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                borderRadius: '2px',
+                fontFamily: 'var(--font-body)',
+              }}
             >
               Add your price
             </Link>
