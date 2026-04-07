@@ -30,9 +30,11 @@ const MIN_SUBMISSIONS = 5;
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
+// Non-fatal: skip cleanly if env isn't configured (e.g. CI without Supabase
+// secrets). The committed sitemap.xml will be used as-is in that case.
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (or VITE_SUPABASE_* equivalents) in env');
-  process.exit(1);
+  console.warn('[sitemap] Skipping: SUPABASE env vars not set — keeping existing sitemap.xml');
+  process.exit(0);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -152,6 +154,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Sitemap generation failed:', err);
-  process.exit(1);
+  // Non-fatal: log and exit 0 so a Supabase hiccup doesn't break the build.
+  // The committed sitemap.xml stays as the fallback.
+  console.warn('[sitemap] Generation failed (non-fatal):', err?.message || err);
+  process.exit(0);
 });
