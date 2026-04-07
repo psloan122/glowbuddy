@@ -82,12 +82,71 @@ const HERO_FEATURED = [
   },
 ];
 
+// ── CountUpNumber ──
+// Animates from 0 → target over 800ms with an ease-out cubic. Handles
+// both raw numbers (`1234` → "1,234") and pre-formatted strings like
+// "$185" by extracting the numeric portion and re-applying the prefix.
+// Respects prefers-reduced-motion (skips straight to the final value).
+function CountUpNumber({ value, formatted }) {
+  const initial = formatted ? (typeof value === 'string' ? value : String(value)) : '0';
+  const [display, setDisplay] = useState(initial);
+
+  useEffect(() => {
+    let prefix = '';
+    let suffix = '';
+    let target;
+
+    if (formatted && typeof value === 'string') {
+      const match = value.match(/^(\D*)(\d+(?:\.\d+)?)(\D*)$/);
+      if (!match) {
+        setDisplay(value);
+        return;
+      }
+      prefix = match[1];
+      target = parseFloat(match[2]);
+      suffix = match[3];
+    } else {
+      target = Number(value) || 0;
+    }
+
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduced || target === 0) {
+      setDisplay(formatted ? `${prefix}${Math.round(target)}${suffix}` : target.toLocaleString());
+      return;
+    }
+
+    const startTime = performance.now();
+    const duration = 800;
+    let raf;
+    const tick = (now) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(target * eased);
+      if (formatted) {
+        setDisplay(`${prefix}${current}${suffix}`);
+      } else {
+        setDisplay(current.toLocaleString());
+      }
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => raf && cancelAnimationFrame(raf);
+  }, [value, formatted]);
+
+  return display;
+}
+
 export default function Home() {
   const { user, openAuthModal } = useContext(AuthContext);
 
   // Live stats — only show non-zero values
   const [statItems, setStatItems] = useState([]);
   const [patientCount, setPatientCount] = useState(null);
+  const [providerCountTotal, setProviderCountTotal] = useState(null);
 
   // Specials
   const [specials, setSpecials] = useState([]);
@@ -156,6 +215,7 @@ export default function Home() {
         .not('lat', 'is', null);
       if (providerCount > 0) {
         results.push({ value: providerCount, label: 'Providers mapped' });
+        setProviderCountTotal(providerCount);
       }
 
       setStatItems(results);
@@ -200,7 +260,7 @@ export default function Home() {
   if (user) return <LoggedInHome />;
 
   return (
-    <div className="bg-cream">
+    <div className="bg-cream page-enter">
       {/* ═══════════════════════════════════════════════════════
           1. HERO — editorial two-section split
           ═══════════════════════════════════════════════════════ */}
@@ -219,7 +279,7 @@ export default function Home() {
               The Price Report
             </p>
 
-            {/* Headline — Playfair 900, tight */}
+            {/* Headline — Playfair 900, tight, ALL CAPS */}
             <h1
               className="font-display text-white mb-4"
               style={{
@@ -227,10 +287,11 @@ export default function Home() {
                 fontSize: 'clamp(40px, 6vw, 80px)',
                 lineHeight: 0.96,
                 letterSpacing: '-0.015em',
+                textTransform: 'uppercase',
               }}
             >
-              Know before<br />
-              you <span className="italic text-hot-pink">glow.</span>
+              KNOW BEFORE<br />
+              YOU <span className="italic text-hot-pink">GLOW.</span>
             </h1>
 
             {/* Deck */}
@@ -239,7 +300,7 @@ export default function Home() {
             </p>
 
             {/* Procedure pills — editorial */}
-            <div className="flex flex-wrap gap-1.5 mb-6">
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {HERO_PROCS.map((proc) => (
                 <Link
                   key={proc}
@@ -256,6 +317,23 @@ export default function Home() {
                 </Link>
               ))}
             </div>
+
+            {/* Recency / data freshness label */}
+            {providerCountTotal && (
+              <p
+                className="font-light mb-5"
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 300,
+                  fontSize: '11px',
+                  color: '#888',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Updated today &middot; {providerCountTotal.toLocaleString()} providers mapped
+              </p>
+            )}
 
             {/* Search / CTA row */}
             <div className="flex flex-col sm:flex-row gap-2">
@@ -339,7 +417,7 @@ export default function Home() {
                     className="font-display text-ink"
                     style={{ fontWeight: 900, fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1 }}
                   >
-                    {item.isFormatted ? item.value : item.value.toLocaleString()}
+                    <CountUpNumber value={item.value} formatted={item.isFormatted} />
                   </p>
                   <p
                     className="text-[10px] font-semibold uppercase text-text-secondary mt-3"

@@ -1,27 +1,26 @@
-const GRADIENT_PAIRS = [
-  ['#F4A7B9', '#E8818F'], // rose
-  ['#F7B7A3', '#E8937A'], // coral
-  ['#C9B8E8', '#A78BCA'], // lavender
-  ['#A8D5BA', '#7FBF96'], // sage
-  ['#F8C9A0', '#E8A870'], // peach
-  ['#A0C4E8', '#78A8D4'], // sky
-  ['#D4A0C8', '#BC78A8'], // mauve
-  ['#E8D4A0', '#D4BC78'], // gold
-];
+/*
+ * ProviderAvatar — editorial brand variant.
+ *
+ * Solid hot-pink (#E8347A) circle with white initials. No gradients,
+ * no per-name color hashing — every provider renders identically.
+ * Sized via the `size` prop; font-weight is always 700 and font-size
+ * scales proportionally.
+ */
 
-function hashName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
+const HOT_PINK = '#E8347A';
 
 function getInitials(name) {
   if (!name) return '';
   const words = name.replace(/^(Dr\.?|Prof\.?)\s+/i, '').trim().split(/\s+/);
   if (words.length === 1) return words[0][0].toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+// Spec sizing curve:
+//   24px → 8px font · 44px → 14px · 72px → 24px
+// All other sizes interpolate at ~size * 0.33 (clamped to 8 minimum).
+function getFontSize(size) {
+  return Math.max(8, Math.round(size * 0.33));
 }
 
 export default function ProviderAvatar({ name, size = 40 }) {
@@ -38,6 +37,7 @@ export default function ProviderAvatar({ name, size = 40 }) {
           justifyContent: 'center',
           flexShrink: 0,
         }}
+        aria-hidden="true"
       >
         <svg
           width={size * 0.5}
@@ -56,8 +56,6 @@ export default function ProviderAvatar({ name, size = 40 }) {
     );
   }
 
-  const hash = hashName(name);
-  const [color1, color2] = GRADIENT_PAIRS[hash % GRADIENT_PAIRS.length];
   const initials = getInitials(name);
 
   return (
@@ -66,14 +64,14 @@ export default function ProviderAvatar({ name, size = 40 }) {
         width: size,
         height: size,
         borderRadius: '50%',
-        background: `linear-gradient(135deg, ${color1}, ${color2})`,
+        background: HOT_PINK,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
-        color: 'white',
-        fontWeight: 600,
-        fontSize: size * 0.4,
+        color: '#ffffff',
+        fontWeight: 700,
+        fontSize: getFontSize(size),
         lineHeight: 1,
         userSelect: 'none',
       }}

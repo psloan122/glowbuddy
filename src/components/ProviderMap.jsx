@@ -26,48 +26,63 @@ const DEFAULT_OPTIONS = {
 };
 
 // ── Canvas-based price pill icon ──
+// Editorial style: white pill, hot-pink border, 2px corners, Playfair text.
+// Variant colors override border + text color when the provider is below
+// or above the city average.
 const pillCache = new Map();
 
-function createPricePillIcon(label) {
-  if (pillCache.has(label)) return pillCache.get(label);
+const PINK = '#E8347A';
+const BELOW = '#1A7A3A';
+const ABOVE = '#C8001A';
+const INK = '#111111';
+
+function createPricePillIcon(label, variant = 'default') {
+  const cacheKey = `${variant}|${label}`;
+  if (pillCache.has(cacheKey)) return pillCache.get(cacheKey);
+
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  const scale = Math.min(2, dpr);
+
+  const borderColor =
+    variant === 'below' ? BELOW : variant === 'above' ? ABOVE : PINK;
+  const textColor =
+    variant === 'below' ? BELOW : variant === 'above' ? ABOVE : INK;
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  ctx.font = 'bold 12px "DM Mono", monospace, system-ui';
+  ctx.font = '700 12px "Playfair Display", Georgia, serif';
   const textWidth = ctx.measureText(label).width;
   const padding = 20;
   const width = Math.max(42, Math.ceil(textWidth) + padding);
-  const height = 26;
-  canvas.width = width;
-  canvas.height = height;
+  const height = 24;
 
-  // Pink pill background with shadow
-  ctx.shadowColor = 'rgba(201,79,120,0.4)';
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetY = 2;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  ctx.scale(scale, scale);
+
+  // White pill background with hot-pink border, sharp 2px corners
   ctx.beginPath();
-  ctx.roundRect(0, 0, width, height, 13);
-  ctx.fillStyle = '#C94F78';
+  ctx.roundRect(1, 1, width - 2, height - 2, 2);
+  ctx.fillStyle = '#ffffff';
   ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = borderColor;
+  ctx.stroke();
 
-  // Reset shadow for text
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-
-  // White text
-  ctx.fillStyle = 'white';
-  ctx.font = 'bold 12px "DM Mono", monospace, system-ui';
+  // Ink price text — Playfair 700
+  ctx.fillStyle = textColor;
+  ctx.font = '700 12px "Playfair Display", Georgia, serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, width / 2, height / 2);
+  ctx.fillText(label, width / 2, height / 2 + 0.5);
 
   const result = { url: canvas.toDataURL(), width, height };
-  pillCache.set(label, result);
+  pillCache.set(cacheKey, result);
   return result;
 }
 
 // ── Canvas-based cluster icon ──
+// Editorial: solid hot-pink circle, white Outfit numerals, no shadow.
 const clusterCache = new Map();
 
 function createClusterIcon(count, size) {
@@ -81,28 +96,19 @@ function createClusterIcon(count, size) {
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
 
-  // Shadow
-  ctx.shadowColor = 'rgba(201,79,120,0.25)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 2;
-
-  // White circle with rose border
+  // Solid hot-pink circle, no shadow
   ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2 - 3, 0, Math.PI * 2);
-  ctx.fillStyle = 'white';
+  ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+  ctx.fillStyle = PINK;
   ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = '#C94F78';
-  ctx.stroke();
 
-  // Count text
+  // White count text — Outfit 600
   const fontSize = size < 44 ? 13 : 15;
-  ctx.fillStyle = '#C94F78';
-  ctx.font = `600 ${fontSize}px "DM Sans", system-ui, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `600 ${fontSize}px "Outfit", system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(String(count), size / 2, size / 2);
+  ctx.fillText(String(count), size / 2, size / 2 + 0.5);
 
   const result = { url: canvas.toDataURL(), width: size, height: size };
   clusterCache.set(key, result);
@@ -156,6 +162,9 @@ export default function ProviderMap({
   const emptyMarkersRef = useRef([]);
   const clustererRef = useRef(null);
   const hoverInfoRef = useRef(null);
+  // Tracks staggered setMap timeouts so we can cancel mid-flight on unmount
+  // or when providers change before the stagger has fully played out.
+  const animTimeoutsRef = useRef([]);
 
   // Wait for Google Maps to load
   useEffect(() => {
@@ -217,6 +226,10 @@ export default function ProviderMap({
   useEffect(() => {
     if (!mapRef) return;
 
+    // Cancel any pending stagger timeouts from a previous render
+    animTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    animTimeoutsRef.current = [];
+
     // Clear existing markers
     markersRef.current.forEach((m) => {
       if (typeof m.setMap === 'function') m.setMap(null);
@@ -229,6 +242,13 @@ export default function ProviderMap({
       clustererRef.current.clearMarkers();
       clustererRef.current = null;
     }
+
+    // Respect prefers-reduced-motion: skip the stagger entirely.
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let pricedIndex = 0;
 
     // Close any hover info window
     if (hoverInfoRef.current) {
@@ -256,9 +276,22 @@ export default function ProviderMap({
         // ── Price pill marker ──
         const label = formatPinLabel(p, procedureFilter);
         if (label) {
-          const icon = createPricePillIcon(label);
+          // Variant detection: provider may carry a `vs_city_avg_pct` field
+          // populated by upstream code. Default = pink.
+          const pct = Number(p.vs_city_avg_pct);
+          const variant =
+            Number.isFinite(pct) && pct <= -5
+              ? 'below'
+              : Number.isFinite(pct) && pct >= 5
+                ? 'above'
+                : 'default';
+          const icon = createPricePillIcon(label, variant);
+          // Stagger the priced pills onto the map for an editorial entrance.
+          // First 20 markers stagger at 30ms each; the rest snap in.
+          // Reduced motion users skip the stagger and the DROP animation.
+          const stagger = !reducedMotion && pricedIndex < 20;
           marker = new window.google.maps.Marker({
-            map: mapRef,
+            map: stagger ? null : mapRef,
             position,
             title: p.provider_name,
             icon: {
@@ -268,7 +301,16 @@ export default function ProviderMap({
             },
             zIndex: 10,
             optimized: false,
+            animation: stagger ? window.google.maps.Animation.DROP : null,
           });
+          if (stagger) {
+            const delay = pricedIndex * 30;
+            const id = setTimeout(() => {
+              marker.setMap(mapRef);
+            }, delay);
+            animTimeoutsRef.current.push(id);
+          }
+          pricedIndex += 1;
         } else {
           // Has data but no qualifying per-unit price — show as small gray dot
           // (e.g. only package prices on file, or all prices >= $500)
@@ -305,14 +347,19 @@ export default function ProviderMap({
         emptyMarkers.push(marker);
       }
 
-      // Hover info window
+      // Hover info window — editorial typography
       marker.addListener('mouseover', () => {
-        const ratingPart = p.google_rating ? ` · ★ ${Number(p.google_rating).toFixed(1)}` : '';
+        const ratingPart = p.google_rating ? ` &middot; ★ ${Number(p.google_rating).toFixed(1)}` : '';
         const location = [p.city, p.state].filter(Boolean).join(', ');
+        const priceLine = (p.has_submissions && Number(p.per_unit_avg) > 0)
+          ? `<p style="font-family:'Playfair Display',Georgia,serif;font-weight:900;font-size:20px;color:#111111;margin:6px 0 0;line-height:1;">$${Number(p.per_unit_avg)}<span style="font-family:'Outfit',sans-serif;font-weight:400;font-size:11px;color:#666;margin-left:4px;">avg</span></p>`
+          : '';
         hoverWindow.setContent(
-          `<div style="font-family:'Inter',system-ui,sans-serif;padding:4px 0;min-width:140px;">` +
-            `<p style="font-weight:500;font-size:13px;margin:0 0 2px;color:#1A1A1A;">${p.provider_name}</p>` +
-            `<p style="font-size:12px;color:#6B7280;margin:0;">${location}${ratingPart}</p>` +
+          `<div style="font-family:'Outfit',sans-serif;padding:4px 0;min-width:160px;">` +
+            `<p style="font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:14px;margin:0 0 2px;color:#111111;line-height:1.2;">${p.provider_name}</p>` +
+            `<p style="font-family:'Outfit',sans-serif;font-size:11px;color:#666;margin:0;">${location}${ratingPart}</p>` +
+            priceLine +
+            `<p style="font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;color:#E8347A;margin:6px 0 0;text-transform:uppercase;letter-spacing:0.08em;">View full pricing &rarr;</p>` +
           `</div>`
         );
         hoverWindow.open(mapRef, marker);
@@ -358,6 +405,8 @@ export default function ProviderMap({
     }
 
     return () => {
+      animTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      animTimeoutsRef.current = [];
       markersRef.current.forEach((m) => {
         if (typeof m.setMap === 'function') m.setMap(null);
         else m.map = null;
@@ -420,22 +469,33 @@ export default function ProviderMap({
         )}
       </GoogleMap>
 
-      {/* Legend */}
+      {/* Legend — editorial: 2px radius, hard border, no shadow */}
       <div
-        className="absolute bottom-8 left-3 bg-white rounded-lg shadow-md border border-gray-100 px-3 py-2 z-10"
-        style={{ pointerEvents: 'none' }}
+        className="absolute bottom-8 left-3 bg-white px-3 py-2 z-10"
+        style={{
+          pointerEvents: 'none',
+          borderRadius: '2px',
+          border: '1px solid #E8E8E8',
+          boxShadow: 'none',
+        }}
       >
         <div className="flex items-center gap-2 mb-1.5">
           <span
-            className="inline-block rounded-full"
+            className="inline-block"
             style={{
               width: 28,
-              height: 14,
-              backgroundColor: '#C94F78',
-              borderRadius: 7,
+              height: 16,
+              background: 'white',
+              border: '1.5px solid #E8347A',
+              borderRadius: '2px',
             }}
           />
-          <span className="text-[11px] text-text-primary font-medium">Has price data</span>
+          <span
+            className="text-[10px] uppercase font-semibold text-ink"
+            style={{ letterSpacing: '0.08em' }}
+          >
+            Has price data
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center justify-center" style={{ width: 28 }}>
@@ -449,7 +509,12 @@ export default function ProviderMap({
               }}
             />
           </span>
-          <span className="text-[11px] text-text-secondary">No prices yet</span>
+          <span
+            className="text-[10px] uppercase font-semibold text-text-secondary"
+            style={{ letterSpacing: '0.08em' }}
+          >
+            No prices yet
+          </span>
         </div>
       </div>
     </div>

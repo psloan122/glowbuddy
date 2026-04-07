@@ -567,7 +567,7 @@ export default function ProviderProfile() {
     (googleData?.placeId ? `&place_id=${encodeURIComponent(googleData.placeId)}` : '');
 
   return (
-    <div className="bg-cream min-h-screen">
+    <div className="bg-cream min-h-screen page-enter">
       {/* 1. Provider Header — editorial dark masthead */}
       <div className="bg-ink" style={{ borderBottom: '2px solid #E8347A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">

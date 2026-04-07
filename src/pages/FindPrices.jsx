@@ -823,15 +823,51 @@ export default function FindPrices() {
 
   // ── Filter panel content (shared between desktop inline + mobile sheet) ──
   function renderFilterControls() {
+    const editorialLabel = {
+      display: 'block',
+      fontSize: '10px',
+      fontWeight: 600,
+      textTransform: 'uppercase',
+      letterSpacing: '0.10em',
+      color: '#666',
+      marginBottom: '6px',
+      fontFamily: 'var(--font-body)',
+    };
+    const editorialSelect = {
+      appearance: 'none',
+      padding: '8px 32px 8px 12px',
+      borderRadius: '2px',
+      border: '1px solid #333',
+      background: '#111',
+      color: '#fff',
+      fontFamily: 'var(--font-body)',
+      fontSize: '11px',
+      fontWeight: 600,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      cursor: 'pointer',
+      outline: 'none',
+    };
+    const editorialInput = {
+      width: '88px',
+      padding: '8px 12px',
+      borderRadius: '2px',
+      border: '1px solid #333',
+      background: '#fff',
+      color: '#111',
+      fontFamily: 'var(--font-body)',
+      fontSize: '12px',
+      outline: 'none',
+    };
     return (
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Sort by</label>
+          <label style={editorialLabel}>Sort by</label>
           <div className="relative">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent outline-none transition cursor-pointer"
+              style={editorialSelect}
             >
               <option value="most_verified">Most Verified</option>
               <option value="most_recent">Most Recent</option>
@@ -839,61 +875,61 @@ export default function FindPrices() {
               <option value="highest_price">Highest Price</option>
               <option value="highest_rated">Highest Rated</option>
             </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Min Rating</label>
+          <label style={editorialLabel}>Min Rating</label>
           <div className="relative">
             <select
               value={minRating}
               onChange={(e) => setMinRating(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent outline-none transition cursor-pointer"
+              style={editorialSelect}
             >
               <option value="">Any</option>
               <option value="3">3+ Stars</option>
               <option value="4">4+ Stars</option>
               <option value="5">5 Stars Only</option>
             </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Provider Type</label>
+          <label style={editorialLabel}>Provider Type</label>
           <div className="relative">
             <select
               value={filterProviderType}
               onChange={(e) => setFilterProviderType(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-gray-200 bg-white text-sm text-text-primary focus:border-rose-accent outline-none transition cursor-pointer"
+              style={editorialSelect}
             >
               <option value="">All Providers</option>
               {PROVIDER_TYPES.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#fff' }} />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">Price Range</label>
-          <div className="flex items-center gap-1.5">
+          <label style={editorialLabel}>Price Range</label>
+          <div className="flex items-center gap-2">
             <input
               type="number"
               placeholder="Min"
               value={priceMin}
               onChange={(e) => setPriceMin(e.target.value)}
-              className="w-20 px-2.5 py-2 rounded-lg border border-gray-200 text-sm focus:border-rose-accent outline-none transition"
+              style={editorialInput}
             />
-            <span className="text-text-secondary text-xs">to</span>
+            <span style={{ fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>to</span>
             <input
               type="number"
               placeholder="Max"
               value={priceMax}
               onChange={(e) => setPriceMax(e.target.value)}
-              className="w-20 px-2.5 py-2 rounded-lg border border-gray-200 text-sm focus:border-rose-accent outline-none transition"
+              style={editorialInput}
             />
           </div>
         </div>
@@ -901,7 +937,16 @@ export default function FindPrices() {
         {hasActiveFilters && (
           <button
             onClick={clearAllFilters}
-            className="text-xs text-rose-accent hover:text-rose-dark transition-colors py-2"
+            className="hover:text-hot-pink transition-colors py-2"
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.10em',
+              color: '#E8347A',
+              fontFamily: 'var(--font-body)',
+              borderBottom: '1px solid #E8347A',
+            }}
           >
             Clear all
           </button>
@@ -911,7 +956,7 @@ export default function FindPrices() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream page-enter">
       {/* Sticky search header */}
       <div className="sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -920,7 +965,8 @@ export default function FindPrices() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSearchSheet(true)}
-                className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-text-secondary truncate"
+                className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white text-sm text-text-secondary truncate"
+                style={{ borderRadius: '2px', border: '1px solid #333', fontFamily: 'var(--font-body)' }}
               >
                 <Search size={15} className="shrink-0 text-text-secondary" />
                 <span className="truncate">
@@ -931,11 +977,13 @@ export default function FindPrices() {
               </button>
               <button
                 onClick={() => setShowFilters(true)}
-                className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl border text-sm transition ${
-                  showFilters
-                    ? 'border-rose-accent bg-rose-light text-rose-dark'
-                    : 'border-gray-200 bg-white text-text-secondary'
-                }`}
+                className="shrink-0 inline-flex items-center justify-center w-10 h-10 transition"
+                style={{
+                  borderRadius: '2px',
+                  border: `1px solid ${showFilters ? '#E8347A' : '#333'}`,
+                  background: showFilters ? '#E8347A' : '#fff',
+                  color: showFilters ? '#fff' : '#666',
+                }}
               >
                 <SlidersHorizontal size={16} />
               </button>
@@ -982,12 +1030,22 @@ export default function FindPrices() {
             {/* Procedure search */}
             <div ref={procRef} className="relative md:flex-1">
               {selectedProc ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 bg-white"
+                  style={{ borderRadius: '2px', border: '1px solid #333' }}
+                >
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
+                    style={{
+                      background: '#E8347A',
+                      borderRadius: '2px',
+                      letterSpacing: '0.10em',
+                    }}
+                  >
                     {selectedProc}
                     <button
                       onClick={clearProcedure}
-                      className="hover:text-rose-accent transition-colors"
+                      className="text-white hover:opacity-80 transition-opacity"
                       aria-label="Clear procedure filter"
                     >
                       <X size={14} />
@@ -1027,13 +1085,26 @@ export default function FindPrices() {
                       }
                       if (e.key === 'Escape') setProcOpen(false);
                     }}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                    className="w-full pl-10 pr-4 py-2.5 outline-none transition-colors focus:border-hot-pink text-sm"
+                    style={{
+                      borderRadius: '2px',
+                      border: '1px solid #333',
+                      background: '#fff',
+                      fontFamily: 'var(--font-body)',
+                    }}
                   />
                 </>
               )}
 
               {procOpen && procQuery.trim() && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                <div
+                  className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
+                  style={{
+                    borderRadius: '2px',
+                    border: '1px solid #E8E8E8',
+                    boxShadow: 'none',
+                  }}
+                >
                   {(() => {
                     const matchedPill = findPillByLabel(procQuery);
                     return (
@@ -1042,13 +1113,21 @@ export default function FindPrices() {
                           <button
                             key={`pill-${matchedPill.slug}`}
                             onClick={() => selectPill(matchedPill)}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary border-b border-gray-100"
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                            style={{ borderBottom: '1px solid #F0F0F0' }}
                           >
                             <span className="inline-flex items-center gap-2">
-                              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-rose-light text-rose-dark">
+                              <span
+                                className="text-[10px] font-semibold uppercase px-2 py-0.5 text-white"
+                                style={{
+                                  background: '#E8347A',
+                                  borderRadius: '2px',
+                                  letterSpacing: '0.08em',
+                                }}
+                              >
                                 {matchedPill.label}
                               </span>
-                              <span className="text-xs text-text-secondary">all {matchedPill.label.toLowerCase()} procedures</span>
+                              <span className="text-xs text-text-secondary font-light">all {matchedPill.label.toLowerCase()} procedures</span>
                             </span>
                           </button>
                         )}
@@ -1057,7 +1136,7 @@ export default function FindPrices() {
                             <button
                               key={p}
                               onClick={() => selectProcedure(p)}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary"
+                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
                             >
                               {p}
                             </button>
@@ -1077,14 +1156,24 @@ export default function FindPrices() {
             {/* Location search */}
             <div ref={locRef} className="relative md:w-[320px]">
               {selectedLoc ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 bg-white"
+                  style={{ borderRadius: '2px', border: '1px solid #333' }}
+                >
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
+                    style={{
+                      background: '#111',
+                      borderRadius: '2px',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
                     <MapPin size={12} />
                     {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
                     {selectedLoc.zip ? ` (${selectedLoc.zip})` : ''}
                     <button
                       onClick={clearLocation}
-                      className="hover:text-rose-accent transition-colors"
+                      className="text-white hover:opacity-80 transition-opacity"
                       aria-label="Clear location filter"
                     >
                       <X size={14} />
@@ -1108,13 +1197,26 @@ export default function FindPrices() {
                       if (e.key === 'Enter' && locResults.length > 0) selectLocation(locResults[0]);
                       if (e.key === 'Escape') setLocOpen(false);
                     }}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+                    className="w-full pl-10 pr-4 py-2.5 outline-none transition-colors focus:border-hot-pink text-sm"
+                    style={{
+                      borderRadius: '2px',
+                      border: '1px solid #333',
+                      background: '#fff',
+                      fontFamily: 'var(--font-body)',
+                    }}
                   />
                 </>
               )}
 
               {locOpen && locQuery.trim() && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                <div
+                  className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
+                  style={{
+                    borderRadius: '2px',
+                    border: '1px solid #E8E8E8',
+                    boxShadow: 'none',
+                  }}
+                >
                   {locLoading ? (
                     <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">
                       Searching...
@@ -1124,7 +1226,7 @@ export default function FindPrices() {
                       <button
                         key={`${loc.city}-${loc.state}-${i}`}
                         onClick={() => selectLocation(loc)}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors flex items-center gap-2 text-text-primary"
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
                       >
                         <MapPin size={14} className="text-text-secondary shrink-0" />
                         {loc.city}{loc.state ? `, ${loc.state}` : ''}
@@ -1148,13 +1250,17 @@ export default function FindPrices() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition ${
-                  showFilters
-                    ? 'border-rose-accent bg-rose-light text-rose-dark'
-                    : 'border-gray-200 bg-white text-text-secondary hover:border-rose-accent'
-                }`}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-semibold uppercase transition-colors"
+                style={{
+                  borderRadius: '2px',
+                  border: `1px solid ${showFilters ? '#E8347A' : '#333'}`,
+                  background: showFilters ? '#E8347A' : '#fff',
+                  color: showFilters ? '#fff' : '#666',
+                  letterSpacing: '0.10em',
+                  fontFamily: 'var(--font-body)',
+                }}
               >
-                <SlidersHorizontal size={16} />
+                <SlidersHorizontal size={14} />
                 <span className="hidden sm:inline">Filters</span>
               </button>
 
@@ -1204,7 +1310,7 @@ export default function FindPrices() {
 
           {/* Desktop filter panel (hidden on mobile) */}
           {showFilters && (
-            <div className="hidden md:block mt-3 pt-3 border-t border-gray-100">
+            <div className="hidden md:block mt-3 pt-3" style={{ borderTop: '1px solid #E8E8E8' }}>
               {renderFilterControls()}
             </div>
           )}
@@ -1213,26 +1319,44 @@ export default function FindPrices() {
         </div>
       </div>
 
-      {/* Mobile search sheet (expands from collapsed pill) */}
+      {/* Mobile search sheet (expands from collapsed pill) — editorial flat */}
       {showSearchSheet && (
         <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSearchSheet(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-text-primary">Search</h3>
-              <button onClick={() => setShowSearchSheet(false)} className="text-text-secondary hover:text-text-primary">
+          <div className="absolute inset-0 bg-ink/60" onClick={() => setShowSearchSheet(false)} />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white max-h-[85vh] overflow-y-auto animate-slide-up"
+            style={{ borderTop: '2px solid #E8347A' }}
+          >
+            <div className="sticky top-0 bg-white border-b border-rule px-5 py-3 flex items-center justify-between">
+              <h3 className="editorial-kicker">Search</h3>
+              <button onClick={() => setShowSearchSheet(false)} className="text-text-secondary hover:text-ink">
                 <X size={20} />
               </button>
             </div>
             <div className="p-5 space-y-4">
               {/* Procedure search */}
               <div ref={procRef}>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Treatment</label>
+                <label
+                  className="block text-[10px] font-semibold uppercase text-text-secondary mb-1.5"
+                  style={{ letterSpacing: '0.10em' }}
+                >
+                  Treatment
+                </label>
                 {selectedProc ? (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                  <div
+                    className="flex items-center gap-2 px-3 py-2.5 bg-white"
+                    style={{ borderRadius: '2px', border: '1px solid #333' }}
+                  >
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
+                      style={{
+                        background: '#E8347A',
+                        borderRadius: '2px',
+                        letterSpacing: '0.10em',
+                      }}
+                    >
                       {selectedProc}
-                      <button onClick={clearProcedure}><X size={14} /></button>
+                      <button onClick={clearProcedure} className="text-white"><X size={14} /></button>
                     </span>
                   </div>
                 ) : (
@@ -1243,12 +1367,29 @@ export default function FindPrices() {
                       placeholder="Search treatments..."
                       value={procQuery}
                       onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent outline-none text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
+                      style={{
+                        borderRadius: '2px',
+                        border: '1px solid #333',
+                        fontFamily: 'var(--font-body)',
+                      }}
                     />
                     {procOpen && procQuery.trim() && procMatches.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                      <div
+                        className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
+                        style={{
+                          borderRadius: '0 0 2px 2px',
+                          border: '1px solid #E8E8E8',
+                          borderTop: 'none',
+                          boxShadow: 'none',
+                        }}
+                      >
                         {procMatches.map((p) => (
-                          <button key={p} onClick={() => selectProcedure(p)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 text-text-primary">
+                          <button
+                            key={p}
+                            onClick={() => selectProcedure(p)}
+                            className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cream transition-colors"
+                          >
                             {p}
                           </button>
                         ))}
@@ -1260,13 +1401,28 @@ export default function FindPrices() {
 
               {/* Location search */}
               <div ref={locRef}>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Location</label>
+                <label
+                  className="block text-[10px] font-semibold uppercase text-text-secondary mb-1.5"
+                  style={{ letterSpacing: '0.10em' }}
+                >
+                  Location
+                </label>
                 {selectedLoc ? (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-white">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm bg-rose-light text-rose-dark border border-rose-accent/20">
+                  <div
+                    className="flex items-center gap-2 px-3 py-2.5 bg-white"
+                    style={{ borderRadius: '2px', border: '1px solid #333' }}
+                  >
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
+                      style={{
+                        background: '#111',
+                        borderRadius: '2px',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
                       <MapPin size={12} />
                       {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
-                      <button onClick={clearLocation}><X size={14} /></button>
+                      <button onClick={clearLocation} className="text-white"><X size={14} /></button>
                     </span>
                   </div>
                 ) : (
@@ -1277,15 +1433,32 @@ export default function FindPrices() {
                       placeholder="City or zip code"
                       value={locQuery}
                       onChange={(e) => handleLocInput(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent outline-none text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
+                      style={{
+                        borderRadius: '2px',
+                        border: '1px solid #333',
+                        fontFamily: 'var(--font-body)',
+                      }}
                     />
                     {locOpen && locQuery.trim() && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
+                      <div
+                        className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
+                        style={{
+                          borderRadius: '0 0 2px 2px',
+                          border: '1px solid #E8E8E8',
+                          borderTop: 'none',
+                          boxShadow: 'none',
+                        }}
+                      >
                         {locLoading ? (
                           <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
                         ) : locResults.length > 0 ? (
                           locResults.map((loc, i) => (
-                            <button key={`${loc.city}-${loc.state}-${i}`} onClick={() => selectLocation(loc)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 flex items-center gap-2 text-text-primary">
+                            <button
+                              key={`${loc.city}-${loc.state}-${i}`}
+                              onClick={() => selectLocation(loc)}
+                              className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cream transition-colors flex items-center gap-2"
+                            >
                               <MapPin size={14} className="text-text-secondary shrink-0" />
                               {loc.city}{loc.state ? `, ${loc.state}` : ''}{loc.zip ? ` (${loc.zip})` : ''}
                             </button>
@@ -1434,24 +1607,40 @@ export default function FindPrices() {
 
         {/* Fallback note */}
         {fallbackLabel && viewMode === 'list' && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-100 mb-4 text-sm" style={{ color: '#92400E' }}>
+          <div
+            className="flex items-center gap-2 px-4 py-3 mb-4 text-[13px] font-light"
+            style={{
+              background: '#FBF9F7',
+              borderLeft: '3px solid #E8347A',
+              color: '#111',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
             {fallbackScope === 'national'
               ? `Showing national prices \u2014 no results found near ${filterCity || filterState}`
               : `No prices in ${filterCity} yet \u2014 showing ${fallbackLabel} prices`}
-            <Link to="/log" className="font-medium underline ml-auto shrink-0">Be the first</Link>
+            <Link
+              to="/log"
+              className="ml-auto shrink-0 text-[10px] font-semibold uppercase hover:opacity-80 transition-opacity"
+              style={{ color: '#E8347A', letterSpacing: '0.10em', borderBottom: '1px solid #E8347A' }}
+            >
+              Be the first
+            </Link>
           </div>
         )}
 
         {/* Map view */}
         {mapLoaded && (
           <div
-            className={`relative overflow-hidden ${IS_MOBILE ? '' : 'rounded-xl border border-gray-200'}`}
+            className="relative overflow-hidden"
             style={{
               height: IS_MOBILE
                 ? 'calc(100dvh - 64px - 60px - 56px - env(safe-area-inset-bottom, 0px))'
                 : 'calc(100vh - 220px)',
               minHeight: IS_MOBILE ? 0 : 400,
               display: viewMode === 'map' ? 'block' : 'none',
+              borderRadius: IS_MOBILE ? 0 : '2px',
+              border: IS_MOBILE ? 'none' : '1px solid #E8E8E8',
             }}
           >
             <ProviderMap
@@ -1586,10 +1775,19 @@ export default function FindPrices() {
                     <div key={proc.id}>
                       <ProcedureCard procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} />
                       {indicator && indicator.below && (
-                        <div className="flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100">
-                          <TrendingDown size={13} className="text-emerald-600 shrink-0" />
-                          <span className="text-[11px] font-medium text-emerald-700">
-                            {'\u2193'} {indicator.label}
+                        <div
+                          className="flex items-center gap-1.5 mt-1 px-3 py-2"
+                          style={{
+                            background: '#FBF9F7',
+                            borderLeft: '3px solid #1B7A3E',
+                          }}
+                        >
+                          <TrendingDown size={13} style={{ color: '#1B7A3E' }} className="shrink-0" />
+                          <span
+                            className="text-[10px] font-semibold uppercase"
+                            style={{ color: '#1B7A3E', letterSpacing: '0.08em', fontFamily: 'var(--font-body)' }}
+                          >
+                            {indicator.label}
                           </span>
                         </div>
                       )}

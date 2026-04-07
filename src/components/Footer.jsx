@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="bg-ink mt-16" style={{ borderTop: '2px solid #E8347A' }}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-28 md:pb-12">
+    <footer className="mt-16">
+      {/* Main dark footer body */}
+      <div className="bg-ink" style={{ borderTop: '2px solid #E8347A' }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Three columns */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 mb-10">
           {/* Column 1 — Brand */}
@@ -125,13 +127,31 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Disclaimer */}
-        <div className="pt-6" style={{ borderTop: '1px solid #333' }}>
-          <p className="text-[11px] leading-relaxed font-light" style={{ color: '#888' }}>
-            Prices on GlowBuddy are community-reported and may not reflect current provider
-            pricing. Always confirm prices directly with your provider.
-          </p>
-        </div>
+      </div>
+      </div>
+
+      {/* Hot-pink disclaimer bar — sits below the dark footer body.
+          Extra bottom padding on mobile clears the fixed bottom nav. */}
+      <div
+        className="pb-16 md:pb-0"
+        style={{
+          background: '#E8347A',
+          color: 'white',
+          fontFamily: 'Outfit, sans-serif',
+        }}
+      >
+        <p
+          className="text-center"
+          style={{
+            padding: '12px 24px',
+            fontSize: '12px',
+            fontWeight: 400,
+            lineHeight: 1.5,
+            margin: 0,
+          }}
+        >
+          Prices are sourced from provider websites and patient submissions. Always confirm pricing before booking.
+        </p>
       </div>
     </footer>
   );

@@ -72,15 +72,15 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
         )}
       </p>
 
-      {/* Layer 1: Price hero — Playfair 900 huge */}
+      {/* Layer 1: Price hero — Playfair 900 huge, ink on light */}
       <div className="flex items-baseline gap-2 mb-3 flex-wrap">
         {procedure.normalized_display ? (
-          <span className="price-display whitespace-normal">
+          <span className="price-display-light whitespace-normal">
             {procedure.normalized_display}
           </span>
         ) : (
           <>
-            <span className="price-display">
+            <span className="price-display-light">
               ${Number(procedure.price_paid).toLocaleString()}
             </span>
             {procedure.units_or_volume && (

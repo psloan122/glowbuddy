@@ -368,7 +368,7 @@ export default function ProcedureDetail() {
                 </p>
               )}
 
-              <div className="price-display mb-2">
+              <div className="price-display-light mb-2">
                 ${Number(item.price).toLocaleString()}
               </div>
 

@@ -54,10 +54,7 @@ export default function DarkPriceCard({
 
       {/* Price — Playfair 900 white huge */}
       <div className="flex items-baseline gap-1.5 mb-1">
-        <span
-          className="font-display text-white"
-          style={{ fontWeight: 900, fontSize: '36px', lineHeight: 1 }}
-        >
+        <span className="price-display-dark">
           ${Number(price).toLocaleString()}
         </span>
         {unit && (
