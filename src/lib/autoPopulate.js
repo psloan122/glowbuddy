@@ -1,16 +1,43 @@
 import { supabase } from './supabase';
 import { getCategoryTag } from './constants';
+import { normalizePrice, bestPinListing } from './priceUtils';
+
+// Hard cap on what counts as a per-unit price for the map pin. Anything over
+// $500 is almost certainly a package or flat-rate price, not a single unit.
+const PER_UNIT_PRICE_MAX = 500;
+
+// Patient submissions don't have a structured price_label, so we infer
+// per-unit-ness from the units_or_volume freeform text.
+function isPerUnitSubmission(unitsText) {
+  if (!unitsText) return false;
+  const t = String(unitsText).toLowerCase();
+  return t.includes('unit') || t.includes('syringe') || t.includes('session');
+}
 
 /**
  * Fetch all providers in map viewport bounds.
  * 100% server-side via Supabase — no Google Places API calls.
  *
- * When procedureFilter is set, filters providers by:
+ * `procedureFilter` may be either:
+ *   - a canonical procedure_type string (legacy callers), or
+ *   - a filter object: { procedureTypes: string[], categoryTag, fuzzyToken }
+ *     produced by resolveProcedureFilter() / makeProcedureFilterFrom*().
+ *
+ * When set, filters providers by:
  *   1. procedure_tags (seeded category tags from the bulk seed script)
  *   2. Actual logged procedures in the procedures table
  */
 export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
-  const categoryTag = procedureFilter ? getCategoryTag(procedureFilter) : null;
+  // Normalize legacy string callers into the new filter shape.
+  let procedureTypes = [];
+  let categoryTag = null;
+  if (typeof procedureFilter === 'string' && procedureFilter) {
+    procedureTypes = [procedureFilter];
+    categoryTag = getCategoryTag(procedureFilter);
+  } else if (procedureFilter && typeof procedureFilter === 'object') {
+    procedureTypes = procedureFilter.procedureTypes || [];
+    categoryTag = procedureFilter.categoryTag || null;
+  }
 
   // 1. Fetch providers in bounds
   let provQuery = supabase
@@ -34,7 +61,7 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
   // 2. Fetch submission stats grouped by provider
   let procQuery = supabase
     .from('procedures')
-    .select('provider_name, provider_slug, city, state, lat, lng, price_paid, procedure_type, provider_type, receipt_verified')
+    .select('provider_name, provider_slug, city, state, lat, lng, price_paid, procedure_type, provider_type, receipt_verified, units_or_volume')
     .not('lat', 'is', null)
     .not('lng', 'is', null)
     .eq('status', 'active')
@@ -44,11 +71,32 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     .lte('lng', bounds.east)
     .limit(500);
 
-  if (procedureFilter) {
-    procQuery = procQuery.eq('procedure_type', procedureFilter);
+  if (procedureTypes.length === 1) {
+    procQuery = procQuery.eq('procedure_type', procedureTypes[0]);
+  } else if (procedureTypes.length > 1) {
+    procQuery = procQuery.in('procedure_type', procedureTypes);
   }
 
   const { data: procedures } = await procQuery;
+
+  // 2b. Fetch provider_pricing rows in bounds. We pull all relevant fields
+  // (procedure_type, price_label, treatment_area, units_or_volume) and let
+  // normalizePrice() decide what's comparable. This includes flat_rate_area
+  // rows whose treatment_area maps to a known unit count (e.g. forehead = 20u),
+  // so $200/forehead becomes a $10/unit estimated comparable.
+  let pricingQuery = supabase
+    .from('provider_pricing')
+    .select(
+      'price, price_label, procedure_type, treatment_area, units_or_volume, providers!inner(name, city, lat, lng)'
+    )
+    .eq('is_active', true)
+    .gte('providers.lat', bounds.south)
+    .lte('providers.lat', bounds.north)
+    .gte('providers.lng', bounds.west)
+    .lte('providers.lng', bounds.east)
+    .limit(2000);
+
+  const { data: pricingRows } = await pricingQuery;
 
   // 3. Group procedures by provider_name + city
   const procMap = {};
@@ -58,6 +106,18 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       procMap[key] = { submissions: [], lat: p.lat, lng: p.lng, slug: p.provider_slug };
     }
     procMap[key].submissions.push(p);
+  }
+
+  // 3b. Group provider_pricing rows by provider_name + city, keeping the
+  // raw row so we can normalize later (we need procedure_type, treatment_area,
+  // units_or_volume, etc. — not just the price).
+  const pricingMap = {};
+  for (const row of pricingRows || []) {
+    const provider = row.providers || {};
+    if (!provider.name || !provider.city) continue;
+    const key = `${provider.name}-${provider.city}`.toLowerCase();
+    if (!pricingMap[key]) pricingMap[key] = [];
+    pricingMap[key].push(row);
   }
 
   // 4. Merge providers with submission data
@@ -77,6 +137,38 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
         ? Math.round(submissions.reduce((s, p) => s + (p.price_paid || 0), 0) / submissionCount)
         : 0;
 
+    // ── Comparable per-unit value for the map pin ──
+    // Direct per-unit prices win over estimates. Patient submissions only
+    // contribute when the freeform units_or_volume text says "unit"/"syringe"/
+    // "session". Scraped provider_pricing rows are normalized via
+    // normalizePrice (which can convert $200/forehead → ~$10/unit estimate).
+    const perUnitDirect = [];
+    for (const s of submissions) {
+      if (
+        isPerUnitSubmission(s.units_or_volume) &&
+        s.price_paid > 0 &&
+        s.price_paid < PER_UNIT_PRICE_MAX
+      ) {
+        perUnitDirect.push(Number(s.price_paid));
+      }
+    }
+    const pinFromPricing = bestPinListing(pricingMap[key] || []);
+    if (pinFromPricing && !pinFromPricing.isEstimate) {
+      perUnitDirect.push(pinFromPricing.comparableValue);
+    }
+
+    let perUnitAvg = 0;
+    let perUnitEstimate = false;
+    if (perUnitDirect.length > 0) {
+      perUnitAvg = Math.round(
+        perUnitDirect.reduce((s, p) => s + p, 0) / perUnitDirect.length,
+      );
+    } else if (pinFromPricing && pinFromPricing.comparableValue != null) {
+      // No direct prices — fall back to the estimated value (e.g. from a known area)
+      perUnitAvg = Math.round(pinFromPricing.comparableValue);
+      perUnitEstimate = true;
+    }
+
     merged.push({
       key: `prov-${prov.id}`,
       provider_name: prov.name,
@@ -93,6 +185,9 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       submission_count: submissionCount,
       verified_count: verifiedCount,
       avg_price: avgPrice,
+      per_unit_avg: perUnitAvg,
+      per_unit_estimate: perUnitEstimate,
+      has_per_unit_price: perUnitAvg > 0 && perUnitAvg < PER_UNIT_PRICE_MAX,
       has_submissions: submissionCount > 0,
       source: 'provider',
     });
@@ -107,6 +202,23 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     const avgPrice = Math.round(
       data.submissions.reduce((s, p) => s + (p.price_paid || 0), 0) / submissionCount,
     );
+
+    const perUnitPrices = [];
+    for (const s of data.submissions) {
+      if (
+        isPerUnitSubmission(s.units_or_volume) &&
+        s.price_paid > 0 &&
+        s.price_paid < PER_UNIT_PRICE_MAX
+      ) {
+        perUnitPrices.push(Number(s.price_paid));
+      }
+    }
+    const perUnitAvg =
+      perUnitPrices.length > 0
+        ? Math.round(perUnitPrices.reduce((s, p) => s + p, 0) / perUnitPrices.length)
+        : 0;
+    // Procedure-only providers have no provider_pricing rows, so no estimates
+    // are possible — perUnitAvg here is always direct.
 
     merged.push({
       key: `proc-${key}`,
@@ -124,6 +236,9 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       submission_count: submissionCount,
       verified_count: verifiedCount,
       avg_price: avgPrice,
+      per_unit_avg: perUnitAvg,
+      per_unit_estimate: false,
+      has_per_unit_price: perUnitAvg > 0,
       has_submissions: true,
       source: 'procedures',
     });

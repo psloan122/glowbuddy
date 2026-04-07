@@ -20,6 +20,14 @@ export function getSourceBadge(dataSource) {
         background: '#E1F5EE',
         tooltip: "Price from this provider's verified GlowBuddy menu.",
       };
+    case 'provider_website':
+      return {
+        icon: '🌐',
+        label: 'From provider website',
+        color: '#1E40AF',
+        background: '#DBEAFE',
+        tooltip: "Sourced from the provider's public pricing menu or website.",
+      };
     default:
       return {
         icon: '👤',

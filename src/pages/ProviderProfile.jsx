@@ -152,7 +152,7 @@ export default function ProviderProfile() {
           await Promise.all([
             supabase
               .from('provider_pricing')
-              .select('id, provider_id, procedure_type, price, unit, is_starting_at, notes, created_at')
+              .select('id, provider_id, procedure_type, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at')
               .eq('provider_id', finalProvider.id),
             supabase
               .from('specials')

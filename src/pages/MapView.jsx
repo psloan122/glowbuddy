@@ -1,20 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Map, List, Plus } from 'lucide-react';
+import { Map, List, Plus, X } from 'lucide-react';
 import MapFilterBar from '../components/MapFilterBar';
 import ProviderMap from '../components/ProviderMap';
 import MapProviderCard from '../components/MapProviderCard';
 import MobileSheet from '../components/MobileSheet';
+import ProcedureGate from '../components/ProcedureGate';
 import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
+import {
+  resolveProcedureFilter,
+  makeProcedureFilterFromCanonical,
+  makeProcedureFilterFromPill,
+} from '../lib/constants';
 import { setPageMeta } from '../lib/seo';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { getCity as getGatingCity, getState as getGatingState, getZip as getGatingZip } from '../lib/gating';
 import { supabase } from '../lib/supabase';
 import { loadGoogleMaps } from '../lib/loadGoogleMaps';
+import { lookupCityCoords } from '../lib/cityCoords';
 
 const DEFAULT_CENTER = { lat: 39.5, lng: -98.35 };
 const DEFAULT_ZOOM = 5;
 const LOCATED_ZOOM = 11;
+const CITY_ZOOM = 12;
+const METRO_ZOOM = 10;
 const DEFAULT_BOUNDS = { south: 24.0, north: 49.0, west: -125.0, east: -66.0 };
 
 export default function MapView() {
@@ -34,10 +43,19 @@ export default function MapView() {
   const [selectedProvider, setSelectedProvider] = useState(null);
 
   const [filters, setFilters] = useState({
-    procedureType: '',
     cityOrZip: '',
     distance: 25,
   });
+
+  // procFilter is the source of truth for which procedure(s) to show.
+  // null = no procedure selected → ProcedureGate shows + map renders dots only
+  const [procFilter, setProcFilter] = useState(() =>
+    resolveProcedureFilter(searchParams.get('procedure') || ''),
+  );
+
+  // The legacy MapFilterBar reads filters.procedureType (canonical name).
+  // We expose a derived shape so the bar reflects the current procFilter.
+  const filtersForBar = { ...filters, procedureType: procFilter?.primary || '' };
 
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
@@ -47,49 +65,90 @@ export default function MapView() {
 
   // SEO
   useEffect(() => {
+    const procName = procFilter?.label || 'Botox';
     setPageMeta({
-      title: 'Find Botox Prices Near You | GlowBuddy',
-      description: 'Patient-reported prices for Botox, fillers, and med spa treatments. Real prices. Verified receipts. Know before you glow.',
+      title: `Find ${procName} Prices Near You | GlowBuddy`,
+      description: `Patient-reported prices for ${procName} and other med spa treatments. Real prices. Verified receipts. Know before you glow.`,
     });
-  }, []);
+  }, [procFilter]);
 
   // ── Fetch all providers (with and without submissions) ──
+  // When the gate is open (no procFilter), we still show the provider dots
+  // for context but strip the pricing fields so no $ pins render and the
+  // viewer is encouraged to pick a treatment.
   const fetchMarkers = useCallback(async (bounds) => {
     setLoading(true);
     try {
-      const merged = await fetchAllProvidersInBounds(bounds, filters.procedureType);
+      const merged = await fetchAllProvidersInBounds(bounds, procFilter);
       console.log(`Fetched ${merged.length} providers in viewport`);
-      setProviders(merged);
+      if (!procFilter) {
+        setProviders(
+          merged.map((p) => ({
+            ...p,
+            has_submissions: false,
+            has_per_unit_price: false,
+            per_unit_avg: 0,
+            submission_count: 0,
+          })),
+        );
+      } else {
+        setProviders(merged);
+      }
     } catch (err) {
       console.error('MapView fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [filters.procedureType]);
+  }, [procFilter]);
 
   // ── Geocode city/zip to pan the map ──
+  // Tries the hardcoded cityCoords lookup first (instant), then falls back to
+  // the Google geocoder. Metros (NYC, LA, Chicago, etc.) get zoom 10 and
+  // regular cities get zoom 12.
   useEffect(() => {
     const cityOrZip = filters.cityOrZip.trim();
     if (!cityOrZip) return;
 
+    // Fast path: hardcoded lookup (no Google call needed)
+    if (!/^\d{5}$/.test(cityOrZip)) {
+      const known = lookupCityCoords(cityOrZip);
+      if (known) {
+        setMapCenter({ lat: known.lat, lng: known.lng });
+        setMapZoom(known.zoom);
+        return;
+      }
+    }
+
+    // Slow path: Google geocoder (debounced for typed input)
+    let cancelled = false;
     if (geocodeRef.current) clearTimeout(geocodeRef.current);
-    geocodeRef.current = setTimeout(() => {
-      if (!window.google?.maps?.Geocoder) return;
+    geocodeRef.current = setTimeout(async () => {
+      await waitForGoogleMaps();
+      if (cancelled) return;
       const geocoder = new window.google.maps.Geocoder();
       const request = /^\d{5}$/.test(cityOrZip)
-        ? { address: cityOrZip }
-        : { address: `${cityOrZip}, USA` };
+        ? { address: cityOrZip, componentRestrictions: { country: 'US' } }
+        : { address: `${cityOrZip}, USA`, componentRestrictions: { country: 'US' } };
 
       geocoder.geocode(request, (results, status) => {
+        if (cancelled) return;
         if (status === 'OK' && results?.[0]) {
           const loc = results[0].geometry.location;
           setMapCenter({ lat: loc.lat(), lng: loc.lng() });
-          setMapZoom(LOCATED_ZOOM);
+          // Pick zoom based on result type — counties / metros are bigger
+          const types = results[0].types || [];
+          const isMetro =
+            types.includes('administrative_area_level_2') ||
+            types.includes('administrative_area_level_1');
+          setMapZoom(isMetro ? METRO_ZOOM : CITY_ZOOM);
         }
       });
-    }, 600);
+    }, 400);
 
-    return () => clearTimeout(geocodeRef.current);
+    return () => {
+      cancelled = true;
+      clearTimeout(geocodeRef.current);
+    };
   }, [filters.cityOrZip]);
 
   // ── Initial fetch with US-wide bounds ──
@@ -99,16 +158,43 @@ export default function MapView() {
 
   // ── Re-fetch when procedure filter changes ──
   // City/zip changes are handled by the geocode effect + onBoundsChanged
-  const prevProcFilter = useRef(filters.procedureType);
+  const prevProcKey = useRef(procFilter?.slug || '');
   useEffect(() => {
-    if (prevProcFilter.current === filters.procedureType) return;
-    prevProcFilter.current = filters.procedureType;
+    const key = procFilter?.slug || '';
+    if (prevProcKey.current === key) return;
+    prevProcKey.current = key;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       fetchMarkers(boundsRef.current);
     }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [filters.procedureType, fetchMarkers]);
+  }, [procFilter, fetchMarkers]);
+
+  // ── URL sync: write procedure slug, preserving other params ──
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (procFilter) {
+          next.set('procedure', procFilter.slug);
+        } else {
+          next.delete('procedure');
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [procFilter, setSearchParams]);
+
+  // ── Restore procFilter from URL on back/forward navigation ──
+  useEffect(() => {
+    const urlSlug = searchParams.get('procedure') || '';
+    const currentSlug = procFilter?.slug || '';
+    if (urlSlug !== currentSlug) {
+      setProcFilter(resolveProcedureFilter(urlSlug));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ── Resolve user location on mount ──
   // Priority: 1) URL params → 2) Profile lat/lng → 3) Gating city/zip → 4) Browser geolocation → 5) US center
@@ -311,11 +397,36 @@ export default function MapView() {
 
   // ── Handlers ──
   function handleFilterChange(patch) {
+    if ('procedureType' in patch) {
+      // Translate the dropdown's canonical procedure name → procFilter
+      const next = patch.procedureType
+        ? makeProcedureFilterFromCanonical(patch.procedureType)
+        : null;
+      setProcFilter(next);
+      // eslint-disable-next-line no-unused-vars
+      const { procedureType, ...rest } = patch;
+      if (Object.keys(rest).length > 0) {
+        if ('cityOrZip' in rest) {
+          setCityLabel(rest.cityOrZip);
+          setMapMoved(false);
+        }
+        setFilters((f) => ({ ...f, ...rest }));
+      }
+      return;
+    }
     if ('cityOrZip' in patch) {
       setCityLabel(patch.cityOrZip);
       setMapMoved(false);
     }
     setFilters((f) => ({ ...f, ...patch }));
+  }
+
+  function selectPill(pill) {
+    setProcFilter(makeProcedureFilterFromPill(pill));
+  }
+
+  function clearProcedure() {
+    setProcFilter(null);
   }
 
   async function handleLocateMe() {
@@ -358,23 +469,25 @@ export default function MapView() {
 
   function getCountText() {
     if (loading) return 'Searching...';
+    if (!procFilter) return 'Choose a treatment to compare prices';
+    const procName = procFilter.label;
     const n = providers.length;
-    if (n === 0) return 'No providers in this area yet';
     const area = cityLabel.trim()
       ? ` in ${cityLabel}`
       : mapMoved
       ? ' in this area'
       : ' nationwide';
+    if (n === 0) return `No ${procName} providers${area} yet`;
     const totalPrices = providers.reduce((sum, p) => sum + (p.submission_count || 0), 0);
     const totalVerified = providers.reduce((sum, p) => sum + (p.verified_count || 0), 0);
     if (totalPrices > 0) {
       const verifiedPart = totalVerified > 0 ? ` · ${totalVerified} receipt-verified` : '';
-      return `${totalPrices} price${totalPrices !== 1 ? 's' : ''}${verifiedPart}${area}`;
+      return `${procName} prices${area} — ${n} provider${n !== 1 ? 's' : ''}${verifiedPart}`;
     }
     if (withoutData.length > 0) {
-      return `${n} provider${n !== 1 ? 's' : ''} found${area} — be the first to share prices`;
+      return `${n} ${procName} provider${n !== 1 ? 's' : ''}${area} — be the first to share prices`;
     }
-    return `${n} provider${n !== 1 ? 's' : ''}${area}`;
+    return `${procName} · ${n} provider${n !== 1 ? 's' : ''}${area}`;
   }
 
   const countText = getCountText();
@@ -382,12 +495,30 @@ export default function MapView() {
   return (
     <div className="flex flex-col map-container">
       <MapFilterBar
-        filters={filters}
+        filters={filtersForBar}
         onFilterChange={handleFilterChange}
         userLocation={userLocation}
         onLocateMe={handleLocateMe}
         locating={locating}
       />
+
+      {/* Active procedure pill — shows current selection with quick clear */}
+      {procFilter && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-rose-light/30 border-b border-rose-light">
+          <span className="text-xs text-text-secondary">Showing:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-accent text-white px-3 py-1 text-xs font-medium">
+            {procFilter.label}
+            <button
+              type="button"
+              onClick={clearProcedure}
+              className="inline-flex items-center justify-center hover:bg-white/20 rounded-full p-0.5"
+              aria-label={`Clear ${procFilter.label} filter`}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* View toggle */}
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
@@ -445,7 +576,7 @@ export default function MapView() {
             selectedProvider={selectedProvider}
             onSelectProvider={setSelectedProvider}
             onBoundsChanged={handleBoundsChanged}
-            procedureFilter={filters.procedureType}
+            procedureFilter={procFilter?.primary || ''}
           />
 
           {/* Powered by Google attribution */}
@@ -453,15 +584,34 @@ export default function MapView() {
             Powered by Google
           </div>
 
-          <MobileSheet
-            providers={providers}
-            expanded={sheetExpanded}
-            onToggle={setSheetExpanded}
-          />
+          {/* Procedure gate — overlays the map until a treatment is picked */}
+          {!procFilter && (
+            <ProcedureGate
+              variant="overlay"
+              onSelect={selectPill}
+              cityLabel={cityLabel || ''}
+            />
+          )}
+
+          {procFilter && (
+            <MobileSheet
+              providers={providers}
+              expanded={sheetExpanded}
+              onToggle={setSheetExpanded}
+            />
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto bg-warm-white">
-          {loading ? (
+          {!procFilter ? (
+            <div className="py-8 px-4">
+              <ProcedureGate
+                variant="block"
+                onSelect={selectPill}
+                cityLabel={cityLabel || ''}
+              />
+            </div>
+          ) : loading ? (
             <div className="p-4">
               <SkeletonGrid count={4} />
             </div>

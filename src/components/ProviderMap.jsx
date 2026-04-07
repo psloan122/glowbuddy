@@ -110,26 +110,34 @@ function createClusterIcon(count, size) {
 }
 
 // ── Format price label for pin ──
+// Only labels providers that have a qualifying per-unit-equivalent price
+// (< $500). Providers without such a price get a gray dot — never a misleading
+// package-price label. The pin uses a "~" prefix when the value is estimated
+// from a flat-rate area price (e.g. forehead = ~20 units).
 function formatPinLabel(provider, procedureFilter) {
-  if (!provider.has_submissions || provider.avg_price <= 0) return null;
-
-  const avg = provider.avg_price;
+  const avg = Number(provider.per_unit_avg) || 0;
+  if (!provider.has_per_unit_price || avg <= 0 || avg >= 500) return null;
+  const prefix = provider.per_unit_estimate ? '~' : '';
 
   // If filtered to a per-unit procedure (Botox, Dysport, etc.)
   if (procedureFilter) {
     const lf = procedureFilter.toLowerCase();
-    if (lf.includes('botox') || lf.includes('dysport') || lf.includes('xeomin') || lf.includes('jeuveau')) {
-      return `$${Math.round(avg)}/u`;
+    if (
+      lf.includes('botox') ||
+      lf.includes('dysport') ||
+      lf.includes('xeomin') ||
+      lf.includes('jeuveau')
+    ) {
+      return `${prefix}$${avg}/u`;
     }
     if (lf.includes('glp') || lf.includes('semaglutide') || lf.includes('tirzepatide')) {
-      return `$${Math.round(avg)}/mo`;
+      return `${prefix}$${avg}/mo`;
     }
   }
 
-  // Smart formatting based on price range
-  if (avg < 100) return `$${Math.round(avg)}/u`;
-  if (avg < 1000) return `$${Math.round(avg)}`;
-  return `$${(avg / 1000).toFixed(1)}k`;
+  // Default per-unit formatting (always < $500)
+  if (avg < 100) return `${prefix}$${avg}/u`;
+  return `${prefix}$${avg}`;
 }
 
 export default function ProviderMap({
@@ -262,14 +270,15 @@ export default function ProviderMap({
             optimized: false,
           });
         } else {
-          // Has submissions but no avg price — show as small pink dot
+          // Has data but no qualifying per-unit price — show as small gray dot
+          // (e.g. only package prices on file, or all prices >= $500)
           marker = new window.google.maps.Marker({
             map: mapRef,
             position,
             title: p.provider_name,
             icon: {
               path: window.google.maps.SymbolPath.CIRCLE,
-              fillColor: '#C94F78',
+              fillColor: '#9CA3AF',
               fillOpacity: 1,
               strokeColor: 'white',
               strokeWeight: 2,

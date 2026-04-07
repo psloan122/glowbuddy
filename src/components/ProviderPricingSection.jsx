@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
+import { normalizePrice } from '../lib/priceUtils';
+import PriceTooltip from './PriceTooltip';
 
 export default function ProviderPricingSection({ verifiedPricing, priceComparisons, interestedProcedures }) {
   const [showAll, setShowAll] = useState(false);
@@ -28,28 +30,29 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
       <div className="divide-y divide-gray-100">
         {visibleItems.map((item) => {
           const comparison = priceComparisons?.[item.procedure_type];
+          const normalized = normalizePrice(item);
+          const showTooltip =
+            normalized.isEstimate ||
+            normalized.category === 'flat_area' ||
+            normalized.category === 'flat_treatment';
           return (
             <div key={item.id} className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-sm font-medium text-text-primary">
-                  {item.procedure_type}
-                </p>
-                {item.units_or_volume && (
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-text-primary">{item.procedure_type}</p>
+                {(item.treatment_area || item.units_or_volume) && (
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {item.units_or_volume}
+                    {item.treatment_area || item.units_or_volume}
                   </p>
                 )}
               </div>
-              <div className="text-right flex items-center gap-2">
+              <div className="text-right flex items-center gap-2 shrink-0">
                 <div>
-                  <p className="text-lg font-bold text-text-primary">
-                    ${Number(item.price).toLocaleString()}
-                  </p>
-                  {item.price_label && (
-                    <p className="text-xs text-text-secondary">{item.price_label}</p>
-                  )}
+                  <div className="inline-flex items-center justify-end gap-1">
+                    <p className="text-lg font-bold text-text-primary">{normalized.displayPrice}</p>
+                    {showTooltip && <PriceTooltip text={normalized.tooltip} align="right" />}
+                  </div>
                 </div>
-                {comparison && (
+                {comparison && !normalized.isEstimate && (
                   <ComparisonBadge pctDiff={comparison.pctDiff} level={comparison.level} />
                 )}
               </div>

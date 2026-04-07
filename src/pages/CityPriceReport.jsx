@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapPin, Calendar, ChevronDown, Clock, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { MapPin, Calendar, ChevronDown, Clock, ShieldCheck, ArrowLeft, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { parseCitySlug } from '../lib/slugify';
 import { fetchCityReport } from '../lib/cityReport';
+import {
+  getProviderPriceComparisons,
+  getPriceDistribution,
+  getDataFreshness,
+} from '../lib/queries/prices';
+import { applyCityReportMeta } from '../lib/seo';
 import PriceTable from '../components/CityReport/PriceTable';
 import NeighborhoodChart from '../components/CityReport/NeighborhoodChart';
 import AffordableProviderCard from '../components/CityReport/AffordableProviderCard';
 import ReportCardImage from '../components/CityReport/ReportCardImage';
+import DataFreshnessNotice from '../components/CityReport/DataFreshnessNotice';
+import ProviderPriceComparisonTable from '../components/CityReport/ProviderPriceComparisonTable';
+import NeighborhoodBreakdown from '../components/CityReport/NeighborhoodBreakdown';
+import PriceDistributionChart from '../components/CityReport/PriceDistributionChart';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -16,6 +26,36 @@ const MONTH_NAMES = [
 function formatYearMonth(ym) {
   const [y, m] = ym.split('-').map(Number);
   return `${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+function MetricCard({ label, value, sub, accent }) {
+  return (
+    <div className={`glow-card p-4 ${accent ? 'border-rose-accent/30' : ''}`}>
+      <p className="text-[11px] uppercase tracking-wide text-text-secondary font-medium">{label}</p>
+      <p className={`mt-1 font-bold leading-tight ${accent ? 'text-rose-accent text-base lg:text-lg' : 'text-text-primary text-xl lg:text-2xl'}`}>
+        {value}
+      </p>
+      {sub != null && <div className="mt-1 text-xs text-text-secondary">{sub}</div>}
+    </div>
+  );
+}
+
+function TrendChip({ trend }) {
+  if (!trend || trend.direction === 'flat') {
+    return <span className="inline-flex items-center gap-0.5 text-xs text-gray-400"><Minus size={11} /> flat MoM</span>;
+  }
+  if (trend.direction === 'down') {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600">
+        <TrendingDown size={11} /> {trend.pct}% MoM
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs text-red-500">
+      <TrendingUp size={11} /> {trend.pct}% MoM
+    </span>
+  );
 }
 
 function trustTierBadge(tier) {
@@ -41,6 +81,9 @@ export default function CityPriceReport() {
 
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [providerComparisons, setProviderComparisons] = useState(null);
+  const [priceDistribution, setPriceDistribution] = useState(null);
+  const [dataFreshness, setDataFreshness] = useState(null);
 
   const city = parsed?.city;
   const state = parsed?.state;
@@ -49,56 +92,64 @@ export default function CityPriceReport() {
   const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const displayMonth = yearMonth ? formatYearMonth(yearMonth) : formatYearMonth(currentYM);
 
-  // SEO meta tags
+  // SEO meta tags — driven by resolved report + freshness
   useEffect(() => {
-    if (!city || !state) return;
-    const topProc = report?.priceTable?.[0]?.procedure || 'Botox, Filler & Facial';
-    const count = report?.totalSubmissions || 0;
-
-    document.title = `Botox Prices in ${city}, ${state} (${displayMonth}) | GlowBuddy`;
-
-    const desc = `Real patient-reported Botox and med spa prices in ${city}. Based on ${count} verified submissions. Updated monthly.`;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) {
-      meta.setAttribute('content', desc);
-    } else {
-      const newMeta = document.createElement('meta');
-      newMeta.name = 'description';
-      newMeta.content = desc;
-      document.head.appendChild(newMeta);
-    }
-
-    // JSON-LD
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.id = 'city-report-jsonld';
-    script.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'Dataset',
-      name: `Cosmetic Prices in ${city}, ${state}`,
-      description: desc,
-      url: `https://glowbuddy.com/prices/${slugParam}`,
-      temporalCoverage: yearMonth || currentYM,
-      spatialCoverage: { '@type': 'Place', name: `${city}, ${state}` },
-      creator: { '@type': 'Organization', name: 'GlowBuddy' },
+    if (!city || !state || !report) return;
+    const topProc = report.priceTable?.[0];
+    const cleanup = applyCityReportMeta({
+      city,
+      state,
+      slug: slugParam,
+      yearMonth: yearMonth || currentYM,
+      topProc: topProc?.procedure,
+      topProcAvg: topProc?.avg,
+      topProcSampleSize: topProc?.sampleSize,
+      totalSubmissions: report.totalSubmissions,
+      distinctProviders: dataFreshness?.distinctProviders,
+      dataFreshness,
     });
-    document.head.appendChild(script);
+    return cleanup;
+  }, [city, state, report, dataFreshness, slugParam, yearMonth, currentYM]);
 
-    return () => {
-      const el = document.getElementById('city-report-jsonld');
-      if (el) el.remove();
-    };
-  }, [city, state, report, displayMonth, slugParam, yearMonth, currentYM]);
-
-  // Fetch data
+  // Phase A: fetch the legacy city report
   useEffect(() => {
     if (!city || !state) return;
     setLoading(true);
+    setReport(null);
+    setProviderComparisons(null);
+    setPriceDistribution(null);
+    setDataFreshness(null);
     fetchCityReport(city, state, yearMonth).then((data) => {
       setReport(data);
       setLoading(false);
     });
   }, [city, state, yearMonth]);
+
+  // Phase B: once the report resolves, fetch the provider_pricing-derived data
+  useEffect(() => {
+    if (!city || !state || !report) return;
+    let cancelled = false;
+    const topProc = report.priceTable?.[0]?.procedure;
+    if (!topProc) {
+      setProviderComparisons([]);
+      setPriceDistribution({ buckets: [], priceLabel: null, totalSamples: 0 });
+    }
+    Promise.all([
+      topProc ? getProviderPriceComparisons(slugParam, topProc) : Promise.resolve([]),
+      topProc
+        ? getPriceDistribution(slugParam, topProc)
+        : Promise.resolve({ buckets: [], priceLabel: null, totalSamples: 0 }),
+      getDataFreshness(slugParam),
+    ]).then(([comparisons, distribution, freshness]) => {
+      if (cancelled) return;
+      setProviderComparisons(comparisons);
+      setPriceDistribution(distribution);
+      setDataFreshness(freshness);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [city, state, report, slugParam]);
 
   if (!parsed) {
     return (
@@ -172,16 +223,63 @@ export default function CityPriceReport() {
         </div>
       )}
 
+      {/* Section A — City header metric cards */}
+      {topProc && (
+        <section className="mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MetricCard label="Top procedure" value={topProc.procedure} sub={`${topProc.sampleSize} data point${topProc.sampleSize === 1 ? '' : 's'}`} accent />
+            <MetricCard label="Avg price" value={`$${topProc.avg.toLocaleString()}`} sub={topProc.trend ? <TrendChip trend={topProc.trend} /> : null} />
+            <MetricCard label="Median" value={topProc.median != null ? `$${topProc.median.toLocaleString()}` : '—'} sub={`Range $${topProc.min.toLocaleString()}–$${topProc.max.toLocaleString()}`} />
+            <MetricCard label="Sample size" value={`${report.totalSubmissions}`} sub={dataFreshness?.distinctProviders ? `${dataFreshness.distinctProviders} provider${dataFreshness.distinctProviders === 1 ? '' : 's'}` : 'patient + provider data'} />
+          </div>
+        </section>
+      )}
+
+      {/* Section E — Data freshness banner */}
+      {dataFreshness && (
+        <section className="mb-8">
+          <DataFreshnessNotice freshness={dataFreshness} />
+        </section>
+      )}
+
       {/* Price table */}
       <section className="mb-8">
         <h2 className="text-xl font-bold text-text-primary mb-3">Price Comparison</h2>
         <PriceTable rows={report.priceTable} />
       </section>
 
-      {/* Provider chart */}
+      {/* Provider chart (existing — provider averages from `procedures`) */}
       {report.providers.length >= 2 && (
         <section className="mb-8">
           <NeighborhoodChart data={report.providers} />
+        </section>
+      )}
+
+      {/* Section B — Provider price comparison (from provider_pricing) */}
+      {topProc && providerComparisons && providerComparisons.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-text-primary mb-1">
+            Provider Price Comparison: {topProc.procedure}
+          </h2>
+          <p className="text-sm text-text-secondary mb-3">
+            Each provider&apos;s lowest listed price for {topProc.procedure}, sorted lowest to highest.
+          </p>
+          <ProviderPriceComparisonTable rows={providerComparisons} cityAvg={topProc.avg} />
+        </section>
+      )}
+
+      {/* Section C — Neighborhood (ZIP) breakdown */}
+      {topProc && (
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-text-primary mb-3">Neighborhood Breakdown</h2>
+          <NeighborhoodBreakdown citySlug={slugParam} procedureType={topProc.procedure} />
+        </section>
+      )}
+
+      {/* Section D — Price distribution histogram */}
+      {priceDistribution && priceDistribution.totalSamples >= 5 && (
+        <section className="mb-8">
+          <PriceDistributionChart distribution={priceDistribution} />
         </section>
       )}
 

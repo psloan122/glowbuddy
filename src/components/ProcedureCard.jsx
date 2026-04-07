@@ -41,15 +41,25 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       className="group block glow-card p-4 hover:no-underline"
     >
       {/* Layer 1: Price hero */}
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="price-display">
-          ${Number(procedure.price_paid).toLocaleString()}
-        </span>
-        {procedure.units_or_volume && (
-          <span className="text-base text-[#6B7280]">{procedure.units_or_volume}</span>
+      <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+        {procedure.normalized_display ? (
+          // Provider-website price — use the normalized display so flat-rate
+          // areas show as "$200 area (~$10/u est.)" instead of bare "$200".
+          <span className="price-display whitespace-normal">
+            {procedure.normalized_display}
+          </span>
+        ) : (
+          <>
+            <span className="price-display">
+              ${Number(procedure.price_paid).toLocaleString()}
+            </span>
+            {procedure.units_or_volume && (
+              <span className="text-base text-[#6B7280]">{procedure.units_or_volume}</span>
+            )}
+          </>
         )}
         <FairPriceBadge
-          price={procedure.price_paid}
+          price={procedure.normalized_compare_value || procedure.price_paid}
           procedureType={procedure.procedure_type}
           state={procedure.state}
           city={procedure.city}
@@ -247,7 +257,9 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           <span />
         )}
         <div className="opacity-40 group-hover:opacity-100 transition-opacity">
-          <DisputeButton procedureId={procedure.id} procedureUserId={procedure.user_id} />
+          {procedure.data_source !== 'provider_website' && (
+            <DisputeButton procedureId={procedure.id} procedureUserId={procedure.user_id} />
+          )}
         </div>
       </div>
 

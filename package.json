@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build:sitemap": "node --env-file=.env scripts/generate-sitemap.js",
+    "build": "npm run build:sitemap && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "verify-seed": "node --env-file=.env scripts/verify-seed-data.js",

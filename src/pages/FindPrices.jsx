@@ -18,12 +18,21 @@ import {
   addFirstTimerTreatment, getFirstTimerTreatments,
   isFirstTimerFor,
 } from '../lib/firstTimerMode';
-import { PROCEDURE_TYPES, PROVIDER_TYPES } from '../lib/constants';
+import {
+  PROCEDURE_TYPES,
+  PROVIDER_TYPES,
+  resolveProcedureFilter,
+  makeProcedureFilterFromCanonical,
+  makeProcedureFilterFromPill,
+  findPillByLabel,
+} from '../lib/constants';
+import ProcedureGate from '../components/ProcedureGate';
 import { searchCitiesViaGoogle } from '../lib/places';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import { loadGoogleMaps } from '../lib/loadGoogleMaps';
+import { normalizePrice } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import ProviderMap from '../components/ProviderMap';
 import { fetchAllProvidersInBounds } from '../lib/autoPopulate';
@@ -60,7 +69,14 @@ export default function FindPrices() {
   // --- Procedure search ---
   const [procQuery, setProcQuery] = useState('');
   const [procOpen, setProcOpen] = useState(false);
-  const [selectedProc, setSelectedProc] = useState(() => searchParams.get('procedure') || '');
+  // procFilter is the source of truth for what procedure(s) we filter on.
+  // It's null when the gate is open. The legacy `selectedProc` string is
+  // derived from procFilter.primary so existing UI / first-timer logic
+  // keeps working without further refactoring.
+  const [procFilter, setProcFilter] = useState(() =>
+    resolveProcedureFilter(searchParams.get('procedure'))
+  );
+  const selectedProc = procFilter?.primary || '';
   const procRef = useRef(null);
 
   // --- Location search ---
@@ -81,7 +97,7 @@ export default function FindPrices() {
   const locDebounce = useRef(null);
 
   // Sort & extra filters
-  const [sortBy, setSortBy] = useState('most_verified');
+  const [sortBy, setSortBy] = useState('most_recent');
   const [filterProviderType, setFilterProviderType] = useState('');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
@@ -116,7 +132,10 @@ export default function FindPrices() {
 
   // ── SEO meta tags — dynamic per spec ──
   useEffect(() => {
-    const procedure = selectedProc;
+    // Prefer the friendly pill label ("Botox") over the canonical
+    // procedure name ("Botox / Dysport / Xeomin") so titles read naturally
+    // when crawlers / shared links resolve a category slug.
+    const procedure = procFilter?.label || selectedProc;
     const city = selectedLoc?.city;
     const state = selectedLoc?.state;
 
@@ -140,23 +159,32 @@ export default function FindPrices() {
     document.title = title;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', desc);
-  }, [selectedProc, selectedLoc]);
+  }, [procFilter, selectedLoc]);
 
   // Sync filters to URL params (SEO-friendly)
   useEffect(() => {
     const params = {};
-    if (selectedProc) params.procedure = selectedProc;
+    if (procFilter) params.procedure = procFilter.slug;
     if (selectedLoc?.city) params.city = selectedLoc.city;
     if (selectedLoc?.state) params.state = selectedLoc.state;
     if (sortBy !== 'most_verified') params.sort = sortBy;
     if (hasPricesOnly) params.has_prices = '1';
     setSearchParams(params, { replace: true });
-  }, [selectedProc, selectedLoc, sortBy, hasPricesOnly]);
+  }, [procFilter, selectedLoc, sortBy, hasPricesOnly]);
 
   // Fetch user's active price alerts for match badges
   useEffect(() => {
     getUserActiveAlerts().then(setUserAlerts);
   }, []);
+
+  // Restore procFilter from URL on back/forward navigation
+  useEffect(() => {
+    const urlSlug = searchParams.get('procedure') || '';
+    const currentSlug = procFilter?.slug || '';
+    if (urlSlug !== currentSlug) {
+      setProcFilter(resolveProcedureFilter(urlSlug));
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Switch to lowest_price sort when first-timer mode activates
   useEffect(() => {
@@ -183,14 +211,29 @@ export default function FindPrices() {
     : [];
 
   function selectProcedure(proc) {
-    setSelectedProc(proc);
+    setProcFilter(makeProcedureFilterFromCanonical(proc));
+    setProcQuery('');
+    setProcOpen(false);
+  }
+
+  function selectPill(pill) {
+    setProcFilter(makeProcedureFilterFromPill(pill));
     setProcQuery('');
     setProcOpen(false);
   }
 
   function clearProcedure() {
-    setSelectedProc('');
+    setProcFilter(null);
     setProcQuery('');
+  }
+
+  // If the user types "botox" / "fillers" / "laser" into the search input,
+  // resolve to a category pill on Enter so they don't have to click twice.
+  function resolveProcedureFromQuery(q) {
+    const matchedPill = findPillByLabel(q);
+    if (matchedPill) return makeProcedureFilterFromPill(matchedPill);
+    if (procMatches.length > 0) return makeProcedureFilterFromCanonical(procMatches[0]);
+    return null;
   }
 
   // ─�� Location search helpers ──
@@ -289,42 +332,40 @@ export default function FindPrices() {
   }
 
   // ── Derive filter values ──
+  const filterProcedureTypes = procFilter?.procedureTypes || [];
+  const filterFuzzyToken = procFilter?.fuzzyToken || null;
+  // Legacy single-procedure variable kept for places that need a single
+  // canonical name (first-timer mode, guides, dosage calculator).
   const filterProcedureType = selectedProc;
   const filterCity = selectedLoc?.city || '';
   const filterState = selectedLoc?.state || '';
   const filterZip = selectedLoc?.zip || '';
 
-  // ── Fetch procedures with cascading fallback ──
+  // ── Fetch procedures + provider_pricing with cascading fallback ──
+  // Both sources are merged into a single feed. Patient submissions come from
+  // `procedures`; provider-uploaded / scraped rows come from `provider_pricing`
+  // joined to `providers`. Each row carries a `data_source` so the card can
+  // render a distinct badge ("Patient reported" vs "From provider website").
   useEffect(() => {
-    async function applySort(query) {
-      if (sortBy === 'most_verified') {
-        query = query.order('created_at', { ascending: false }).limit(40);
-        const { data } = await query;
-        return (data || [])
-          .sort((a, b) => computeTrustWeight(b) - computeTrustWeight(a))
-          .slice(0, 20);
-      }
-      if (sortBy === 'lowest_price') {
-        query = query.order('price_paid', { ascending: true });
-      } else if (sortBy === 'highest_price') {
-        query = query.order('price_paid', { ascending: false });
-      } else if (sortBy === 'highest_rated') {
-        query = query.not('rating', 'is', null).order('rating', { ascending: false });
-      } else {
-        query = query.order('created_at', { ascending: false });
-      }
-      query = query.limit(20);
-      const { data } = await query;
-      return data || [];
+    // Fuzzy procedure-type match for provider_pricing, since `procedures` uses
+    // canonical names like "Botox / Dysport / Xeomin" but `provider_pricing`
+    // stores lowercase strings like "botox" from the scraper.
+    function fuzzyProcedureToken(t) {
+      if (!t) return null;
+      return t.split(/[\s/]+/).filter(Boolean)[0] || null;
     }
 
-    function buildQuery({ city, state, zip }) {
+    function buildProcedureQuery({ city, state, zip }) {
       let query = supabase
         .from('procedures')
         .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
         .eq('status', 'active');
 
-      if (filterProcedureType) query = query.eq('procedure_type', filterProcedureType);
+      if (filterProcedureTypes.length === 1) {
+        query = query.eq('procedure_type', filterProcedureTypes[0]);
+      } else if (filterProcedureTypes.length > 1) {
+        query = query.in('procedure_type', filterProcedureTypes);
+      }
       if (state) query = query.eq('state', state);
       if (city) query = query.ilike('city', `%${city}%`);
       if (zip) query = query.eq('zip_code', zip);
@@ -335,53 +376,257 @@ export default function FindPrices() {
       return query;
     }
 
+    async function fetchProcedureRows(filters) {
+      const query = buildProcedureQuery(filters)
+        .order('created_at', { ascending: false })
+        .limit(40);
+      const { data, error } = await query;
+      if (error) {
+        console.warn('procedures fetch failed:', error.message);
+        return [];
+      }
+      return (data || []).map((r) => ({
+        ...r,
+        data_source: r.data_source || 'patient_reported',
+      }));
+    }
+
+    async function fetchProviderPricingRows({ city, state }) {
+      // provider_pricing has no rating column, so honor a min-rating filter
+      // by excluding it from this source entirely.
+      if (minRating) return [];
+
+      let query = supabase
+        .from('provider_pricing')
+        .select(
+          'id, provider_id, procedure_type, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type)'
+        )
+        .eq('is_active', true);
+
+      if (state) query = query.eq('providers.state', state);
+      if (city) query = query.ilike('providers.city', `%${city}%`);
+      if (filterFuzzyToken) {
+        query = query.ilike('procedure_type', `%${filterFuzzyToken}%`);
+      } else if (filterProcedureType) {
+        const token = fuzzyProcedureToken(filterProcedureType);
+        if (token) query = query.ilike('procedure_type', `%${token}%`);
+      }
+      if (filterProviderType) query = query.eq('providers.provider_type', filterProviderType);
+      if (priceMin) query = query.gte('price', parseInt(priceMin, 10));
+      if (priceMax) query = query.lte('price', parseInt(priceMax, 10));
+      query = query
+        .order('scraped_at', { ascending: false, nullsFirst: false })
+        .limit(40);
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('provider_pricing fetch failed:', error.message);
+        return [];
+      }
+
+      return (data || []).map((row) => {
+        const provider = row.providers || {};
+        // Normalize the price so search results show "$200 area (~$10/u est.)"
+        // instead of just "$200" — keeps shoppers from getting tricked by
+        // flat-rate prices that look expensive but aren't.
+        const normalized = normalizePrice({
+          procedure_type: row.procedure_type,
+          price: row.price,
+          price_label: row.price_label,
+          treatment_area: row.treatment_area,
+          units_or_volume: row.units_or_volume,
+        });
+        return {
+          // Prefix the id so it never collides with a procedures.id and so
+          // anything that downstream-writes to `procedures` will visibly fail
+          // rather than silently corrupt the wrong row.
+          id: `pp_${row.id}`,
+          procedure_type: row.procedure_type,
+          treatment_area: row.treatment_area || null,
+          price_paid: Number(row.price) || 0,
+          unit: null,
+          units_or_volume: row.units_or_volume || row.price_label || null,
+          provider_name: provider.name || 'Unknown provider',
+          provider_type: provider.provider_type || null,
+          city: provider.city || '',
+          state: provider.state || '',
+          zip_code: provider.zip_code || null,
+          created_at: row.scraped_at || row.created_at,
+          rating: null,
+          review_body: null,
+          receipt_verified: false,
+          result_photo_url: null,
+          has_receipt: false,
+          trust_weight: null,
+          trust_tier: null,
+          status: 'active',
+          is_anonymous: false,
+          provider_slug: provider.slug || null,
+          provider_id: row.provider_id,
+          notes: row.notes || null,
+          data_source: 'provider_website',
+          // Normalized fields consumed by ProcedureCard
+          normalized_display: normalized.displayPrice,
+          normalized_compare_value: normalized.comparableValue,
+          normalized_compare_unit: normalized.compareUnit,
+          normalized_is_estimate: normalized.isEstimate,
+          normalized_tooltip: normalized.tooltip,
+          // Internals used by the merge sort, prefixed _ so they're clearly
+          // not part of the procedures schema.
+          _verified: row.verified === true,
+          _source: row.source,
+          _source_url: row.source_url,
+        };
+      });
+    }
+
+    function trustWeightForRow(row) {
+      if (row.data_source === 'provider_website') {
+        // Provider-uploaded + verified outranks scraped public menus.
+        return row._verified && row._source === 'manual' ? 1.5 : 0.6;
+      }
+      return computeTrustWeight(row);
+    }
+
+    function mergeAndSort(procRows, provRows) {
+      const merged = [...procRows, ...provRows];
+
+      // Sort by the comparable per-unit value when present so that a $200
+      // forehead area sits next to a $10/unit price (both represent ~$10/unit),
+      // not at the $200 end of the list. Falls back to raw price_paid when
+      // there's no per-unit equivalent.
+      const sortKey = (r) => {
+        const cv = r.normalized_compare_value;
+        if (cv != null && Number.isFinite(cv) && cv > 0) return cv;
+        return Number(r.price_paid) || 0;
+      };
+
+      if (sortBy === 'lowest_price') {
+        return merged
+          .filter((r) => Number(r.price_paid) > 0)
+          .sort((a, b) => sortKey(a) - sortKey(b))
+          .slice(0, 20);
+      }
+      if (sortBy === 'highest_price') {
+        return merged
+          .filter((r) => Number(r.price_paid) > 0)
+          .sort((a, b) => sortKey(b) - sortKey(a))
+          .slice(0, 20);
+      }
+      if (sortBy === 'highest_rated') {
+        // Only patient submissions carry ratings.
+        return merged
+          .filter((r) => r.rating != null)
+          .sort((a, b) => Number(b.rating) - Number(a.rating))
+          .slice(0, 20);
+      }
+      if (sortBy === 'most_verified') {
+        return merged
+          .slice()
+          .sort((a, b) => trustWeightForRow(b) - trustWeightForRow(a))
+          .slice(0, 20);
+      }
+      // most_recent (default)
+      return merged
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, 20);
+    }
+
+    async function fetchAtScope(filters) {
+      const [proc, prov] = await Promise.all([
+        fetchProcedureRows(filters),
+        fetchProviderPricingRows({ city: filters.city, state: filters.state }),
+      ]);
+      return mergeAndSort(proc, prov);
+    }
+
     async function fetchProcedures() {
+      // Gate: if no procedure has been picked yet, don't fetch anything —
+      // the UI shows the ProcedureGate prompt instead. This avoids
+      // surfacing apples-to-oranges prices and saves a round-trip.
+      if (filterProcedureTypes.length === 0) {
+        setProcedures([]);
+        setLoadingProcedures(false);
+        setFallbackLabel('');
+        setFallbackScope('');
+        return;
+      }
+
       setLoadingProcedures(true);
       setFallbackLabel('');
       setFallbackScope('');
 
-      // Get total count
-      const countQuery = supabase
-        .from('procedures')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'active');
-      if (filterProcedureType) countQuery.eq('procedure_type', filterProcedureType);
-      countQuery.then(({ count }) => setTotalCount(count || 0));
+      // Total count = procedures + provider_pricing (both narrowed by
+      // procedure_type when set, so the "of N total" copy is meaningful).
+      Promise.all([
+        (() => {
+          let q = supabase
+            .from('procedures')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active');
+          if (filterProcedureTypes.length === 1) {
+            q = q.eq('procedure_type', filterProcedureTypes[0]);
+          } else if (filterProcedureTypes.length > 1) {
+            q = q.in('procedure_type', filterProcedureTypes);
+          }
+          return q;
+        })(),
+        (() => {
+          let q = supabase
+            .from('provider_pricing')
+            .select('id', { count: 'exact', head: true })
+            .eq('is_active', true);
+          if (filterFuzzyToken) {
+            q = q.ilike('procedure_type', `%${filterFuzzyToken}%`);
+          }
+          return q;
+        })(),
+      ]).then(([procCnt, provCnt]) =>
+        setTotalCount((procCnt.count || 0) + (provCnt.count || 0))
+      );
 
-      // 1. Try with all filters (city + state)
-      const query = buildQuery({ city: filterCity, state: filterState, zip: filterZip });
-      let results = await applySort(query);
+      // 1. City + state
+      let results = await fetchAtScope({
+        city: filterCity,
+        state: filterState,
+        zip: filterZip,
+      });
 
-      // 2. Fallback: state-level (if city had 0 results)
+      // 2. State-level fallback
       if (results.length === 0 && filterCity && filterState) {
-        const stateQuery = buildQuery({ city: '', state: filterState, zip: '' });
-        results = await applySort(stateQuery);
+        results = await fetchAtScope({ city: '', state: filterState, zip: '' });
         if (results.length > 0) {
           setFallbackLabel(filterState);
           setFallbackScope('state');
         }
       }
 
-      // 3. Fallback: national (if state also had 0 results)
+      // 3. National fallback
       if (results.length === 0 && filterState) {
-        const nationalQuery = buildQuery({ city: '', state: '', zip: '' });
-        results = await applySort(nationalQuery);
+        results = await fetchAtScope({ city: '', state: '', zip: '' });
         if (results.length > 0) {
           setFallbackLabel('national');
           setFallbackScope('national');
         }
       }
 
-      // 4. Final fallback: no filters at all — show most recent verified
+      // 4. Catch-all most-recent (no filters at all)
       if (results.length === 0) {
-        let fallbackAll = supabase
-          .from('procedures')
-          .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(12);
-        const { data } = await fallbackAll;
-        results = data || [];
+        const [proc, prov] = await Promise.all([
+          fetchProcedureRows({ city: '', state: '', zip: '' }),
+          fetchProviderPricingRows({ city: '', state: '' }),
+        ]);
+        results = [...proc, ...prov]
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )
+          .slice(0, 12);
         if (results.length > 0 && (filterCity || filterState)) {
           setFallbackLabel('national');
           setFallbackScope('national');
@@ -394,7 +639,7 @@ export default function FindPrices() {
 
     fetchProcedures();
   }, [
-    filterProcedureType,
+    procFilter,
     filterState,
     filterCity,
     filterZip,
@@ -504,9 +749,24 @@ export default function FindPrices() {
   }, [mapLoaded, selectedLoc?.city, selectedLoc?.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchMapProviders = useCallback(async (bounds) => {
-    const data = await fetchAllProvidersInBounds(bounds, filterProcedureType);
+    const data = await fetchAllProvidersInBounds(bounds, procFilter);
+    // When the gate is open (no procFilter), strip pricing context so the
+    // map renders providers as dots only — no price pins until the user
+    // commits to a procedure.
+    if (!procFilter) {
+      setMapProviders(
+        data.map((p) => ({
+          ...p,
+          has_submissions: false,
+          has_per_unit_price: false,
+          per_unit_avg: 0,
+          submission_count: 0,
+        }))
+      );
+      return;
+    }
     setMapProviders(data);
-  }, [filterProcedureType]);
+  }, [procFilter]);
 
   function handleMapBoundsChanged(bounds) {
     mapBoundsRef.current = bounds;
@@ -532,7 +792,7 @@ export default function FindPrices() {
   }
 
   function clearAllFilters() {
-    setSelectedProc('');
+    setProcFilter(null);
     setProcQuery('');
     setSelectedLoc(null);
     setLocQuery('');
@@ -660,8 +920,8 @@ export default function FindPrices() {
               >
                 <Search size={15} className="shrink-0 text-text-secondary" />
                 <span className="truncate">
-                  {selectedProc || selectedLoc
-                    ? [selectedProc, selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : ''].filter(Boolean).join(' \u00B7 ')
+                  {procFilter?.label || selectedLoc
+                    ? [procFilter?.label, selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : ''].filter(Boolean).join(' \u00B7 ')
                     : 'Search treatments & location'}
                 </span>
               </button>
@@ -760,7 +1020,14 @@ export default function FindPrices() {
                     }}
                     onFocus={() => procQuery.trim() && setProcOpen(true)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && procMatches.length > 0) selectProcedure(procMatches[0]);
+                      if (e.key === 'Enter') {
+                        const next = resolveProcedureFromQuery(procQuery);
+                        if (next) {
+                          setProcFilter(next);
+                          setProcQuery('');
+                          setProcOpen(false);
+                        }
+                      }
                       if (e.key === 'Escape') setProcOpen(false);
                     }}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
@@ -770,21 +1037,42 @@ export default function FindPrices() {
 
               {procOpen && procQuery.trim() && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
-                  {procMatches.length > 0 ? (
-                    procMatches.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => selectProcedure(p)}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary"
-                      >
-                        {p}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-text-secondary">
-                      No procedures found
-                    </div>
-                  )}
+                  {(() => {
+                    const matchedPill = findPillByLabel(procQuery);
+                    return (
+                      <>
+                        {matchedPill && (
+                          <button
+                            key={`pill-${matchedPill.slug}`}
+                            onClick={() => selectPill(matchedPill)}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary border-b border-gray-100"
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-rose-light text-rose-dark">
+                                {matchedPill.label}
+                              </span>
+                              <span className="text-xs text-text-secondary">all {matchedPill.label.toLowerCase()} procedures</span>
+                            </span>
+                          </button>
+                        )}
+                        {procMatches.length > 0 ? (
+                          procMatches.map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => selectProcedure(p)}
+                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/40 transition-colors text-text-primary"
+                            >
+                              {p}
+                            </button>
+                          ))
+                        ) : !matchedPill ? (
+                          <div className="px-4 py-3 text-sm text-text-secondary">
+                            No procedures found
+                          </div>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1074,16 +1362,25 @@ export default function FindPrices() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-text-primary">
-              {hasPricesOnly
-                ? (selectedProc
-                    ? `Providers with ${selectedProc} Prices`
-                    : 'Providers with Prices')
-                : (selectedProc
-                    ? `${selectedProc} Prices`
-                    : 'All Treatment Prices')}
+              {(() => {
+                const label = procFilter?.label;
+                if (hasPricesOnly) {
+                  return label ? `Providers with ${label} Prices` : 'Providers with Prices';
+                }
+                if (label) return `${label} prices`;
+                return 'All Treatment Prices';
+              })()}
               {selectedLoc && !fallbackScope ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''}
+              {procFilter && !loadingProcedures && procedures.length > 0
+                ? ` — ${procedures.length} ${procedures.length === 1 ? 'provider' : 'providers'}`
+                : ''}
             </h1>
-            {!loadingProcedures && (
+            {!loadingProcedures && !procFilter && (
+              <p className="text-sm text-text-secondary mt-0.5">
+                Pick a treatment to see real prices from providers near you
+              </p>
+            )}
+            {!loadingProcedures && procFilter && (
               <p className="text-sm text-text-secondary mt-0.5">
                 {procedures.length}{hasPricesOnly ? ' provider' : ' result'}{procedures.length !== 1 ? 's' : ''}
                 {hasPricesOnly ? ' with prices' : ''}
@@ -1162,6 +1459,15 @@ export default function FindPrices() {
               procedureFilter={filterProcedureType}
               hasPricesOnly={hasPricesOnly}
             />
+
+            {/* Procedure gate overlay — shown until the user picks a treatment */}
+            {!procFilter && (
+              <ProcedureGate
+                variant="overlay"
+                onSelect={selectPill}
+                cityLabel={selectedLoc?.city || ''}
+              />
+            )}
 
             {/* Floating "Has prices" pill on mobile map */}
             {IS_MOBILE && (
@@ -1257,7 +1563,11 @@ export default function FindPrices() {
         {/* List view */}
         {viewMode === 'list' && (
           <>
-            {loadingProcedures ? (
+            {!procFilter ? (
+              <div className="py-8">
+                <ProcedureGate variant="block" onSelect={selectPill} />
+              </div>
+            ) : loadingProcedures ? (
               <SkeletonGrid count={6} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

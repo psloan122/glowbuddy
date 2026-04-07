@@ -462,6 +462,244 @@ export function slugToProcedure(slug) {
   return PROCEDURE_TYPES.find((p) => procedureToSlug(p) === slug) || slug;
 }
 
+// ── Procedure pills for the browse/map gate ──────────────────────────────
+//
+// Each pill maps a friendly label (Botox, Fillers, GLP-1) to a stable URL
+// slug, the canonical procedure_type used as the "primary" name (for guides
+// and first-timer logic), and the full list of canonical procedure_type
+// values that the filter should match in the database.
+//
+// `fuzzyToken` is the lowercase substring used for ilike() matching against
+// provider_pricing.procedure_type, which the scraper stores in lowercase
+// (e.g. "botox", "lip filler"). It's the first meaningful word from the
+// canonical category.
+export const PROCEDURE_PILLS = [
+  // Primary row
+  {
+    label: 'Botox',
+    slug: 'neurotoxin',
+    primary: 'Botox / Dysport / Xeomin',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin',
+    fuzzyToken: 'botox',
+    isPrimary: true,
+  },
+  {
+    label: 'Fillers',
+    slug: 'filler',
+    primary: 'Lip Filler',
+    procedureTypes: PROCEDURE_CATEGORIES.Fillers,
+    categoryTag: 'filler',
+    fuzzyToken: 'filler',
+    isPrimary: true,
+  },
+  {
+    label: 'Laser',
+    slug: 'laser',
+    primary: 'Laser Hair Removal',
+    procedureTypes: PROCEDURE_CATEGORIES.Laser,
+    categoryTag: 'laser',
+    fuzzyToken: 'laser',
+    isPrimary: true,
+  },
+  {
+    label: 'Microneedling',
+    slug: 'microneedling',
+    primary: 'Microneedling',
+    procedureTypes: PROCEDURE_CATEGORIES.Microneedling,
+    categoryTag: 'microneedling',
+    fuzzyToken: 'microneedling',
+    isPrimary: true,
+  },
+  {
+    label: 'GLP-1',
+    slug: 'weight-loss',
+    primary: 'Semaglutide (Ozempic / Wegovy)',
+    procedureTypes: PROCEDURE_CATEGORIES['Weight Loss / GLP-1'],
+    categoryTag: 'weight-loss',
+    fuzzyToken: 'semaglutide',
+    isPrimary: true,
+  },
+  {
+    label: 'Chemical Peel',
+    slug: 'chemical-peel',
+    primary: 'Chemical Peel',
+    procedureTypes: ['Chemical Peel'],
+    categoryTag: 'skin',
+    fuzzyToken: 'peel',
+    isPrimary: true,
+  },
+  {
+    label: 'HydraFacial',
+    slug: 'hydrafacial',
+    primary: 'HydraFacial',
+    procedureTypes: ['HydraFacial'],
+    categoryTag: 'skin',
+    fuzzyToken: 'hydrafacial',
+    isPrimary: true,
+  },
+  {
+    label: 'CoolSculpting',
+    slug: 'coolsculpting',
+    primary: 'CoolSculpting',
+    procedureTypes: ['CoolSculpting'],
+    categoryTag: 'body',
+    fuzzyToken: 'coolsculpting',
+    isPrimary: true,
+  },
+  {
+    label: 'IV Therapy',
+    slug: 'iv-wellness',
+    primary: 'IV Therapy',
+    procedureTypes: PROCEDURE_CATEGORIES['IV / Wellness'],
+    categoryTag: 'iv-wellness',
+    fuzzyToken: 'iv',
+    isPrimary: true,
+  },
+
+  // "More" expansion row
+  {
+    label: 'RF Microneedling',
+    slug: 'rf-tightening',
+    primary: 'RF Microneedling',
+    procedureTypes: ['RF Microneedling', 'Morpheus8'],
+    categoryTag: 'rf-tightening',
+    fuzzyToken: 'rf',
+    isPrimary: false,
+  },
+  {
+    label: 'PRP',
+    slug: 'prp',
+    primary: 'PRP Injections',
+    procedureTypes: ['PRP Injections', 'PRP Microneedling', 'PRP Hair Restoration'],
+    categoryTag: 'specialty',
+    fuzzyToken: 'prp',
+    isPrimary: false,
+  },
+  {
+    label: 'Thread Lift',
+    slug: 'thread-lift',
+    primary: 'PDO Thread Lift',
+    procedureTypes: ['PDO Thread Lift'],
+    categoryTag: 'specialty',
+    fuzzyToken: 'thread',
+    isPrimary: false,
+  },
+  {
+    label: 'Laser Hair Removal',
+    slug: 'laser-hair-removal',
+    primary: 'Laser Hair Removal',
+    procedureTypes: ['Laser Hair Removal'],
+    categoryTag: 'laser',
+    fuzzyToken: 'hair removal',
+    isPrimary: false,
+  },
+  {
+    label: 'Dermaplaning',
+    slug: 'dermaplaning',
+    primary: 'Dermaplaning',
+    procedureTypes: ['Dermaplaning'],
+    categoryTag: 'skin',
+    fuzzyToken: 'dermaplan',
+    isPrimary: false,
+  },
+  {
+    label: 'Kybella',
+    slug: 'kybella',
+    primary: 'Kybella',
+    procedureTypes: ['Kybella'],
+    categoryTag: 'body',
+    fuzzyToken: 'kybella',
+    isPrimary: false,
+  },
+  {
+    label: 'Emsculpt',
+    slug: 'emsculpt',
+    primary: 'Emsculpt NEO',
+    procedureTypes: ['Emsculpt NEO'],
+    categoryTag: 'body',
+    fuzzyToken: 'emsculpt',
+    isPrimary: false,
+  },
+];
+
+// Lookups used by the gate / search bar
+export function findPillBySlug(slug) {
+  if (!slug) return null;
+  return PROCEDURE_PILLS.find((p) => p.slug === slug) || null;
+}
+
+export function findPillByLabel(label) {
+  if (!label) return null;
+  const lower = label.toLowerCase().trim();
+  return (
+    PROCEDURE_PILLS.find((p) => p.label.toLowerCase() === lower) ||
+    PROCEDURE_PILLS.find((p) => p.fuzzyToken && lower.includes(p.fuzzyToken)) ||
+    null
+  );
+}
+
+// Resolve the URL ?procedure=... value into a filter object that the
+// browse/map page can use directly. Accepts pill slugs first; falls back to
+// canonical-procedure slugs (e.g. botox-dysport-xeomin → single-procedure
+// filter) for backward compatibility with the existing search dropdown.
+export function resolveProcedureFilter(slug) {
+  if (!slug) return null;
+  const pill = findPillBySlug(slug);
+  if (pill) {
+    return {
+      slug: pill.slug,
+      label: pill.label,
+      primary: pill.primary,
+      procedureTypes: pill.procedureTypes,
+      categoryTag: pill.categoryTag,
+      fuzzyToken: pill.fuzzyToken,
+      isPill: true,
+    };
+  }
+  const canonical = slugToProcedure(slug);
+  if (canonical && PROCEDURE_TYPES.includes(canonical)) {
+    return {
+      slug,
+      label: canonical,
+      primary: canonical,
+      procedureTypes: [canonical],
+      categoryTag: getCategoryTag(canonical),
+      fuzzyToken: canonical.split(/[\s/]+/).filter(Boolean)[0]?.toLowerCase() || null,
+      isPill: false,
+    };
+  }
+  return null;
+}
+
+// Build a filter object from a canonical procedure type (when the user
+// selects from the search dropdown rather than the gate pills).
+export function makeProcedureFilterFromCanonical(canonical) {
+  if (!canonical) return null;
+  return {
+    slug: procedureToSlug(canonical),
+    label: canonical,
+    primary: canonical,
+    procedureTypes: [canonical],
+    categoryTag: getCategoryTag(canonical),
+    fuzzyToken: canonical.split(/[\s/]+/).filter(Boolean)[0]?.toLowerCase() || null,
+    isPill: false,
+  };
+}
+
+export function makeProcedureFilterFromPill(pill) {
+  if (!pill) return null;
+  return {
+    slug: pill.slug,
+    label: pill.label,
+    primary: pill.primary,
+    procedureTypes: pill.procedureTypes,
+    categoryTag: pill.categoryTag,
+    fuzzyToken: pill.fuzzyToken,
+    isPill: true,
+  };
+}
+
 // Shared interest options for Onboarding + Settings
 export const INTEREST_OPTIONS = [
   { emoji: '💉', label: 'Botox & Dysport' },

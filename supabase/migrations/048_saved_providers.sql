@@ -4,7 +4,7 @@
 create table if not exists saved_providers (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
-  provider_id bigint references providers(id) on delete set null,
+  provider_id uuid references providers(id) on delete set null,
   provider_slug text not null,
   notes text,
   created_at timestamptz not null default now(),
