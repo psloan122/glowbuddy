@@ -33,16 +33,34 @@ function daysOld(scrapedAt, createdAt) {
 function SourceBadge({ item }) {
   if (item.verified === true && item.source === 'manual') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
-        <ShieldCheck size={11} />
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5"
+        style={{
+          letterSpacing: '0.08em',
+          borderRadius: '4px',
+          background: '#F0FAF5',
+          color: '#1A7A3A',
+          border: '1px solid #1A7A3A',
+        }}
+      >
+        <ShieldCheck size={10} />
         Verified
       </span>
     );
   }
   if (item.source === 'scrape') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-        <Globe size={11} />
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5"
+        style={{
+          letterSpacing: '0.08em',
+          borderRadius: '4px',
+          background: '#F5F2EE',
+          color: '#666',
+          border: '1px dashed #ccc',
+        }}
+      >
+        <Globe size={10} />
         Public menu
       </span>
     );
@@ -59,7 +77,12 @@ function BrandChip({ item, perUnitPrice }) {
   if (!info) return null;
   return (
     <span
-      className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-dark bg-rose-light/40 px-2 py-0.5 rounded-full"
+      className="inline-flex items-center text-[10px] font-semibold uppercase text-hot-pink px-2 py-0.5"
+      style={{
+        letterSpacing: '0.08em',
+        borderRadius: '4px',
+        border: '1px solid rgba(232, 52, 122, 0.4)',
+      }}
       title={info.tooltip}
     >
       {info.label}
@@ -71,8 +94,17 @@ function StalenessPill({ item }) {
   const age = daysOld(item.scraped_at, item.created_at);
   if (age == null || age < STALE_DAYS) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-      <AlertTriangle size={11} />
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5"
+      style={{
+        letterSpacing: '0.08em',
+        borderRadius: '4px',
+        background: '#FFF7ED',
+        color: '#B45309',
+        border: '1px solid #FED7AA',
+      }}
+    >
+      <AlertTriangle size={10} />
       May be outdated
     </span>
   );
@@ -95,11 +127,11 @@ function hasMixedPriceTypes(items) {
 function MixedPriceNotice() {
   return (
     <div
-      className="flex items-start gap-2 rounded-lg p-3 mb-3 text-[12px]"
-      style={{ background: '#F3F4F6', border: '1px solid #E5E7EB' }}
+      className="flex items-start gap-2 p-3 mb-3 text-[11px]"
+      style={{ background: '#F5F2EE', border: '1px solid #E8E8E8', borderRadius: '2px' }}
     >
-      <AlertTriangle size={14} className="shrink-0 mt-0.5 text-text-secondary" />
-      <p className="text-text-secondary leading-snug">
+      <AlertTriangle size={12} className="shrink-0 mt-0.5 text-text-secondary" />
+      <p className="text-text-secondary leading-snug font-light">
         Prices shown as listed. Per-unit estimates calculated from standard
         treatment areas where possible. Always confirm pricing before booking.
       </p>
@@ -117,8 +149,11 @@ function subsectionTitleForCategory(category) {
 
 function PriceSubsection({ title, items, cityComp, cityCount, nationalAvg, showDivider }) {
   return (
-    <div className={showDivider ? 'mt-3 pt-3 border-t border-gray-100' : ''}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary mb-2">
+    <div className={showDivider ? 'mt-3 pt-3 border-t border-rule' : ''}>
+      <p
+        className="text-[10px] font-semibold uppercase text-text-secondary mb-2"
+        style={{ letterSpacing: '0.12em' }}
+      >
         {title}
       </p>
       <div className="space-y-2.5">
@@ -166,7 +201,7 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
     <div className="flex items-start justify-between gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm text-text-primary">
+          <p className="text-[13px] text-ink font-medium">
             {item.treatment_area || normalized.compareUnit || 'Listed price'}
           </p>
           {(isEstimate || normalized.category === 'flat_area' || normalized.category === 'flat_treatment') && (
@@ -174,7 +209,7 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
           )}
         </div>
         {item.units_or_volume && !item.treatment_area && (
-          <p className="text-[11px] text-text-secondary mt-0.5">{item.units_or_volume}</p>
+          <p className="text-[11px] text-text-secondary mt-0.5 font-light">{item.units_or_volume}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           <BrandChip item={item} perUnitPrice={normalized.comparableValue} />
@@ -182,7 +217,7 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
           <StalenessPill item={item} />
         </div>
         {item.source === 'scrape' && (
-          <p className="text-[11px] text-text-secondary italic mt-1">
+          <p className="font-display italic text-[11px] text-text-secondary mt-1">
             Pulled from provider&apos;s public website
             {item.source_url && (
               <>
@@ -191,7 +226,8 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
                   href={item.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-blue-700 not-italic hover:underline"
+                  className="inline-flex items-center gap-0.5 text-hot-pink not-italic hover:underline font-semibold uppercase text-[10px]"
+                  style={{ letterSpacing: '0.08em' }}
                 >
                   view source <ExternalLink size={9} />
                 </a>
@@ -201,17 +237,25 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
         )}
       </div>
       <div className="text-right flex flex-col items-end gap-1 shrink-0">
-        <p className="text-base font-bold text-text-primary leading-tight">
+        <p
+          className="font-display text-ink leading-none"
+          style={{ fontWeight: 900, fontSize: '22px' }}
+        >
           {normalized.displayPrice}
         </p>
         {vsAvg && vsAvg.pct !== 0 && (
           <span
-            className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-              vsAvg.pct < 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-            }`}
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold uppercase"
+            style={{
+              letterSpacing: '0.06em',
+              borderRadius: '4px',
+              background: vsAvg.pct < 0 ? '#F0FAF5' : '#FFF1F5',
+              color: vsAvg.pct < 0 ? '#1A7A3A' : '#C8001A',
+              border: `1px solid ${vsAvg.pct < 0 ? '#1A7A3A' : '#C8001A'}`,
+            }}
             title={`${Math.abs(vsAvg.pct)}% ${vsAvg.pct < 0 ? 'below' : 'above'} ${vsAvg.label} ($${Math.round(vsAvg.ref).toLocaleString()})`}
           >
-            {vsAvg.pct < 0 ? <TrendingDown size={11} /> : <TrendingUp size={11} />}
+            {vsAvg.pct < 0 ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
             {Math.abs(vsAvg.pct)}% {vsAvg.label}
           </span>
         )}
@@ -235,17 +279,18 @@ export default function PricesTab({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left column: Provider's Listed Prices */}
       <div>
-        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center gap-2">
-          <ShieldCheck size={20} className="text-verified" />
+        <p className="editorial-kicker mb-2 flex items-center gap-2">
+          <ShieldCheck size={12} className="text-verified" />
           Published by {provider?.name || 'this provider'}
-        </h2>
-        <p className="text-sm text-text-secondary mb-4">Official prices &middot; Updated by provider</p>
+        </p>
+        <h2 className="font-display font-bold text-[22px] text-ink mb-1">The Menu</h2>
+        <p className="text-[12px] text-text-secondary mb-4 font-light">Official prices &middot; Updated by provider</p>
 
         {verifiedPricing.length > 0 ? (
           <>
             {hasMixedPriceTypes(verifiedPricing) && <MixedPriceNotice />}
-            <div className="glow-card overflow-hidden">
-              <div className="divide-y divide-gray-100">
+            <div className="glow-card overflow-hidden p-0">
+              <div className="divide-y divide-rule">
                 {Object.entries(groupForProviderDisplay(verifiedPricing)).map(
                   ([procedureType, groups]) => {
                     const cityComp = priceComparisons?.[procedureType];
@@ -253,7 +298,10 @@ export default function PricesTab({
                     const nationalAvg = AVG_PRICES[procedureType];
                     return (
                       <div key={procedureType} className="p-4">
-                        <p className="text-sm font-semibold text-text-primary mb-3">
+                        <p
+                          className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
+                          style={{ letterSpacing: '0.12em' }}
+                        >
                           {procedureType}
                         </p>
                         {groups.perUnit.length > 0 && (
@@ -293,9 +341,9 @@ export default function PricesTab({
             </div>
           </>
         ) : (
-          <div className="glow-card p-6 text-center">
-            <p className="text-text-secondary text-sm">
-              This provider hasn&apos;t uploaded their menu yet.
+          <div className="glow-card p-8 text-center">
+            <p className="font-display italic text-[18px] text-text-secondary">
+              No prices yet.
             </p>
           </div>
         )}
@@ -318,11 +366,14 @@ export default function PricesTab({
 
       {/* Right column: Community Prices */}
       <div>
-        <h2 className="text-xl font-bold text-text-primary mb-1 flex items-center gap-2">
-          <Users size={20} className="text-community" />
+        <p className="editorial-kicker mb-2 flex items-center gap-2">
+          <Users size={12} className="text-community" />
           Reported by patients
+        </p>
+        <h2 className="font-display font-bold text-[22px] text-ink mb-1">
+          What people actually paid
         </h2>
-        <p className="text-sm text-text-secondary mb-4">Real prices shared by patients &middot; Not advertised rates</p>
+        <p className="text-[12px] text-text-secondary mb-4 font-light">Real prices shared by patients &middot; Not advertised rates</p>
 
         {/* Staleness warning when >50% of community prices are stale */}
         {communityData.length > 0 && getStalenessPercentage(communityData) > 50 && (
@@ -368,9 +419,9 @@ export default function PricesTab({
             ))}
           </div>
         ) : (
-          <div className="glow-card p-6 text-center">
-            <p className="text-text-secondary text-sm">
-              No community prices yet for this provider.
+          <div className="glow-card p-8 text-center">
+            <p className="font-display italic text-[18px] text-text-secondary">
+              No community prices yet.
             </p>
           </div>
         )}

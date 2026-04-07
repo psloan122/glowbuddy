@@ -13,6 +13,107 @@ const NAV_LINKS = [
   { to: '/business', label: 'Business' },
 ];
 
+const DISCOVER_LINKS = [
+  { to: '/guides', label: 'Treatment Guides', sub: 'First-timer guides for every treatment' },
+  { to: '/specials', label: 'Specials', sub: 'New deals from verified providers' },
+  { to: '/insights', label: 'Insights', sub: 'Price trends & data' },
+  { to: '/prices', label: 'City Reports', sub: 'Prices by location' },
+  { to: '/calculator', label: 'Savings Calc', sub: 'See how much you save' },
+];
+
+const COMMUNITY_LINKS = [
+  { to: '/community', label: 'Feed', sub: 'What patients are sharing' },
+  { to: '/following', label: 'Following', sub: 'Your followed providers' },
+];
+
+const MY_GLOW_LINKS = [
+  { to: '/my-stack', label: 'My Stack', sub: 'Your treatment stack' },
+  { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
+  { to: '/budget', label: 'Budget', sub: 'Track what you spend' },
+  { to: '/my/history', label: 'My History', sub: 'Past submissions' },
+  { to: '/alerts', label: 'Alerts', sub: 'Price drop notifications' },
+];
+
+const DROPDOWNS = [
+  { key: 'discover', label: 'Discover', tagline: 'Prices, trends & deals', links: DISCOVER_LINKS },
+  { key: 'community', label: 'Community', tagline: 'Real patients, real talk', links: COMMUNITY_LINKS },
+  { key: 'myglow', label: 'My Glow', tagline: 'Your personal glow tracker', links: MY_GLOW_LINKS },
+];
+
+// ─── Desktop dropdown ───
+
+function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
+  const timeoutRef = useRef(null);
+  const isOpen = openKey === dropdown.key;
+
+  function handleMouseEnter() {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setOpenKey(dropdown.key);
+  }
+
+  function handleMouseLeave() {
+    timeoutRef.current = setTimeout(() => {
+      setOpenKey((prev) => (prev === dropdown.key ? null : prev));
+    }, 120);
+  }
+
+  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <button
+        onClick={() => setOpenKey(isOpen ? null : dropdown.key)}
+        className={`flex items-center gap-1 text-[12px] font-medium uppercase transition-colors ${
+          isActive ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+        }`}
+        style={{ letterSpacing: '0.08em' }}
+      >
+        {dropdown.label}
+        <ChevronDown
+          size={12}
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 pt-2 z-50">
+          <div className="min-w-[260px] bg-white border border-rule rounded-none py-3" style={{ borderTop: '2px solid #111' }}>
+            <p
+              className="px-4 pb-2 text-[10px] font-semibold text-hot-pink uppercase"
+              style={{ letterSpacing: '0.12em' }}
+            >
+              {dropdown.tagline}
+            </p>
+            {dropdown.links.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => setOpenKey(null)}
+                className="block px-4 py-2.5 hover:bg-cream transition-colors group"
+              >
+                <span className="block text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                  {link.label}
+                </span>
+                {link.sub && (
+                  <p className="text-[11px] text-text-secondary mt-0.5 leading-tight font-light">
+                    {link.sub}
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Navbar ───
+
 export default function Navbar() {
   const { user } = useContext(AuthContext);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -33,7 +134,60 @@ export default function Navbar() {
       setSignInMsg('Check your email for a magic link!');
       setEmail('');
     }
-    setSigningIn(false);
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Close dropdowns on ESC
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setOpenKey(null);
+        setAvatarOpen(false);
+        setMobileOpen(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Close everything on route change
+  useEffect(() => {
+    setOpenKey(null);
+    setMobileOpen(false);
+    setAvatarOpen(false);
+  }, [location.pathname]);
+
+  // Lock body scroll when mobile menu open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  // Fetch unread alert count
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    getUnreadCount().then(setUnreadCount);
+    const interval = setInterval(() => getUnreadCount().then(setUnreadCount), 60000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  // Check if a dropdown should show active state
+  function isDropdownActive(dropdown) {
+    return dropdown.links.some((link) =>
+      link.to === '/'
+        ? location.pathname === '/'
+        : location.pathname.startsWith(link.to)
+    );
+  }
+
+  function getInitials() {
+    const email = user?.email || '';
+    return email.charAt(0).toUpperCase();
   }
 
   async function handleSignOut() {
@@ -42,152 +196,302 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-0 shrink-0">
-            <span className="text-xl font-bold text-rose-accent">Glow</span>
-            <span className="text-xl font-light text-text-primary">Buddy</span>
-          </Link>
+    <>
+      <nav
+        className="sticky top-0 z-50 bg-white"
+        style={{ borderBottom: '1px solid #E8E8E8' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo — Playfair Display wordmark */}
+            <Link to="/" className="flex items-baseline shrink-0">
+              <span
+                className="font-display italic text-[26px] text-hot-pink"
+                style={{ fontWeight: 900, lineHeight: 1 }}
+              >
+                Glow
+              </span>
+              <span
+                className="font-display text-[26px] text-ink"
+                style={{ fontWeight: 900, lineHeight: 1 }}
+              >
+                Buddy
+              </span>
+            </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map((link) => (
+            {/* ═══ Desktop nav links ═══ */}
+            <div className="hidden md:flex items-center gap-7">
+              {TOP_LINKS.map((link) => {
+                const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`text-[12px] font-medium uppercase transition-colors ${
+                      active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                    }`}
+                    style={{ letterSpacing: '0.08em' }}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+
+              {DROPDOWNS.map((dd) => (
+                <NavDropdown
+                  key={dd.key}
+                  dropdown={dd}
+                  isActive={isDropdownActive(dd)}
+                  openKey={openKey}
+                  setOpenKey={setOpenKey}
+                />
+              ))}
+
               <Link
-                key={link.to}
-                to={link.to}
-                className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                to="/business"
+                className={`text-[12px] font-medium uppercase transition-colors ${
+                  location.pathname.startsWith('/business')
+                    ? 'text-hot-pink'
+                    : 'text-ink hover:text-hot-pink'
+                }`}
+                style={{ letterSpacing: '0.08em' }}
               >
-                {link.label}
+                Business
               </Link>
-            ))}
-          </div>
+            </div>
 
-          {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-4">
-            {user ? (
-              <>
-                <Link
-                  to="/my-treatments"
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
-                >
-                  My Treatments
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setShowSignIn(true)}
-                className="text-sm font-medium text-rose-accent hover:text-rose-dark transition-colors"
-              >
-                Sign In
-              </button>
-            )}
-          </div>
+            {/* ═══ Desktop right: CTA + auth ═══ */}
+            <div className="hidden md:flex items-center gap-3">
+              <Link to="/log" className="btn-editorial btn-editorial-primary">
+                Log a Treatment
+              </Link>
 
-          {/* Mobile hamburger */}
-          <button
-            className="md:hidden p-2 text-text-secondary hover:text-text-primary"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+              {user && <NotificationBell />}
+
+              {user ? (
+                <div ref={avatarRef} className="relative">
+                  <button
+                    onClick={() => setAvatarOpen(!avatarOpen)}
+                    className="flex items-center gap-1.5"
+                  >
+                    <div className="w-8 h-8 flex items-center justify-center text-[11px] font-semibold text-white bg-hot-pink rounded-none">
+                      {getInitials()}
+                    </div>
+                    <ChevronDown size={14} className="text-text-secondary" />
+                  </button>
+
+                  {avatarOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-52 bg-white border border-rule rounded-none py-2 z-50"
+                      style={{ borderTop: '2px solid #111' }}
+                    >
+                      <Link
+                        to="/my-treatments"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        My Treatments
+                      </Link>
+                      <Link
+                        to="/rewards"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        My Rewards
+                      </Link>
+                      <Link
+                        to="/refer"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] font-medium text-hot-pink hover:bg-cream transition-colors"
+                      >
+                        Refer &amp; Earn $10
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        Settings
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => openAuthModal('signin')}
+                    className="text-[12px] font-medium uppercase text-ink hover:text-hot-pink transition-colors"
+                    style={{ letterSpacing: '0.08em' }}
+                  >
+                    Log in
+                  </button>
+                  <button
+                    onClick={() => openAuthModal('signup')}
+                    className="btn-editorial btn-editorial-secondary"
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* ═══ Mobile hamburger ═══ */}
+            <button
+              className="md:hidden p-2 text-ink"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
+      </nav>
 
-        {/* Mobile dropdown */}
-        {mobileOpen && (
-          <div className="md:hidden pb-4 border-t border-gray-100">
-            <div className="flex flex-col gap-2 pt-4">
-              {NAV_LINKS.map((link) => (
+      {/* ═══ Mobile full-screen overlay (ink background) ═══ */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] bg-ink md:hidden overflow-y-auto">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-rule-dark">
+            <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-baseline">
+              <span
+                className="font-display italic text-[26px] text-hot-pink"
+                style={{ fontWeight: 900, lineHeight: 1 }}
+              >
+                Glow
+              </span>
+              <span
+                className="font-display text-[26px] text-white"
+                style={{ fontWeight: 900, lineHeight: 1 }}
+              >
+                Buddy
+              </span>
+            </Link>
+            <button
+              className="p-2 text-white"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="px-6 py-8">
+            {/* Top-level links */}
+            {TOP_LINKS.map((link) => {
+              const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+              return (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
+                  className={`block py-3 font-display text-[28px] transition-colors ${
+                    active ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+                  }`}
+                  style={{ fontWeight: 900 }}
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
                 </Link>
-              ))}
+              );
+            })}
+
+            <Link
+              to="/business"
+              className={`block py-3 font-display text-[28px] transition-colors ${
+                location.pathname.startsWith('/business') ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+              }`}
+              style={{ fontWeight: 900 }}
+              onClick={() => setMobileOpen(false)}
+            >
+              Business
+            </Link>
+
+            {/* Grouped sections */}
+            {DROPDOWNS.map((dd) => (
+              <div key={dd.key} className="mt-8 pt-6 border-t border-rule-dark">
+                <p
+                  className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
+                  style={{ letterSpacing: '0.12em' }}
+                >
+                  {dd.label}
+                </p>
+                {dd.links.map((link) => {
+                  const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+                  return (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className={`flex items-center gap-2 py-2.5 text-[15px] transition-colors ${
+                        active ? 'text-hot-pink' : 'text-white hover:text-hot-pink'
+                      }`}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {link.label}
+                      {link.to === '/alerts' && unreadCount > 0 && (
+                        <span className="w-2 h-2 bg-hot-pink rounded-full" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* CTA */}
+            <Link
+              to="/log"
+              className="btn-editorial btn-editorial-primary mt-10 w-full"
+              onClick={() => setMobileOpen(false)}
+            >
+              Log a Treatment
+            </Link>
+
+            {/* Auth */}
+            <div className="mt-8 pt-6 border-t border-rule-dark">
               {user ? (
-                <>
-                  <Link
-                    to="/my-treatments"
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
-                    onClick={() => setMobileOpen(false)}
-                  >
+                <div className="flex flex-col gap-1">
+                  <Link to="/my-treatments" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
                     My Treatments
+                  </Link>
+                  <Link to="/rewards" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                    My Rewards
+                  </Link>
+                  <Link to="/refer" className="py-2 text-[14px] font-medium text-hot-pink" onClick={() => setMobileOpen(false)}>
+                    Refer &amp; Earn $10
+                  </Link>
+                  <Link to="/settings" className="py-2 text-[14px] text-white hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                    Settings
                   </Link>
                   <button
                     onClick={handleSignOut}
-                    className="px-3 py-2 text-sm text-left text-text-secondary hover:text-text-primary hover:bg-rose-light/50 rounded-lg transition-colors"
+                    className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink"
                   >
                     Sign Out
                   </button>
-                </>
+                </div>
               ) : (
-                <button
-                  onClick={() => {
-                    setShowSignIn(true);
-                    setMobileOpen(false);
-                  }}
-                  className="px-3 py-2 text-sm text-left font-medium text-rose-accent hover:text-rose-dark hover:bg-rose-light/50 rounded-lg transition-colors"
-                >
-                  Sign In
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => { openAuthModal('signin'); setMobileOpen(false); }}
+                    className="btn-editorial btn-editorial-ghost w-full"
+                  >
+                    Log in
+                  </button>
+                  <button
+                    onClick={() => { openAuthModal('signup'); setMobileOpen(false); }}
+                    className="btn-editorial btn-editorial-primary w-full"
+                  >
+                    Sign up
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Sign-in modal */}
-      {showSignIn && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-text-primary">Sign In</h2>
-              <button
-                onClick={() => {
-                  setShowSignIn(false);
-                  setSignInMsg('');
-                }}
-                className="text-text-secondary hover:text-text-primary"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
-              <input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent"
-                required
-              />
-              <button
-                type="submit"
-                disabled={signingIn}
-                className="w-full py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors disabled:opacity-50"
-              >
-                {signingIn ? 'Sending...' : 'Send Magic Link'}
-              </button>
-              {signInMsg && (
-                <p className="text-sm text-center text-text-secondary">
-                  {signInMsg}
-                </p>
-              )}
-            </form>
           </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }

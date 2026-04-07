@@ -30,30 +30,55 @@ function formatYearMonth(ym) {
 
 function MetricCard({ label, value, sub, accent }) {
   return (
-    <div className={`glow-card p-4 ${accent ? 'border-rose-accent/30' : ''}`}>
-      <p className="text-[11px] uppercase tracking-wide text-text-secondary font-medium">{label}</p>
-      <p className={`mt-1 font-bold leading-tight ${accent ? 'text-rose-accent text-base lg:text-lg' : 'text-text-primary text-xl lg:text-2xl'}`}>
+    <div className="p-4" style={{ borderRight: '1px solid #E8E8E8' }}>
+      <p
+        className="text-[10px] font-semibold uppercase text-text-secondary mb-2"
+        style={{ letterSpacing: '0.12em' }}
+      >
+        {label}
+      </p>
+      <p
+        className={`font-display leading-none ${accent ? 'text-hot-pink' : 'text-ink'}`}
+        style={{
+          fontWeight: 900,
+          fontSize: accent ? 'clamp(18px, 2vw, 22px)' : 'clamp(24px, 3vw, 36px)',
+          lineHeight: 1.05,
+        }}
+      >
         {value}
       </p>
-      {sub != null && <div className="mt-1 text-xs text-text-secondary">{sub}</div>}
+      {sub != null && <div className="mt-2 text-[11px] text-text-secondary font-light">{sub}</div>}
     </div>
   );
 }
 
 function TrendChip({ trend }) {
   if (!trend || trend.direction === 'flat') {
-    return <span className="inline-flex items-center gap-0.5 text-xs text-gray-400"><Minus size={11} /> flat MoM</span>;
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase text-text-secondary"
+        style={{ letterSpacing: '0.06em' }}
+      >
+        <Minus size={10} /> flat MoM
+      </span>
+    );
   }
   if (trend.direction === 'down') {
     return (
-      <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600">
-        <TrendingDown size={11} /> {trend.pct}% MoM
+      <span
+        className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase text-below-avg"
+        style={{ letterSpacing: '0.06em' }}
+      >
+        <TrendingDown size={10} /> {trend.pct}% MoM
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs text-red-500">
-      <TrendingUp size={11} /> {trend.pct}% MoM
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase text-above-avg"
+      style={{ letterSpacing: '0.06em' }}
+    >
+      <TrendingUp size={10} /> {trend.pct}% MoM
     </span>
   );
 }
@@ -61,14 +86,23 @@ function TrendChip({ trend }) {
 function trustTierBadge(tier) {
   if (!tier) return null;
   const tiers = {
-    verified: { label: 'Verified', color: 'text-verified bg-verified/10' },
-    receipt: { label: 'Receipt', color: 'text-blue-600 bg-blue-50' },
-    self_reported: { label: 'Self-Reported', color: 'text-gray-500 bg-gray-100' },
+    verified: { label: 'Verified', bg: '#F0FAF5', color: '#1A7A3A', border: '#1A7A3A' },
+    receipt: { label: 'Receipt', bg: '#F5F2EE', color: '#666', border: '#E8E8E8' },
+    self_reported: { label: 'Self-Reported', bg: '#F5F2EE', color: '#888', border: '#E8E8E8' },
   };
   const t = tiers[tier] || tiers.self_reported;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full ${t.color}`}>
-      {tier === 'verified' && <ShieldCheck size={10} />}
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase px-1.5 py-0.5"
+      style={{
+        letterSpacing: '0.06em',
+        borderRadius: '4px',
+        background: t.bg,
+        color: t.color,
+        border: `1px solid ${t.border}`,
+      }}
+    >
+      {tier === 'verified' && <ShieldCheck size={9} />}
       {t.label}
     </span>
   );
@@ -154,8 +188,10 @@ export default function CityPriceReport() {
   if (!parsed) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-        <p className="text-text-secondary mb-4">Invalid city URL.</p>
-        <Link to="/prices" className="text-rose-accent hover:text-rose-dark font-medium">Browse all cities</Link>
+        <p className="font-display italic text-[18px] text-text-secondary mb-4">Invalid city URL.</p>
+        <Link to="/prices" className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark" style={{ letterSpacing: '0.10em' }}>
+          Browse all cities &rarr;
+        </Link>
       </div>
     );
   }
@@ -163,7 +199,7 @@ export default function CityPriceReport() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="animate-pulse text-rose-accent text-center text-lg">
+        <div className="animate-pulse font-display italic text-hot-pink text-center text-[20px]">
           Loading prices for {city}, {state}...
         </div>
       </div>
@@ -173,180 +209,257 @@ export default function CityPriceReport() {
   const topProc = report?.priceTable?.[0];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back link */}
-      <Link to="/prices" className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-rose-accent mb-4 transition-colors">
-        <ArrowLeft size={14} /> All Cities
-      </Link>
+    <div className="bg-cream min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back link */}
+        <Link
+          to="/prices"
+          className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-text-secondary hover:text-hot-pink mb-6 transition-colors"
+          style={{ letterSpacing: '0.10em' }}
+        >
+          <ArrowLeft size={12} /> All Cities
+        </Link>
 
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-2">
-          <MapPin size={24} className="text-rose-accent" />
-          Cosmetic Prices in {city}, {state}
-        </h1>
-        <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-text-secondary">
-          <span className="inline-flex items-center gap-1">
-            <Calendar size={14} /> {displayMonth}
-          </span>
-          <span>{report.totalSubmissions} submission{report.totalSubmissions !== 1 ? 's' : ''}</span>
-          {report.usingAllTime && (
-            <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">All-time data (limited recent activity)</span>
-          )}
-        </div>
-      </div>
-
-      {/* Archive dropdown */}
-      {report.archiveMonths.length > 1 && (
-        <div className="mb-6">
-          <label className="text-xs font-medium text-text-secondary uppercase tracking-wide mb-1 block">View another month</label>
-          <div className="relative inline-block">
-            <select
-              value={yearMonth || ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val) {
-                  navigate(`/prices/${slugParam}/${val}`);
-                } else {
-                  navigate(`/prices/${slugParam}`);
-                }
+        {/* Newspaper masthead */}
+        <header className="mb-8" style={{ borderTop: '3px solid #111111', borderBottom: '1px solid #111111' }}>
+          <div className="py-6">
+            <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+              <p
+                className="text-[11px] font-semibold uppercase text-hot-pink"
+                style={{ letterSpacing: '0.18em' }}
+              >
+                The {city} Price Report
+              </p>
+              <p
+                className="text-[10px] font-semibold uppercase text-text-secondary flex items-center gap-1"
+                style={{ letterSpacing: '0.12em' }}
+              >
+                <Calendar size={10} />
+                {displayMonth} &middot; Vol. {yearMonth || currentYM}
+              </p>
+            </div>
+            <h1
+              className="font-display text-ink mb-3"
+              style={{
+                fontWeight: 900,
+                fontSize: 'clamp(40px, 7vw, 88px)',
+                lineHeight: 0.96,
+                letterSpacing: '-0.015em',
               }}
-              className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-accent/50"
             >
-              <option value="">Current</option>
-              {report.archiveMonths.map((ym) => (
-                <option key={ym} value={ym}>{formatYearMonth(ym)}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+              Cosmetic prices<br />
+              in <span className="italic">{city}</span>,<br />
+              {state}.
+            </h1>
+            <p className="editorial-deck max-w-2xl">
+              {report.totalSubmissions} submission{report.totalSubmissions !== 1 ? 's' : ''} from real patients and public provider menus.
+              {report.usingAllTime && ' All-time data (limited recent activity).'}
+            </p>
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* Section A — City header metric cards */}
-      {topProc && (
-        <section className="mb-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MetricCard label="Top procedure" value={topProc.procedure} sub={`${topProc.sampleSize} data point${topProc.sampleSize === 1 ? '' : 's'}`} accent />
-            <MetricCard label="Avg price" value={`$${topProc.avg.toLocaleString()}`} sub={topProc.trend ? <TrendChip trend={topProc.trend} /> : null} />
-            <MetricCard label="Median" value={topProc.median != null ? `$${topProc.median.toLocaleString()}` : '—'} sub={`Range $${topProc.min.toLocaleString()}–$${topProc.max.toLocaleString()}`} />
-            <MetricCard label="Sample size" value={`${report.totalSubmissions}`} sub={dataFreshness?.distinctProviders ? `${dataFreshness.distinctProviders} provider${dataFreshness.distinctProviders === 1 ? '' : 's'}` : 'patient + provider data'} />
+        {/* Archive dropdown */}
+        {report.archiveMonths.length > 1 && (
+          <div className="mb-8">
+            <p className="editorial-kicker mb-2">View another month</p>
+            <div className="relative inline-block">
+              <select
+                value={yearMonth || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    navigate(`/prices/${slugParam}/${val}`);
+                  } else {
+                    navigate(`/prices/${slugParam}`);
+                  }
+                }}
+                className="appearance-none pl-3 pr-8 py-2 text-[12px] text-ink bg-white focus:outline-none"
+                style={{ border: '1px solid #111', borderRadius: '2px' }}
+              >
+                <option value="">Current</option>
+                {report.archiveMonths.map((ym) => (
+                  <option key={ym} value={ym}>{formatYearMonth(ym)}</option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink pointer-events-none" />
+            </div>
           </div>
-        </section>
-      )}
+        )}
 
-      {/* Section E — Data freshness banner */}
-      {dataFreshness && (
-        <section className="mb-8">
-          <DataFreshnessNotice freshness={dataFreshness} />
-        </section>
-      )}
+        {/* Section A — Newspaper stats grid */}
+        {topProc && (
+          <section className="mb-8">
+            <div
+              className="grid grid-cols-2 lg:grid-cols-4 bg-white"
+              style={{ border: '1px solid #111111' }}
+            >
+              <MetricCard label="Top procedure" value={topProc.procedure} sub={`${topProc.sampleSize} data point${topProc.sampleSize === 1 ? '' : 's'}`} accent />
+              <MetricCard label="Avg price" value={`$${topProc.avg.toLocaleString()}`} sub={topProc.trend ? <TrendChip trend={topProc.trend} /> : null} />
+              <MetricCard label="Median" value={topProc.median != null ? `$${topProc.median.toLocaleString()}` : '—'} sub={`Range $${topProc.min.toLocaleString()}–$${topProc.max.toLocaleString()}`} />
+              <MetricCard label="Sample size" value={`${report.totalSubmissions}`} sub={dataFreshness?.distinctProviders ? `${dataFreshness.distinctProviders} provider${dataFreshness.distinctProviders === 1 ? '' : 's'}` : 'patient + provider data'} />
+            </div>
+          </section>
+        )}
 
-      {/* Price table */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-text-primary mb-3">Price Comparison</h2>
-        <PriceTable rows={report.priceTable} />
-      </section>
+        {/* Section E — Data freshness banner */}
+        {dataFreshness && (
+          <section className="mb-8">
+            <DataFreshnessNotice freshness={dataFreshness} />
+          </section>
+        )}
 
-      {/* Provider chart (existing — provider averages from `procedures`) */}
-      {report.providers.length >= 2 && (
-        <section className="mb-8">
-          <NeighborhoodChart data={report.providers} />
-        </section>
-      )}
-
-      {/* Section B — Provider price comparison (from provider_pricing) */}
-      {topProc && providerComparisons && providerComparisons.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-text-primary mb-1">
-            Provider Price Comparison: {topProc.procedure}
+        {/* Price table */}
+        <section className="mb-10">
+          <p className="editorial-kicker mb-2">The Numbers</p>
+          <h2 className="editorial-headline mb-4" style={{ fontSize: 'clamp(24px, 3vw, 36px)' }}>
+            Price comparison.
           </h2>
-          <p className="text-sm text-text-secondary mb-3">
-            Each provider&apos;s lowest listed price for {topProc.procedure}, sorted lowest to highest.
-          </p>
-          <ProviderPriceComparisonTable rows={providerComparisons} cityAvg={topProc.avg} />
+          <PriceTable rows={report.priceTable} />
         </section>
-      )}
 
-      {/* Section C — Neighborhood (ZIP) breakdown */}
-      {topProc && (
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-text-primary mb-3">Neighborhood Breakdown</h2>
-          <NeighborhoodBreakdown citySlug={slugParam} procedureType={topProc.procedure} />
-        </section>
-      )}
+        {/* Provider chart (existing — provider averages from `procedures`) */}
+        {report.providers.length >= 2 && (
+          <section className="mb-10">
+            <NeighborhoodChart data={report.providers} />
+          </section>
+        )}
 
-      {/* Section D — Price distribution histogram */}
-      {priceDistribution && priceDistribution.totalSamples >= 5 && (
-        <section className="mb-8">
-          <PriceDistributionChart distribution={priceDistribution} />
-        </section>
-      )}
+        {/* Section B — Provider price comparison (from provider_pricing) */}
+        {topProc && providerComparisons && providerComparisons.length > 0 && (
+          <section className="mb-10">
+            <p className="editorial-kicker mb-2">Head-to-Head</p>
+            <h2 className="editorial-headline mb-1" style={{ fontSize: 'clamp(24px, 3vw, 36px)' }}>
+              Who charges what for <span className="italic text-hot-pink">{topProc.procedure}</span>.
+            </h2>
+            <p className="text-[12px] text-text-secondary font-light mb-4">
+              Each provider&apos;s lowest listed price, sorted low to high.
+            </p>
+            <ProviderPriceComparisonTable rows={providerComparisons} cityAvg={topProc.avg} />
+          </section>
+        )}
 
-      {/* Affordable providers */}
-      {report.affordable.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-text-primary mb-3">Most Affordable Providers</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {report.affordable.map((p) => (
-              <AffordableProviderCard key={p.name} provider={p} />
-            ))}
-          </div>
-        </section>
-      )}
+        {/* Section C — Neighborhood (ZIP) breakdown */}
+        {topProc && (
+          <section className="mb-10">
+            <p className="editorial-kicker mb-2">By Neighborhood</p>
+            <h2 className="editorial-headline mb-4" style={{ fontSize: 'clamp(24px, 3vw, 36px)' }}>
+              Where in {city}.
+            </h2>
+            <NeighborhoodBreakdown citySlug={slugParam} procedureType={topProc.procedure} />
+          </section>
+        )}
 
-      {/* Recent submissions */}
-      {report.recent.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-text-primary mb-3">Recent Submissions</h2>
-          <div className="glow-card divide-y divide-gray-50">
-            {report.recent.map((r) => (
-              <div key={r.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <span className="font-medium text-text-primary text-sm">{r.procedure}</span>
-                  {r.units && <span className="text-xs text-text-secondary ml-2">{r.units}</span>}
+        {/* Section D — Price distribution histogram */}
+        {priceDistribution && priceDistribution.totalSamples >= 5 && (
+          <section className="mb-10">
+            <PriceDistributionChart distribution={priceDistribution} />
+          </section>
+        )}
+
+        {/* Affordable providers */}
+        {report.affordable.length > 0 && (
+          <section className="mb-10">
+            <p className="editorial-kicker mb-2">The Bargains</p>
+            <h2 className="editorial-headline mb-4" style={{ fontSize: 'clamp(24px, 3vw, 36px)' }}>
+              Most affordable providers.
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {report.affordable.map((p) => (
+                <AffordableProviderCard key={p.name} provider={p} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Recent submissions */}
+        {report.recent.length > 0 && (
+          <section className="mb-10">
+            <p className="editorial-kicker mb-2">Fresh Off the Receipt</p>
+            <h2 className="editorial-headline mb-4" style={{ fontSize: 'clamp(24px, 3vw, 36px)' }}>
+              Recent submissions.
+            </h2>
+            <div className="bg-white" style={{ border: '1px solid #111111' }}>
+              {report.recent.map((r, i) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between px-4 py-3"
+                  style={i > 0 ? { borderTop: '1px solid #E8E8E8' } : undefined}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-ink font-medium">{r.procedure}</p>
+                    {r.units && (
+                      <p className="text-[11px] text-text-secondary font-light mt-0.5">{r.units}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {trustTierBadge(r.trustTier)}
+                    <p
+                      className="font-display text-ink leading-none"
+                      style={{ fontWeight: 900, fontSize: '18px' }}
+                    >
+                      ${r.price.toLocaleString()}
+                    </p>
+                    <span
+                      className="text-[10px] font-semibold uppercase text-text-secondary inline-flex items-center gap-0.5"
+                      style={{ letterSpacing: '0.06em' }}
+                    >
+                      <Clock size={10} />
+                      {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {trustTierBadge(r.trustTier)}
-                  <span className="font-semibold text-text-primary text-sm">${r.price.toLocaleString()}</span>
-                  <span className="text-xs text-text-secondary inline-flex items-center gap-0.5">
-                    <Clock size={10} />
-                    {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* Submit CTA */}
-      <section className="mb-8">
-        <div className="glow-card p-6 text-center bg-gradient-to-br from-rose-light/30 to-white">
-          <h2 className="text-xl font-bold text-text-primary mb-2">Know a price in {city}?</h2>
-          <p className="text-sm text-text-secondary mb-4">Help others by sharing what you paid. It only takes 30 seconds.</p>
-          <Link
-            to={`/log?city=${encodeURIComponent(city)}&state=${state}`}
-            className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+        {/* Submit CTA — editorial dark block */}
+        <section className="mb-10">
+          <div
+            className="bg-ink p-8 sm:p-12 text-center"
+            style={{ borderTop: '2px solid #E8347A' }}
           >
-            Add Your Price
-          </Link>
-        </div>
-      </section>
-
-      {/* Report card image */}
-      {topProc && (
-        <section className="mb-8 max-w-lg">
-          <ReportCardImage
-            city={city}
-            state={state}
-            topProcedure={topProc.procedure}
-            avgPrice={topProc.avg}
-            submissions={report.totalSubmissions}
-            month={displayMonth}
-          />
+            <p
+              className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
+              style={{ letterSpacing: '0.18em' }}
+            >
+              Your turn
+            </p>
+            <h2
+              className="font-display text-white mb-3"
+              style={{ fontWeight: 900, fontSize: 'clamp(28px, 4vw, 48px)', lineHeight: 1.0 }}
+            >
+              Know a price in <span className="italic text-hot-pink">{city}</span>?
+            </h2>
+            <p
+              className="text-[13px] font-light mb-6 max-w-md mx-auto"
+              style={{ color: '#bbb' }}
+            >
+              Help others by sharing what you paid. It only takes 30 seconds.
+            </p>
+            <Link
+              to={`/log?city=${encodeURIComponent(city)}&state=${state}`}
+              className="btn-editorial btn-editorial-primary"
+            >
+              Add your price
+            </Link>
+          </div>
         </section>
-      )}
+
+        {/* Report card image */}
+        {topProc && (
+          <section className="mb-8 max-w-lg">
+            <ReportCardImage
+              city={city}
+              state={state}
+              topProcedure={topProc.procedure}
+              avgPrice={topProc.avg}
+              submissions={report.totalSubmissions}
+              month={displayMonth}
+            />
+          </section>
+        )}
+      </div>
     </div>
   );
 }
