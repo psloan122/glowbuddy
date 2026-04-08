@@ -1,0 +1,194 @@
+import { Link } from 'react-router-dom';
+import { providerProfileUrl } from '../lib/slugify';
+
+// MultiProcedureProviderCard — one editorial card showing a single provider
+// with all the rows that matched the user's treatment preferences on the
+// personalized browse view. This is intentionally different from
+// ProcedureCard: the provider is the unit of display, and each matched
+// procedure becomes a row inside the card (brand, price, subtext).
+//
+// Props:
+//   entry         — { provider, prices, matchCount, minPrice } from
+//                   FindPrices.jsx's personalized grouping
+//   targetCount   — total number of distinct preferences the user saved
+//                   (drives the "OFFERS ALL N" / "OFFERS M OF N" badge)
+//
+// The card intentionally avoids calling into fairPriceAvgs or the full
+// normalizePrice pipeline — the goal here is a fast scannable comparison,
+// not the exhaustive per-row analytics the regular ProcedureCard provides.
+
+function formatRowLabel(row) {
+  // Brand wins when available ("BOTOX" over "neurotoxin")
+  if (row.brand) return row.brand.toUpperCase();
+  if (row.procedure_type) return row.procedure_type.toUpperCase();
+  return 'TREATMENT';
+}
+
+function formatPriceLabel(row) {
+  const unitLabel = row.price_label || row.units_or_volume || null;
+  if (!unitLabel) return null;
+  // Normalize obvious variants so the card reads "per unit" / "per syringe"
+  // rather than "per Unit" / "Per Syringe".
+  return unitLabel.toLowerCase();
+}
+
+function formatPriceDisplay(row) {
+  const n = Number(row.price);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+export default function MultiProcedureProviderCard({ entry, targetCount }) {
+  const { provider, prices, matchCount } = entry;
+
+  const badgeLabel = (() => {
+    if (!targetCount || targetCount < 2) return null;
+    if (matchCount >= targetCount) return `OFFERS ALL ${targetCount}`;
+    return `OFFERS ${matchCount} OF ${targetCount}`;
+  })();
+
+  const profileHref =
+    providerProfileUrl(provider.slug, provider.name, provider.city, provider.state) ||
+    '#';
+
+  return (
+    <div
+      className="flex flex-col"
+      style={{
+        background: '#fff',
+        border: '1px solid #EDE8E3',
+        borderTop: '3px solid #E8347A',
+        borderRadius: '8px',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Provider header */}
+      <div
+        className="flex items-start justify-between gap-3"
+        style={{ padding: '16px 18px', borderBottom: '1px solid #F0EBE6' }}
+      >
+        <div className="min-w-0">
+          <h3
+            className="truncate"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              fontSize: '16px',
+              color: '#111',
+              lineHeight: 1.2,
+            }}
+          >
+            {provider.name}
+          </h3>
+          <p
+            className="truncate mt-0.5"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 300,
+              fontSize: '12px',
+              color: '#B8A89A',
+            }}
+          >
+            {[provider.city, provider.state].filter(Boolean).join(', ')}
+          </p>
+        </div>
+        {badgeLabel && (
+          <span
+            className="shrink-0 inline-flex items-center"
+            style={{
+              background: '#F0FAF5',
+              color: '#1A7A3A',
+              padding: '4px 8px',
+              borderRadius: '2px',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 700,
+              fontSize: '9px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {badgeLabel}
+          </span>
+        )}
+      </div>
+
+      {/* Procedure rows */}
+      <div>
+        {prices.map((row, idx) => {
+          const label = formatRowLabel(row);
+          const subLabel = formatPriceLabel(row);
+          const price = formatPriceDisplay(row);
+          return (
+            <div
+              key={row.id || `${row.provider_id}-${idx}`}
+              className="flex items-center justify-between gap-3"
+              style={{
+                padding: '12px 18px',
+                borderBottom: '1px solid #F5F0EC',
+              }}
+            >
+              <div className="min-w-0">
+                <p
+                  className="truncate"
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    color: '#E8347A',
+                  }}
+                >
+                  {label}
+                </p>
+                {subLabel && (
+                  <p
+                    className="truncate mt-0.5"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '11px',
+                      color: '#B8A89A',
+                    }}
+                  >
+                    {subLabel}
+                  </p>
+                )}
+              </div>
+              <p
+                className="shrink-0"
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 900,
+                  fontSize: '22px',
+                  color: '#111',
+                  lineHeight: 1,
+                }}
+              >
+                {price}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer link */}
+      <Link
+        to={profileHref}
+        className="text-center hover:bg-cream transition-colors"
+        style={{
+          padding: '12px 18px',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+          fontSize: '12px',
+          color: '#E8347A',
+          letterSpacing: '0.04em',
+          textDecoration: 'none',
+        }}
+      >
+        View full menu &rarr;
+      </Link>
+    </div>
+  );
+}

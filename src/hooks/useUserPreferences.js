@@ -107,7 +107,34 @@ export default function useUserPreferences() {
     return procedureTags.includes(procedureType);
   }, [procedureTags]);
 
-  return { preferences, procedureTags, loading, updatePreferences, toggleProcedureTag, isInterestedIn };
+  // Browse-personalization helpers — wrap updatePreferences so callers
+  // don't have to know the underlying column names.
+  const updateProcedureSlugs = useCallback(
+    (slugs) => updatePreferences({ procedure_slugs: slugs }),
+    [updatePreferences],
+  );
+  const updateBrands = useCallback(
+    (brands) => updatePreferences({ brands }),
+    [updatePreferences],
+  );
+
+  const procedureSlugs = Array.isArray(preferences?.procedure_slugs)
+    ? preferences.procedure_slugs
+    : [];
+  const brands = Array.isArray(preferences?.brands) ? preferences.brands : [];
+
+  return {
+    preferences,
+    procedureTags,
+    procedureSlugs,
+    brands,
+    loading,
+    updatePreferences,
+    updateProcedureSlugs,
+    updateBrands,
+    toggleProcedureTag,
+    isInterestedIn,
+  };
 }
 
 // Resolve broad onboarding interests to specific procedure types

@@ -8,6 +8,10 @@ import {
   setZip as persistZip,
 } from '../lib/gating';
 import ProcedureCard from '../components/ProcedureCard';
+import BrandGroupCard from '../components/BrandGroupCard';
+import MultiProcedureProviderCard from '../components/MultiProcedureProviderCard';
+import { groupBrandRows } from '../lib/groupBrandRows';
+import useUserPreferences from '../hooks/useUserPreferences';
 import FirstTimerBadge from '../components/FirstTimerBadge';
 import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
 import FirstTimerOnboardingPrompt from '../components/FirstTimerOnboardingPrompt';
@@ -25,6 +29,7 @@ import {
   makeProcedureFilterFromCanonical,
   makeProcedureFilterFromPill,
   findPillByLabel,
+  findPillBySlug,
 } from '../lib/constants';
 import ProcedureGate from '../components/ProcedureGate';
 import { searchCitiesViaGoogle } from '../lib/places';
@@ -40,6 +45,32 @@ import { providerProfileUrl } from '../lib/slugify';
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+// sessionStorage key for the most recent /browse filter set. Only used as
+// a fallback when the user lands on /browse with no URL params (e.g.
+// they navigated away to a provider profile and clicked "Find Prices"
+// in the navbar). URL params always win when present.
+const BROWSE_FILTERS_KEY = 'glowbuddy.browseFilters.v1';
+
+function readPersistedFilters() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(BROWSE_FILTERS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedFilters(filters) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(BROWSE_FILTERS_KEY, JSON.stringify(filters));
+  } catch {
+    // sessionStorage can throw in private mode — fail silently
+  }
 }
 
 function computeTrustWeight(procedure) {
@@ -73,10 +104,27 @@ export default function FindPrices() {
   // It's null when the gate is open. The legacy `selectedProc` string is
   // derived from procFilter.primary so existing UI / first-timer logic
   // keeps working without further refactoring.
-  const [procFilter, setProcFilter] = useState(() =>
-    resolveProcedureFilter(searchParams.get('procedure'))
-  );
+  //
+  // Hydration order: URL param → persisted sessionStorage filter → null.
+  // URL always wins when present.
+  const [procFilter, setProcFilter] = useState(() => {
+    const urlSlug = searchParams.get('procedure');
+    if (urlSlug) return resolveProcedureFilter(urlSlug);
+    const persisted = readPersistedFilters();
+    if (persisted?.procedureSlug) return resolveProcedureFilter(persisted.procedureSlug);
+    return null;
+  });
   const selectedProc = procFilter?.primary || '';
+
+  // Brand filter (?brand=Botox). Independent from procFilter so "Botox
+  // only" can be toggled without changing the category pill. Only applies
+  // when procFilter is set (brand makes no sense without a parent category).
+  const [brandFilter, setBrandFilter] = useState(() => {
+    const urlBrand = searchParams.get('brand');
+    if (urlBrand) return urlBrand;
+    const persisted = readPersistedFilters();
+    return persisted?.brand || null;
+  });
   const procRef = useRef(null);
 
   // --- Location search ---
@@ -88,6 +136,12 @@ export default function FindPrices() {
     const urlCity = searchParams.get('city');
     const urlState = searchParams.get('state');
     if (urlCity && urlState) return { city: urlCity, state: urlState };
+    // Persisted filter beats raw gating city when both are present, so
+    // the user lands on the same city they were last browsing.
+    const persisted = readPersistedFilters();
+    if (persisted?.city && persisted?.state) {
+      return { city: persisted.city, state: persisted.state };
+    }
     const city = getGatingCity();
     const state = getGatingState();
     return (city && state) ? { city, state } : null;
@@ -97,7 +151,12 @@ export default function FindPrices() {
   const locDebounce = useRef(null);
 
   // Sort & extra filters
-  const [sortBy, setSortBy] = useState('most_recent');
+  const [sortBy, setSortBy] = useState(() => {
+    const urlSort = searchParams.get('sort');
+    if (urlSort) return urlSort;
+    const persisted = readPersistedFilters();
+    return persisted?.sortBy || 'most_recent';
+  });
   const [filterProviderType, setFilterProviderType] = useState('');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
@@ -111,6 +170,20 @@ export default function FindPrices() {
 
   // User's active price alerts (for AlertMatchBadge)
   const [userAlerts, setUserAlerts] = useState([]);
+
+  // --- Personalized browse (PROMPT 8) ---
+  // Logged-in users with saved procedure_slugs / brands in user_preferences
+  // bypass the ProcedureGate on /browse and see a personalized feed grouped
+  // by provider. The header + feed still respect `procFilter` / `brandFilter`
+  // when they're set — personal mode only kicks in while BOTH are null and
+  // the session hasn't dismissed it.
+  const { procedureSlugs, brands: userBrands, loading: prefsLoading } = useUserPreferences();
+  const [personalDismissed, setPersonalDismissed] = useState(false);
+  const hasSavedPrefs = procedureSlugs.length > 0 || userBrands.length > 0;
+  const personalizedMode =
+    !!user && hasSavedPrefs && !procFilter && !brandFilter && !personalDismissed;
+  const [personalProviders, setPersonalProviders] = useState([]);
+  const [personalLoading, setPersonalLoading] = useState(false);
 
   // Location personalization
   const [fallbackLabel, setFallbackLabel] = useState('');
@@ -128,14 +201,19 @@ export default function FindPrices() {
   const [selectedMapProvider, setSelectedMapProvider] = useState(null);
   const mapBoundsRef = useRef(null);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
-  const [hasPricesOnly, setHasPricesOnly] = useState(() => searchParams.get('has_prices') === '1');
+  const [hasPricesOnly, setHasPricesOnly] = useState(() => {
+    if (searchParams.get('has_prices') === '1') return true;
+    const persisted = readPersistedFilters();
+    return persisted?.hasPricesOnly === true;
+  });
 
   // ── SEO meta tags — dynamic per spec ──
   useEffect(() => {
-    // Prefer the friendly pill label ("Botox") over the canonical
-    // procedure name ("Botox / Dysport / Xeomin") so titles read naturally
-    // when crawlers / shared links resolve a category slug.
-    const procedure = procFilter?.label || selectedProc;
+    // When a brand is set, it wins over the category label so titles read
+    // "Botox prices in Miami, FL" rather than "Neurotoxin prices in Miami, FL".
+    // Prefer the friendly pill label over the canonical procedure name so
+    // titles read naturally when crawlers resolve a category slug.
+    const procedure = brandFilter || procFilter?.label || selectedProc;
     const city = selectedLoc?.city;
     const state = selectedLoc?.state;
 
@@ -144,7 +222,11 @@ export default function FindPrices() {
 
     if (procedure && city) {
       title = `${capitalize(procedure)} prices in ${city}, ${state} | GlowBuddy`;
-      desc = `See what patients actually paid for ${procedure} in ${city}, ${state}. Real prices from verified patients. Know before you glow. Free on GlowBuddy.`;
+      if (!brandFilter && procFilter?.slug === 'neurotoxin') {
+        desc = `Compare Botox, Dysport, and Xeomin prices from med spas in ${city}, ${state}. Real prices from verified patients. Know before you glow.`;
+      } else {
+        desc = `See what patients actually paid for ${procedure} in ${city}, ${state}. Real prices from verified patients. Know before you glow. Free on GlowBuddy.`;
+      }
     } else if (city) {
       title = `Med spa prices in ${city}, ${state} | GlowBuddy`;
       desc = `Compare real patient-reported prices for Botox, fillers, and more in ${city}, ${state}. Know before you glow.`;
@@ -159,30 +241,47 @@ export default function FindPrices() {
     document.title = title;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', desc);
-  }, [procFilter, selectedLoc]);
+  }, [procFilter, brandFilter, selectedLoc]);
 
-  // Sync filters to URL params (SEO-friendly)
+  // Sync filters to URL params (SEO-friendly) AND persist to sessionStorage
+  // so the user can navigate to a provider profile and click "Find Prices"
+  // again without losing their filters.
   useEffect(() => {
     const params = {};
     if (procFilter) params.procedure = procFilter.slug;
+    if (brandFilter) params.brand = brandFilter;
     if (selectedLoc?.city) params.city = selectedLoc.city;
     if (selectedLoc?.state) params.state = selectedLoc.state;
     if (sortBy !== 'most_verified') params.sort = sortBy;
     if (hasPricesOnly) params.has_prices = '1';
     setSearchParams(params, { replace: true });
-  }, [procFilter, selectedLoc, sortBy, hasPricesOnly]);
+
+    writePersistedFilters({
+      procedureSlug: procFilter?.slug || null,
+      brand: brandFilter || null,
+      city: selectedLoc?.city || null,
+      state: selectedLoc?.state || null,
+      sortBy,
+      hasPricesOnly,
+    });
+  }, [procFilter, brandFilter, selectedLoc, sortBy, hasPricesOnly]);
 
   // Fetch user's active price alerts for match badges
   useEffect(() => {
     getUserActiveAlerts().then(setUserAlerts);
   }, []);
 
-  // Restore procFilter from URL on back/forward navigation
+  // Restore procFilter + brandFilter from URL on back/forward navigation
   useEffect(() => {
     const urlSlug = searchParams.get('procedure') || '';
     const currentSlug = procFilter?.slug || '';
     if (urlSlug !== currentSlug) {
       setProcFilter(resolveProcedureFilter(urlSlug));
+    }
+    const urlBrand = searchParams.get('brand') || '';
+    const currentBrand = brandFilter || '';
+    if (urlBrand !== currentBrand) {
+      setBrandFilter(urlBrand || null);
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -224,6 +323,7 @@ export default function FindPrices() {
 
   function clearProcedure() {
     setProcFilter(null);
+    setBrandFilter(null);
     setProcQuery('');
   }
 
@@ -377,6 +477,13 @@ export default function FindPrices() {
     }
 
     async function fetchProcedureRows(filters) {
+      // When a brand filter is active we cannot honor it against the
+      // `procedures` table because it has no brand column — the brand
+      // info for patient-reported submissions is either embedded in
+      // procedure_type as free text or missing entirely. Skip this
+      // source so the result set only contains brand-accurate rows
+      // from provider_pricing.
+      if (brandFilter) return [];
       const query = buildProcedureQuery(filters)
         .order('created_at', { ascending: false })
         .limit(40);
@@ -399,9 +506,10 @@ export default function FindPrices() {
       let query = supabase
         .from('provider_pricing')
         .select(
-          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type)'
+          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type, owner_user_id, active_special, special_expires_at)'
         )
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('display_suppressed', false);
 
       if (state) query = query.eq('providers.state', state);
       if (city) query = query.ilike('providers.city', `%${city}%`);
@@ -411,6 +519,11 @@ export default function FindPrices() {
         const token = fuzzyProcedureToken(filterProcedureType);
         if (token) query = query.ilike('procedure_type', `%${token}%`);
       }
+      // Brand filter — strict equality against provider_pricing.brand.
+      // provider_pricing is the only source with a brand column; the
+      // procedures table can't honor this filter (see note in
+      // fetchProcedureRows).
+      if (brandFilter) query = query.eq('brand', brandFilter);
       if (filterProviderType) query = query.eq('providers.provider_type', filterProviderType);
       if (priceMin) query = query.gte('price', parseInt(priceMin, 10));
       if (priceMax) query = query.lte('price', parseInt(priceMax, 10));
@@ -464,6 +577,9 @@ export default function FindPrices() {
           is_anonymous: false,
           provider_slug: provider.slug || null,
           provider_id: row.provider_id,
+          active_special: provider.active_special || null,
+          special_expires_at: provider.special_expires_at || null,
+          is_claimed: !!provider.owner_user_id,
           // Defense in depth: never pipe scraped notes into the consumer card.
           // Notes from scraped rows can only have come from internal classifier
           // diagnostics — they are never genuine provider copy.
@@ -473,8 +589,6 @@ export default function FindPrices() {
           normalized_display: normalized.displayPrice,
           normalized_compare_value: normalized.comparableValue,
           normalized_compare_unit: normalized.compareUnit,
-          normalized_is_estimate: normalized.isEstimate,
-          normalized_tooltip: normalized.tooltip,
           // Internals used by the merge sort, prefixed _ so they're clearly
           // not part of the procedures schema.
           _verified: row.verified === true,
@@ -548,6 +662,34 @@ export default function FindPrices() {
       return mergeAndSort(proc, prov);
     }
 
+    // Patient-reported rows come from `procedures` which has no join to
+    // `providers`, so after a result set is assembled we look up provider
+    // specials + claim-state in a single batched query and splice them in.
+    async function attachProviderSpecials(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) return rows;
+      const providerIds = Array.from(
+        new Set(rows.map((r) => r.provider_id).filter(Boolean)),
+      );
+      if (providerIds.length === 0) return rows;
+      const { data, error } = await supabase
+        .from('providers')
+        .select('id, active_special, special_expires_at, owner_user_id')
+        .in('id', providerIds);
+      if (error || !data) return rows;
+      const byId = new Map(data.map((p) => [p.id, p]));
+      return rows.map((r) => {
+        if (r.active_special !== undefined) return r; // already set from the join
+        const p = byId.get(r.provider_id);
+        if (!p) return r;
+        return {
+          ...r,
+          active_special: p.active_special || null,
+          special_expires_at: p.special_expires_at || null,
+          is_claimed: !!p.owner_user_id,
+        };
+      });
+    }
+
     async function fetchProcedures() {
       // Gate: if no procedure has been picked yet, don't fetch anything —
       // the UI shows the ProcedureGate prompt instead. This avoids
@@ -583,7 +725,8 @@ export default function FindPrices() {
           let q = supabase
             .from('provider_pricing')
             .select('id', { count: 'exact', head: true })
-            .eq('is_active', true);
+            .eq('is_active', true)
+            .eq('display_suppressed', false);
           if (filterFuzzyToken) {
             q = q.ilike('procedure_type', `%${filterFuzzyToken}%`);
           }
@@ -637,13 +780,15 @@ export default function FindPrices() {
         }
       }
 
-      setProcedures(results);
+      const resultsWithSpecials = await attachProviderSpecials(results);
+      setProcedures(resultsWithSpecials);
       setLoadingProcedures(false);
     }
 
     fetchProcedures();
   }, [
     procFilter,
+    brandFilter,
     filterState,
     filterCity,
     filterZip,
@@ -653,6 +798,117 @@ export default function FindPrices() {
     priceMax,
     minRating,
   ]);
+
+  // ── Personalized fetch: multi-procedure grouped-by-provider ──
+  // Runs when the user is in personalizedMode (logged in + has saved prefs
+  // + no explicit procFilter/brandFilter). Queries provider_pricing with
+  // an .or() across the user's preferred pill tokens and specific brands,
+  // then groups the result by provider_id and sorts by match count then
+  // lowest price (PROMPT 8 STEP 4).
+  useEffect(() => {
+    if (!personalizedMode) {
+      setPersonalProviders([]);
+      setPersonalLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPersonalLoading(true);
+
+    async function runPersonalFetch() {
+      const pillTokens = procedureSlugs
+        .map((slug) => findPillBySlug(slug))
+        .filter(Boolean)
+        .map((p) => p.fuzzyToken)
+        .filter(Boolean);
+
+      const orClauses = [];
+      for (const token of pillTokens) {
+        orClauses.push(`procedure_type.ilike.%${token}%`);
+      }
+      for (const brand of userBrands) {
+        orClauses.push(`brand.eq.${brand}`);
+      }
+      if (orClauses.length === 0) {
+        if (!cancelled) {
+          setPersonalProviders([]);
+          setPersonalLoading(false);
+        }
+        return;
+      }
+
+      let query = supabase
+        .from('provider_pricing')
+        .select(
+          'id, provider_id, procedure_type, brand, price, price_label, units_or_volume, treatment_area, source, verified, scraped_at, created_at, providers!inner(id, name, slug, city, state, provider_type, is_active, active_special, special_expires_at)',
+        )
+        .eq('is_active', true)
+        .eq('display_suppressed', false)
+        .eq('providers.is_active', true);
+
+      if (filterState) query = query.eq('providers.state', filterState);
+      if (filterCity) query = query.ilike('providers.city', `%${filterCity}%`);
+      query = query.or(orClauses.join(','));
+      query = query.order('price', { ascending: true }).limit(200);
+
+      const { data, error } = await query;
+      if (cancelled) return;
+      if (error) {
+        console.warn('personal fetch failed:', error.message);
+        setPersonalProviders([]);
+        setPersonalLoading(false);
+        return;
+      }
+
+      const byProvider = new Map();
+      for (const row of data || []) {
+        const provider = row.providers;
+        if (!provider) continue;
+        const pid = provider.id;
+        if (!byProvider.has(pid)) {
+          byProvider.set(pid, { provider, prices: [] });
+        }
+        byProvider.get(pid).prices.push(row);
+      }
+
+      const targetCount = new Set([...procedureSlugs, ...userBrands]).size;
+
+      const grouped = [...byProvider.values()].map((g) => {
+        const matched = new Set();
+        for (const row of g.prices) {
+          if (row.brand && userBrands.includes(row.brand)) {
+            matched.add(`brand:${row.brand}`);
+          }
+          const pt = (row.procedure_type || '').toLowerCase();
+          for (const slug of procedureSlugs) {
+            const pill = findPillBySlug(slug);
+            if (pill?.fuzzyToken && pt.includes(pill.fuzzyToken)) {
+              matched.add(`slug:${slug}`);
+            }
+          }
+        }
+        const minPrice = Math.min(
+          ...g.prices.map((p) => Number(p.price) || Infinity),
+        );
+        return { ...g, matchCount: matched.size, minPrice, targetCount };
+      });
+
+      grouped.sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+        return a.minPrice - b.minPrice;
+      });
+
+      if (!cancelled) {
+        setPersonalProviders(grouped.slice(0, 30));
+        setPersonalLoading(false);
+      }
+    }
+
+    runPersonalFetch();
+    return () => {
+      cancelled = true;
+    };
+  }, [personalizedMode, procedureSlugs, userBrands, filterCity, filterState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch fair price averages for comparison ─���
   useEffect(() => {
@@ -970,8 +1226,8 @@ export default function FindPrices() {
               >
                 <Search size={15} className="shrink-0 text-text-secondary" />
                 <span className="truncate">
-                  {procFilter?.label || selectedLoc
-                    ? [procFilter?.label, selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : ''].filter(Boolean).join(' \u00B7 ')
+                  {procFilter?.label || brandFilter || selectedLoc
+                    ? [brandFilter || procFilter?.label, selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : ''].filter(Boolean).join(' \u00B7 ')
                     : 'Search treatments & location'}
                 </span>
               </button>
@@ -1518,8 +1774,133 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Editorial cream hero header — when procedure selected OR location set */}
-      {!(IS_MOBILE && viewMode === 'map') && (procFilter || selectedLoc) && (
+      {/* Personalized hero header — shown for logged-in users with saved
+          treatment preferences, when they haven't picked a specific
+          procedure/brand yet. Replaces the gate entirely. */}
+      {!(IS_MOBILE && viewMode === 'map') && personalizedMode && (
+        <div className="bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+            <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
+              {(() => {
+                const loc = selectedLoc
+                  ? `${selectedLoc.city}, ${selectedLoc.state}`
+                  : null;
+                return loc ? `Your treatments · ${loc}` : 'Your treatments';
+              })()}
+            </p>
+            <h1
+              className="font-display text-ink"
+              style={{ fontWeight: 900, fontSize: 'clamp(28px, 5vw, 48px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}
+            >
+              {(() => {
+                const pillLabels = procedureSlugs
+                  .map((s) => findPillBySlug(s)?.label)
+                  .filter(Boolean);
+                const parts = [...userBrands, ...pillLabels];
+                const unique = [...new Set(parts)];
+                const joined =
+                  unique.length === 0
+                    ? 'Your treatments'
+                    : unique.length === 1
+                    ? unique[0]
+                    : unique.length === 2
+                    ? `${unique[0]} & ${unique[1]}`
+                    : `${unique.slice(0, -1).join(', ')} & ${unique[unique.length - 1]}`;
+                const loc = selectedLoc
+                  ? ` in ${selectedLoc.city}, ${selectedLoc.state}`
+                  : '';
+                return `${joined} prices${loc}.`;
+              })()}
+            </h1>
+
+            {/* Active filter pills — removable per-session */}
+            <div className="mt-5 flex items-center gap-2 flex-wrap">
+              {procedureSlugs.map((slug) => {
+                const pill = findPillBySlug(slug);
+                if (!pill) return null;
+                return (
+                  <button
+                    key={`slug-${slug}`}
+                    type="button"
+                    onClick={() => {
+                      // Session-only: pick this pill as the explicit filter
+                      // so the user can drill in without touching saved prefs.
+                      setProcFilter(makeProcedureFilterFromPill(pill));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white transition-colors"
+                    style={{
+                      letterSpacing: '0.08em',
+                      borderRadius: '4px',
+                      background: '#E8347A',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                    title={`Drill into ${pill.label}`}
+                  >
+                    {pill.label.toUpperCase()}
+                  </button>
+                );
+              })}
+              {userBrands.map((brand) => (
+                <button
+                  key={`brand-${brand}`}
+                  type="button"
+                  onClick={() => setBrandFilter(brand)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white transition-colors"
+                  style={{
+                    letterSpacing: '0.08em',
+                    borderRadius: '4px',
+                    background: '#E8347A',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  title={`Drill into ${brand}`}
+                >
+                  {brand.toUpperCase()}
+                </button>
+              ))}
+              <Link
+                to="/settings#treatment-preferences"
+                className="inline-flex items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase transition-colors"
+                style={{
+                  letterSpacing: '0.08em',
+                  borderRadius: '4px',
+                  border: '1px solid #DDD',
+                  background: 'transparent',
+                  color: '#888',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                + Add
+              </Link>
+            </div>
+
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <Link
+                to="/settings#treatment-preferences"
+                className="text-[11px] font-medium hover:opacity-70 transition-opacity"
+                style={{
+                  color: '#E8347A',
+                  fontFamily: 'var(--font-body)',
+                  borderBottom: '1px solid #E8347A',
+                  paddingBottom: '1px',
+                }}
+              >
+                Edit treatment preferences &rarr;
+              </Link>
+              <button
+                type="button"
+                onClick={() => setPersonalDismissed(true)}
+                className="text-[11px] font-medium text-text-secondary hover:text-ink transition-colors"
+                style={{ fontFamily: 'var(--font-body)' }}
+              >
+                Browse all treatments
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editorial cream hero header — when procedure/brand selected OR location set */}
+      {!(IS_MOBILE && viewMode === 'map') && !personalizedMode && (procFilter || brandFilter || selectedLoc) && (
         <div className="bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
             <p className="editorial-kicker mb-3">
@@ -1530,7 +1911,10 @@ export default function FindPrices() {
               style={{ fontWeight: 900, fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1, letterSpacing: '-0.02em' }}
             >
               {(() => {
-                const label = procFilter?.label || 'Treatment';
+                // Brand wins over generic category label when set — e.g. when
+                // the user clicks a "Dysport" pill we want "Dysport prices"
+                // not "Botox prices" (the neurotoxin category label).
+                const label = brandFilter || procFilter?.label || 'Treatment';
                 const loc = selectedLoc && !fallbackScope
                   ? `${selectedLoc.city}, ${selectedLoc.state}`
                   : null;
@@ -1539,11 +1923,43 @@ export default function FindPrices() {
                   : `${label} prices.`;
               })()}
             </h1>
-            {!loadingProcedures && procFilter && (
+            {/* Neurotoxin subhead — shown only when on the generic category
+                (no brand selected) to make the multi-brand nature explicit. */}
+            {!brandFilter && procFilter?.slug === 'neurotoxin' && (
+              <p
+                className="italic text-text-secondary mt-2"
+                style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px' }}
+              >
+                Comparing Botox, Dysport, Xeomin, Jeuveau, and Daxxify.
+              </p>
+            )}
+            {/* Active brand chip — removable */}
+            {brandFilter && (
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setBrandFilter(null)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white"
+                  style={{
+                    letterSpacing: '0.08em',
+                    borderRadius: '4px',
+                    background: '#E8347A',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  title={`Remove ${brandFilter} filter`}
+                >
+                  {brandFilter}
+                  <X size={12} strokeWidth={3} />
+                </button>
+              </div>
+            )}
+            {!loadingProcedures && (procFilter || brandFilter) && (
               <p className="font-body font-light text-text-secondary mt-4 text-[15px]">
-                {procedures.length}{hasPricesOnly ? ' provider' : ' result'}{procedures.length !== 1 ? 's' : ''}
+                {procedures.length}
+                {brandFilter ? ` ${brandFilter}` : ''}
+                {hasPricesOnly ? ' provider' : ' price'}{procedures.length !== 1 ? 's' : ''}
                 {hasPricesOnly ? ' with verified prices' : ''}
-                {totalCount > 0 && !hasActiveFilters && ` · of ${totalCount.toLocaleString()} total`}
+                {totalCount > 0 && !hasActiveFilters && !brandFilter && ` · of ${totalCount.toLocaleString()} total`}
               </p>
             )}
           </div>
@@ -1552,8 +1968,41 @@ export default function FindPrices() {
 
       {/* Results area */}
       <div className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}>
+        {/* "Save your preferences" banner — logged-in users with no saved
+            preferences yet. Shown alongside the gate, not replacing it. */}
+        {!(IS_MOBILE && viewMode === 'map') && user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && (
+          <div
+            className="mb-6 flex items-center justify-between gap-3"
+            style={{
+              background: '#FBF9F7',
+              borderLeft: '3px solid #E8347A',
+              borderRadius: 0,
+              padding: '12px 18px',
+            }}
+          >
+            <p
+              className="text-[13px] text-ink"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 400 }}
+            >
+              Save your treatment preferences to skip this step next time.
+            </p>
+            <Link
+              to="/settings#treatment-preferences"
+              className="shrink-0 text-[10px] font-semibold uppercase transition-opacity hover:opacity-80"
+              style={{
+                color: '#E8347A',
+                letterSpacing: '0.10em',
+                borderBottom: '1px solid #E8347A',
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              Set preferences &rarr;
+            </Link>
+          </div>
+        )}
+
         {/* Editorial gate state — no procedure picked */}
-        {!(IS_MOBILE && viewMode === 'map') && !procFilter && !selectedLoc && (
+        {!(IS_MOBILE && viewMode === 'map') && !personalizedMode && !procFilter && !brandFilter && !selectedLoc && (
           <div className="text-center py-12 mb-6">
             <p className="editorial-kicker mb-4">Med spa price transparency</p>
             <h1
@@ -1569,17 +2018,23 @@ export default function FindPrices() {
           </div>
         )}
 
-        {/* First-Timer Mode Banner — hidden in map view */}
+        {/* First-Timer Mode Banner — hidden in map view. The banner is
+            gated on firstTimerActive (user opted in) AND on there being a
+            procedure in the URL; it reads the procedure/brand directly
+            from state (which mirrors the URL) so it always matches what
+            the user is actually browsing, not a stale onboarding pick. */}
         {viewMode !== 'map' && firstTimerActive && (
           <FirstTimerModeBanner
+            procedure={procFilter?.slug || null}
+            brand={brandFilter}
             onOpenGuide={() => {
-              const treatments = getFirstTimerTreatments();
-              setGuideSheetTreatment(treatments[0] || selectedProc);
+              setGuideSheetTreatment(selectedProc || procFilter?.label || '');
               setShowGuideSheet(true);
             }}
             onDeactivate={() => {
-              persistFirstTimerMode(false);
-              setFirstTimerActive(false);
+              // Per-procedure dismissal is handled internally; we keep
+              // firstTimerActive on so the banner reappears for other
+              // procedures the user browses.
             }}
           />
         )}
@@ -1654,8 +2109,10 @@ export default function FindPrices() {
               hasPricesOnly={hasPricesOnly}
             />
 
-            {/* Procedure gate overlay — shown until the user picks a treatment */}
-            {!procFilter && (
+            {/* Procedure gate overlay — shown until the user picks a treatment
+                (hidden in personalizedMode since the user's saved prefs drive
+                what's displayed) */}
+            {!procFilter && !personalizedMode && (
               <ProcedureGate
                 variant="overlay"
                 onSelect={selectPill}
@@ -1761,7 +2218,42 @@ export default function FindPrices() {
         {/* List view */}
         {viewMode === 'list' && (
           <>
-            {!procFilter ? (
+            {personalizedMode ? (
+              personalLoading ? (
+                <SkeletonGrid count={6} />
+              ) : personalProviders.length === 0 ? (
+                <div className="text-center py-12">
+                  <p
+                    className="font-display text-ink mb-2"
+                    style={{ fontWeight: 700, fontSize: '20px' }}
+                  >
+                    No matches for your treatments{selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''} yet.
+                  </p>
+                  <p className="text-[13px] text-text-secondary font-light" style={{ fontFamily: 'var(--font-body)' }}>
+                    Try a different city, or{' '}
+                    <button
+                      type="button"
+                      onClick={() => setPersonalDismissed(true)}
+                      className="underline hover:opacity-80"
+                      style={{ color: '#E8347A' }}
+                    >
+                      browse all treatments
+                    </button>
+                    .
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {personalProviders.map((entry) => (
+                    <MultiProcedureProviderCard
+                      key={entry.provider.id}
+                      entry={entry}
+                      targetCount={entry.targetCount}
+                    />
+                  ))}
+                </div>
+              )
+            ) : !procFilter ? (
               <div className="py-8">
                 <ProcedureGate variant="block" onSelect={selectPill} />
               </div>
@@ -1769,7 +2261,11 @@ export default function FindPrices() {
               <SkeletonGrid count={6} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {procedures.map((proc) => {
+                {groupBrandRows(procedures).map((entry) => {
+                  if (entry.kind === 'group') {
+                    return <BrandGroupCard key={entry.key} group={entry} />;
+                  }
+                  const proc = entry.row;
                   const indicator = getFairPriceIndicator(proc);
                   return (
                     <div key={proc.id}>

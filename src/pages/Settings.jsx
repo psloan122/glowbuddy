@@ -4,8 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { AuthContext } from '../App';
-import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES } from '../lib/constants';
+import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES, PROCEDURE_PILLS } from '../lib/constants';
 import useUserPreferences from '../hooks/useUserPreferences';
+
+// Brand chips surfaced under Treatment Preferences so users can opt into
+// specific brands (Botox vs Dysport) alongside the category pill. These
+// match provider_pricing.brand values exactly.
+const BRAND_OPTIONS = [
+  { category: 'Neurotoxins', brands: ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify'] },
+  { category: 'Fillers',     brands: ['Juvederm', 'Restylane', 'Sculptra', 'Radiesse'] },
+];
 
 const BUDGET_RANGES = [
   { label: 'Under $250', min: 0, max: 250 },
@@ -58,9 +66,36 @@ export default function Settings() {
   const {
     preferences: userPrefs,
     procedureTags,
+    procedureSlugs,
+    brands: selectedBrands,
     updatePreferences,
+    updateProcedureSlugs,
+    updateBrands,
     toggleProcedureTag,
   } = useUserPreferences();
+
+  const toggleProcedureSlug = (slug) => {
+    const next = procedureSlugs.includes(slug)
+      ? procedureSlugs.filter((s) => s !== slug)
+      : [...procedureSlugs, slug];
+    updateProcedureSlugs(next);
+  };
+
+  const toggleBrand = (brand) => {
+    const next = selectedBrands.includes(brand)
+      ? selectedBrands.filter((b) => b !== brand)
+      : [...selectedBrands, brand];
+    updateBrands(next);
+  };
+
+  // Scroll to the #treatment-preferences hash when landing from the browse
+  // banner "Edit treatment preferences →" link.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#treatment-preferences') return;
+    const el = document.getElementById('treatment-preferences');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   useEffect(() => {
     document.title = 'Settings | GlowBuddy';
@@ -190,14 +225,83 @@ export default function Settings() {
       </div>
 
       {/* Treatment Preferences */}
-      <div className="glow-card p-6 mt-6">
+      <div id="treatment-preferences" className="glow-card p-6 mt-6 scroll-mt-20">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles size={18} className="text-rose-accent" />
           <h2 className="text-lg font-bold text-text-primary">Treatment Preferences</h2>
         </div>
         <p className="text-sm text-text-secondary mb-5">
-          Personalize what you see across GlowBuddy.
+          Personalize what you see across GlowBuddy. Your picks drive the Browse page so you can skip the gate and jump straight to your treatments.
         </p>
+
+        {/* Treatments I get — drives personalized browse */}
+        <div className="mb-5">
+          <p className="text-sm font-medium text-text-primary mb-2">Treatments I get</p>
+          <div className="flex flex-wrap gap-2">
+            {PROCEDURE_PILLS.filter((p) => p.isPrimary).map((pill) => {
+              const isActive = procedureSlugs.includes(pill.slug);
+              return (
+                <button
+                  key={pill.slug}
+                  onClick={() => toggleProcedureSlug(pill.slug)}
+                  className="inline-flex items-center transition-colors"
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '2px',
+                    border: `1px solid ${isActive ? '#E8347A' : '#DDD'}`,
+                    background: isActive ? '#E8347A' : 'transparent',
+                    color: isActive ? '#fff' : '#888',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Brand-specific chips — neurotoxins & fillers */}
+        <div className="mb-5">
+          <p className="text-sm font-medium text-text-primary mb-2">Specific brands</p>
+          <div className="space-y-3">
+            {BRAND_OPTIONS.map(({ category, brands }) => (
+              <div key={category}>
+                <p className="text-[10px] font-semibold uppercase text-text-secondary mb-1.5" style={{ letterSpacing: '0.08em' }}>
+                  {category}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {brands.map((brand) => {
+                    const isActive = selectedBrands.includes(brand);
+                    return (
+                      <button
+                        key={brand}
+                        onClick={() => toggleBrand(brand)}
+                        className="inline-flex items-center transition-colors"
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '2px',
+                          border: `1px solid ${isActive ? '#E8347A' : '#DDD'}`,
+                          background: isActive ? '#E8347A' : 'transparent',
+                          color: isActive ? '#fff' : '#888',
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 500,
+                          fontSize: '11px',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
+                        {brand}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Interest toggles */}
         <div className="mb-5">
