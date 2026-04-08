@@ -6,6 +6,7 @@ import { AuthContext } from '../App';
 import { fetchBenchmark } from '../lib/priceBenchmark';
 import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES } from '../lib/constants';
 import { searchCitiesViaGoogle } from '../lib/places';
+import { lookupZip } from '../lib/zipLookup';
 import SavingsShareCard from './SavingsShareCard';
 
 const TYPICAL_UNITS = {
@@ -255,22 +256,20 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
     const trimmed = q.trim();
     if (!trimmed) { setCityResults([]); return; }
 
-    // Zip code path
+    // Zip code path. Uses the centralized resolver so EVERY US zip
+    // works — zippopotam first, Google Geocoding fallback for the long
+    // tail (new zips, IRS PO box zips, rural-route consolidations).
+    // persist:false so search-as-you-type doesn't overwrite the user's
+    // saved location until they pick a result.
     if (/^\d{5}$/.test(trimmed)) {
       setCityLoading(true);
       try {
-        const res = await fetch(`https://api.zippopotam.us/us/${trimmed}`);
-        if (res.ok) {
-          const data = await res.json();
-          const place = data.places?.[0];
-          if (place) {
-            setCityResults([{
-              city: place['place name'],
-              state: place['state abbreviation'],
-            }]);
-          } else {
-            setCityResults([]);
-          }
+        const result = await lookupZip(trimmed, { persist: false });
+        if (result) {
+          setCityResults([{
+            city: result.city,
+            state: result.state,
+          }]);
         } else {
           setCityResults([]);
         }

@@ -49,6 +49,7 @@ import {
 import ProcedureGate from '../components/ProcedureGate';
 import GateLeftPanel from '../components/browse/GateLeftPanel';
 import { searchCitiesViaGoogle } from '../lib/places';
+import { lookupZip } from '../lib/zipLookup';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
@@ -524,19 +525,18 @@ export default function FindPrices() {
     if (/^\d{5}$/.test(trimmed)) {
       setLocLoading(true);
       try {
-        const res = await fetch(`https://api.zippopotam.us/us/${trimmed}`);
-        if (res.ok) {
-          const data = await res.json();
-          const place = data.places?.[0];
-          if (place) {
-            setLocResults([{
-              city: place['place name'],
-              state: place['state abbreviation'],
-              zip: trimmed,
-            }]);
-          } else {
-            setLocResults([]);
-          }
+        // Centralized zipcode resolver — falls through from zippopotam
+        // to Google Geocoding so EVERY US zip resolves, not just the
+        // ones zippopotam happens to know. Pass persist:false because
+        // this is search-as-you-type — the user hasn't committed to
+        // anything yet and a typo shouldn't overwrite their saved zip.
+        const result = await lookupZip(trimmed, { persist: false });
+        if (result) {
+          setLocResults([{
+            city: result.city,
+            state: result.state,
+            zip: result.zip,
+          }]);
         } else {
           setLocResults([]);
         }
