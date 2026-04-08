@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { buildBrowseUrl } from '../lib/urlParams';
 import {
   CheckCircle,
   ExternalLink,
@@ -153,7 +154,8 @@ export default function ProviderProfile() {
             supabase
               .from('provider_pricing')
               .select('id, provider_id, procedure_type, brand, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at')
-              .eq('provider_id', finalProvider.id),
+              .eq('provider_id', finalProvider.id)
+              .eq('display_suppressed', false),
             supabase
               .from('specials')
               .select('id, provider_id, title, description, procedure_type, discount_type, discount_value, original_price, is_active, expires_at, created_at')
@@ -566,11 +568,28 @@ export default function ProviderProfile() {
     `&state=${encodeURIComponent(providerState || '')}` +
     (googleData?.placeId ? `&place_id=${encodeURIComponent(googleData.placeId)}` : '');
 
+  // Back-to-results link — carries the provider's city through to /browse
+  // so the user lands back on their city's results, and FindPrices will
+  // also rehydrate any prior filters from sessionStorage.
+  const backToBrowseHref = buildBrowseUrl({
+    city: providerCity || undefined,
+    state: providerState || undefined,
+  });
+
   return (
     <div className="bg-cream min-h-screen page-enter">
       {/* 1. Provider Header — editorial white masthead */}
       <div className="bg-white" style={{ borderBottom: '3px solid #E8347A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+          {/* Back to /browse — preserves city and any persisted filters */}
+          <Link
+            to={backToBrowseHref}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-text-secondary hover:text-hot-pink mb-6 transition-colors"
+            style={{ letterSpacing: '0.10em' }}
+          >
+            <ChevronUp size={12} className="rotate-[-90deg]" />
+            {providerCity ? `Back to ${providerCity} prices` : 'Back to all prices'}
+          </Link>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             <div className="flex items-start gap-5 min-w-0 flex-1">
               <ProviderAvatar name={providerName} size={72} />

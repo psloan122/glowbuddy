@@ -14,7 +14,8 @@ import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
 import DisputeButton from './DisputeButton';
 import { getGuideUrl } from '../lib/guideMapping';
-import { inferNeurotoxinBrand, parseUnitsFromText } from '../lib/priceUtils';
+import { inferNeurotoxinBrand } from '../lib/priceUtils';
+import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
 
 export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
@@ -36,21 +37,13 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
   const wrapperProps = profileUrl ? { to: profileUrl } : {};
 
   // Per-unit equivalent used for brand inference on neurotoxin cards.
-  const perUnitForBrand = (() => {
-    if (
-      procedure.normalized_compare_value &&
-      procedure.normalized_compare_unit === 'per unit'
-    ) {
-      return Number(procedure.normalized_compare_value);
-    }
-    if (procedure.units_or_volume && procedure.price_paid) {
-      const parsed = parseUnitsFromText(procedure.units_or_volume);
-      if (parsed && parsed.kind === 'unit' && parsed.count > 0) {
-        return Math.round((Number(procedure.price_paid) / parsed.count) * 100) / 100;
-      }
-    }
-    return null;
-  })();
+  // Only trusts the pre-normalized per-unit value that came from the query
+  // layer — no more freeform units_or_volume parsing.
+  const perUnitForBrand =
+    procedure.normalized_compare_value &&
+    procedure.normalized_compare_unit === 'per unit'
+      ? Number(procedure.normalized_compare_value)
+      : null;
   const brandInfo = inferNeurotoxinBrand({
     procedureType: procedure.procedure_type,
     brand: procedure.brand || null,
@@ -62,6 +55,13 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
       {...wrapperProps}
       className="group block glow-card p-5 hover:no-underline"
     >
+      {/* Active special banner — shown at top when provider has an
+          unexpired active_special set. */}
+      <SpecialBanner
+        text={procedure.active_special}
+        expiresAt={procedure.special_expires_at}
+      />
+
       {/* Kicker — procedure type as tracked uppercase label */}
       <p className="editorial-kicker mb-2">
         {procedure.procedure_type}
@@ -110,6 +110,44 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           </span>
         )}
       </div>
+
+      {/* Brand-specific equivalency/longevity notes.
+          Dysport  — show calculated Botox-equivalent unit price (2.5× more
+                     Dysport units needed to match 1u of Botox).
+          Daxxify  — longevity note (6+ months vs 3–4 for Botox).
+          Xeomin / Jeuveau are 1:1 with Botox — no note needed. */}
+      {procedure.brand && procedure.brand.toLowerCase() === 'dysport' && (
+        <p
+          className="italic mb-3"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: '11px',
+            color: '#B8A89A',
+            lineHeight: 1.4,
+          }}
+          title="Dysport requires approximately 2.5× more units than Botox for equivalent effect"
+        >
+          {perUnitForBrand
+            ? `\u2248 $${(perUnitForBrand * 2.5).toFixed(2)} Botox equivalent (2.5\u00D7 units)`
+            : 'Dysport units \u2260 Botox units. Typically 2.5\u00D7 more units needed.'}
+        </p>
+      )}
+      {procedure.brand && procedure.brand.toLowerCase() === 'daxxify' && (
+        <p
+          className="italic mb-3"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: '11px',
+            color: '#B8A89A',
+            lineHeight: 1.4,
+          }}
+          title="Daxxify is formulated to last longer than traditional neurotoxins"
+        >
+          Lasts 6+ months vs 3&ndash;4 for Botox.
+        </p>
+      )}
 
       {firstTimerActive && isFirstTimerFor(procedure.procedure_type) && (
         <div className="mb-2">
@@ -345,6 +383,11 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           )}
         </div>
       </div>
+
+      {/* Upgrade slot — shown only on unclaimed cards with no active
+          special, nudging the provider to claim their listing. */}
+      {!hasActiveSpecial(procedure.active_special, procedure.special_expires_at) &&
+        procedure.is_claimed === false && <SpecialUpgradeSlot />}
 
       {/* Provider response (collapsible) */}
       {procedure.provider_response && (

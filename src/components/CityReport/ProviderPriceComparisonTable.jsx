@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Globe, AlertTriangle, ExternalLink, TrendingDown, TrendingUp } from 'lucide-react';
 import { providerProfileUrl } from '../../lib/slugify';
-import PriceTooltip from '../PriceTooltip';
 
 const STALE_DAYS = 90;
 
@@ -64,16 +63,6 @@ function fmtCompare(value) {
   return `$${value.toFixed(2)}`;
 }
 
-function hasMixed(rows) {
-  if (!rows || rows.length < 2) return false;
-  const cats = new Set();
-  for (const r of rows) {
-    cats.add(r.compareUnit || 'unknown');
-    if (cats.size > 1) return true;
-  }
-  return false;
-}
-
 export default function ProviderPriceComparisonTable({ rows, cityAvg }) {
   if (!rows || rows.length === 0) {
     return (
@@ -83,19 +72,8 @@ export default function ProviderPriceComparisonTable({ rows, cityAvg }) {
     );
   }
 
-  const showMixedNotice = hasMixed(rows);
-
   return (
     <div className="glow-card overflow-hidden">
-      {showMixedNotice && (
-        <div className="flex items-start gap-2 px-4 py-2.5 border-b border-gray-100 bg-amber-50/50 text-[12px] text-amber-900">
-          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-          <p className="leading-snug">
-            Prices shown as listed. Per-unit estimates calculated from standard
-            treatment areas where possible. Always confirm pricing before booking.
-          </p>
-        </div>
-      )}
       {cityAvg ? (
         <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/60 text-xs text-text-secondary">
           City average:{' '}
@@ -121,12 +99,8 @@ export default function ProviderPriceComparisonTable({ rows, cityAvg }) {
                 row.providerCity,
                 row.providerState,
               );
-              const showTooltip =
-                row.isEstimate || row.category === 'flat_area' || row.category === 'flat_treatment';
               const perUnitText =
-                row.comparableValue != null
-                  ? `${row.isEstimate ? '~' : ''}${fmtCompare(row.comparableValue)}`
-                  : '—';
+                row.comparableValue != null ? fmtCompare(row.comparableValue) : '—';
               return (
                 <tr
                   key={row.providerId}
@@ -167,10 +141,7 @@ export default function ProviderPriceComparisonTable({ rows, cityAvg }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center justify-end gap-1">
-                      <span className="font-semibold text-text-primary">{row.displayPrice}</span>
-                      {showTooltip && <PriceTooltip text={row.tooltip} align="right" />}
-                    </div>
+                    <span className="font-semibold text-text-primary">{row.displayPrice}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span
@@ -200,8 +171,7 @@ export default function ProviderPriceComparisonTable({ rows, cityAvg }) {
         </table>
       </div>
       <div className="px-4 py-2.5 border-t border-gray-50 bg-gray-50/40 text-[11px] text-text-secondary italic">
-        Sorted by per-unit value when available. Rows with no per-unit estimate appear at the
-        bottom. Tap the ⓘ icon for details on estimated prices.
+        Sorted by per-unit value ascending.
       </div>
     </div>
   );

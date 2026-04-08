@@ -8,6 +8,9 @@
  * price_label so callers can render each bucket on its own.
  *
  * Other rules enforced (or surfaced) by these helpers:
+ *  - Every read path filters `display_suppressed = false` — suppressed rows
+ *    (ambiguous area/package prices, misclassified low prices) are hidden
+ *    from all consumer-facing surfaces by migration 053.
  *  - "Verified" === verified === true && source === 'manual'
  *  - vs-avg comparisons should be hidden when bucket count < 5
  *    (we still return the average; callers must check `count` themselves)
@@ -51,6 +54,7 @@ async function fetchCityRows(citySlug, procedureType) {
   let query = supabase
     .from('provider_pricing')
     .select(`${PRICING_FIELDS}, providers!inner(${PROVIDER_FIELDS})`)
+    .eq('display_suppressed', false)
     .ilike('providers.city', parsed.city)
     .eq('providers.state', parsed.state);
 
@@ -116,18 +120,22 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
   const { rows } = await fetchCityRows(citySlug, procedureType);
   if (!rows.length) return [];
 
-  // Normalize every row up front so we can sort by comparable per-unit value.
-  // This pulls flat-rate area prices into the per-unit bucket as estimates
-  // (e.g. $200/forehead → ~$10/unit) so they can sit next to direct $/unit
-  // listings in a single sortable comparison.
+  // Normalize every row up front. After migration 053 only confirmed
+  // per_unit / per_syringe / per_session / per_month rows survive the
+  // display_suppressed filter, so every normalized value is a direct
+  // comparable — no more estimates.
   const normalizedRows = rows
     .map((row) => ({ row, normalized: normalizePrice(row) }))
-    .filter((item) => Number(item.row.price) > 0);
+    .filter(
+      (item) =>
+        Number(item.row.price) > 0 &&
+        item.normalized.category !== 'hidden',
+    );
 
-  // Per-bucket city averages, computed from `comparableValue` so that estimated
-  // and direct per-unit prices can all live in the same bucket. The bucket key
-  // is the normalized.compareUnit ("per unit", "per syringe", "per session"),
-  // not the raw price_label.
+  // Per-bucket city averages keyed by the normalized compareUnit
+  // ("per unit", "per syringe", "per session", "per month"). We still key on
+  // compareUnit rather than raw price_label so "monthly" and "per_month" roll
+  // up together.
   const bucketStats = new Map();
   for (const { normalized } of normalizedRows) {
     const v = normalized.comparableValue;
@@ -141,8 +149,7 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
     bucketAvg.set(key, { avg: average(values), count: values.length });
   }
 
-  // Pick the best (lowest comparable value) row per provider. Prefer direct
-  // per-unit prices over estimates: a provider with both gets shown as direct.
+  // Pick the best (lowest comparable value) row per provider.
   const byProvider = new Map();
   for (const { row, normalized } of normalizedRows) {
     const provider = row.providers;
@@ -152,13 +159,6 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
       byProvider.set(provider.id, { row, normalized });
       continue;
     }
-    // Prefer direct over estimate
-    if (existing.normalized.isEstimate && !normalized.isEstimate) {
-      byProvider.set(provider.id, { row, normalized });
-      continue;
-    }
-    if (!existing.normalized.isEstimate && normalized.isEstimate) continue;
-    // Same tier — pick the lower comparable value (or fall back to raw price)
     const a = normalized.comparableValue ?? Number(row.price);
     const b = existing.normalized.comparableValue ?? Number(existing.row.price);
     if (a < b) byProvider.set(provider.id, { row, normalized });
@@ -196,8 +196,6 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
       displayPrice: normalized.displayPrice,
       comparableValue: normalized.comparableValue,
       compareUnit: normalized.compareUnit,
-      isEstimate: normalized.isEstimate,
-      tooltip: normalized.tooltip,
       category: normalized.category,
       source: row.source,
       verified: row.verified,
@@ -386,15 +384,18 @@ export async function getGlobalPricingSummary() {
     supabase
       .from('provider_pricing')
       .select('id', { count: 'exact', head: true })
+      .eq('display_suppressed', false)
       .eq('source', 'manual')
       .eq('verified', true),
     supabase
       .from('provider_pricing')
       .select('id', { count: 'exact', head: true })
+      .eq('display_suppressed', false)
       .eq('source', 'scrape'),
     supabase
       .from('provider_pricing')
-      .select('id', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true })
+      .eq('display_suppressed', false),
     supabase
       .from('providers')
       .select('id', { count: 'exact', head: true }),
@@ -427,6 +428,7 @@ export async function fetchVerifiedPriceCountsByCity() {
   const { data, error } = await supabase
     .from('provider_pricing')
     .select('providers!inner(city, state)')
+    .eq('display_suppressed', false)
     .eq('source', 'manual')
     .eq('verified', true);
 

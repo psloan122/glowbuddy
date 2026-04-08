@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
 import { normalizePrice } from '../lib/priceUtils';
-import PriceTooltip from './PriceTooltip';
 
 export default function ProviderPricingSection({ verifiedPricing, priceComparisons, interestedProcedures }) {
   const [showAll, setShowAll] = useState(false);
@@ -31,10 +30,7 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
         {visibleItems.map((item) => {
           const comparison = priceComparisons?.[item.procedure_type];
           const normalized = normalizePrice(item);
-          const showTooltip =
-            normalized.isEstimate ||
-            normalized.category === 'flat_area' ||
-            normalized.category === 'flat_treatment';
+          if (normalized.category === 'hidden') return null;
           return (
             <div key={item.id} className="flex items-center justify-between p-4">
               <div className="min-w-0 flex-1">
@@ -46,13 +42,8 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
                 )}
               </div>
               <div className="text-right flex items-center gap-2 shrink-0">
-                <div>
-                  <div className="inline-flex items-center justify-end gap-1">
-                    <p className="text-lg font-bold text-text-primary">{normalized.displayPrice}</p>
-                    {showTooltip && <PriceTooltip text={normalized.tooltip} align="right" />}
-                  </div>
-                </div>
-                {comparison && !normalized.isEstimate && (
+                <p className="text-lg font-bold text-text-primary">{normalized.displayPrice}</p>
+                {comparison && (
                   <ComparisonBadge pctDiff={comparison.pctDiff} level={comparison.level} />
                 )}
               </div>

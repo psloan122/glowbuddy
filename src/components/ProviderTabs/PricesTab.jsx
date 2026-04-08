@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import ProcedureCard from '../ProcedureCard';
 import FinancingWidget from '../FinancingWidget';
-import PriceTooltip from '../PriceTooltip';
 import { getStalenessPercentage } from '../../lib/freshness';
 import { AVG_PRICES } from '../../lib/constants';
 import {
@@ -110,78 +109,15 @@ function StalenessPill({ item }) {
   );
 }
 
-// True when this provider has more than one distinct comparable bucket
-// (per-unit + area, or per-unit + per-syringe, etc.) — used to surface a
-// "prices are not directly comparable" notice above the table.
-function hasMixedPriceTypes(items) {
-  if (!items || items.length < 2) return false;
-  const cats = new Set();
-  for (const item of items) {
-    const n = normalizePrice(item);
-    cats.add(n.category);
-    if (cats.size > 1) return true;
-  }
-  return false;
-}
-
-function MixedPriceNotice() {
-  return (
-    <div
-      className="flex items-start gap-2 p-3 mb-3 text-[11px]"
-      style={{ background: '#F5F2EE', border: '1px solid #E8E8E8', borderRadius: '2px' }}
-    >
-      <AlertTriangle size={12} className="shrink-0 mt-0.5 text-text-secondary" />
-      <p className="text-text-secondary leading-snug font-light">
-        Prices shown as listed. Per-unit estimates calculated from standard
-        treatment areas where possible. Always confirm pricing before booking.
-      </p>
-    </div>
-  );
-}
-
-function subsectionTitleForCategory(category) {
-  if (category === 'per_unit') return 'Per unit pricing';
-  if (category === 'per_syringe') return 'Per syringe pricing';
-  if (category === 'per_session') return 'Per session pricing';
-  if (category === 'per_month') return 'Monthly pricing';
-  return 'Direct pricing';
-}
-
-function PriceSubsection({ title, items, cityComp, cityCount, nationalAvg, showDivider }) {
-  return (
-    <div className={showDivider ? 'mt-3 pt-3 border-t border-rule' : ''}>
-      <p
-        className="text-[10px] font-semibold uppercase text-text-secondary mb-2"
-        style={{ letterSpacing: '0.12em' }}
-      >
-        {title}
-      </p>
-      <div className="space-y-2.5">
-        {items.map((item) => (
-          <PriceRow
-            key={item.id}
-            item={item}
-            cityComp={cityComp}
-            cityCount={cityCount}
-            nationalAvg={nationalAvg}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
   const normalized = item.normalized || normalizePrice(item);
-  const isEstimate = normalized.isEstimate;
 
   // Compare against city avg only when sample size is sufficient AND we have
-  // a comparable value to compare. Falls back to national avg for per-unit
-  // pricing only.
+  // a comparable value. Falls back to national avg when the city sample is
+  // too small.
   let vsAvg = null;
   if (
     normalized.comparableValue != null &&
-    !isEstimate &&
     cityComp &&
     cityComp.level === 'city' &&
     cityCount >= MIN_SAMPLES_FOR_VS_AVG
@@ -189,7 +125,6 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
     vsAvg = { pct: cityComp.pctDiff, ref: cityComp.refPrice, label: 'vs city avg' };
   } else if (
     normalized.comparableValue != null &&
-    !isEstimate &&
     nationalAvg?.avg &&
     Number(item.price) > 0
   ) {
@@ -200,14 +135,9 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-[13px] text-ink font-medium">
-            {item.treatment_area || normalized.compareUnit || 'Listed price'}
-          </p>
-          {(isEstimate || normalized.category === 'flat_area' || normalized.category === 'flat_treatment') && (
-            <PriceTooltip text={normalized.tooltip} />
-          )}
-        </div>
+        <p className="text-[13px] text-ink font-medium">
+          {item.treatment_area || normalized.compareUnit || 'Listed price'}
+        </p>
         {item.units_or_volume && !item.treatment_area && (
           <p className="text-[11px] text-text-secondary mt-0.5 font-light">{item.units_or_volume}</p>
         )}
@@ -264,6 +194,33 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
   );
 }
 
+// Fallback shown when a provider has scraped rows but all of them were
+// suppressed — we hide the ambiguous prices but still want to signal that
+// pricing exists.
+function ContactForPricingFallback() {
+  return (
+    <div
+      className="glow-card p-6 text-center"
+      style={{
+        background: '#FFFFFF',
+      }}
+    >
+      <p
+        style={{
+          fontFamily: 'Outfit, sans-serif',
+          fontWeight: 300,
+          fontStyle: 'italic',
+          fontSize: '13px',
+          color: '#B8A89A',
+          lineHeight: 1.5,
+        }}
+      >
+        Pricing available — contact for per-unit rates
+      </p>
+    </div>
+  );
+}
+
 export default function PricesTab({
   verifiedPricing,
   communityData,
@@ -274,6 +231,15 @@ export default function PricesTab({
   cityState,
 }) {
   const { priceComparisons, communityAverages } = useProviderPrices(provider?.id, cityState);
+
+  // After migration 053, verifiedPricing only contains displayable rows.
+  // groupForProviderDisplay drops any stragglers whose category is 'hidden'
+  // and returns one bucket per procedure_type.
+  const groupedDisplay = groupForProviderDisplay(verifiedPricing);
+  const displayableGroups = Object.entries(groupedDisplay).filter(
+    ([, group]) => group.items.length > 0,
+  );
+  const hasAnyDisplayablePrice = displayableGroups.length > 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -286,66 +252,39 @@ export default function PricesTab({
         <h2 className="font-display font-bold text-[22px] text-ink mb-1">The Menu</h2>
         <p className="text-[12px] text-text-secondary mb-4 font-light">Official prices &middot; Updated by provider</p>
 
-        {verifiedPricing.length > 0 ? (
-          <>
-            {hasMixedPriceTypes(verifiedPricing) && <MixedPriceNotice />}
-            <div className="glow-card overflow-hidden p-0">
-              <div className="divide-y divide-rule">
-                {Object.entries(groupForProviderDisplay(verifiedPricing)).map(
-                  ([procedureType, groups]) => {
-                    const cityComp = priceComparisons?.[procedureType];
-                    const cityCount = communityAverages?.[procedureType]?.count || 0;
-                    const nationalAvg = AVG_PRICES[procedureType];
-                    return (
-                      <div key={procedureType} className="p-4">
-                        <p
-                          className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
-                          style={{ letterSpacing: '0.12em' }}
-                        >
-                          {procedureType}
-                        </p>
-                        {groups.perUnit.length > 0 && (
-                          <PriceSubsection
-                            title={subsectionTitleForCategory(groups.perUnit[0]?.normalized?.category)}
-                            items={groups.perUnit}
-                            cityComp={cityComp}
-                            cityCount={cityCount}
-                            nationalAvg={nationalAvg}
-                          />
-                        )}
-                        {groups.area.length > 0 && (
-                          <PriceSubsection
-                            title="Area / package pricing"
-                            items={groups.area}
-                            cityComp={cityComp}
-                            cityCount={cityCount}
-                            nationalAvg={nationalAvg}
-                            showDivider={groups.perUnit.length > 0}
-                          />
-                        )}
-                        {groups.other.length > 0 && (
-                          <PriceSubsection
-                            title="Other pricing"
-                            items={groups.other}
-                            cityComp={cityComp}
-                            cityCount={cityCount}
-                            nationalAvg={nationalAvg}
-                            showDivider={groups.perUnit.length > 0 || groups.area.length > 0}
-                          />
-                        )}
-                      </div>
-                    );
-                  },
-                )}
-              </div>
+        {hasAnyDisplayablePrice ? (
+          <div className="glow-card overflow-hidden p-0">
+            <div className="divide-y divide-rule">
+              {displayableGroups.map(([procedureType, group]) => {
+                const cityComp = priceComparisons?.[procedureType];
+                const cityCount = communityAverages?.[procedureType]?.count || 0;
+                const nationalAvg = AVG_PRICES[procedureType];
+                return (
+                  <div key={procedureType} className="p-4">
+                    <p
+                      className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
+                      style={{ letterSpacing: '0.12em' }}
+                    >
+                      {procedureType}
+                    </p>
+                    <div className="space-y-2.5">
+                      {group.items.map((item) => (
+                        <PriceRow
+                          key={item.id}
+                          item={item}
+                          cityComp={cityComp}
+                          cityCount={cityCount}
+                          nationalAvg={nationalAvg}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </>
-        ) : (
-          <div className="glow-card p-8 text-center">
-            <p className="font-display italic text-[18px] text-text-secondary">
-              No prices yet.
-            </p>
           </div>
+        ) : (
+          <ContactForPricingFallback />
         )}
 
         {/* Financing widget */}

@@ -19,11 +19,12 @@ export default function useProviderPrices(providerId, cityState) {
     async function load() {
       setLoading(true);
 
-      // Fetch provider pricing
+      // Fetch provider pricing (display_suppressed rows are hidden via migration 053)
       const { data: pricing } = await supabase
         .from('provider_pricing')
         .select('id, provider_id, procedure_type, brand, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at')
-        .eq('provider_id', providerId);
+        .eq('provider_id', providerId)
+        .eq('display_suppressed', false);
 
       if (cancelled) return;
       setVerifiedPricing(pricing || []);

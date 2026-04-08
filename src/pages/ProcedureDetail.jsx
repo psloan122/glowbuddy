@@ -51,11 +51,13 @@ export default function ProcedureDetail() {
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
-      // Fetch verified pricing with provider info
+      // Fetch verified pricing with provider info (display_suppressed rows
+      // are hidden via migration 053)
       const { data: verified } = await supabase
         .from('provider_pricing')
         .select('*, providers(*)')
-        .eq('procedure_type', procedureName);
+        .eq('procedure_type', procedureName)
+        .eq('display_suppressed', false);
 
       const communityItems = community || [];
       const verifiedItems = verified || [];

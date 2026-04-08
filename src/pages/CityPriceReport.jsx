@@ -9,6 +9,8 @@ import {
   getDataFreshness,
 } from '../lib/queries/prices';
 import { applyCityReportMeta } from '../lib/seo';
+import { buildBrowseUrl } from '../lib/urlParams';
+import { procedureToSlug } from '../lib/constants';
 import PriceTable from '../components/CityReport/PriceTable';
 import NeighborhoodChart from '../components/CityReport/NeighborhoodChart';
 import AffordableProviderCard from '../components/CityReport/AffordableProviderCard';
@@ -315,6 +317,22 @@ export default function CityPriceReport() {
             Price comparison.
           </h2>
           <PriceTable rows={report.priceTable} />
+          {/* CTA into the live browse experience for this city's top procedure */}
+          {topProc && (
+            <div className="mt-4">
+              <Link
+                to={buildBrowseUrl({
+                  city,
+                  state,
+                  procedure: procedureToSlug(topProc.procedure),
+                })}
+                className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
+                style={{ letterSpacing: '0.12em' }}
+              >
+                See all {topProc.procedure} prices in {city} &rarr;
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* Provider chart (existing — provider averages from `procedures`) */}
