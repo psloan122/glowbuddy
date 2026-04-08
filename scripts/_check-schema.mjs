@@ -66,17 +66,9 @@ console.log(`  is_medical_aesthetic = false : ${falseCount}`);
 console.log(`  is_medical_aesthetic = null  : ${nullCount}`);
 
 // 5. State distribution of confirmed med spas
-const { data: stateRows } = await supabase
-  .from('providers')
-  .select('state')
-  .eq('is_active', true)
-  .eq('is_medical_aesthetic', true);
-
-const stateCounts = {};
-for (const row of stateRows || []) {
-  stateCounts[row.state] = (stateCounts[row.state] || 0) + 1;
-}
-
+// Use per-state head:true counts to avoid Supabase's 1000-row default cap
+// on .select() responses (which silently undercounts when there are more
+// than 1000 confirmed rows).
 const ALL_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
   'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
@@ -84,6 +76,19 @@ const ALL_STATES = [
   'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
+
+const stateCounts = {};
+await Promise.all(
+  ALL_STATES.map(async (s) => {
+    const { count } = await supabase
+      .from('providers')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .eq('is_medical_aesthetic', true)
+      .eq('state', s);
+    stateCounts[s] = count || 0;
+  }),
+);
 
 console.log('\n=== CONFIRMED MED SPAS BY STATE ===');
 for (const s of ALL_STATES) {

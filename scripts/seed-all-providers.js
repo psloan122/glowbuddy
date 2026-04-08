@@ -316,34 +316,83 @@ async function searchPlaces(query, lat, lng) {
   return results;
 }
 
+// ─── Google Places Text Search (national mode only) ──────────────────────────
+// Text Search returns full formatted_address ("123 Main St, Norwich, CT 06360, USA")
+// which lets us reject cross-border results that Nearby Search would silently
+// mis-tag. Query format: "<procedure> in <City>, <ST>".
+
+async function textSearchPlaces(query, city, stateCode, lat, lng) {
+  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+  url.searchParams.set('query', `${query} in ${city}, ${stateCode}`);
+  url.searchParams.set('location', `${lat},${lng}`);
+  url.searchParams.set('radius', '20000');
+  url.searchParams.set('key', GOOGLE_API_KEY);
+
+  const res = await fetch(url);
+  const json = await res.json();
+  let results = json.results || [];
+
+  let nextPageToken = json.next_page_token;
+  while (nextPageToken) {
+    await sleep(2000);
+    const pageUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    pageUrl.searchParams.set('pagetoken', nextPageToken);
+    pageUrl.searchParams.set('key', GOOGLE_API_KEY);
+    const nextRes = await fetch(pageUrl);
+    const nextJson = await nextRes.json();
+    results = results.concat(nextJson.results || []);
+    nextPageToken = nextJson.next_page_token;
+  }
+
+  return results;
+}
+
 // ─── Parse city from vicinity / formatted_address ────────────────────────────
 // Nearby Search returns `vicinity` ("123 Main St, New Orleans") — no state/zip.
 // We use the seed city's known state as fallback.
 
 function parseAddress(address, seedCity, seedState) {
-  const parts = address.split(',').map((s) => s.trim());
+  const parts = address.split(',').map((s) => s.trim()).filter(Boolean);
   let city = seedCity;
   let state = seedState;
   let zip = '';
+  let stateConfirmed = false;
 
-  // Try to extract city from the last comma-separated part of vicinity
-  // e.g. "3501 Severn Ave, Metairie" → city = "Metairie"
-  if (parts.length >= 2) {
-    const lastPart = parts[parts.length - 1];
-    // If last part looks like a state+zip (from formatted_address), parse it
-    const stateZipMatch = lastPart.match(/^([A-Z]{2})\s*(\d{5})?$/);
-    if (stateZipMatch) {
-      state = stateZipMatch[1];
-      zip = stateZipMatch[2] || '';
-      // City is one part before
-      if (parts.length >= 3) city = parts[parts.length - 2];
-    } else if (!/^\d/.test(lastPart) && lastPart.length > 1 && lastPart.length < 40) {
-      // Last part is likely city name (not a street number)
-      city = lastPart;
+  // Strip trailing "USA" / "United States" if present (Text Search format).
+  const tail = parts[parts.length - 1];
+  if (tail && /^(USA|United States)$/i.test(tail)) {
+    parts.pop();
+  }
+
+  // Scan from the end for the first part that looks like "ST" or "ST 12345".
+  // This handles both Nearby Search vicinity ("123 Main St, Providence")
+  // and Text Search formatted_address ("123 Main St, Providence, RI 02903").
+  let stateZipIdx = -1;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const m = parts[i].match(/^([A-Z]{2})\s*(\d{5})(?:-\d{4})?$/);
+    if (m) {
+      state = m[1];
+      zip = m[2];
+      stateZipIdx = i;
+      stateConfirmed = true;
+      break;
     }
   }
 
-  return { city, state, zip };
+  if (stateZipIdx > 0) {
+    // City is the part immediately before the state+zip.
+    city = parts[stateZipIdx - 1];
+  } else if (stateZipIdx === -1 && parts.length >= 2) {
+    // No state+zip found (Nearby Search vicinity case). Last part is the city.
+    const lastPart = parts[parts.length - 1];
+    if (!/^\d/.test(lastPart) && lastPart.length > 1 && lastPart.length < 40) {
+      city = lastPart;
+    }
+    // state stays as seedState fallback — caller should check stateConfirmed
+    // if it requires strict state matching.
+  }
+
+  return { city, state, zip, stateConfirmed };
 }
 
 // ─── Upsert batch to Supabase ────────────────────────────────────────────────
@@ -584,6 +633,7 @@ async function seedStateNational(stateCode, censusCities, cachedIds, currentCoun
 
   const seenPlaceIds = new Set();
   const candidateRows = [];
+  let rejectedCrossState = 0;
 
   for (const city of stateCities) {
     if (candidateRows.length >= needed * 3) break;
@@ -591,7 +641,7 @@ async function seedStateNational(stateCode, censusCities, cachedIds, currentCoun
     let cityFound = 0;
     for (const query of PROCEDURE_SEARCHES) {
       try {
-        const places = await searchPlaces(query, city.lat, city.lng);
+        const places = await textSearchPlaces(query, city.name, stateCode, city.lat, city.lng);
         const tags = QUERY_TO_TAGS[query] || ['general'];
 
         for (const place of places) {
@@ -603,6 +653,18 @@ async function seedStateNational(stateCode, censusCities, cachedIds, currentCoun
 
           const address = place.formatted_address || place.vicinity || '';
           const parsed = parseAddress(address, city.name, stateCode);
+
+          // Reject cross-state pollution. We require BOTH:
+          //  1. parseAddress confirmed the state from the address itself
+          //     (not the seedState fallback)
+          //  2. that confirmed state matches the target state
+          // Text Search returns full formatted_address, so any row that
+          // can't satisfy this is either out-of-state or mal-formatted.
+          if (!parsed.stateConfirmed || parsed.state !== stateCode) {
+            rejectedCrossState++;
+            continue;
+          }
+
           const slug =
             slugify(`${place.name}-${parsed.city}-${parsed.state}`) + '-' + shortHash(placeId);
 
@@ -651,6 +713,10 @@ async function seedStateNational(stateCode, censusCities, cachedIds, currentCoun
     }
 
     await sleep(500);
+  }
+
+  if (rejectedCrossState > 0) {
+    console.log(`  ${stateCode}: rejected ${rejectedCrossState} cross-state results`);
   }
 
   if (candidateRows.length === 0) {
