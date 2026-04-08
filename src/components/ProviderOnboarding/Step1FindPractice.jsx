@@ -6,6 +6,20 @@ import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
+// Google Place types we consider "med spa / clinic / practitioner adjacent".
+// If the selected place has NONE of these in its types array, we show a
+// soft warning but still allow the user to proceed (there's a long tail
+// of legit practices Google classifies oddly).
+const MED_SPA_TYPES = [
+  'beauty_salon',
+  'health',
+  'spa',
+  'doctor',
+  'physiotherapist',
+  'hospital',
+  'point_of_interest',
+];
+
 export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
   const { user } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
@@ -185,10 +199,15 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     if (input.length < 2 || !serviceRef.current) { setSuggestions([]); return; }
 
     debounceRef.current = setTimeout(() => {
+      // NOTE: Google Places Autocomplete only accepts ONE primary type
+      // (`establishment` | `address` | `geocode`) or a single collection
+      // (`(cities)` | `(regions)`). Passing sub-types like `health`/`spa`
+      // here causes INVALID_REQUEST and silently returns no suggestions.
+      // We filter down to med-spa-ish places post-hoc via the warning below.
       serviceRef.current.getPlacePredictions(
         {
           input,
-          types: ['health', 'spa', 'beauty_salon', 'establishment'],
+          types: ['establishment'],
           componentRestrictions: { country: 'us' },
           sessionToken: sessionTokenRef.current,
         },
@@ -263,6 +282,16 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
   const mapsKey = import.meta.env.VITE_GOOGLE_PLACES_KEY;
   const photos = selectedPlace?.googlePhotos || [];
   const hasPhotos = photos.length > 0;
+
+  // Soft flag if the selected place doesn't look like a med spa / clinic.
+  // We still let the user continue — some legitimate practices are
+  // classified oddly by Google (e.g., a dermatology office showing up
+  // only as `point_of_interest`), but we want to nudge them if they
+  // accidentally picked a restaurant or retail store.
+  const selectedTypes = selectedPlace?.googleTypes || [];
+  const looksLikeMedSpa =
+    selectedTypes.length === 0 ||
+    selectedTypes.some((t) => MED_SPA_TYPES.includes(t));
 
   return (
     <div>
@@ -412,6 +441,24 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
               </div>
             )}
           </div>
+
+          {/* Med-spa type warning (soft — allows proceeding) */}
+          {!looksLikeMedSpa && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-800 font-medium">
+                    This doesn&apos;t look like a med spa or clinic.
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Are you sure this is the right business? You can still
+                    continue if this is your practice.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Status banners */}
           {providerStatus === 'new' && (
