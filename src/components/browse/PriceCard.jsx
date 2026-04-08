@@ -81,6 +81,12 @@ export default function PriceCard({
   isSaved = false,
   onSaveToggle,
   comparingFull = false,
+  // List ↔ map hover sync. When the parent passes onHoverChange, the
+  // card forwards mouse-enter / mouse-leave so the desktop split view
+  // can highlight the matching pin. `selected` paints a stronger
+  // border ring when the user has tapped this provider's pin on the map.
+  onHoverChange,
+  selected = false,
 }) {
   const profileUrl = providerProfileUrl(
     procedure.provider_slug,
@@ -118,6 +124,13 @@ export default function PriceCard({
 
   const reviewCount = Number(procedure.review_count) || 0;
 
+  // Pending-review state — only shown to the submitter themselves.
+  // Set on patient submissions whose status is `pending` or
+  // `pending_confirmation`. Visual treatment: amber top stripe instead of
+  // pink + a "Pending review" pill so the submitter knows their data is
+  // saved but awaiting moderation.
+  const isPendingSelf = procedure._pending_self === true;
+
   function handleCompareClick(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -130,12 +143,27 @@ export default function PriceCard({
     onSaveToggle?.(procedure);
   }
 
+  // Compute the borders so the selected/hovered states stack cleanly
+  // on top of the existing pending-self treatment.
+  const ringColor = selected
+    ? '#111111'
+    : isPendingSelf
+    ? '#F0D8B8'
+    : '#EDE8E3';
+  const ringWidth = selected ? 2 : 1;
+
   return (
     <div
+      onMouseEnter={
+        onHoverChange ? () => onHoverChange(procedure, true) : undefined
+      }
+      onMouseLeave={
+        onHoverChange ? () => onHoverChange(procedure, false) : undefined
+      }
       style={{
-        background: 'white',
-        border: '1px solid #EDE8E3',
-        borderTop: '3px solid #E8347A',
+        background: isPendingSelf ? '#FFFBF5' : 'white',
+        border: `${ringWidth}px solid ${ringColor}`,
+        borderTop: `3px solid ${isPendingSelf ? '#B45309' : '#E8347A'}`,
         borderRadius: 8,
         marginBottom: 12,
         padding: '20px 24px',
@@ -143,8 +171,47 @@ export default function PriceCard({
         marginLeft: 'auto',
         marginRight: 'auto',
         width: '100%',
+        boxShadow: selected ? '0 4px 12px rgba(0,0,0,0.10)' : 'none',
+        transition: 'box-shadow 150ms, border-color 150ms',
       }}
     >
+      {isPendingSelf && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 12,
+            padding: '6px 10px',
+            background: '#FFF3E0',
+            border: '1px solid #F0D8B8',
+            borderRadius: 4,
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#92400E',
+            lineHeight: 1.4,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              padding: '2px 6px',
+              background: '#B45309',
+              color: 'white',
+              borderRadius: 2,
+            }}
+          >
+            Pending review
+          </span>
+          <span style={{ fontWeight: 400 }}>
+            Your submission is saved and awaiting moderation. Only you can see it.
+          </span>
+        </div>
+      )}
       {/* Header row */}
       <div
         style={{

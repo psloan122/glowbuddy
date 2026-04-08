@@ -9,6 +9,8 @@ import CompareTray from '../components/browse/CompareTray';
 import SavingsCallout from '../components/browse/SavingsCallout';
 import SmartEmptyState from '../components/browse/SmartEmptyState';
 import ResultsCountBar from '../components/browse/ResultsCountBar';
+import GlowMap from '../components/browse/GlowMap';
+import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
 import useSavedProviders from '../hooks/useSavedProviders';
 import AuthModal from '../components/AuthModal';
 import { providerSlugFromParts } from '../lib/slugify';
@@ -227,6 +229,58 @@ export default function FindPrices() {
   // internally; the toggle below opens the auth modal when not signed in.
   const { isSaved, saveProvider, unsaveProvider } = useSavedProviders();
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // ── Map view state ──
+  // Mobile: list is the default; user toggles to map.
+  // Desktop: split view is always on, viewMode is ignored.
+  // hoveredProviderId paints a highlight ring on the map pin when the
+  // user mouses over a list card. selectedProviderGroup is set when the
+  // user taps a pin on mobile (opens the bottom sheet) or desktop (it
+  // just paints the matching list card with a black ring).
+  const [viewMode, setViewMode] = useState('list');
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  );
+  const [hoveredProviderId, setHoveredProviderId] = useState(null);
+  const [selectedProviderGroup, setSelectedProviderGroup] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    function handleResize() {
+      const next = window.innerWidth < 768;
+      setIsMobile((prev) => (prev === next ? prev : next));
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Switching from map → list (or unmounting the map for any reason)
+  // should clear any open bottom sheet so it doesn't reopen on return.
+  useEffect(() => {
+    if (viewMode !== 'map') setSelectedProviderGroup(null);
+  }, [viewMode]);
+
+  const handlePinClick = useCallback(
+    (group) => {
+      setSelectedProviderGroup(group);
+      // On desktop we don't open a sheet — we just sync the selection
+      // so the matching list card lights up. The user can scroll to it.
+      if (!isMobile) {
+        // Try to scroll the list card into view smoothly.
+        if (group?.provider_id != null && typeof document !== 'undefined') {
+          const node = document.querySelector(
+            `[data-provider-card="${group.provider_id}"]`,
+          );
+          node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    },
+    [isMobile],
+  );
+
+  const handleCardHover = useCallback((procedure, isEntering) => {
+    setHoveredProviderId(isEntering ? procedure.provider_id || null : null);
+  }, []);
 
   // ── SEO meta tags — dynamic per spec ──
   useEffect(() => {
@@ -539,10 +593,51 @@ export default function FindPrices() {
       if (error) {
         return [];
       }
-      return (data || []).map((r) => ({
+      const activeRows = (data || []).map((r) => ({
         ...r,
         data_source: r.data_source || 'patient_reported',
       }));
+
+      // Also fetch the current user's own *pending* submissions for the
+      // same scope so they can see what they just contributed even if it
+      // got auto-flagged as an outlier and is awaiting admin review.
+      // Without this, users like Julia submit a price, see "Success!",
+      // navigate to /browse, and find their row missing — making it
+      // appear as if the database lost their work.
+      if (!user?.id) return activeRows;
+
+      let pendingQuery = supabase
+        .from('procedures')
+        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'pending_confirmation'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (filterProcedureTypes.length === 1) {
+        pendingQuery = pendingQuery.eq('procedure_type', filterProcedureTypes[0]);
+      } else if (filterProcedureTypes.length > 1) {
+        pendingQuery = pendingQuery.in('procedure_type', filterProcedureTypes);
+      }
+      if (filters.state) pendingQuery = pendingQuery.eq('state', filters.state);
+      if (filters.city) pendingQuery = pendingQuery.ilike('city', `%${filters.city}%`);
+      if (brandFilter) {
+        pendingQuery = pendingQuery.ilike('procedure_type', `%${brandFilter}%`);
+      }
+
+      const { data: pendingData } = await pendingQuery;
+      const pendingRows = (pendingData || []).map((r) => ({
+        ...r,
+        data_source: r.data_source || 'patient_reported',
+        _pending_self: true,
+      }));
+
+      // De-dupe — pending rows that somehow also matched the active query
+      // (shouldn't happen, but be safe) get filtered out.
+      const seen = new Set(activeRows.map((r) => r.id));
+      const uniquePending = pendingRows.filter((r) => !seen.has(r.id));
+
+      return [...uniquePending, ...activeRows];
     }
 
     async function fetchProviderPricingRows({ city, state }) {
@@ -875,6 +970,7 @@ export default function FindPrices() {
     priceMin,
     priceMax,
     minRating,
+    user?.id,
   ]);
 
   // ── Personalized fetch: multi-procedure grouped-by-provider ──
@@ -1479,26 +1575,50 @@ export default function FindPrices() {
               Has prices
             </button>
 
-            {selectedLoc && (
-              <a
-                href={`https://www.google.com/maps/search/med+spa+near+${encodeURIComponent(`${selectedLoc.city}, ${selectedLoc.state}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto"
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: '#B8A89A',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                View area on Google Maps &rarr;
-              </a>
-            )}
+            {/* List ↔ Map toggle (mobile only — desktop is split view). */}
+            <div
+              className="ml-auto"
+              style={{
+                display: 'inline-flex',
+                gap: 2,
+                background: '#F5F0EC',
+                borderRadius: 4,
+                padding: 2,
+              }}
+              role="tablist"
+              aria-label="View mode"
+            >
+              {[
+                { mode: 'list', label: '\u2630 List' },
+                { mode: 'map', label: '\u229E Map' },
+              ].map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === mode}
+                  onClick={() => setViewMode(mode)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 3,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    background: viewMode === mode ? 'white' : 'transparent',
+                    color: viewMode === mode ? '#111' : '#888',
+                    transition: 'all 150ms',
+                    boxShadow:
+                      viewMode === mode ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Inline dosage-estimator hint link — only shown when relevant */}
@@ -2253,15 +2373,32 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Results area */}
+      {/* Pre-results area — banners, gates, fallback note. The actual
+          results (header chrome + cards + map) live in their own
+          full-width section below so the desktop split-view map can
+          stretch beyond this 900px clamp.
+          When the happy path is active, this container only holds the
+          fallback note (if any), so we collapse its padding to avoid
+          a visible gap above the split layout. */}
+      {(() => {
+        const hasResults =
+          !personalizedMode &&
+          procFilter &&
+          !loadingProcedures &&
+          displayedProcedures.length > 0;
+        return (
       <div
-        className="mx-auto px-4 py-6"
+        className="mx-auto px-4"
         style={{
           maxWidth: 900,
+          paddingTop: hasResults ? 12 : 24,
           // Clear the fixed mobile bottom nav (56px) + safe-area so the
           // last card is never hidden behind it and its tap zone can't
-          // be accidentally contested. Desktop resets this via media.
-          paddingBottom: IS_MOBILE
+          // be accidentally contested. The split layout below handles
+          // its own bottom padding when results are showing.
+          paddingBottom: hasResults
+            ? 0
+            : IS_MOBILE
             ? 'calc(100px + env(safe-area-inset-bottom, 0px))'
             : 100,
         }}
@@ -2387,9 +2524,76 @@ export default function FindPrices() {
           </div>
         )}
 
-        {/* ─── Price context bar + sticky filter bar + results count ─── */}
-        {!personalizedMode && procFilter && !loadingProcedures && procedures.length > 0 && (
-          <>
+        {/* Unhappy paths only — gate, personalized, loading, empty.
+            The happy path (we have results) is rendered OUTSIDE this
+            900px container so the desktop split-view map can fill the
+            full viewport width. */}
+        {personalizedMode ? (
+          personalLoading ? (
+            <SkeletonGrid count={6} />
+          ) : personalProviders.length === 0 ? (
+            <div className="text-center py-12">
+              <p
+                className="font-display text-ink mb-2"
+                style={{ fontWeight: 700, fontSize: '20px' }}
+              >
+                No matches for your treatments{selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''} yet.
+              </p>
+              <p className="text-[13px] text-text-secondary font-light" style={{ fontFamily: 'var(--font-body)' }}>
+                Try a different city, or{' '}
+                <button
+                  type="button"
+                  onClick={() => setPersonalDismissed(true)}
+                  className="underline hover:opacity-80"
+                  style={{ color: '#E8347A' }}
+                >
+                  browse all treatments
+                </button>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {personalProviders.map((entry) => (
+                <MultiProcedureProviderCard
+                  key={entry.provider.id}
+                  entry={entry}
+                  targetCount={entry.targetCount}
+                  userLat={userLat}
+                  userLng={userLng}
+                />
+              ))}
+            </div>
+          )
+        ) : !procFilter ? (
+          <div className="py-8">
+            <ProcedureGate variant="block" onSelect={selectPill} />
+          </div>
+        ) : loadingProcedures ? (
+          <SkeletonGrid count={6} />
+        ) : displayedProcedures.length === 0 ? (
+          <SmartEmptyState
+            procedureLabel={procFilter?.label}
+            procedureSlug={procFilter?.slug}
+            procedureType={procFilter?.primary || selectedProc}
+            procedureTypes={filterProcedureTypes}
+            brand={brandFilter}
+            city={selectedLoc?.city}
+            state={selectedLoc?.state}
+          />
+        ) : null}
+      </div>
+        );
+      })()}
+
+      {/* ─── Happy path: header chrome + split-view (desktop) /
+              toggled view (mobile) ─── */}
+      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
+        <div>
+          {/* Header chrome — clamped to ~1400 so it doesn't sprawl on
+              ultrawide monitors but does extend wider than the prior
+              900px so it lines up with the split layout below. */}
+          <div className="mx-auto px-4" style={{ maxWidth: 1400 }}>
             <PriceContextBar
               prices={displayedProcedures}
               brandLabel={brandFilter || procFilter?.label}
@@ -2414,100 +2618,169 @@ export default function FindPrices() {
               city={selectedLoc?.city}
               state={selectedLoc?.state}
             />
-          </>
-        )}
-
-        {/* List view */}
-        <>
-            {personalizedMode ? (
-              personalLoading ? (
-                <SkeletonGrid count={6} />
-              ) : personalProviders.length === 0 ? (
-                <div className="text-center py-12">
-                  <p
-                    className="font-display text-ink mb-2"
-                    style={{ fontWeight: 700, fontSize: '20px' }}
-                  >
-                    No matches for your treatments{selectedLoc ? ` in ${selectedLoc.city}, ${selectedLoc.state}` : ''} yet.
-                  </p>
-                  <p className="text-[13px] text-text-secondary font-light" style={{ fontFamily: 'var(--font-body)' }}>
-                    Try a different city, or{' '}
-                    <button
-                      type="button"
-                      onClick={() => setPersonalDismissed(true)}
-                      className="underline hover:opacity-80"
-                      style={{ color: '#E8347A' }}
-                    >
-                      browse all treatments
-                    </button>
-                    .
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {personalProviders.map((entry) => (
-                    <MultiProcedureProviderCard
-                      key={entry.provider.id}
-                      entry={entry}
-                      targetCount={entry.targetCount}
-                      userLat={userLat}
-                      userLng={userLng}
-                    />
-                  ))}
-                </div>
-              )
-            ) : !procFilter ? (
-              <div className="py-8">
-                <ProcedureGate variant="block" onSelect={selectPill} />
-              </div>
-            ) : loadingProcedures ? (
-              <SkeletonGrid count={6} />
-            ) : displayedProcedures.length === 0 ? (
-              <SmartEmptyState
-                procedureLabel={procFilter?.label}
-                procedureSlug={procFilter?.slug}
-                procedureType={procFilter?.primary || selectedProc}
-                procedureTypes={filterProcedureTypes}
-                brand={brandFilter}
+            {bestDealInfo && (
+              <SavingsCallout
                 city={selectedLoc?.city}
-                state={selectedLoc?.state}
+                savings={bestDealInfo.savings}
+                units={bestDealInfo.units}
+                price={bestDealInfo.normalizedPrice}
+                avg={bestDealInfo.avg}
               />
-            ) : (
-              <div>
-                {bestDealInfo && (
-                  <SavingsCallout
-                    city={selectedLoc?.city}
-                    savings={bestDealInfo.savings}
-                    units={bestDealInfo.units}
-                    price={bestDealInfo.normalizedPrice}
-                    avg={bestDealInfo.avg}
+            )}
+          </div>
+
+          {/* Split-view body. Desktop: list left + map right. Mobile:
+              list-or-map toggle. The split is responsive purely off
+              `isMobile` so the desktop map never has to mount on a
+              phone. */}
+          {isMobile ? (
+            viewMode === 'map' ? (
+              <div
+                style={{
+                  position: 'relative',
+                  height: 'calc(100vh - 220px)',
+                  // Same bottom-padding logic as the list so the
+                  // mobile bottom nav never overlaps the map.
+                  marginBottom:
+                    'calc(80px + env(safe-area-inset-bottom, 0px))',
+                }}
+              >
+                <GlowMap
+                  procedures={displayedProcedures}
+                  cityAvg={cityAvgPrice}
+                  city={selectedLoc?.city}
+                  state={selectedLoc?.state}
+                  highlightedId={hoveredProviderId}
+                  selectedId={selectedProviderGroup?.provider_id || null}
+                  onPinClick={handlePinClick}
+                />
+                {selectedProviderGroup && (
+                  <ProviderBottomSheet
+                    group={selectedProviderGroup}
+                    onClose={() => setSelectedProviderGroup(null)}
                   />
                 )}
+              </div>
+            ) : (
+              <div
+                className="mx-auto px-4"
+                style={{
+                  maxWidth: 900,
+                  paddingTop: 8,
+                  paddingBottom:
+                    'calc(100px + env(safe-area-inset-bottom, 0px))',
+                }}
+              >
                 {displayedProcedures.map((proc) => {
                   const slug =
                     proc.provider_slug ||
                     providerSlugFromParts(proc.provider_name, proc.city, proc.state);
                   const saved = slug ? isSaved(slug) : false;
                   const isCompared = comparing.some((p) => p.id === proc.id);
+                  const selected =
+                    selectedProviderGroup?.provider_id != null &&
+                    selectedProviderGroup.provider_id === proc.provider_id;
                   return (
-                    <PriceCard
+                    <div
                       key={proc.id}
-                      procedure={proc}
-                      cityAvg={cityAvgPrice}
-                      userLat={userLat}
-                      userLng={userLng}
-                      isCompared={isCompared}
-                      onCompareToggle={() => toggleCompare(proc)}
-                      isSaved={saved}
-                      onSaveToggle={() => handleSaveToggle(proc)}
-                      comparingFull={comparing.length >= 3 && !isCompared}
-                    />
+                      data-provider-card={proc.provider_id || ''}
+                    >
+                      <PriceCard
+                        procedure={proc}
+                        cityAvg={cityAvgPrice}
+                        userLat={userLat}
+                        userLng={userLng}
+                        isCompared={isCompared}
+                        onCompareToggle={() => toggleCompare(proc)}
+                        isSaved={saved}
+                        onSaveToggle={() => handleSaveToggle(proc)}
+                        comparingFull={comparing.length >= 3 && !isCompared}
+                        selected={selected}
+                      />
+                    </div>
                   );
                 })}
               </div>
-            )}
-          </>
-      </div>
+            )
+          ) : (
+            <div
+              className="mx-auto"
+              style={{
+                maxWidth: 1400,
+                display: 'flex',
+                gap: 0,
+                height: 'calc(100vh - 260px)',
+                minHeight: 520,
+                overflow: 'hidden',
+                paddingLeft: 16,
+                paddingRight: 16,
+              }}
+            >
+              {/* Left: scrollable list */}
+              <div
+                style={{
+                  width: 460,
+                  flexShrink: 0,
+                  overflowY: 'auto',
+                  paddingRight: 16,
+                  paddingBottom: 40,
+                  borderRight: '1px solid #EDE8E3',
+                }}
+              >
+                {displayedProcedures.map((proc) => {
+                  const slug =
+                    proc.provider_slug ||
+                    providerSlugFromParts(proc.provider_name, proc.city, proc.state);
+                  const saved = slug ? isSaved(slug) : false;
+                  const isCompared = comparing.some((p) => p.id === proc.id);
+                  const selected =
+                    selectedProviderGroup?.provider_id != null &&
+                    selectedProviderGroup.provider_id === proc.provider_id;
+                  return (
+                    <div
+                      key={proc.id}
+                      data-provider-card={proc.provider_id || ''}
+                    >
+                      <PriceCard
+                        procedure={proc}
+                        cityAvg={cityAvgPrice}
+                        userLat={userLat}
+                        userLng={userLng}
+                        isCompared={isCompared}
+                        onCompareToggle={() => toggleCompare(proc)}
+                        isSaved={saved}
+                        onSaveToggle={() => handleSaveToggle(proc)}
+                        comparingFull={comparing.length >= 3 && !isCompared}
+                        onHoverChange={handleCardHover}
+                        selected={selected}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right: sticky map filling remaining width */}
+              <div
+                style={{
+                  flex: 1,
+                  position: 'relative',
+                  paddingLeft: 16,
+                }}
+              >
+                <GlowMap
+                  procedures={displayedProcedures}
+                  cityAvg={cityAvgPrice}
+                  city={selectedLoc?.city}
+                  state={selectedLoc?.state}
+                  highlightedId={hoveredProviderId}
+                  selectedId={selectedProviderGroup?.provider_id || null}
+                  onPinClick={handlePinClick}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Compare tray slides up when 2+ providers are selected */}
       <CompareTray

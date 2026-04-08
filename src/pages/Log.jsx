@@ -341,13 +341,12 @@ export default function Log() {
 
     const price = parseInt(formData.pricePaid, 10);
 
-    // 1. Honeypot check — silent fake success
+    // 1. Honeypot check — bots fill hidden fields. Block silently
+    //    without faking a success screen (the old fake-success path
+    //    caused real users to lose data when browser autofill triggered
+    //    the honeypot field).
     if (honeypot !== '') {
-      setSubmissionResult({
-        id: 'fake',
-        procedure_type: formData.procedureType,
-      });
-      setCurrentStep('success');
+      setIsSubmitting(false);
       return;
     }
 
@@ -526,7 +525,27 @@ export default function Log() {
         .single();
 
       if (error) {
-        setSubmitError('Something went wrong. Please try again.');
+        // Surface the real Supabase error so RLS / schema / constraint
+        // problems are visible instead of being masked. Also write the
+        // error to submission_errors so we can audit silent failures.
+        // eslint-disable-next-line no-console
+        console.error('[Log] insert procedures failed', error, row);
+        try {
+          await supabase.from('submission_errors').insert({
+            user_id: user?.id || null,
+            procedure_type: formData.procedureType,
+            city: formData.city || null,
+            state: formData.state || null,
+            error_code: error.code || null,
+            error_message: error.message || null,
+            payload: row,
+          });
+        } catch {
+          // Non-blocking — table may not exist yet
+        }
+        setSubmitError(
+          `Could not save your price: ${error.message || 'unknown database error'}. Please try again or email hello@glowbuddy.com.`
+        );
         setIsSubmitting(false);
         return;
       }
@@ -727,8 +746,12 @@ export default function Log() {
       setDuplicateWarning(false);
       setDuplicateConfirmed(false);
       setCurrentStep('success');
-    } catch {
-      setSubmitError('Something went wrong. Please try again.');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[Log] handleSubmit threw', err);
+      setSubmitError(
+        `Could not save your price: ${err?.message || 'unexpected error'}. Please try again or email hello@glowbuddy.com.`
+      );
     } finally {
       setIsSubmitting(false);
     }
