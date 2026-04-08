@@ -357,14 +357,24 @@ export default function GlowMap({
       boundsHasPoints = true;
     });
 
-    // Fit-to-bounds only if the user hasn't taken over the viewport,
-    // and only after the city has been geocoded at least once. This is
-    // what makes "Botox in Miami" zoom to actually show pins instead of
-    // showing the whole continental US.
+    // Fit-to-bounds is only a fallback for the no-city case. When the
+    // user has filtered to a specific city, the geocoder has already
+    // centered the map on that city — and we want that center to WIN,
+    // not get overridden by a fitBounds that pulls the viewport off
+    // toward whichever pins happen to be in the result set (e.g.
+    // "Botox in Mandeville" would otherwise yank the map down to
+    // Metairie because the only $12 pin is there).
+    //
+    // Rule: only fitBounds when the geocoder has NOT centered yet.
+    // - City filter set → geocoder ran → initialCenteredRef.current === true
+    //   → SKIP fitBounds, geocode center wins.
+    // - No city filter → geocoder didn't run → initialCenteredRef.current === false
+    //   → fitBounds runs as a one-time fallback so the user lands on
+    //     their data instead of staring at the whole continental US.
     if (
       boundsHasPoints &&
       !userInteracted.current &&
-      initialCenteredRef.current &&
+      !initialCenteredRef.current &&
       groups.length > 1
     ) {
       mapInstanceRef.current.fitBounds(bounds, 64);

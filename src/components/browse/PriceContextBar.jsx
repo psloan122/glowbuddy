@@ -1,11 +1,16 @@
 /*
  * PriceContextBar — narrow stat strip rendered above the results list.
  *
- * Format: "{brand} in {city} · {count} providers · ${min}–${max}/unit · Avg ${avg}/unit"
+ * Format: "{brand} in {city} · {count} provider(s) · ${min}–${max}/unit · Avg ${avg}/unit"
+ *
+ * Provider count is the number of *distinct providers*, not the number
+ * of price rows — so a single provider with two products (e.g.
+ * Botox + Jeuveau) reads "1 provider" and not "2 providers".
  *
  * The avg portion uses Playfair Display 700 16px so it pops against the
- * Outfit 13px gray surrounding text. Hidden when there are zero prices —
- * the SmartEmptyState component handles that case instead.
+ * Outfit 13px gray surrounding text. Renders the location/count line
+ * even when no usable per-unit prices exist — that case used to bail
+ * silently which made it look like the bar was missing entirely.
  */
 
 export default function PriceContextBar({
@@ -27,13 +32,21 @@ export default function PriceContextBar({
     })
     .filter((n) => n != null);
 
-  if (numericPrices.length === 0) return null;
-
-  const minPrice = Math.min(...numericPrices);
-  const maxPrice = Math.max(...numericPrices);
-  const avgPrice = Math.round(
-    numericPrices.reduce((sum, p) => sum + p, 0) / numericPrices.length,
+  // Count distinct providers, not rows. Falls back to provider_name+city
+  // for the (rare) patient submissions that don't have a provider_id yet.
+  const providerKeys = new Set(
+    prices
+      .map((p) => p.provider_id || `${p.provider_name}|${p.city}|${p.state}`)
+      .filter(Boolean),
   );
+  const providerCount = providerKeys.size || prices.length;
+
+  const hasNumericPrices = numericPrices.length > 0;
+  const minPrice = hasNumericPrices ? Math.min(...numericPrices) : null;
+  const maxPrice = hasNumericPrices ? Math.max(...numericPrices) : null;
+  const avgPrice = hasNumericPrices
+    ? Math.round(numericPrices.reduce((sum, p) => sum + p, 0) / numericPrices.length)
+    : null;
 
   // Use the comparable unit from the first row that has one — most rows
   // in a single result set share the same unit (per unit / per syringe /
@@ -79,29 +92,33 @@ export default function PriceContextBar({
       </span>
       <span style={{ color: '#D6CFC6' }}>·</span>
       <span>
-        {prices.length} {prices.length === 1 ? 'provider' : 'providers'}
+        {providerCount} {providerCount === 1 ? 'provider' : 'providers'}
       </span>
-      <span style={{ color: '#D6CFC6' }}>·</span>
-      <span>
-        {fmtMoney(minPrice)}&ndash;{fmtMoney(maxPrice)}
-        {unitSuffix}
-      </span>
-      <span style={{ color: '#D6CFC6' }}>·</span>
-      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
-        <span>Avg</span>
-        <span
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontWeight: 700,
-            fontSize: 16,
-            color: '#111',
-            lineHeight: 1,
-          }}
-        >
-          {fmtMoney(avgPrice)}
-        </span>
-        <span>{unitSuffix}</span>
-      </span>
+      {hasNumericPrices && (
+        <>
+          <span style={{ color: '#D6CFC6' }}>·</span>
+          <span>
+            {fmtMoney(minPrice)}&ndash;{fmtMoney(maxPrice)}
+            {unitSuffix}
+          </span>
+          <span style={{ color: '#D6CFC6' }}>·</span>
+          <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+            <span>Avg</span>
+            <span
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontWeight: 700,
+                fontSize: 16,
+                color: '#111',
+                lineHeight: 1,
+              }}
+            >
+              {fmtMoney(avgPrice)}
+            </span>
+            <span>{unitSuffix}</span>
+          </span>
+        </>
+      )}
     </div>
   );
 }

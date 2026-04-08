@@ -1429,6 +1429,59 @@ export default function FindPrices() {
     };
   }, [displayedProcedures, cityAvgPrice]);
 
+  // Group displayedProcedures by provider so a single provider with
+  // multiple matching products (e.g. Saintly Skin offering both Botox
+  // and Jeuveau) collapses into ONE card with multiple price rows
+  // instead of N separate cards. Within each group, rows are sorted
+  // ascending by comparable per-unit price so the cheapest product is
+  // the headline. Groups themselves are then sorted by their cheapest
+  // row, mirroring the existing "best deal first" sort behavior.
+  //
+  // Falls back to provider_name+city+state when provider_id is missing
+  // (patient submissions sometimes haven't been linked to a provider
+  // record yet).
+  const groupedProviders = useMemo(() => {
+    if (!displayedProcedures || displayedProcedures.length === 0) return [];
+
+    const compareValueOf = (p) => {
+      const v = Number(
+        p.normalized_compare_value != null && Number.isFinite(Number(p.normalized_compare_value))
+          ? p.normalized_compare_value
+          : p.price_paid,
+      );
+      return Number.isFinite(v) && v > 0 ? v : Infinity;
+    };
+
+    const map = new Map();
+    for (const proc of displayedProcedures) {
+      const key =
+        proc.provider_id ||
+        `${proc.provider_name}|${proc.city}|${proc.state}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          provider_id: proc.provider_id || null,
+          procedures: [],
+        });
+      }
+      map.get(key).procedures.push(proc);
+    }
+
+    const groups = [...map.values()].map((g) => {
+      const sortedProcs = g.procedures
+        .slice()
+        .sort((a, b) => compareValueOf(a) - compareValueOf(b));
+      return {
+        ...g,
+        procedures: sortedProcs,
+        bestPrice: compareValueOf(sortedProcs[0]),
+      };
+    });
+
+    groups.sort((a, b) => a.bestPrice - b.bestPrice);
+    return groups;
+  }, [displayedProcedures]);
+
   // ── Compare tray handlers ──
   const toggleCompare = useCallback((procedure) => {
     setComparing((prev) => {
@@ -2671,29 +2724,39 @@ export default function FindPrices() {
                     'calc(100px + env(safe-area-inset-bottom, 0px))',
                 }}
               >
-                {displayedProcedures.map((proc) => {
+                {groupedProviders.map((group) => {
+                  const primary = group.procedures[0];
                   const slug =
-                    proc.provider_slug ||
-                    providerSlugFromParts(proc.provider_name, proc.city, proc.state);
+                    primary.provider_slug ||
+                    providerSlugFromParts(
+                      primary.provider_name,
+                      primary.city,
+                      primary.state,
+                    );
                   const saved = slug ? isSaved(slug) : false;
-                  const isCompared = comparing.some((p) => p.id === proc.id);
+                  // Compare state is per-procedure (the cheapest one
+                  // is what gets toggled), so reflect that in the
+                  // button state too.
+                  const isCompared = comparing.some(
+                    (p) => p.id === primary.id,
+                  );
                   const selected =
                     selectedProviderGroup?.provider_id != null &&
-                    selectedProviderGroup.provider_id === proc.provider_id;
+                    selectedProviderGroup.provider_id === group.provider_id;
                   return (
                     <div
-                      key={proc.id}
-                      data-provider-card={proc.provider_id || ''}
+                      key={group.key}
+                      data-provider-card={group.provider_id || ''}
                     >
                       <PriceCard
-                        procedure={proc}
+                        procedures={group.procedures}
                         cityAvg={cityAvgPrice}
                         userLat={userLat}
                         userLng={userLng}
                         isCompared={isCompared}
-                        onCompareToggle={() => toggleCompare(proc)}
+                        onCompareToggle={() => toggleCompare(primary)}
                         isSaved={saved}
-                        onSaveToggle={() => handleSaveToggle(proc)}
+                        onSaveToggle={() => handleSaveToggle(primary)}
                         comparingFull={comparing.length >= 3 && !isCompared}
                         selected={selected}
                       />
@@ -2727,29 +2790,36 @@ export default function FindPrices() {
                   borderRight: '1px solid #EDE8E3',
                 }}
               >
-                {displayedProcedures.map((proc) => {
+                {groupedProviders.map((group) => {
+                  const primary = group.procedures[0];
                   const slug =
-                    proc.provider_slug ||
-                    providerSlugFromParts(proc.provider_name, proc.city, proc.state);
+                    primary.provider_slug ||
+                    providerSlugFromParts(
+                      primary.provider_name,
+                      primary.city,
+                      primary.state,
+                    );
                   const saved = slug ? isSaved(slug) : false;
-                  const isCompared = comparing.some((p) => p.id === proc.id);
+                  const isCompared = comparing.some(
+                    (p) => p.id === primary.id,
+                  );
                   const selected =
                     selectedProviderGroup?.provider_id != null &&
-                    selectedProviderGroup.provider_id === proc.provider_id;
+                    selectedProviderGroup.provider_id === group.provider_id;
                   return (
                     <div
-                      key={proc.id}
-                      data-provider-card={proc.provider_id || ''}
+                      key={group.key}
+                      data-provider-card={group.provider_id || ''}
                     >
                       <PriceCard
-                        procedure={proc}
+                        procedures={group.procedures}
                         cityAvg={cityAvgPrice}
                         userLat={userLat}
                         userLng={userLng}
                         isCompared={isCompared}
-                        onCompareToggle={() => toggleCompare(proc)}
+                        onCompareToggle={() => toggleCompare(primary)}
                         isSaved={saved}
-                        onSaveToggle={() => handleSaveToggle(proc)}
+                        onSaveToggle={() => handleSaveToggle(primary)}
                         comparingFull={comparing.length >= 3 && !isCompared}
                         onHoverChange={handleCardHover}
                         selected={selected}

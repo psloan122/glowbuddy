@@ -1,11 +1,20 @@
 /*
- * PriceCard — full-width editorial layout used by the rebuilt /browse page.
+ * PriceCard — provider-grouped editorial card used by the rebuilt /browse page.
  *
  * Sections:
- *   1. Header row: avatar + provider name + city  /  verified + rating + reviews
- *   2. Price row: brand label  /  price + unit  /  vs-average badge
- *      Dysport rows get a one-line equivalency note below.
- *   3. Footer row: distance + open status  /  [COMPARE] [SAVE] [VIEW MENU →]
+ *   1. Header row (rendered once per provider): avatar + provider name +
+ *      city  /  verified + rating + reviews
+ *   2. Price rows (one per procedure for this provider): brand label  /
+ *      price + unit  /  vs-average badge. Dysport rows get a one-line
+ *      equivalency note below.
+ *   3. Footer row (rendered once per provider): distance + open status  /
+ *      [COMPARE] [SAVE] [VIEW MENU →]
+ *
+ * IMPORTANT: This component takes an array of `procedures` for a single
+ * provider, NOT a single procedure. The grouping happens upstream in
+ * FindPrices.jsx via groupedProviders. The first entry in the array is
+ * the "primary" — used for header/footer info — and should already be
+ * sorted lowest-price-first by the parent.
  *
  * Card width: max 860px, centered. Padding 20px 24px. mb 12px.
  */
@@ -20,6 +29,16 @@ import { haversineMiles, formatMiles } from '../../lib/distance';
 function fmtPrice(n) {
   const v = Number(n) || 0;
   return `$${Math.round(v).toLocaleString()}`;
+}
+
+// Pull the comparable per-unit value out of a procedure row, falling
+// back to the raw price_paid when normalization is missing. Used for
+// vs-average badge math and the dysport botox-equivalent calculation.
+function compareValueOf(procedure) {
+  return procedure.normalized_compare_value &&
+    Number.isFinite(Number(procedure.normalized_compare_value))
+    ? Number(procedure.normalized_compare_value)
+    : Number(procedure.price_paid) || 0;
 }
 
 // vs-average badge: green if below avg, gray if at avg, amber if above.
@@ -71,8 +90,111 @@ function VsAverageBadge({ price, avg }) {
   );
 }
 
+// One price row inside the multi-price card. Brand label, big editorial
+// price, vs-avg badge, and an optional dysport equivalency note.
+function PriceRow({ procedure, cityAvg, isFirst }) {
+  const label = getProcedureLabel(procedure.procedure_type, procedure.brand);
+  const displayPrice = procedure.normalized_display
+    ? procedure.normalized_display
+    : fmtPrice(procedure.price_paid);
+  const unitLabel =
+    procedure.units_or_volume ||
+    (procedure.normalized_compare_unit === 'per unit' ? '/unit' : null);
+  const compareValue = compareValueOf(procedure);
+  const isDysport =
+    (procedure.brand && String(procedure.brand).toLowerCase() === 'dysport') ||
+    /dysport/i.test(procedure.procedure_type || '');
+
+  return (
+    <div
+      style={{
+        // The first row's top border is the card-level divider drawn
+        // by the parent (so the spacing matches the header). Subsequent
+        // rows draw their own thin divider.
+        borderTop: isFirst ? 'none' : '1px solid #F4F0EB',
+        padding: '14px 0',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#E8347A',
+            minWidth: 80,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontWeight: 900,
+            fontSize: 28,
+            color: '#111',
+            lineHeight: 1,
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: 6,
+            flex: 1,
+            justifyContent: 'center',
+            minWidth: 120,
+          }}
+        >
+          {displayPrice}
+          {unitLabel && (
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 12,
+                fontWeight: 300,
+                color: '#888',
+              }}
+            >
+              {unitLabel}
+            </span>
+          )}
+        </span>
+        <span style={{ flexShrink: 0 }}>
+          <VsAverageBadge price={compareValue} avg={cityAvg} />
+        </span>
+      </div>
+
+      {isDysport && (
+        <p
+          style={{
+            margin: '8px 0 0 0',
+            fontFamily: 'var(--font-body)',
+            fontStyle: 'italic',
+            fontWeight: 300,
+            fontSize: 11,
+            color: '#888',
+            lineHeight: 1.4,
+          }}
+          title="Dysport requires ~2.5× more units than Botox for equivalent effect"
+        >
+          {compareValue > 0
+            ? `\u2248 $${(compareValue * 2.5).toFixed(2)} Botox-equivalent (2.5\u00D7 units)`
+            : 'Dysport units \u2260 Botox units. Typically 2.5\u00D7 more units needed.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function PriceCard({
-  procedure,
+  procedures,
   cityAvg,
   userLat,
   userLng,
@@ -88,59 +210,46 @@ export default function PriceCard({
   onHoverChange,
   selected = false,
 }) {
+  // Defensive: tolerate either an empty array or accidental single-row use.
+  const rows = Array.isArray(procedures) ? procedures : [];
+  if (rows.length === 0) return null;
+
+  // The "primary" carries provider identity (name, city, slug, distance,
+  // rating). It is also what we hand to compare/save/hover callbacks.
+  const primary = rows[0];
+
   const profileUrl = providerProfileUrl(
-    procedure.provider_slug,
-    procedure.provider_name,
-    procedure.city,
-    procedure.state,
+    primary.provider_slug,
+    primary.provider_name,
+    primary.city,
+    primary.state,
   );
 
-  const cardLabel = getProcedureLabel(procedure.procedure_type, procedure.brand);
   const isVerified =
-    procedure._verified === true || procedure.receipt_verified === true;
+    primary._verified === true || primary.receipt_verified === true;
 
   const distanceLabel = formatMiles(
-    haversineMiles(userLat, userLng, procedure.provider_lat, procedure.provider_lng),
+    haversineMiles(userLat, userLng, primary.provider_lat, primary.provider_lng),
   );
 
-  const displayPrice = procedure.normalized_display
-    ? procedure.normalized_display
-    : fmtPrice(procedure.price_paid);
-  const unitLabel =
-    procedure.units_or_volume ||
-    (procedure.normalized_compare_unit === 'per unit' ? '/unit' : null);
+  const reviewCount = Number(primary.review_count) || 0;
 
-  // Per-unit value used for the vs-average comparison and the dysport
-  // botox-equivalent calculation. Falls back to the raw price_paid.
-  const compareValue =
-    procedure.normalized_compare_value &&
-    Number.isFinite(Number(procedure.normalized_compare_value))
-      ? Number(procedure.normalized_compare_value)
-      : Number(procedure.price_paid) || 0;
-
-  const isDysport =
-    (procedure.brand && String(procedure.brand).toLowerCase() === 'dysport') ||
-    /dysport/i.test(procedure.procedure_type || '');
-
-  const reviewCount = Number(procedure.review_count) || 0;
-
-  // Pending-review state — only shown to the submitter themselves.
-  // Set on patient submissions whose status is `pending` or
-  // `pending_confirmation`. Visual treatment: amber top stripe instead of
-  // pink + a "Pending review" pill so the submitter knows their data is
-  // saved but awaiting moderation.
-  const isPendingSelf = procedure._pending_self === true;
+  // A provider card is in pending-self mode if ANY of its rows is the
+  // current user's own pending submission. The amber treatment then
+  // applies to the whole card (since the submitter is allowed to see
+  // it but no one else is).
+  const isPendingSelf = rows.some((p) => p._pending_self === true);
 
   function handleCompareClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    onCompareToggle?.(procedure);
+    onCompareToggle?.(primary);
   }
 
   function handleSaveClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    onSaveToggle?.(procedure);
+    onSaveToggle?.(primary);
   }
 
   // Compute the borders so the selected/hovered states stack cleanly
@@ -155,10 +264,10 @@ export default function PriceCard({
   return (
     <div
       onMouseEnter={
-        onHoverChange ? () => onHoverChange(procedure, true) : undefined
+        onHoverChange ? () => onHoverChange(primary, true) : undefined
       }
       onMouseLeave={
-        onHoverChange ? () => onHoverChange(procedure, false) : undefined
+        onHoverChange ? () => onHoverChange(primary, false) : undefined
       }
       style={{
         background: isPendingSelf ? '#FFFBF5' : 'white',
@@ -212,6 +321,7 @@ export default function PriceCard({
           </span>
         </div>
       )}
+
       {/* Header row */}
       <div
         style={{
@@ -231,7 +341,7 @@ export default function PriceCard({
             flex: 1,
           }}
         >
-          <ProviderAvatar name={procedure.provider_name} size={44} />
+          <ProviderAvatar name={primary.provider_name} size={44} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <p
               style={{
@@ -246,9 +356,9 @@ export default function PriceCard({
                 textOverflow: 'ellipsis',
               }}
             >
-              {procedure.provider_name || 'Unknown provider'}
+              {primary.provider_name || 'Unknown provider'}
             </p>
-            {procedure.city && procedure.state && (
+            {primary.city && primary.state && (
               <p
                 style={{
                   fontFamily: 'var(--font-body)',
@@ -258,7 +368,7 @@ export default function PriceCard({
                   margin: '2px 0 0 0',
                 }}
               >
-                {procedure.city}, {procedure.state}
+                {primary.city}, {primary.state}
               </p>
             )}
           </div>
@@ -295,7 +405,7 @@ export default function PriceCard({
               Verified
             </span>
           )}
-          {procedure.rating != null && (
+          {primary.rating != null && (
             <span
               style={{
                 display: 'inline-flex',
@@ -308,7 +418,7 @@ export default function PriceCard({
               }}
             >
               <Star size={13} fill="#F5B301" stroke="#F5B301" />
-              {Number(procedure.rating).toFixed(1)}
+              {Number(primary.rating).toFixed(1)}
               {reviewCount > 0 && (
                 <span style={{ color: '#888', fontWeight: 400 }}>
                   ({reviewCount})
@@ -319,85 +429,24 @@ export default function PriceCard({
         </div>
       </div>
 
-      {/* Price row */}
+      {/* Price rows — outer wrapper draws the top + bottom card divider
+          that the original single-row layout had, so the multi-row
+          version still reads as one editorial block. */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          padding: '14px 0',
           borderTop: '1px solid #F4F0EB',
           borderBottom: '1px solid #F4F0EB',
-          flexWrap: 'wrap',
         }}
       >
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: '#E8347A',
-            minWidth: 80,
-          }}
-        >
-          {cardLabel}
-        </span>
-        <span
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontWeight: 900,
-            fontSize: 28,
-            color: '#111',
-            lineHeight: 1,
-            display: 'inline-flex',
-            alignItems: 'baseline',
-            gap: 6,
-            flex: 1,
-            justifyContent: 'center',
-            minWidth: 120,
-          }}
-        >
-          {displayPrice}
-          {unitLabel && (
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 12,
-                fontWeight: 300,
-                color: '#888',
-              }}
-            >
-              {unitLabel}
-            </span>
-          )}
-        </span>
-        <span style={{ flexShrink: 0 }}>
-          <VsAverageBadge price={compareValue} avg={cityAvg} />
-        </span>
+        {rows.map((proc, i) => (
+          <PriceRow
+            key={proc.id || `${proc.procedure_type}-${proc.brand || ''}-${i}`}
+            procedure={proc}
+            cityAvg={cityAvg}
+            isFirst={i === 0}
+          />
+        ))}
       </div>
-
-      {/* Dysport equivalency note */}
-      {isDysport && (
-        <p
-          style={{
-            margin: '8px 0 0 0',
-            fontFamily: 'var(--font-body)',
-            fontStyle: 'italic',
-            fontWeight: 300,
-            fontSize: 11,
-            color: '#888',
-            lineHeight: 1.4,
-          }}
-          title="Dysport requires ~2.5× more units than Botox for equivalent effect"
-        >
-          {compareValue > 0
-            ? `\u2248 $${(compareValue * 2.5).toFixed(2)} Botox-equivalent (2.5\u00D7 units)`
-            : 'Dysport units \u2260 Botox units. Typically 2.5\u00D7 more units needed.'}
-        </p>
-      )}
 
       {/* Footer row */}
       <div
@@ -422,10 +471,10 @@ export default function PriceCard({
           }}
         >
           {distanceLabel && <span>{distanceLabel}</span>}
-          {distanceLabel && procedure.is_open_now && (
+          {distanceLabel && primary.is_open_now && (
             <span style={{ color: '#D6CFC6' }}>·</span>
           )}
-          {procedure.is_open_now && (
+          {primary.is_open_now && (
             <span style={{ color: '#1A7A3A', fontWeight: 600 }}>Open now</span>
           )}
         </div>
