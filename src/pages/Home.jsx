@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
@@ -10,6 +10,7 @@ import SpecialOfferCard from '../components/SpecialOfferCard';
 import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
 import LoggedInHome from '../components/home/LoggedInHome';
+import { buildBrowseUrl, parseSearchQuery } from '../lib/urlParams';
 
 // ── Placeholder testimonials ──
 const PLACEHOLDER_TESTIMONIALS = [
@@ -36,14 +37,18 @@ const PLACEHOLDER_TESTIMONIALS = [
   },
 ];
 
-// Procedure pills shown in hero (editorial pink)
+// Procedure pills shown in hero (editorial pink).
+// `slug` MUST be a valid PROCEDURE_PILLS slug from constants.js so the
+// /browse page actually filters instead of dropping through to the gate.
+// `brand` is optional — when set, the browse page applies an additional
+// provider_pricing.brand filter so only that brand's prices show.
 const HERO_PROCS = [
-  'Botox',
-  'Lip Filler',
-  'Laser Hair Removal',
-  'Microneedling',
-  'Dermal Fillers',
-  'Hydrafacial',
+  { label: 'Botox', slug: 'neurotoxin', brand: 'Botox' },
+  { label: 'Dysport', slug: 'neurotoxin', brand: 'Dysport' },
+  { label: 'Xeomin', slug: 'neurotoxin', brand: 'Xeomin' },
+  { label: 'Fillers', slug: 'filler' },
+  { label: 'Laser', slug: 'laser' },
+  { label: 'GLP-1', slug: 'weight-loss' },
 ];
 
 // Sample featured prices for hero right column (cream bg, dark cards)
@@ -142,6 +147,7 @@ function CountUpNumber({ value, formatted }) {
 
 export default function Home() {
   const { user, openAuthModal } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   // Live stats — only show non-zero values
   const [statItems, setStatItems] = useState([]);
@@ -155,6 +161,21 @@ export default function Home() {
   // User's saved location
   const savedCity = getGatingCity();
   const savedState = getGatingState();
+
+  // Hero search bar query
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Parse the freeform search bar input ("Botox in Mandeville LA") into
+  // structured params and route to /browse. Falls back to the saved city
+  // when the input has no city/state of its own.
+  function handleSearch(e) {
+    if (e) e.preventDefault();
+    const text = (searchQuery || '').trim();
+    let { city, state, procedure, brand } = parseSearchQuery(text);
+    if (!city && savedCity) city = savedCity;
+    if (!state && savedState) state = savedState;
+    navigate(buildBrowseUrl({ city, state, procedure, brand }));
+  }
 
   // SEO
   useEffect(() => {
@@ -269,13 +290,20 @@ export default function Home() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          1. HERO — full-bleed cream, centered editorial
+          1. HERO — full-bleed cream, editorial LEFT-ALIGNED
           ═══════════════════════════════════════════════════════ */}
       <section
         className="bg-cream"
         style={{ borderBottom: '3px solid #E8347A' }}
       >
-        <div className="max-w-[900px] mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-14 md:pb-20 text-center">
+        <div
+          className="pt-16 md:pt-24 pb-14 md:pb-20 text-left"
+          style={{
+            maxWidth: '720px',
+            paddingLeft: 'clamp(24px, 10vw, 160px)',
+            paddingRight: '24px',
+          }}
+        >
           {/* Kicker */}
           <p
             className="text-[11px] font-semibold uppercase text-hot-pink mb-6"
@@ -301,10 +329,10 @@ export default function Home() {
 
           {/* Tagline — warm taupe, single line aspirational */}
           <p
-            className="font-display italic mb-3"
+            className="font-display italic mb-4"
             style={{
               color: '#B8A89A',
-              fontSize: 'clamp(18px, 2.4vw, 26px)',
+              fontSize: '20px',
               fontWeight: 400,
               lineHeight: 1.3,
             }}
@@ -312,44 +340,65 @@ export default function Home() {
             Real prices. Real patients. Real receipts.
           </p>
 
-          {/* Subhead — Outfit body, the longer line */}
+          {/* Subhead — one short line, the headline does the heavy lifting */}
           <p
-            className="font-body font-light text-text-secondary mb-9 max-w-[620px] mx-auto"
-            style={{ fontSize: 'clamp(15px, 1.6vw, 17px)', lineHeight: 1.65 }}
+            className="mb-9"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 300,
+              fontSize: '16px',
+              color: '#888',
+              lineHeight: 1.5,
+              maxWidth: '520px',
+            }}
           >
-            The injectable industry has hidden prices for too long. We're putting
-            them in the open — Botox, filler, lasers, microneedling. Search what
-            people in your city actually paid.
+            Search what people in your city actually paid.
           </p>
 
-          {/* Search bar — pill, editorial, centered */}
-          <div className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto mb-7">
-            <Link
-              to={savedCity ? `/browse?city=${encodeURIComponent(savedCity)}&state=${encodeURIComponent(savedState)}` : '/browse'}
-              className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5 text-[13px] text-text-secondary hover:border-hot-pink transition"
+          {/* Search bar — left-aligned. Real input that parses
+              "Botox in Mandeville LA" into structured /browse params. */}
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-col sm:flex-row gap-2 max-w-xl mb-7"
+          >
+            <div
+              className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
               style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
             >
               <Search size={15} className="shrink-0 text-text-secondary" />
-              <span className="truncate text-left">
-                {savedCity
-                  ? `Search ${savedCity}, ${savedState}...`
-                  : 'Search treatments near you...'}
-              </span>
-            </Link>
-            <Link to="/browse" className="btn-editorial btn-editorial-primary">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  savedCity
+                    ? `Try "Botox in ${savedCity}, ${savedState}"`
+                    : 'Try "Botox in Mandeville, LA"'
+                }
+                className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+              />
+            </div>
+            <button type="submit" className="btn-editorial btn-editorial-primary">
               Find Prices
-            </Link>
-          </div>
+            </button>
+          </form>
 
-          {/* Procedure pills — light variant, centered */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 mb-5">
+          {/* Procedure pills — left-aligned. Each pill maps to a real
+              PROCEDURE_PILLS slug via buildBrowseUrl, and carries the
+              user's saved city forward when present. */}
+          <div className="flex flex-wrap items-center justify-start gap-1.5 mb-5">
             {HERO_PROCS.map((proc) => (
               <Link
-                key={proc}
-                to={`/browse?procedure=${encodeURIComponent(proc)}`}
+                key={proc.label}
+                to={buildBrowseUrl({
+                  city: savedCity || undefined,
+                  state: savedState || undefined,
+                  procedure: proc.slug,
+                  brand: proc.brand,
+                })}
                 className="proc-pill proc-pill-inactive-light"
               >
-                {proc}
+                {proc.label}
               </Link>
             ))}
           </div>
@@ -410,7 +459,10 @@ export default function Home() {
                 in real chairs at real providers. The price report nobody else publishes.
               </p>
               <Link
-                to="/browse"
+                to={buildBrowseUrl({
+                  city: savedCity || undefined,
+                  state: savedState || undefined,
+                })}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
                 style={{
                   fontSize: '11px',
@@ -657,7 +709,10 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Link
-                  to="/browse"
+                  to={buildBrowseUrl({
+                    city: savedCity || undefined,
+                    state: savedState || undefined,
+                  })}
                   className="btn-editorial btn-editorial-primary"
                 >
                   <Search size={12} />
@@ -786,7 +841,10 @@ export default function Home() {
                 Sign up free
               </button>
               <Link
-                to="/browse"
+                to={buildBrowseUrl({
+                  city: savedCity || undefined,
+                  state: savedState || undefined,
+                })}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors hover:bg-white hover:text-hot-pink"
                 style={{
                   letterSpacing: '0.14em',

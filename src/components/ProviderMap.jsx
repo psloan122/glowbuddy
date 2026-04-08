@@ -118,12 +118,12 @@ function createClusterIcon(count, size) {
 // ── Format price label for pin ──
 // Only labels providers that have a qualifying per-unit-equivalent price
 // (< $500). Providers without such a price get a gray dot — never a misleading
-// package-price label. The pin uses a "~" prefix when the value is estimated
-// from a flat-rate area price (e.g. forehead = ~20 units).
+// package-price label. Migration 053 removed all estimated/ambiguous prices
+// so every surviving value is a direct per-unit / per-syringe / per-session /
+// per-month number.
 function formatPinLabel(provider, procedureFilter) {
   const avg = Number(provider.per_unit_avg) || 0;
   if (!provider.has_per_unit_price || avg <= 0 || avg >= 500) return null;
-  const prefix = provider.per_unit_estimate ? '~' : '';
 
   // If filtered to a per-unit procedure (Botox, Dysport, etc.)
   if (procedureFilter) {
@@ -134,16 +134,16 @@ function formatPinLabel(provider, procedureFilter) {
       lf.includes('xeomin') ||
       lf.includes('jeuveau')
     ) {
-      return `${prefix}$${avg}/u`;
+      return `$${avg}/u`;
     }
     if (lf.includes('glp') || lf.includes('semaglutide') || lf.includes('tirzepatide')) {
-      return `${prefix}$${avg}/mo`;
+      return `$${avg}/mo`;
     }
   }
 
   // Default per-unit formatting (always < $500)
-  if (avg < 100) return `${prefix}$${avg}/u`;
-  return `${prefix}$${avg}`;
+  if (avg < 100) return `$${avg}/u`;
+  return `$${avg}`;
 }
 
 export default function ProviderMap({

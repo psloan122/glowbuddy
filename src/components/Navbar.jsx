@@ -5,12 +5,15 @@ import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
 import { getUnreadCount } from '../lib/priceAlerts';
 import NotificationBell from './NotificationBell';
+import {
+  getCity as getGatingCity,
+  getState as getGatingState,
+} from '../lib/gating';
+import { buildBrowseUrl } from '../lib/urlParams';
 
 // ─── Navigation structure ───
-
-const TOP_LINKS = [
-  { to: '/browse', label: 'Find Prices' },
-];
+// "Find Prices" is generated lazily inside the component so we can carry
+// the user's saved city/state forward into the /browse URL.
 
 const DISCOVER_LINKS = [
   { to: '/guides', label: 'Treatment Guides', sub: 'First-timer guides for every treatment' },
@@ -118,6 +121,16 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Carry the user's saved city/state into Find Prices so the gate
+  // doesn't reappear after they've already chosen a location.
+  const savedCity = getGatingCity();
+  const savedState = getGatingState();
+  const findPricesHref = buildBrowseUrl({
+    city: savedCity || undefined,
+    state: savedState || undefined,
+  });
+  const TOP_LINKS = [{ to: findPricesHref, label: 'Find Prices', match: '/browse' }];
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [openKey, setOpenKey] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -220,10 +233,11 @@ export default function Navbar() {
             {/* ═══ Desktop nav links ═══ */}
             <div className="hidden md:flex items-center gap-7">
               {TOP_LINKS.map((link) => {
-                const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+                const matchPath = link.match || link.to;
+                const active = matchPath === '/' ? location.pathname === '/' : location.pathname.startsWith(matchPath);
                 return (
                   <Link
-                    key={link.to}
+                    key={link.label}
                     to={link.to}
                     className={`text-[12px] font-medium uppercase transition-colors ${
                       active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
@@ -384,10 +398,11 @@ export default function Navbar() {
           <div className="px-6 py-8">
             {/* Top-level links */}
             {TOP_LINKS.map((link) => {
-              const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+              const matchPath = link.match || link.to;
+              const active = matchPath === '/' ? location.pathname === '/' : location.pathname.startsWith(matchPath);
               return (
                 <Link
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
                   className={`block py-3 font-display text-[28px] transition-colors ${
                     active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'

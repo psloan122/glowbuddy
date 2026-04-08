@@ -1214,6 +1214,9 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Active Special (inline promo on browse cards) */}
+          <ActiveSpecialEditor provider={provider} setProvider={setProvider} />
+
           {/* First-Timer Settings */}
           <div className="glow-card p-5 mt-6">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
@@ -1268,6 +1271,108 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Inline editor for the single-line "Active Special" shown on a provider's
+// browse card. Distinct from the full Promoted Specials workflow. Gated to
+// claimed providers; a future "Verified" tier check can be dropped in here
+// when the subscription schema lands.
+function ActiveSpecialEditor({ provider, setProvider }) {
+  const MAX_LEN = 80;
+  const [text, setText] = useState(provider.active_special || '');
+  const [expiresAt, setExpiresAt] = useState(
+    provider.special_expires_at
+      ? provider.special_expires_at.slice(0, 10)
+      : '',
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    const trimmed = text.trim();
+    const payload = {
+      active_special: trimmed || null,
+      special_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      special_added_at: trimmed ? new Date().toISOString() : null,
+    };
+    const { data } = await supabase
+      .from('providers')
+      .update(payload)
+      .eq('id', provider.id)
+      .select()
+      .single();
+    if (data) setProvider(data);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const overLimit = text.length > MAX_LEN;
+
+  return (
+    <div className="glow-card p-5 mt-6">
+      <h3 className="font-semibold text-text-primary mb-1 flex items-center gap-2">
+        <Sparkles size={16} className="text-hot-pink" />
+        Current Special
+      </h3>
+      <p className="text-xs text-text-secondary mb-3">
+        Shown on your listing in search results.
+      </p>
+      <div className="space-y-3">
+        <div>
+          <input
+            type="text"
+            value={text}
+            maxLength={MAX_LEN + 10}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. $10/unit Botox through April"
+            className={INPUT_CLASS + ' text-sm'}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span
+              className="text-xs"
+              style={{ color: overLimit ? '#C8005A' : '#888' }}
+            >
+              {text.length} / {MAX_LEN}
+            </span>
+            {saved && (
+              <span className="text-xs text-verified font-medium">Saved</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-text-secondary mb-1">
+            Expires (optional)
+          </label>
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className={INPUT_CLASS + ' text-sm'}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || overLimit}
+          className="text-white uppercase transition-colors disabled:opacity-50"
+          style={{
+            backgroundColor: '#E8347A',
+            padding: '10px 18px',
+            borderRadius: '2px',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 700,
+            fontSize: '12px',
+            letterSpacing: '0.10em',
+          }}
+        >
+          {saving ? 'Saving...' : 'Save Special'}
+        </button>
+      </div>
     </div>
   );
 }

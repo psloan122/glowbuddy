@@ -40,8 +40,8 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
         <div className="absolute inset-0 bg-white/55 backdrop-blur-[2px] pointer-events-auto" />
 
         <div
-          className="relative pointer-events-auto max-w-md w-[92%] bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-5"
-          style={{ boxShadow: '0 20px 50px rgba(201, 79, 120, 0.18)' }}
+          className="relative pointer-events-auto max-w-md w-[92%] bg-white px-5 py-5"
+          style={{ border: '1px solid #EDE8E3', borderRadius: '4px' }}
         >
           <h2 className="text-base font-bold text-text-primary text-center mb-1">
             {heading}
@@ -62,9 +62,12 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
     );
   }
 
-  // block variant
+  // block variant — editorial square-ish container, no shadow
   return (
-    <div className="glow-card p-6 md:p-8 max-w-2xl mx-auto text-center">
+    <div
+      className="p-6 md:p-8 max-w-2xl mx-auto text-center bg-white"
+      style={{ border: '1px solid #EDE8E3', borderRadius: '4px' }}
+    >
       <h2 className="text-xl font-bold text-text-primary mb-1">{heading}</h2>
       <p className="text-sm text-text-secondary mb-5">{subtext}</p>
       <PillGrid
@@ -88,9 +91,26 @@ function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, compact }) 
         <button
           type="button"
           onClick={onToggleMore}
-          className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white text-text-secondary hover:border-rose-accent hover:text-rose-accent transition ${
-            compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-          }`}
+          className="inline-flex items-center gap-1 transition-colors"
+          style={{
+            padding: compact ? '6px 14px' : '8px 18px',
+            borderRadius: '2px',
+            border: '1px solid #DDD',
+            background: 'transparent',
+            color: '#888',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: compact ? '11px' : '12px',
+            letterSpacing: '0.06em',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#E8347A';
+            e.currentTarget.style.color = '#E8347A';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#DDD';
+            e.currentTarget.style.color = '#888';
+          }}
           aria-expanded={moreOpen}
         >
           More
@@ -114,9 +134,26 @@ function PillButton({ pill, onSelect, compact }) {
     <button
       type="button"
       onClick={() => onSelect(pill)}
-      className={`inline-flex items-center rounded-full border border-rose-accent/30 bg-rose-light/40 text-rose-dark font-medium hover:bg-rose-accent hover:text-white transition ${
-        compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-      }`}
+      className="inline-flex items-center transition-colors"
+      style={{
+        padding: compact ? '6px 14px' : '8px 18px',
+        borderRadius: '2px',
+        border: '1px solid #DDD',
+        background: 'transparent',
+        color: '#888',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+        fontSize: compact ? '11px' : '12px',
+        letterSpacing: '0.06em',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#E8347A';
+        e.currentTarget.style.color = '#E8347A';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#DDD';
+        e.currentTarget.style.color = '#888';
+      }}
     >
       {pill.label}
     </button>

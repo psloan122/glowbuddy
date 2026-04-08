@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { getCategoryTag } from './constants';
-import { normalizePrice, bestPinListing } from './priceUtils';
+import { bestPinListing } from './priceUtils';
 
 // Hard cap on what counts as a per-unit price for the map pin. Anything over
 // $500 is almost certainly a package or flat-rate price, not a single unit.
@@ -79,17 +79,18 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
 
   const { data: procedures } = await procQuery;
 
-  // 2b. Fetch provider_pricing rows in bounds. We pull all relevant fields
-  // (procedure_type, price_label, treatment_area, units_or_volume) and let
-  // normalizePrice() decide what's comparable. This includes flat_rate_area
-  // rows whose treatment_area maps to a known unit count (e.g. forehead = 20u),
-  // so $200/forehead becomes a $10/unit estimated comparable.
+  // 2b. Fetch provider_pricing rows in bounds. We only pull displayable rows
+  // (display_suppressed=false, set by migration 053), which means only
+  // confirmed per_unit / per_syringe / per_session / per_month pricing.
+  // normalizePrice() will return HIDDEN for anything that isn't one of those,
+  // and the map pin logic below drops providers with no comparable value.
   let pricingQuery = supabase
     .from('provider_pricing')
     .select(
       'price, price_label, procedure_type, treatment_area, units_or_volume, providers!inner(name, city, lat, lng)'
     )
     .eq('is_active', true)
+    .eq('display_suppressed', false)
     .gte('providers.lat', bounds.south)
     .lte('providers.lat', bounds.north)
     .gte('providers.lng', bounds.west)
@@ -138,10 +139,11 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
         : 0;
 
     // ── Comparable per-unit value for the map pin ──
-    // Direct per-unit prices win over estimates. Patient submissions only
-    // contribute when the freeform units_or_volume text says "unit"/"syringe"/
-    // "session". Scraped provider_pricing rows are normalized via
-    // normalizePrice (which can convert $200/forehead → ~$10/unit estimate).
+    // Patient submissions contribute when the freeform units_or_volume text
+    // says "unit"/"syringe"/"session". Scraped provider_pricing rows are
+    // normalized via normalizePrice — after migration 053 only confirmed
+    // per_unit / per_syringe / per_session / per_month rows survive, so
+    // there are no more estimates to merge in.
     const perUnitDirect = [];
     for (const s of submissions) {
       if (
@@ -153,21 +155,14 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       }
     }
     const pinFromPricing = bestPinListing(pricingMap[key] || []);
-    if (pinFromPricing && !pinFromPricing.isEstimate) {
+    if (pinFromPricing && pinFromPricing.comparableValue != null) {
       perUnitDirect.push(pinFromPricing.comparableValue);
     }
 
-    let perUnitAvg = 0;
-    let perUnitEstimate = false;
-    if (perUnitDirect.length > 0) {
-      perUnitAvg = Math.round(
-        perUnitDirect.reduce((s, p) => s + p, 0) / perUnitDirect.length,
-      );
-    } else if (pinFromPricing && pinFromPricing.comparableValue != null) {
-      // No direct prices — fall back to the estimated value (e.g. from a known area)
-      perUnitAvg = Math.round(pinFromPricing.comparableValue);
-      perUnitEstimate = true;
-    }
+    const perUnitAvg =
+      perUnitDirect.length > 0
+        ? Math.round(perUnitDirect.reduce((s, p) => s + p, 0) / perUnitDirect.length)
+        : 0;
 
     merged.push({
       key: `prov-${prov.id}`,
@@ -186,7 +181,6 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       verified_count: verifiedCount,
       avg_price: avgPrice,
       per_unit_avg: perUnitAvg,
-      per_unit_estimate: perUnitEstimate,
       has_per_unit_price: perUnitAvg > 0 && perUnitAvg < PER_UNIT_PRICE_MAX,
       has_submissions: submissionCount > 0,
       source: 'provider',
@@ -217,8 +211,8 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       perUnitPrices.length > 0
         ? Math.round(perUnitPrices.reduce((s, p) => s + p, 0) / perUnitPrices.length)
         : 0;
-    // Procedure-only providers have no provider_pricing rows, so no estimates
-    // are possible — perUnitAvg here is always direct.
+    // Procedure-only providers have no provider_pricing rows — perUnitAvg is
+    // always a direct submission average here.
 
     merged.push({
       key: `proc-${key}`,
@@ -237,7 +231,6 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       verified_count: verifiedCount,
       avg_price: avgPrice,
       per_unit_avg: perUnitAvg,
-      per_unit_estimate: false,
       has_per_unit_price: perUnitAvg > 0,
       has_submissions: true,
       source: 'procedures',
