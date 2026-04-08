@@ -23,6 +23,12 @@ export default function ThankYou({
   pioneerResult = null,
 
 }) {
+  // True when anonymous submission is waiting on email verification.
+  // These rows live in `procedures` with status = 'pending_confirmation'
+  // and are invisible to browse queries until claimPendingSubmission
+  // flips them to 'active'. Telling the user "your price is live!" in
+  // this state is a lie that breaks trust when they can't find it.
+  const needsEmailVerify = procedure?.status === 'pending_confirmation';
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -95,6 +101,17 @@ export default function ThankYou({
         </div>
       )}
 
+      {/* Pending-confirmation banner — honest messaging for anonymous users */}
+      {needsEmailVerify && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 mb-6 text-left">
+          <p className="font-medium mb-1">We saved your price — one more step.</p>
+          <p className="text-amber-800">
+            Verify your email below to publish it. Until then it won&apos;t show
+            up in search results.
+          </p>
+        </div>
+      )}
+
       {/* Checkmark */}
       <div
         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
@@ -128,11 +145,19 @@ export default function ThankYou({
 
       {/* Headline */}
       <h2 className="text-2xl font-bold text-text-primary mb-2">
-        ✨ Your price is live!
+        {needsEmailVerify
+          ? 'Almost there'
+          : outlierFlagged
+            ? 'Your price is under review'
+            : '✨ Your price is live!'}
       </h2>
 
       <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
-        You just helped people{procedure.city ? ` in ${procedure.city}` : ''} who are researching {procedure.procedure_type} prices know what to expect.
+        {needsEmailVerify
+          ? 'Verify your email below to publish your submission and enter this month\u2019s giveaway.'
+          : outlierFlagged
+            ? 'Our team is reviewing your submission. It\u2019ll appear in results shortly.'
+            : `You just helped people${procedure.city ? ` in ${procedure.city}` : ''} who are researching ${procedure.procedure_type} prices know what to expect.`}
       </p>
 
       {/* Entry count card */}

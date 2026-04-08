@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { DollarSign, Sparkles } from 'lucide-react';
 
+// Editorial pill / button / row styling for the personalization step.
+// Shared across skin concerns and budget so the visual language stays
+// consistent: 4px radius, 1px #DDD border, Outfit 500 12px, transparent
+// until selected, then hot-pink fill.
+
 const SKIN_CONCERNS = [
-  { emoji: '🔴', label: 'Acne / Breakouts' },
-  { emoji: '🌞', label: 'Sun Damage / Dark Spots' },
-  { emoji: '📐', label: 'Fine Lines / Wrinkles' },
-  { emoji: '💧', label: 'Dryness / Dehydration' },
-  { emoji: '🔲', label: 'Large Pores' },
-  { emoji: '🟥', label: 'Redness / Rosacea' },
-  { emoji: '🎯', label: 'Scarring / Texture' },
-  { emoji: '😐', label: 'Volume Loss / Sagging' },
+  'Acne / Breakouts',
+  'Sun Damage / Dark Spots',
+  'Fine Lines / Wrinkles',
+  'Dryness / Dehydration',
+  'Large Pores',
+  'Redness / Rosacea',
+  'Scarring / Texture',
+  'Volume Loss / Sagging',
 ];
 
 const BUDGET_RANGES = [
@@ -27,6 +32,25 @@ const EXPERIENCE_LEVELS = [
   { label: 'Regular', value: 'regular', description: 'I go a few times a year' },
   { label: 'Frequent', value: 'frequent', description: 'Monthly or more' },
 ];
+
+// ── Shared editorial pill style ─────────────────────────────────────
+// Used for both skin concerns and budget buttons. The `selected` flag
+// swaps the transparent/gray defaults for a solid hot-pink fill.
+function editorialPillStyle(selected) {
+  return {
+    borderRadius: '4px',
+    border: `1px solid ${selected ? '#E8347A' : '#DDD'}`,
+    color: selected ? '#fff' : '#888',
+    background: selected ? '#E8347A' : 'transparent',
+    fontFamily: 'var(--font-body)',
+    fontWeight: 500,
+    fontSize: '12px',
+    padding: '8px 16px',
+    transition: 'all 0.15s ease',
+    cursor: 'pointer',
+    lineHeight: 1.3,
+  };
+}
 
 export default function OnboardingPreferences({ onNext, onSkip }) {
   const [budget, setBudget] = useState(null);
@@ -77,11 +101,7 @@ export default function OnboardingPreferences({ onNext, onSkip }) {
             <button
               key={range.label}
               onClick={() => setBudget(i === budget ? null : i)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium border transition ${
-                budget === i
-                  ? 'bg-[#C94F78]/10 border-[#C94F78] text-[#C94F78]'
-                  : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
-              }`}
+              style={editorialPillStyle(budget === i)}
             >
               {range.label}
             </button>
@@ -93,19 +113,14 @@ export default function OnboardingPreferences({ onNext, onSkip }) {
       <div className="mb-5">
         <p className="text-sm font-medium text-text-primary mb-2">Any skin concerns?</p>
         <div className="flex flex-wrap gap-2">
-          {SKIN_CONCERNS.map(({ emoji, label }) => {
+          {SKIN_CONCERNS.map((label) => {
             const isActive = skinConcerns.includes(label);
             return (
               <button
                 key={label}
                 onClick={() => toggleConcern(label)}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                  isActive
-                    ? 'bg-[#C94F78]/10 border-[#C94F78] text-[#C94F78]'
-                    : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
-                }`}
+                style={editorialPillStyle(isActive)}
               >
-                <span>{emoji}</span>
                 {label}
               </button>
             );
@@ -117,22 +132,53 @@ export default function OnboardingPreferences({ onNext, onSkip }) {
       <div className="mb-6">
         <p className="text-sm font-medium text-text-primary mb-2">Treatment experience</p>
         <div className="space-y-2">
-          {EXPERIENCE_LEVELS.map((level) => (
-            <button
-              key={level.value}
-              onClick={() => setExperience(experience === level.value ? null : level.value)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm border transition ${
-                experience === level.value
-                  ? 'bg-[#C94F78]/10 border-[#C94F78]'
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <span className={`font-medium ${experience === level.value ? 'text-[#C94F78]' : 'text-text-primary'}`}>
-                {level.label}
-              </span>
-              <span className="text-xs text-text-secondary">{level.description}</span>
-            </button>
-          ))}
+          {EXPERIENCE_LEVELS.map((level) => {
+            const isActive = experience === level.value;
+            return (
+              <button
+                key={level.value}
+                onClick={() => setExperience(isActive ? null : level.value)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  borderRadius: '4px',
+                  border: '1px solid #DDD',
+                  // Always 3px on the left — swap color instead of width
+                  // so selecting doesn't shift the row by 2px.
+                  borderLeftWidth: '3px',
+                  borderLeftColor: isActive ? '#E8347A' : '#DDD',
+                  background: isActive ? '#FBF9F7' : '#fff',
+                  transition: 'all 0.15s ease',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    color: '#111',
+                  }}
+                >
+                  {level.label}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontSize: '12px',
+                    color: '#888',
+                  }}
+                >
+                  {level.description}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

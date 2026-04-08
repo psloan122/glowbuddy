@@ -8,6 +8,7 @@ import { checkAndAwardBadges } from './lib/badgeLogic';
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
 import Onboarding from './components/Onboarding';
+import ScrollToTop from './components/ScrollToTop';
 import Toast from './components/Toast';
 import Home from './pages/Home';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
@@ -59,6 +60,16 @@ const ReferralRedirect = lazy(() => import('./pages/ReferralRedirect'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const About = lazy(() => import('./pages/About'));
+const Audit = lazy(() => import('./pages/Audit'));
+const RequestBid = lazy(() => import('./pages/RequestBid'));
+const MyBidRequests = lazy(() => import('./pages/MyBidRequests'));
+const ViewBids = lazy(() => import('./pages/ViewBids'));
+const BusinessBidRequests = lazy(() => import('./pages/Business/BidRequests'));
+const BusinessSubmitBid = lazy(() => import('./pages/Business/SubmitBid'));
+const BusinessMyBids = lazy(() => import('./pages/Business/MyBids'));
+const AdminPendingCharges = lazy(() => import('./pages/Admin/PendingCharges'));
+const AdminWaitlist = lazy(() => import('./pages/Admin/Waitlist'));
+const GlowFund = lazy(() => import('./pages/GlowFund'));
 
 export const AuthContext = createContext(null);
 
@@ -240,6 +251,7 @@ function App() {
       showToast,
     }}>
       <div className="min-h-screen bg-warm-white">
+        <ScrollToTop />
         <Navbar />
         <SoftVerifyBanner />
         <main>
@@ -294,6 +306,16 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/pending-charges" element={<AdminPendingCharges />} />
+              <Route path="/admin/waitlist" element={<AdminWaitlist />} />
+              <Route path="/audit" element={<Audit />} />
+              <Route path="/request-bid" element={<RequestBid />} />
+              <Route path="/my-requests" element={<MyBidRequests />} />
+              <Route path="/my-requests/:requestId" element={<ViewBids />} />
+              <Route path="/business/bid-requests" element={<BusinessBidRequests />} />
+              <Route path="/business/bid-requests/:requestId/bid" element={<BusinessSubmitBid />} />
+              <Route path="/business/my-bids" element={<BusinessMyBids />} />
+              <Route path="/glow-fund" element={<GlowFund />} />
             </Routes>
           </Suspense>
         </main>

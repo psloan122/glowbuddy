@@ -474,14 +474,58 @@ export function slugToProcedure(slug) {
 // (e.g. "botox", "lip filler"). It's the first meaningful word from the
 // canonical category.
 export const PROCEDURE_PILLS = [
-  // Primary row
+  // Primary row — neurotoxins are split into 5 brand-specific pills so
+  // shoppers can compare across brands. They all map to the same `neurotoxin`
+  // category tag/procedureTypes; the `brand` field is what carries through
+  // the URL into provider_pricing.brand equality filters.
   {
     label: 'Botox',
     slug: 'neurotoxin',
-    primary: 'Botox / Dysport / Xeomin',
+    brand: 'Botox',
+    primary: 'Botox',
     procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
     categoryTag: 'neurotoxin',
     fuzzyToken: 'botox',
+    isPrimary: true,
+  },
+  {
+    label: 'Dysport',
+    slug: 'neurotoxin',
+    brand: 'Dysport',
+    primary: 'Dysport',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin',
+    fuzzyToken: 'dysport',
+    isPrimary: true,
+  },
+  {
+    label: 'Xeomin',
+    slug: 'neurotoxin',
+    brand: 'Xeomin',
+    primary: 'Xeomin',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin',
+    fuzzyToken: 'xeomin',
+    isPrimary: true,
+  },
+  {
+    label: 'Jeuveau',
+    slug: 'neurotoxin',
+    brand: 'Jeuveau',
+    primary: 'Jeuveau',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin',
+    fuzzyToken: 'jeuveau',
+    isPrimary: true,
+  },
+  {
+    label: 'Daxxify',
+    slug: 'neurotoxin',
+    brand: 'Daxxify',
+    primary: 'Daxxify',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin',
+    fuzzyToken: 'daxxify',
     isPrimary: true,
   },
   {
@@ -623,9 +667,55 @@ export const PROCEDURE_PILLS = [
   },
 ];
 
+// Generic category labels used when the URL has a procedure slug but no
+// brand. These produce the chip / headline / first-timer banner copy
+// ("Neurotoxins" instead of "Botox / Dysport / Xeomin"). When a brand IS
+// set the brand string wins everywhere — see callers in FindPrices.jsx
+// and FirstTimerModeBanner.jsx.
+//
+// Title-case version is used for headlines ("Neurotoxin prices in ...")
+// and the banner ("First time with Neurotoxins?"). UI that needs the
+// uppercase chip form should call .toUpperCase() at the render site.
+export const CATEGORY_LABELS = {
+  neurotoxin: 'Neurotoxins',
+  filler: 'Fillers',
+  laser: 'Laser',
+  microneedling: 'Microneedling',
+  'rf-tightening': 'RF Microneedling',
+  'weight-loss': 'GLP-1',
+  'chemical-peel': 'Chemical Peel',
+  hydrafacial: 'HydraFacial',
+  coolsculpting: 'CoolSculpting',
+  'iv-wellness': 'IV Therapy',
+  'laser-hair-removal': 'Laser Hair Removal',
+  'thread-lift': 'Thread Lift',
+  prp: 'PRP',
+  kybella: 'Kybella',
+  emsculpt: 'Emsculpt',
+  dermaplaning: 'Dermaplaning',
+};
+
+// Resolve a slug + optional brand into a display label.
+// Brand always wins over the generic category name.
+export function getCategoryLabel(slug, brand = null) {
+  if (brand) return brand;
+  if (!slug) return '';
+  return CATEGORY_LABELS[slug] || slug;
+}
+
 // Lookups used by the gate / search bar
-export function findPillBySlug(slug) {
+//
+// `brand` is optional — when provided, prefer the brand-specific pill
+// (e.g. Dysport vs the default Botox neurotoxin pill). When omitted,
+// the first matching slug wins.
+export function findPillBySlug(slug, brand = null) {
   if (!slug) return null;
+  if (brand) {
+    const exact = PROCEDURE_PILLS.find(
+      (p) => p.slug === slug && (p.brand || '').toLowerCase() === brand.toLowerCase()
+    );
+    if (exact) return exact;
+  }
   return PROCEDURE_PILLS.find((p) => p.slug === slug) || null;
 }
 
@@ -643,17 +733,28 @@ export function findPillByLabel(label) {
 // browse/map page can use directly. Accepts pill slugs first; falls back to
 // canonical-procedure slugs (e.g. botox-dysport-xeomin → single-procedure
 // filter) for backward compatibility with the existing search dropdown.
-export function resolveProcedureFilter(slug) {
+export function resolveProcedureFilter(slug, brand = null) {
   if (!slug) return null;
-  const pill = findPillBySlug(slug);
+  const pill = findPillBySlug(slug, brand);
   if (pill) {
+    // When no brand is requested but the matched pill happens to be a
+    // brand-specific entry (e.g. neurotoxin defaults to the Botox pill),
+    // override the display label with the generic category name so the
+    // chip / headline / banner read "Neurotoxins" instead of "Botox".
+    // The procedureTypes / categoryTag / fuzzyToken stay the same so
+    // the data fetch still spans every brand in the category.
+    const useCategoryLabel = !brand && pill.brand;
+    const categoryLabel = useCategoryLabel
+      ? CATEGORY_LABELS[pill.slug] || pill.label
+      : pill.label;
     return {
       slug: pill.slug,
-      label: pill.label,
-      primary: pill.primary,
+      label: categoryLabel,
+      primary: categoryLabel,
       procedureTypes: pill.procedureTypes,
       categoryTag: pill.categoryTag,
       fuzzyToken: pill.fuzzyToken,
+      brand: brand || null,
       isPill: true,
     };
   }
@@ -696,6 +797,7 @@ export function makeProcedureFilterFromPill(pill) {
     procedureTypes: pill.procedureTypes,
     categoryTag: pill.categoryTag,
     fuzzyToken: pill.fuzzyToken,
+    brand: pill.brand || null,
     isPill: true,
   };
 }

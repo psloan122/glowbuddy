@@ -16,8 +16,9 @@ import DisputeButton from './DisputeButton';
 import { getGuideUrl } from '../lib/guideMapping';
 import { inferNeurotoxinBrand } from '../lib/priceUtils';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
+import { haversineMiles, formatMiles } from '../lib/distance';
 
-export default function ProcedureCard({ procedure, firstTimerActive, userAlerts }) {
+export default function ProcedureCard({ procedure, firstTimerActive, userAlerts, userLat, userLng }) {
   const [responseExpanded, setResponseExpanded] = useState(false);
   const sourceBadge = getSourceBadge(procedure.data_source);
   const freshness = procedure.data_source === 'provider_quote'
@@ -50,17 +51,117 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
     perUnitPrice: perUnitForBrand,
   });
 
+  // "· X mi" suffix next to the city/state line. Resolves to null when
+  // either side of the coordinate pair is missing, which is the common
+  // case (signed-out users with no gating location, rows without
+  // provider lat/lng).
+  const distanceLabel = formatMiles(
+    haversineMiles(userLat, userLng, procedure.provider_lat, procedure.provider_lng),
+  );
+
+  // Compact mobile values used in the simplified card layout below md.
+  const mobilePrice = procedure.normalized_display
+    ? procedure.normalized_display
+    : `$${Number(procedure.price_paid).toLocaleString()}`;
+  const mobileUnit = procedure.units_or_volume || null;
+
   return (
     <Wrapper
       {...wrapperProps}
-      className="group block glow-card p-5 hover:no-underline"
+      className="group block hover:no-underline glow-card px-4 py-3.5 md:p-5 rounded-md md:rounded-lg"
     >
       {/* Active special banner — shown at top when provider has an
-          unexpired active_special set. */}
-      <SpecialBanner
-        text={procedure.active_special}
-        expiresAt={procedure.special_expires_at}
-      />
+          unexpired active_special set. Hidden on mobile for compactness;
+          the special is still implied by the hot-pink top border. */}
+      <div className="hidden md:block">
+        <SpecialBanner
+          text={procedure.active_special}
+          expiresAt={procedure.special_expires_at}
+        />
+      </div>
+
+      {/* ─── Mobile compact layout (< md) ─── */}
+      <div className="md:hidden">
+        {/* Row 1: Provider name + price */}
+        <div className="flex items-baseline justify-between gap-3">
+          <p
+            className="text-ink truncate"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 600,
+              fontSize: 15,
+              maxWidth: '60%',
+            }}
+          >
+            {procedure.provider_name}
+          </p>
+          <span
+            className="font-display text-ink shrink-0 text-right"
+            style={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}
+          >
+            {mobilePrice}
+          </span>
+        </div>
+
+        {/* Row 2: City · rating · distance */}
+        <p
+          className="mt-1"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: 12,
+            color: '#B8A89A',
+          }}
+        >
+          {[
+            procedure.city && procedure.state ? `${procedure.city}, ${procedure.state}` : null,
+            procedure.rating ? `${'\u2605'} ${Number(procedure.rating).toFixed(1)}` : null,
+            distanceLabel || null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+
+        {/* Row 3 (conditional): special banner — single line */}
+        {procedure.active_special && hasActiveSpecial(procedure.active_special, procedure.special_expires_at) && (
+          <div
+            className="mt-2 truncate"
+            style={{
+              borderLeft: '3px solid #E8347A',
+              paddingLeft: 8,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize: 12,
+              color: '#111',
+            }}
+          >
+            {procedure.active_special}
+          </div>
+        )}
+
+        {/* Row 4: Unit + vs-avg badge */}
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 300,
+              fontSize: 11,
+              color: '#B8A89A',
+            }}
+          >
+            {mobileUnit || procedure.procedure_type}
+          </span>
+          <FairPriceBadge
+            price={procedure.normalized_compare_value || procedure.price_paid}
+            procedureType={procedure.procedure_type}
+            state={procedure.state}
+            city={procedure.city}
+          />
+        </div>
+      </div>
+
+      {/* ─── Desktop layout (md+) ─── */}
+      <div className="hidden md:block">
 
       {/* Kicker — procedure type as tracked uppercase label */}
       <p className="editorial-kicker mb-2">
@@ -178,6 +279,9 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
             {procedure.city && procedure.state && (
               <p className="text-[11px] font-light text-text-secondary">
                 {procedure.city}, {procedure.state}
+                {distanceLabel && (
+                  <span className="text-text-secondary"> &middot; {distanceLabel}</span>
+                )}
               </p>
             )}
           </div>
@@ -419,6 +523,8 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts 
           )}
         </div>
       )}
+
+      </div>{/* /desktop md+ layout */}
     </Wrapper>
   );
 }

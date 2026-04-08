@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ProviderAvatar from './ProviderAvatar';
+import { haversineMiles } from '../lib/distance';
 
 const GRADIENTS = [
   'from-rose-light to-rose-accent/30',
@@ -12,19 +13,9 @@ const GRADIENTS = [
   'from-sky-100 to-sky-300/30',
 ];
 
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3959;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
+// Competitor-ads uses its own distance-label formatter because the copy
+// here is contextual ("3.2 mi away", "30 mi away · Brooklyn") rather than
+// the short badge string `formatMiles` produces for browse cards.
 function formatDistance(miles, city, state) {
   if (miles < 1) return `${miles.toFixed(1)} mi away`;
   if (miles < 10) return `${miles.toFixed(1)} mi away`;
@@ -188,7 +179,9 @@ export default function CompetitorAds({
     // Calculate distance, find best procedure match
     const enriched = providers.map((p) => {
       const dist =
-        lat && lng && p.lat && p.lng ? haversine(lat, lng, p.lat, p.lng) : Infinity;
+        lat && lng && p.lat && p.lng
+          ? haversineMiles(lat, lng, p.lat, p.lng) ?? Infinity
+          : Infinity;
       const procs = procBySlug[p.slug] || [];
 
       // Best matching procedure type

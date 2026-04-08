@@ -50,7 +50,10 @@ export default function MapView() {
   // procFilter is the source of truth for which procedure(s) to show.
   // null = no procedure selected → ProcedureGate shows + map renders dots only
   const [procFilter, setProcFilter] = useState(() =>
-    resolveProcedureFilter(searchParams.get('procedure') || ''),
+    resolveProcedureFilter(
+      searchParams.get('procedure') || '',
+      searchParams.get('brand') || null,
+    ),
   );
 
   // The legacy MapFilterBar reads filters.procedureType (canonical name).
@@ -170,7 +173,7 @@ export default function MapView() {
     return () => clearTimeout(debounceRef.current);
   }, [procFilter, fetchMarkers]);
 
-  // ── URL sync: write procedure slug, preserving other params ──
+  // ── URL sync: write procedure slug + brand, preserving other params ──
   useEffect(() => {
     setSearchParams(
       (prev) => {
@@ -179,6 +182,11 @@ export default function MapView() {
           next.set('procedure', procFilter.slug);
         } else {
           next.delete('procedure');
+        }
+        if (procFilter?.brand) {
+          next.set('brand', procFilter.brand);
+        } else {
+          next.delete('brand');
         }
         return next;
       },
@@ -189,9 +197,11 @@ export default function MapView() {
   // ── Restore procFilter from URL on back/forward navigation ──
   useEffect(() => {
     const urlSlug = searchParams.get('procedure') || '';
+    const urlBrand = searchParams.get('brand') || '';
     const currentSlug = procFilter?.slug || '';
-    if (urlSlug !== currentSlug) {
-      setProcFilter(resolveProcedureFilter(urlSlug));
+    const currentBrand = procFilter?.brand || '';
+    if (urlSlug !== currentSlug || urlBrand !== currentBrand) {
+      setProcFilter(resolveProcedureFilter(urlSlug, urlBrand || null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);

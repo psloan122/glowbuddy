@@ -11,17 +11,65 @@ import OnboardingPreferences from './OnboardingPreferences';
 // Screen order: 0=Welcome, 1=Location, 2=Interests, 3=Preferences, 4=Mission
 const SCREEN_COUNT = 5;
 
+// localStorage keys for mid-flow persistence. Restored on mount so a
+// refresh mid-onboarding lands the user back on their current step
+// instead of bouncing them to screen 0. Cleared on completion/skip.
+const STORAGE_STEP_KEY = 'onboardingStep';
+const STORAGE_DATA_KEY = 'onboardingData';
+
+function readSavedStep() {
+  if (typeof window === 'undefined') return 0;
+  const raw = window.localStorage.getItem(STORAGE_STEP_KEY);
+  const parsed = raw ? parseInt(raw, 10) : 0;
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed >= SCREEN_COUNT) return 0;
+  return parsed;
+}
+
+function readSavedData() {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_DATA_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function clearOnboardingStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(STORAGE_STEP_KEY);
+    window.localStorage.removeItem(STORAGE_DATA_KEY);
+  } catch {
+    // Swallow — quota / private mode shouldn't break completion.
+  }
+}
+
 export default function Onboarding({ onComplete }) {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState(0);
+  const [screen, setScreen] = useState(readSavedStep);
   const [direction, setDirection] = useState(1); // 1=forward, -1=back
-  const [selected, setSelected] = useState([]);
-  const [zip, setZip] = useState('');
+  const [selected, setSelected] = useState(() => readSavedData().selected || []);
+  const [zip, setZip] = useState(() => readSavedData().zip || '');
   const [zipError, setZipError] = useState('');
-  const [resolvedCity, setResolvedCity] = useState('');
+  const [resolvedCity, setResolvedCity] = useState(() => readSavedData().resolvedCity || '');
   const [lookingUp, setLookingUp] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const zipInputRef = useRef(null);
+
+  // Persist step + form data on every change so a refresh recovers.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(STORAGE_STEP_KEY, String(screen));
+      window.localStorage.setItem(
+        STORAGE_DATA_KEY,
+        JSON.stringify({ selected, zip, resolvedCity })
+      );
+    } catch {
+      // Ignore quota / private-mode errors.
+    }
+  }, [screen, selected, zip, resolvedCity]);
 
   function goTo(nextScreen) {
     setDirection(nextScreen > screen ? 1 : -1);
@@ -33,6 +81,7 @@ export default function Onboarding({ onComplete }) {
       setShowSkipConfirm(true);
       return;
     }
+    clearOnboardingStorage();
     setOnboarded();
     onComplete();
   }
@@ -110,6 +159,7 @@ export default function Onboarding({ onComplete }) {
   }
 
   function handleBrowse() {
+    clearOnboardingStorage();
     setOnboarded();
     onComplete();
     supabase.auth.getSession().then(({ data }) => {
@@ -118,6 +168,7 @@ export default function Onboarding({ onComplete }) {
   }
 
   function handleLogTreatment() {
+    clearOnboardingStorage();
     setOnboarded();
     onComplete();
     navigate('/log');
@@ -134,9 +185,16 @@ export default function Onboarding({ onComplete }) {
   }, [screen]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center px-4" style={{ backgroundColor: '#FDF6F0' }}>
-      <div className="w-full max-w-[480px]">
-        {/* Progress dots */}
+    <div
+      className="fixed inset-0 z-[80] overflow-y-auto"
+      style={{
+        backgroundColor: '#FDF6F0',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      <div className="min-h-full flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-[480px]">
+          {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 mb-8">
           {Array.from({ length: SCREEN_COUNT }).map((_, i) => (
             <div
@@ -358,17 +416,18 @@ export default function Onboarding({ onComplete }) {
           )}
         </div>
 
-        {/* Slide animation styles */}
-        <style>{`
-          @keyframes slide-in-right {
-            from { opacity: 0; transform: translateX(24px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-          @keyframes slide-in-left {
-            from { opacity: 0; transform: translateX(-24px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-        `}</style>
+          {/* Slide animation styles */}
+          <style>{`
+            @keyframes slide-in-right {
+              from { opacity: 0; transform: translateX(24px); }
+              to { opacity: 1; transform: translateX(0); }
+            }
+            @keyframes slide-in-left {
+              from { opacity: 0; transform: translateX(-24px); }
+              to { opacity: 1; transform: translateX(0); }
+            }
+          `}</style>
+        </div>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import BrandGroupCard from '../components/BrandGroupCard';
 import MultiProcedureProviderCard from '../components/MultiProcedureProviderCard';
 import { groupBrandRows } from '../lib/groupBrandRows';
 import useUserPreferences from '../hooks/useUserPreferences';
+import useUserLocation from '../hooks/useUserLocation';
 import FirstTimerBadge from '../components/FirstTimerBadge';
 import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
 import FirstTimerOnboardingPrompt from '../components/FirstTimerOnboardingPrompt';
@@ -109,9 +110,12 @@ export default function FindPrices() {
   // URL always wins when present.
   const [procFilter, setProcFilter] = useState(() => {
     const urlSlug = searchParams.get('procedure');
-    if (urlSlug) return resolveProcedureFilter(urlSlug);
+    const urlBrand = searchParams.get('brand');
+    if (urlSlug) return resolveProcedureFilter(urlSlug, urlBrand);
     const persisted = readPersistedFilters();
-    if (persisted?.procedureSlug) return resolveProcedureFilter(persisted.procedureSlug);
+    if (persisted?.procedureSlug) {
+      return resolveProcedureFilter(persisted.procedureSlug, persisted.brand || null);
+    }
     return null;
   });
   const selectedProc = procFilter?.primary || '';
@@ -274,12 +278,14 @@ export default function FindPrices() {
   // Restore procFilter + brandFilter from URL on back/forward navigation
   useEffect(() => {
     const urlSlug = searchParams.get('procedure') || '';
-    const currentSlug = procFilter?.slug || '';
-    if (urlSlug !== currentSlug) {
-      setProcFilter(resolveProcedureFilter(urlSlug));
-    }
     const urlBrand = searchParams.get('brand') || '';
+    const currentSlug = procFilter?.slug || '';
     const currentBrand = brandFilter || '';
+    if (urlSlug !== currentSlug || urlBrand !== currentBrand) {
+      // Pass the brand so neurotoxin&brand=Dysport resolves to the
+      // Dysport pill rather than the default Botox one.
+      setProcFilter(resolveProcedureFilter(urlSlug, urlBrand || null));
+    }
     if (urlBrand !== currentBrand) {
       setBrandFilter(urlBrand || null);
     }
@@ -317,6 +323,10 @@ export default function FindPrices() {
 
   function selectPill(pill) {
     setProcFilter(makeProcedureFilterFromPill(pill));
+    // Brand-specific pills (e.g. Botox / Dysport / Xeomin) carry a brand
+    // through the URL so the provider_pricing.brand filter activates.
+    // Non-brand pills (Fillers, Laser, ...) clear any stale brand filter.
+    setBrandFilter(pill?.brand || null);
     setProcQuery('');
     setProcOpen(false);
   }
@@ -441,6 +451,14 @@ export default function FindPrices() {
   const filterState = selectedLoc?.state || '';
   const filterZip = selectedLoc?.zip || '';
 
+  // User coordinates used to render the "· X mi" distance badge on browse
+  // cards. Resolution priority lives inside the hook: session cache →
+  // explicit filter city/state → profile → gating localStorage. The hook
+  // does not prompt for browser geolocation — MapView still owns that flow.
+  const { lat: userLat, lng: userLng } = useUserLocation(
+    filterCity && filterState ? { city: filterCity, state: filterState } : undefined,
+  );
+
   // ── Fetch procedures + provider_pricing with cascading fallback ──
   // Both sources are merged into a single feed. Patient submissions come from
   // `procedures`; provider-uploaded / scraped rows come from `provider_pricing`
@@ -477,16 +495,19 @@ export default function FindPrices() {
     }
 
     async function fetchProcedureRows(filters) {
-      // When a brand filter is active we cannot honor it against the
-      // `procedures` table because it has no brand column — the brand
-      // info for patient-reported submissions is either embedded in
-      // procedure_type as free text or missing entirely. Skip this
-      // source so the result set only contains brand-accurate rows
-      // from provider_pricing.
-      if (brandFilter) return [];
-      const query = buildProcedureQuery(filters)
+      // The `procedures` table has no structured brand column. Patient-
+      // reported submissions instead encode the brand inside the freeform
+      // `procedure_type` text (e.g. "Daxxify", "Botox / Dysport / Xeomin").
+      // When a brand filter is active we ilike-match procedure_type so
+      // those rows aren't lost — previously we returned [] here, which
+      // meant a user who logged "Daxxify" at a brand-new provider could
+      // never see their own submission in the brand-filtered view.
+      let query = buildProcedureQuery(filters)
         .order('created_at', { ascending: false })
         .limit(40);
+      if (brandFilter) {
+        query = query.ilike('procedure_type', `%${brandFilter}%`);
+      }
       const { data, error } = await query;
       if (error) {
         console.warn('procedures fetch failed:', error.message);
@@ -506,7 +527,7 @@ export default function FindPrices() {
       let query = supabase
         .from('provider_pricing')
         .select(
-          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type, owner_user_id, active_special, special_expires_at)'
+          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type, owner_user_id, active_special, special_expires_at, lat, lng)'
         )
         .eq('is_active', true)
         .eq('display_suppressed', false);
@@ -577,6 +598,8 @@ export default function FindPrices() {
           is_anonymous: false,
           provider_slug: provider.slug || null,
           provider_id: row.provider_id,
+          provider_lat: provider.lat ?? null,
+          provider_lng: provider.lng ?? null,
           active_special: provider.active_special || null,
           special_expires_at: provider.special_expires_at || null,
           is_claimed: !!provider.owner_user_id,
@@ -673,16 +696,23 @@ export default function FindPrices() {
       if (providerIds.length === 0) return rows;
       const { data, error } = await supabase
         .from('providers')
-        .select('id, active_special, special_expires_at, owner_user_id')
+        .select('id, active_special, special_expires_at, owner_user_id, lat, lng')
         .in('id', providerIds);
       if (error || !data) return rows;
       const byId = new Map(data.map((p) => [p.id, p]));
       return rows.map((r) => {
-        if (r.active_special !== undefined) return r; // already set from the join
         const p = byId.get(r.provider_id);
-        if (!p) return r;
+        // Always backfill lat/lng from this lookup so patient-submitted rows
+        // (which don't join providers in fetchProcedureRows) can render the
+        // distance badge on the browse card.
+        const withCoords =
+          r.provider_lat == null && p
+            ? { ...r, provider_lat: p.lat ?? null, provider_lng: p.lng ?? null }
+            : r;
+        if (withCoords.active_special !== undefined) return withCoords;
+        if (!p) return withCoords;
         return {
-          ...r,
+          ...withCoords,
           active_special: p.active_special || null,
           special_expires_at: p.special_expires_at || null,
           is_claimed: !!p.owner_user_id,
@@ -705,6 +735,12 @@ export default function FindPrices() {
       setLoadingProcedures(true);
       setFallbackLabel('');
       setFallbackScope('');
+
+      // Safety net: if any of the awaits below throw (network blip,
+      // unexpected schema mismatch, attachProviderSpecials failure), the
+      // try/finally GUARANTEES the skeleton clears. Otherwise the user
+      // is stuck staring at shimmer cards forever.
+      try {
 
       // Total count = procedures + provider_pricing (both narrowed by
       // procedure_type when set, so the "of N total" copy is meaningful).
@@ -780,12 +816,31 @@ export default function FindPrices() {
         }
       }
 
-      const resultsWithSpecials = await attachProviderSpecials(results);
+      let resultsWithSpecials = results;
+      try {
+        resultsWithSpecials = await attachProviderSpecials(results);
+      } catch (err) {
+        console.warn('attachProviderSpecials failed:', err);
+        // Fall back to the unannotated results so we still render something.
+      }
       setProcedures(resultsWithSpecials);
-      setLoadingProcedures(false);
+      } catch (err) {
+        console.error('fetchProcedures failed:', err);
+        setProcedures([]);
+      } finally {
+        setLoadingProcedures(false);
+      }
     }
 
-    fetchProcedures();
+    // Hard safety timeout — never show the skeleton for more than 8s.
+    // If something is genuinely hung (cold cache, slow network) we'd
+    // rather render the empty state than leave the user staring at
+    // shimmer placeholders.
+    const skeletonSafetyTimeout = setTimeout(() => {
+      setLoadingProcedures(false);
+    }, 8000);
+
+    fetchProcedures().finally(() => clearTimeout(skeletonSafetyTimeout));
   }, [
     procFilter,
     brandFilter,
@@ -840,7 +895,7 @@ export default function FindPrices() {
       let query = supabase
         .from('provider_pricing')
         .select(
-          'id, provider_id, procedure_type, brand, price, price_label, units_or_volume, treatment_area, source, verified, scraped_at, created_at, providers!inner(id, name, slug, city, state, provider_type, is_active, active_special, special_expires_at)',
+          'id, provider_id, procedure_type, brand, price, price_label, units_or_volume, treatment_area, source, verified, scraped_at, created_at, providers!inner(id, name, slug, city, state, provider_type, is_active, active_special, special_expires_at, lat, lng)',
         )
         .eq('is_active', true)
         .eq('display_suppressed', false)
@@ -1211,10 +1266,203 @@ export default function FindPrices() {
     );
   }
 
+  // ── Active filter chips (mobile compact bar) ──
+  // Drives the row-1 horizontally scrollable chip strip on mobile.
+  const activeChips = [];
+  if (procFilter) {
+    activeChips.push({
+      key: 'procedure',
+      label: brandFilter || procFilter.primary || procFilter.label,
+      onClear: clearProcedure,
+    });
+  }
+  if (selectedLoc) {
+    activeChips.push({
+      key: 'location',
+      label: `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`,
+      onClear: clearLocation,
+    });
+  }
+  if (hasPricesOnly) {
+    activeChips.push({
+      key: 'has-prices',
+      label: 'Has prices',
+      onClear: () => setHasPricesOnly(false),
+    });
+  }
+
+  // Whether to show the dosage estimator section in the mobile drawer.
+  const dosageEstimatorAvailable =
+    !!selectedProc && firstTimerActive && isFirstTimerFor(selectedProc);
+
   return (
     <div className="min-h-screen bg-cream page-enter">
-      {/* Sticky search header */}
-      <div className="sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
+      {/* ─── Mobile sticky filter bar (< md) ─── */}
+      <div
+        className="md:hidden sticky z-30 bg-white"
+        style={{
+          top: 52,
+          borderBottom: '1px solid #EDE8E3',
+        }}
+      >
+        <div className="px-4 pt-2 pb-2 space-y-2">
+          {/* Row 1 — active filter chips, scrollable horizontally */}
+          <div
+            className="flex items-center gap-2 overflow-x-auto"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
+            {activeChips.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowSearchSheet(true)}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                style={{
+                  height: 32,
+                  padding: '0 12px',
+                  background: '#FBF9F7',
+                  border: '1px dashed #EDE8E3',
+                  borderRadius: 2,
+                  color: '#888',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                <Search size={12} />
+                Search treatments
+              </button>
+            ) : (
+              activeChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.onClear}
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  style={{
+                    height: 32,
+                    padding: '0 12px',
+                    background: '#E8347A',
+                    color: 'white',
+                    borderRadius: 2,
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {String(chip.label).toUpperCase()}
+                  <X size={12} strokeWidth={3} />
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Row 2 — Filters | Has Prices | List/Map */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="inline-flex items-center gap-1.5"
+              style={{
+                height: 32,
+                padding: '0 12px',
+                border: '1px solid #DDD',
+                borderRadius: 2,
+                background: 'white',
+                color: '#111',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <SlidersHorizontal size={14} />
+              Filters
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setHasPricesOnly((p) => !p)}
+              className="inline-flex items-center gap-1.5"
+              style={{
+                height: 32,
+                padding: '0 12px',
+                border: `1px solid ${hasPricesOnly ? '#E8347A' : '#DDD'}`,
+                borderRadius: 2,
+                background: hasPricesOnly ? '#E8347A' : 'white',
+                color: hasPricesOnly ? 'white' : '#111',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {hasPricesOnly && <span style={{ fontSize: 10 }}>&#10003;</span>}
+              Has prices
+            </button>
+
+            <div
+              className="ml-auto flex overflow-hidden"
+              style={{ border: '1px solid #DDD', borderRadius: 2, height: 32 }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className="flex items-center justify-center"
+                style={{
+                  width: 40,
+                  background: viewMode === 'list' ? '#E8347A' : 'white',
+                  color: viewMode === 'list' ? 'white' : '#111',
+                }}
+                aria-label="List view"
+              >
+                <List size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleSwitchToMap}
+                className="flex items-center justify-center border-l border-[#DDD]"
+                style={{
+                  width: 40,
+                  background: viewMode === 'map' ? '#E8347A' : 'white',
+                  color: viewMode === 'map' ? 'white' : '#111',
+                }}
+                aria-label="Map view"
+              >
+                <Map size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Inline dosage-estimator hint link — only shown when relevant */}
+          {dosageEstimatorAvailable && (
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="block text-left"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 300,
+                fontSize: 12,
+                color: '#E8347A',
+              }}
+            >
+              How many units will I need? &rarr;
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky search header (desktop only) */}
+      <div className="hidden md:block sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
         <div className="max-w-7xl mx-auto px-4 py-3">
           {/* Mobile map: collapsed search pill */}
           {IS_MOBILE && viewMode === 'map' ? (
@@ -1748,21 +1996,72 @@ export default function FindPrices() {
             className="absolute inset-0 bg-[#1C1410]/45"
             onClick={() => setShowFilters(false)}
           />
-          {/* Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white max-h-[80vh] overflow-y-auto animate-slide-up" style={{ borderTop: '3px solid #E8347A' }}>
-            <div className="sticky top-0 bg-white border-b border-rule px-5 py-3 flex items-center justify-between">
+          {/* Sheet — slides up with 12px top radius + drag handle */}
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white overflow-y-auto animate-slide-up"
+            style={{
+              maxHeight: '80vh',
+              borderTopLeftRadius: 12,
+              borderTopRightRadius: 12,
+            }}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-2 pb-1">
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: '#EDE8E3' }} />
+            </div>
+            <div className="sticky top-0 bg-white px-5 pt-2 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #EDE8E3' }}>
               <h3 className="editorial-kicker">Filters</h3>
               <button
                 onClick={() => setShowFilters(false)}
                 className="text-text-secondary hover:text-ink"
+                aria-label="Close filters"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-5">
+            <div style={{ padding: '20px 20px 24px 20px' }}>
+              {/* Read the guide link — shown when a procedure is selected */}
+              {selectedProc && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFilters(false);
+                    setGuideSheetTreatment(selectedProc || procFilter?.label || '');
+                    setShowGuideSheet(true);
+                  }}
+                  className="w-full text-left mb-4"
+                  style={{
+                    background: '#FBF9F7',
+                    border: '1px solid #EDE8E3',
+                    borderLeft: '3px solid #E8347A',
+                    borderRadius: 2,
+                    padding: '12px 14px',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    color: '#111',
+                  }}
+                >
+                  First time with {brandFilter || procFilter?.label || selectedProc}?{' '}
+                  <span style={{ color: '#E8347A', fontWeight: 600 }}>Read the guide &rarr;</span>
+                </button>
+              )}
+
               {renderFilterControls()}
+
+              {/* Collapsible dosage estimator — only for first-timer eligible treatments */}
+              {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
+                <div
+                  className="mt-5"
+                  style={{
+                    borderTop: '1px solid #EDE8E3',
+                    paddingTop: 16,
+                  }}
+                >
+                  <DosageCalculator treatmentName={selectedProc} />
+                </div>
+              )}
             </div>
-            <div className="sticky bottom-0 bg-white border-t border-rule p-4">
+            <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3' }}>
               <button
                 onClick={() => setShowFilters(false)}
                 className="btn-editorial btn-editorial-primary w-full"
@@ -1776,9 +2075,10 @@ export default function FindPrices() {
 
       {/* Personalized hero header — shown for logged-in users with saved
           treatment preferences, when they haven't picked a specific
-          procedure/brand yet. Replaces the gate entirely. */}
+          procedure/brand yet. Replaces the gate entirely.
+          Hidden on mobile (< md) so the user sees price cards immediately. */}
       {!(IS_MOBILE && viewMode === 'map') && personalizedMode && (
-        <div className="bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
+        <div className="hidden md:block bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
             <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
               {(() => {
@@ -1901,7 +2201,7 @@ export default function FindPrices() {
 
       {/* Editorial cream hero header — when procedure/brand selected OR location set */}
       {!(IS_MOBILE && viewMode === 'map') && !personalizedMode && (procFilter || brandFilter || selectedLoc) && (
-        <div className="bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
+        <div className="hidden md:block bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
             <p className="editorial-kicker mb-3">
               {hasPricesOnly ? 'Verified providers' : 'Real prices · No consultations'}
@@ -1967,7 +2267,18 @@ export default function FindPrices() {
       )}
 
       {/* Results area */}
-      <div className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}>
+      <div
+        className={`max-w-7xl mx-auto ${IS_MOBILE && viewMode === 'map' ? 'px-0 py-0' : 'px-4 py-6'}`}
+        style={{
+          // Clear the fixed mobile bottom nav (56px) + safe-area so the
+          // last card is never hidden behind it and its tap zone can't
+          // be accidentally contested. Desktop resets this via media.
+          paddingBottom:
+            IS_MOBILE && viewMode !== 'map'
+              ? 'calc(80px + env(safe-area-inset-bottom, 0px))'
+              : undefined,
+        }}
+      >
         {/* "Save your preferences" banner — logged-in users with no saved
             preferences yet. Shown alongside the gate, not replacing it. */}
         {!(IS_MOBILE && viewMode === 'map') && user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && (
@@ -2001,9 +2312,9 @@ export default function FindPrices() {
           </div>
         )}
 
-        {/* Editorial gate state — no procedure picked */}
+        {/* Editorial gate state — no procedure picked (desktop only; mobile shows prices immediately) */}
         {!(IS_MOBILE && viewMode === 'map') && !personalizedMode && !procFilter && !brandFilter && !selectedLoc && (
-          <div className="text-center py-12 mb-6">
+          <div className="hidden md:block text-center py-12 mb-6">
             <p className="editorial-kicker mb-4">Med spa price transparency</p>
             <h1
               className="font-display text-ink mx-auto max-w-3xl"
@@ -2055,28 +2366,33 @@ export default function FindPrices() {
           />
         )}
 
-        {/* Dosage Calculator — hidden in map view */}
+        {/* Dosage Calculator — hidden in map view + mobile (moved to filters drawer) */}
         {viewMode !== 'map' && firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
-          <DosageCalculator treatmentName={selectedProc} />
+          <div className="hidden md:block">
+            <DosageCalculator treatmentName={selectedProc} />
+          </div>
         )}
 
         {/* Fallback note */}
         {fallbackLabel && viewMode === 'list' && (
           <div
-            className="flex items-center gap-2 px-4 py-3 mb-4 text-[13px] font-light"
+            className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-3 mb-4 text-[13px] font-light"
             style={{
               background: '#FBF9F7',
               borderLeft: '3px solid #E8347A',
               color: '#111',
               fontFamily: 'var(--font-body)',
+              paddingRight: 16,
             }}
           >
-            {fallbackScope === 'national'
-              ? `Showing national prices \u2014 no results found near ${filterCity || filterState}`
-              : `No prices in ${filterCity} yet \u2014 showing ${fallbackLabel} prices`}
+            <span className="flex-1 min-w-0 break-words">
+              {fallbackScope === 'national'
+                ? `Showing national prices \u2014 no results found near ${filterCity || filterState}`
+                : `No prices in ${filterCity} yet \u2014 showing ${fallbackLabel} prices`}
+            </span>
             <Link
               to="/log"
-              className="ml-auto shrink-0 text-[10px] font-semibold uppercase hover:opacity-80 transition-opacity"
+              className="self-start sm:self-auto sm:ml-auto shrink-0 text-[10px] font-semibold uppercase hover:opacity-80 transition-opacity"
               style={{ color: '#E8347A', letterSpacing: '0.10em', borderBottom: '1px solid #E8347A' }}
             >
               Be the first
@@ -2089,8 +2405,13 @@ export default function FindPrices() {
           <div
             className="relative overflow-hidden"
             style={{
+              // Mobile: subtract 52px mobile navbar + ~88px sticky filter
+              // bar + 56px bottom nav + 16px safety buffer + iOS safe area.
+              // The +16px buffer keeps the map canvas from landing on the
+              // nav strip during iOS Safari URL-bar collapse, which was
+              // eating taps on the bottom nav.
               height: IS_MOBILE
-                ? 'calc(100dvh - 64px - 60px - 56px - env(safe-area-inset-bottom, 0px))'
+                ? 'calc(100dvh - 52px - 88px - 56px - 16px - env(safe-area-inset-bottom, 0px))'
                 : 'calc(100vh - 220px)',
               minHeight: IS_MOBILE ? 0 : 400,
               display: viewMode === 'map' ? 'block' : 'none',
@@ -2249,6 +2570,8 @@ export default function FindPrices() {
                       key={entry.provider.id}
                       entry={entry}
                       targetCount={entry.targetCount}
+                      userLat={userLat}
+                      userLng={userLng}
                     />
                   ))}
                 </div>
@@ -2259,17 +2582,157 @@ export default function FindPrices() {
               </div>
             ) : loadingProcedures ? (
               <SkeletonGrid count={6} />
+            ) : procedures.length === 0 ? (
+              <>
+                {/* ─── Mobile empty state (< md) — big editorial zero ─── */}
+                <div className="md:hidden text-center px-4" style={{ paddingTop: 48, paddingBottom: 48 }}>
+                  <div
+                    className="font-display"
+                    style={{
+                      fontSize: 72,
+                      fontWeight: 900,
+                      lineHeight: 1,
+                      color: '#EDE8E3',
+                      marginBottom: 16,
+                    }}
+                  >
+                    0
+                  </div>
+                  <h2
+                    className="font-display text-ink"
+                    style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15, marginBottom: 10 }}
+                  >
+                    No prices here yet.
+                  </h2>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: 14,
+                      color: '#888',
+                      lineHeight: 1.5,
+                      marginBottom: 24,
+                      maxWidth: 320,
+                      marginLeft: 'auto',
+                      marginRight: 'auto',
+                    }}
+                  >
+                    {brandFilter
+                      ? `${brandFilter} is newer — fewer providers list prices publicly. Be the first to share.`
+                      : `Be the first to share what you paid for ${procFilter?.label?.toLowerCase() || 'this treatment'}${selectedLoc ? ` in ${selectedLoc.city}` : ''}.`}
+                  </p>
+                  <Link
+                    to={`/log?${[
+                      brandFilter ? `procedure=${encodeURIComponent(brandFilter)}` : procFilter?.label ? `procedure=${encodeURIComponent(procFilter.label)}` : '',
+                      selectedLoc?.city ? `city=${encodeURIComponent(selectedLoc.city)}` : '',
+                      selectedLoc?.state ? `state=${encodeURIComponent(selectedLoc.state)}` : '',
+                    ].filter(Boolean).join('&')}`}
+                    className="block w-full text-center"
+                    style={{
+                      background: '#E8347A',
+                      color: 'white',
+                      padding: '14px 20px',
+                      borderRadius: 2,
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      fontSize: 12,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Log a treatment
+                  </Link>
+                  {brandFilter && procFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setBrandFilter(null)}
+                      className="mt-3 inline-block"
+                      style={{
+                        color: '#E8347A',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 12,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      See all {procFilter.label} &rarr;
+                    </button>
+                  )}
+                </div>
+
+                {/* ─── Desktop empty state (md+) ─── */}
+                <div className="hidden md:block">
+              {/* Helpful empty state — especially important for rare brand
+                  searches like "Daxxify in Mandeville" where the fallback
+                  chain (city → state → national) returns nothing. A bare
+                  empty grid here looks like a broken page. */}
+              <div className="text-center py-14 px-4">
+                <h2
+                  className="font-display italic text-ink mb-3"
+                  style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.25 }}
+                >
+                  No {brandFilter || procFilter?.label || 'matching'} prices
+                  {selectedLoc ? ` in ${selectedLoc.city}` : ''} yet.
+                </h2>
+                <p
+                  className="text-[13px] text-text-secondary font-light mb-6 max-w-md mx-auto"
+                  style={{ fontFamily: 'var(--font-body)' }}
+                >
+                  {brandFilter
+                    ? `${brandFilter} is newer \u2014 fewer providers list prices publicly. Try searching all ${procFilter?.label?.toLowerCase() || 'treatments'} nearby, or be the first to share what you paid.`
+                    : `Try a nearby city, or be the first to share what you paid.`}
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  {brandFilter && procFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setBrandFilter(null)}
+                      className="inline-flex items-center justify-center px-5 py-2.5 text-[11px] font-semibold uppercase transition"
+                      style={{
+                        letterSpacing: '0.08em',
+                        borderRadius: '4px',
+                        background: '#E8347A',
+                        color: 'white',
+                        border: '1px solid #E8347A',
+                      }}
+                    >
+                      See all {procFilter.label}
+                      {selectedLoc ? ` in ${selectedLoc.city}` : ''} &rarr;
+                    </button>
+                  )}
+                  <Link
+                    to={`/log?${[
+                      brandFilter ? `procedure=${encodeURIComponent(brandFilter)}` : procFilter?.label ? `procedure=${encodeURIComponent(procFilter.label)}` : '',
+                      selectedLoc?.city ? `city=${encodeURIComponent(selectedLoc.city)}` : '',
+                      selectedLoc?.state ? `state=${encodeURIComponent(selectedLoc.state)}` : '',
+                    ].filter(Boolean).join('&')}`}
+                    className="inline-flex items-center justify-center px-5 py-2.5 text-[11px] font-semibold uppercase transition"
+                    style={{
+                      letterSpacing: '0.08em',
+                      borderRadius: '4px',
+                      background: 'transparent',
+                      color: '#111',
+                      border: '1px solid #111',
+                    }}
+                  >
+                    Be the first to share &rarr;
+                  </Link>
+                </div>
+              </div>
+                </div>
+              </>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groupBrandRows(procedures).map((entry) => {
                   if (entry.kind === 'group') {
-                    return <BrandGroupCard key={entry.key} group={entry} />;
+                    return <BrandGroupCard key={entry.key} group={entry} userLat={userLat} userLng={userLng} />;
                   }
                   const proc = entry.row;
                   const indicator = getFairPriceIndicator(proc);
                   return (
                     <div key={proc.id}>
-                      <ProcedureCard procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} />
+                      <ProcedureCard procedure={proc} firstTimerActive={firstTimerActive} userAlerts={userAlerts} userLat={userLat} userLng={userLng} />
                       {indicator && indicator.below && (
                         <div
                           className="flex items-center gap-1.5 mt-1 px-3 py-2"

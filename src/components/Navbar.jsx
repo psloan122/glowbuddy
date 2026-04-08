@@ -26,9 +26,11 @@ const DISCOVER_LINKS = [
 const COMMUNITY_LINKS = [
   { to: '/community', label: 'Feed', sub: 'What patients are sharing' },
   { to: '/following', label: 'Following', sub: 'Your followed providers' },
+  { to: '/glow-fund', label: 'The Glow Fund', sub: '5% of profits fund survivors', heart: true },
 ];
 
 const MY_GLOW_LINKS = [
+  { to: '/request-bid', label: 'Bid Requests', sub: 'Let providers compete for you', badge: 'SOON' },
   { to: '/my-stack', label: 'My Stack', sub: 'Your treatment stack' },
   { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
   { to: '/budget', label: 'Budget', sub: 'Track what you spend' },
@@ -97,8 +99,38 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
                 onClick={() => setOpenKey(null)}
                 className="block px-4 py-2.5 hover:bg-cream transition-colors group"
               >
-                <span className="block text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
                   {link.label}
+                  {link.heart && (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        color: '#E8347A',
+                        fontSize: '12px',
+                        lineHeight: 1,
+                        display: 'inline-block',
+                        transform: 'translateY(-1px)',
+                      }}
+                    >
+                      ♥
+                    </span>
+                  )}
+                  {link.badge && (
+                    <span
+                      style={{
+                        background: '#EEEDFE',
+                        color: '#7F77DD',
+                        borderRadius: '3px',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        padding: '2px 6px',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {link.badge}
+                    </span>
+                  )}
                 </span>
                 {link.sub && (
                   <p className="text-[11px] text-text-secondary mt-0.5 leading-tight font-light">
@@ -210,23 +242,51 @@ export default function Navbar() {
     <>
       <nav
         className="sticky top-0 z-50 bg-white"
-        style={{ borderBottom: '1px solid #E8E8E8' }}
+        style={{ borderBottom: '1px solid #EDE8E3' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo — Playfair Display wordmark */}
-            <Link to="/" className="flex items-baseline shrink-0">
+          <div className="flex items-center justify-between h-[52px] md:h-16">
+            {/* Logo — desktop wordmark + mobile stacked KBYG mark */}
+            <Link to="/" className="shrink-0 flex items-baseline">
+              {/* Mobile: stacked Know Before You / Glow. */}
               <span
-                className="font-display italic text-[26px] text-hot-pink"
-                style={{ fontWeight: 900, lineHeight: 1 }}
+                className="md:hidden flex flex-col leading-none"
+                style={{ fontFamily: 'var(--font-body)' }}
               >
-                Glow
+                <span
+                  className="text-ink"
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 500,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    marginBottom: 2,
+                  }}
+                >
+                  Know Before You
+                </span>
+                <span
+                  className="font-display italic text-hot-pink"
+                  style={{ fontSize: 22, fontWeight: 900, lineHeight: 0.95 }}
+                >
+                  Glow.
+                </span>
               </span>
-              <span
-                className="font-display text-[26px] text-ink"
-                style={{ fontWeight: 900, lineHeight: 1 }}
-              >
-                Buddy
+
+              {/* Desktop: horizontal wordmark */}
+              <span className="hidden md:flex items-baseline">
+                <span
+                  className="font-display italic text-[26px] text-hot-pink"
+                  style={{ fontWeight: 900, lineHeight: 1 }}
+                >
+                  Glow
+                </span>
+                <span
+                  className="font-display text-[26px] text-ink"
+                  style={{ fontWeight: 900, lineHeight: 1 }}
+                >
+                  Buddy
+                </span>
               </span>
             </Link>
 
@@ -371,19 +431,30 @@ export default function Navbar() {
           className="fixed inset-0 z-[60] bg-cream md:hidden overflow-y-auto"
           style={{ borderTop: '3px solid #E8347A' }}
         >
-          <div className="flex items-center justify-between h-16 px-4 border-b border-rule">
+          <div className="flex items-center justify-between h-[52px] px-4 border-b border-rule">
             <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-baseline">
               <span
-                className="font-display italic text-[26px] text-hot-pink"
-                style={{ fontWeight: 900, lineHeight: 1 }}
+                className="flex flex-col leading-none"
+                style={{ fontFamily: 'var(--font-body)' }}
               >
-                Glow
-              </span>
-              <span
-                className="font-display text-[26px] text-ink"
-                style={{ fontWeight: 900, lineHeight: 1 }}
-              >
-                Buddy
+                <span
+                  className="text-ink"
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 500,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    marginBottom: 2,
+                  }}
+                >
+                  Know Before You
+                </span>
+                <span
+                  className="font-display italic text-hot-pink"
+                  style={{ fontSize: 22, fontWeight: 900, lineHeight: 0.95 }}
+                >
+                  Glow.
+                </span>
               </span>
             </Link>
             <button
@@ -447,6 +518,14 @@ export default function Navbar() {
                       onClick={() => setMobileOpen(false)}
                     >
                       {link.label}
+                      {link.heart && (
+                        <span
+                          aria-hidden="true"
+                          style={{ color: '#E8347A', fontSize: '14px', lineHeight: 1 }}
+                        >
+                          ♥
+                        </span>
+                      )}
                       {link.to === '/alerts' && unreadCount > 0 && (
                         <span className="w-2 h-2 bg-hot-pink rounded-full" />
                       )}

@@ -165,6 +165,12 @@ export default function ProviderMap({
   // Tracks staggered setMap timeouts so we can cancel mid-flight on unmount
   // or when providers change before the stagger has fully played out.
   const animTimeoutsRef = useRef([]);
+  // Flipped true the first time the user pans, pinches, or zooms the map.
+  // Once set, we stop auto-re-centering on parent re-renders so the user's
+  // gesture isn't fought by a setCenter/setZoom call. Reset externally
+  // when `center` prop changes (e.g. user searched a new city) — see the
+  // pan/zoom effect below.
+  const userInteractedRef = useRef(false);
 
   // Wait for Google Maps to load
   useEffect(() => {
@@ -185,9 +191,22 @@ export default function ProviderMap({
 
   const handleLoad = useCallback((map) => {
     setMapRef(map);
+    // Track manual interaction so we don't re-center on top of the user's
+    // gesture. `dragstart` catches pans, `zoom_changed` catches pinches
+    // and the +/- buttons. Both fire synchronously from user input.
+    map.addListener('dragstart', () => {
+      userInteractedRef.current = true;
+    });
+    map.addListener('zoom_changed', () => {
+      userInteractedRef.current = true;
+    });
   }, []);
 
-  // Pan/zoom the map when center or zoom props change
+  // Pan/zoom the map when center or zoom props change. A prop change means
+  // the parent asked for a new view (user searched a new city, clicked
+  // "locate me", etc.) so we intentionally reset the interaction flag and
+  // apply the new center/zoom. Re-renders that leave lat/lng/zoom
+  // unchanged are short-circuited so we don't fight the user's gestures.
   const prevCenter = useRef(center);
   const prevZoom = useRef(zoom);
   useEffect(() => {
@@ -195,6 +214,11 @@ export default function ProviderMap({
     const centerChanged =
       prevCenter.current.lat !== center.lat || prevCenter.current.lng !== center.lng;
     const zoomChanged = prevZoom.current !== zoom;
+    if (!centerChanged && !zoomChanged) return;
+
+    // Fresh intent from the parent — re-arm the re-center logic.
+    userInteractedRef.current = false;
+
     if (centerChanged) {
       mapRef.panTo(center);
       prevCenter.current = center;
@@ -446,7 +470,17 @@ export default function ProviderMap({
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div
+      className="relative w-full h-full"
+      style={{
+        // Tell the browser the map handles its own touch gestures so iOS
+        // Safari doesn't try to pinch-zoom the page on top of the map.
+        // `pan-y` keeps vertical page scroll working on the container
+        // edges where the map gives up the gesture.
+        touchAction: 'pan-y',
+        overflow: 'hidden',
+      }}
+    >
       <GoogleMap
         mapContainerStyle={MAP_STYLES}
         center={center}

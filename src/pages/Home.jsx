@@ -42,10 +42,16 @@ const PLACEHOLDER_TESTIMONIALS = [
 // /browse page actually filters instead of dropping through to the gate.
 // `brand` is optional — when set, the browse page applies an additional
 // provider_pricing.brand filter so only that brand's prices show.
+//
+// Each neurotoxin brand is a separate pill so users can compare across
+// Botox / Dysport / Xeomin / Jeuveau / Daxxify without ever seeing them
+// blended into a single bucket.
 const HERO_PROCS = [
   { label: 'Botox', slug: 'neurotoxin', brand: 'Botox' },
   { label: 'Dysport', slug: 'neurotoxin', brand: 'Dysport' },
   { label: 'Xeomin', slug: 'neurotoxin', brand: 'Xeomin' },
+  { label: 'Jeuveau', slug: 'neurotoxin', brand: 'Jeuveau' },
+  { label: 'Daxxify', slug: 'neurotoxin', brand: 'Daxxify' },
   { label: 'Fillers', slug: 'filler' },
   { label: 'Laser', slug: 'laser' },
   { label: 'GLP-1', slug: 'weight-loss' },
@@ -91,10 +97,12 @@ const HERO_FEATURED = [
 // Animates from 0 → target over 800ms with an ease-out cubic. Handles
 // both raw numbers (`1234` → "1,234") and pre-formatted strings like
 // "$185" by extracting the numeric portion and re-applying the prefix.
+// An optional `prefix` prop (e.g. "$") is prepended to the comma-
+// separated output path so Glow Fund totals render as "$1,234".
 // Respects prefers-reduced-motion (skips straight to the final value).
-function CountUpNumber({ value, formatted }) {
+function CountUpNumber({ value, formatted, prefix: currencyPrefix = '' }) {
   const initial = formatted ? (typeof value === 'string' ? value : String(value)) : '0';
-  const [display, setDisplay] = useState(initial);
+  const [display, setDisplay] = useState(currencyPrefix ? `${currencyPrefix}0` : initial);
 
   useEffect(() => {
     let prefix = '';
@@ -120,7 +128,11 @@ function CountUpNumber({ value, formatted }) {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (reduced || target === 0) {
-      setDisplay(formatted ? `${prefix}${Math.round(target)}${suffix}` : target.toLocaleString());
+      if (formatted) {
+        setDisplay(`${prefix}${Math.round(target)}${suffix}`);
+      } else {
+        setDisplay(`${currencyPrefix}${target.toLocaleString()}`);
+      }
       return;
     }
 
@@ -134,13 +146,13 @@ function CountUpNumber({ value, formatted }) {
       if (formatted) {
         setDisplay(`${prefix}${current}${suffix}`);
       } else {
-        setDisplay(current.toLocaleString());
+        setDisplay(`${currencyPrefix}${current.toLocaleString()}`);
       }
       if (progress < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => raf && cancelAnimationFrame(raf);
-  }, [value, formatted]);
+  }, [value, formatted, currencyPrefix]);
 
   return display;
 }
@@ -238,6 +250,23 @@ export default function Home() {
         results.push({ value: providerCount, label: 'Providers mapped' });
         setProviderCountTotal(providerCount);
       }
+
+      // The Glow Fund — always included, even at $0, because the whole
+      // point of the homepage counter is to declare the commitment from
+      // day one. Links to /glow-fund and renders in hot-pink ink.
+      const { data: glowFundRow } = await supabase
+        .from('glow_fund')
+        .select('total_donated')
+        .limit(1)
+        .maybeSingle();
+      const glowFundTotal = Math.floor(Number(glowFundRow?.total_donated) || 0);
+      results.push({
+        value: glowFundTotal,
+        label: 'Donated to The Glow Fund',
+        prefix: '$',
+        color: '#E8347A',
+        to: '/glow-fund',
+      });
 
       setStatItems(results);
     }
@@ -403,6 +432,37 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Bid request CTA — waitlist gate while the feature ships */}
+          <div className="mb-5">
+            <Link
+              to="/request-bid"
+              className="inline-flex items-center gap-2 text-[12px]"
+              style={{
+                fontFamily: 'var(--font-body)',
+                color: '#666',
+                fontWeight: 500,
+                letterSpacing: '0.02em',
+              }}
+            >
+              Providers bidding for your appointment — coming soon.
+              <span
+                style={{
+                  background: '#E8347A',
+                  color: '#fff',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 700,
+                  fontSize: '9px',
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  padding: '3px 7px',
+                  borderRadius: '2px',
+                }}
+              >
+                Waitlist Open
+              </span>
+            </Link>
+          </div>
+
           {/* Recency / data freshness label */}
           {(providerCountTotal || patientCount) && (
             <p
@@ -495,26 +555,50 @@ export default function Home() {
               className="grid gap-0"
               style={{ gridTemplateColumns: `repeat(${statItems.length}, 1fr)` }}
             >
-              {statItems.map((item, i) => (
-                <div
-                  key={i}
-                  className="px-4 text-center"
-                  style={{ borderRight: i < statItems.length - 1 ? '1px solid #E8E8E8' : 'none' }}
-                >
-                  <p
-                    className="font-display text-ink"
-                    style={{ fontWeight: 900, fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1 }}
+              {statItems.map((item, i) => {
+                const cellStyle = {
+                  borderRight: i < statItems.length - 1 ? '1px solid #E8E8E8' : 'none',
+                };
+                const body = (
+                  <>
+                    <p
+                      className="font-display"
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 'clamp(32px, 5vw, 56px)',
+                        lineHeight: 1,
+                        color: item.color || '#111',
+                      }}
+                    >
+                      <CountUpNumber
+                        value={item.value}
+                        formatted={item.isFormatted}
+                        prefix={item.prefix}
+                      />
+                    </p>
+                    <p
+                      className="text-[10px] font-semibold uppercase text-text-secondary mt-3"
+                      style={{ letterSpacing: '0.12em' }}
+                    >
+                      {item.label}
+                    </p>
+                  </>
+                );
+                return item.to ? (
+                  <Link
+                    key={i}
+                    to={item.to}
+                    className="px-4 text-center block transition-opacity hover:opacity-80"
+                    style={cellStyle}
                   >
-                    <CountUpNumber value={item.value} formatted={item.isFormatted} />
-                  </p>
-                  <p
-                    className="text-[10px] font-semibold uppercase text-text-secondary mt-3"
-                    style={{ letterSpacing: '0.12em' }}
-                  >
-                    {item.label}
-                  </p>
-                </div>
-              ))}
+                    {body}
+                  </Link>
+                ) : (
+                  <div key={i} className="px-4 text-center" style={cellStyle}>
+                    {body}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

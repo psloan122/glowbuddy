@@ -3,6 +3,7 @@ import ProviderAvatar from './ProviderAvatar';
 import FairPriceBadge from './FairPriceBadge';
 import { providerProfileUrl } from '../lib/slugify';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
+import { haversineMiles, formatMiles } from '../lib/distance';
 
 // Brand-group card for the browse page.
 //
@@ -55,8 +56,14 @@ function leadPriceDisplay(row) {
   return `From $${n.toLocaleString()}`;
 }
 
-export default function BrandGroupCard({ group }) {
+export default function BrandGroupCard({ group, userLat, userLng }) {
   const { rows, lead } = group;
+
+  // Distance badge — rendered next to the city/state line when we know
+  // both the user's coordinates and the lead row's provider coordinates.
+  const distanceLabel = formatMiles(
+    haversineMiles(userLat, userLng, lead.provider_lat, lead.provider_lng),
+  );
 
   // Distinct brand labels, in the order they appear in the sorted rows
   const seen = new Set();
@@ -213,6 +220,9 @@ export default function BrandGroupCard({ group }) {
             {lead.city && lead.state && (
               <p className="text-[11px] font-light text-text-secondary">
                 {lead.city}, {lead.state}
+                {distanceLabel && (
+                  <span className="text-text-secondary"> &middot; {distanceLabel}</span>
+                )}
               </p>
             )}
           </div>

@@ -123,6 +123,24 @@ export default function Footer() {
                   Contact Us
                 </a>
               </li>
+              <li>
+                <Link
+                  to="/audit"
+                  className="text-[12px] font-light hover:text-hot-pink transition-colors"
+                  style={{ color: '#B8A89A' }}
+                >
+                  Product audit &rarr;
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/waitlist"
+                  className="text-[12px] font-light hover:text-hot-pink transition-colors"
+                  style={{ color: '#B8A89A' }}
+                >
+                  Waitlist &rarr;
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -150,8 +168,23 @@ export default function Footer() {
             margin: 0,
           }}
         >
+          <Link
+            to="/glow-fund"
+            className="footer-glow-fund-link"
+            style={{
+              color: '#fff',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            5% of profits fund The Glow Fund
+          </Link>
+          {' · '}
           Prices are sourced from provider websites and patient submissions. Always confirm pricing before booking.
         </p>
+        <style>{`
+          .footer-glow-fund-link:hover { text-decoration: underline; }
+        `}</style>
       </div>
     </footer>
   );

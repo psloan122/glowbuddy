@@ -12,6 +12,11 @@ const HIDDEN_PREFIXES = [
   '/admin',
 ];
 
+// Brand colors
+const HOT_PINK = '#E8347A';
+const MUTED = '#B8A89A';
+const RULE = '#EDE8E3';
+
 export default function MobileBottomNav() {
   const location = useLocation();
   const { user, openAuthModal } = useContext(AuthContext);
@@ -26,10 +31,26 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="md:hidden fixed left-0 right-0 bg-white"
+      style={{
+        // Pin to the physical bottom, add safe-area padding so the
+        // iOS Safari home-indicator strip doesn't swallow tap targets.
+        bottom: 0,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        borderTop: `1px solid ${RULE}`,
+        // z-index 9999 keeps us above any accidental stacking context
+        // created by page wrappers (transforms, isolation, etc.).
+        zIndex: 9999,
+        // Force our own stacking context so children are hit-testable
+        // regardless of sibling transforms on the same page.
+        isolation: 'isolate',
+        // Guarantee we receive touch events even if an ancestor set
+        // touch-action or pointer-events to something restrictive.
+        touchAction: 'manipulation',
+        pointerEvents: 'auto',
+      }}
     >
-      <div className="flex items-end justify-around px-2 h-14">
+      <div className="flex items-end justify-around px-2" style={{ height: 56 }}>
         <NavTab
           to="/"
           icon={Home}
@@ -40,23 +61,24 @@ export default function MobileBottomNav() {
           to="/browse"
           icon={Search}
           label="Prices"
-          active={path === '/browse'}
+          active={path === '/browse' || path.startsWith('/browse') || path.startsWith('/prices')}
         />
 
-        {/* Center [+] — elevated pink FAB */}
-        <div className="flex flex-col items-center -mt-5">
+        {/* Center [+] — flat hot-pink circle, lifted -12px above the nav */}
+        <div className="flex flex-col items-center" style={{ marginTop: -12 }}>
           <Link
             to="/log"
-            className="flex items-center justify-center rounded-full text-white"
+            className="flex items-center justify-center text-white"
             style={{
-              backgroundColor: '#C94F78',
-              width: 52,
-              height: 52,
-              boxShadow: '0 4px 12px rgba(201,79,120,0.35)',
+              backgroundColor: HOT_PINK,
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              boxShadow: 'none',
             }}
             aria-label="Share what you paid"
           >
-            <Plus size={26} strokeWidth={2.5} />
+            <Plus size={22} strokeWidth={2.5} />
           </Link>
         </div>
 
@@ -79,23 +101,31 @@ export default function MobileBottomNav() {
 }
 
 function NavTab({ to, icon: Icon, label, active, onClick }) {
-  const cls = `flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors ${
-    active ? 'text-[#C94F78]' : 'text-[#9CA3AF]'
-  }`;
+  const color = active ? HOT_PINK : MUTED;
+  const labelStyle = {
+    fontSize: 10,
+    fontWeight: 500,
+    fontFamily: 'var(--font-body)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.10em',
+    color,
+  };
+
+  const cls = 'flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors';
 
   if (onClick) {
     return (
-      <button onClick={onClick} className={cls}>
+      <button onClick={onClick} className={cls} style={{ color }}>
         <Icon size={22} />
-        <span className="text-[10px] font-medium">{label}</span>
+        <span style={labelStyle}>{label}</span>
       </button>
     );
   }
 
   return (
-    <Link to={to} className={cls}>
+    <Link to={to} className={cls} style={{ color }}>
       <Icon size={22} />
-      <span className="text-[10px] font-medium">{label}</span>
+      <span style={labelStyle}>{label}</span>
     </Link>
   );
 }

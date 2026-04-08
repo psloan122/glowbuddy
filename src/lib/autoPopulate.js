@@ -39,8 +39,20 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     categoryTag = procedureFilter.categoryTag || null;
   }
 
-  // 1. Fetch providers in bounds
-  let provQuery = supabase
+  // 1. Fetch providers in bounds.
+  //
+  // We DELIBERATELY do NOT push the categoryTag through `procedure_tags`
+  // as a hard SQL filter — many newly seeded providers (e.g. ones added
+  // via the bulk seed script or claimed since the last tag backfill)
+  // have an empty `procedure_tags` array and would be invisible the
+  // moment a procedure filter is selected. Instead we fetch every
+  // provider in bounds and post-filter in step 4 by ANY of:
+  //   (a) procedure_tags contains the category tag, OR
+  //   (b) the provider has a row in `procedures` for this procedure, OR
+  //   (c) the provider has a row in `provider_pricing` for this category.
+  // That way a brand-new provider with one user-submitted price still
+  // shows up the moment that price is logged.
+  const provQuery = supabase
     .from('providers')
     .select('id, name, slug, city, state, lat, lng, provider_type, google_rating, google_review_count, is_claimed, is_verified, procedure_tags')
     .not('lat', 'is', null)
@@ -49,12 +61,7 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     .lte('lat', bounds.north)
     .gte('lng', bounds.west)
     .lte('lng', bounds.east)
-    .limit(300);
-
-  // Filter providers by procedure category tag
-  if (categoryTag) {
-    provQuery = provQuery.contains('procedure_tags', [categoryTag]);
-  }
+    .limit(500);
 
   const { data: providerRows } = await provQuery;
 
@@ -121,7 +128,15 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     pricingMap[key].push(row);
   }
 
-  // 4. Merge providers with submission data
+  // 4. Merge providers with submission data.
+  //
+  // When a categoryTag is set, only include providers that match ANY of:
+  //   (a) procedure_tags array contains the tag, OR
+  //   (b) the provider has a procedures-table row for this category, OR
+  //   (c) the provider has a provider_pricing row for this category.
+  // This rescues new providers like recently added med spas whose
+  // procedure_tags haven't been backfilled yet, so the moment a user
+  // logs a price they appear on the map.
   const seen = new Set();
   const merged = [];
 
@@ -133,6 +148,14 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     const submissions = procData?.submissions || [];
     const submissionCount = submissions.length;
     const verifiedCount = submissions.filter((s) => s.receipt_verified).length;
+
+    if (categoryTag) {
+      const tags = Array.isArray(prov.procedure_tags) ? prov.procedure_tags : [];
+      const hasTag = tags.includes(categoryTag);
+      const hasSubmissions = submissionCount > 0;
+      const hasPricing = (pricingMap[key] || []).length > 0;
+      if (!hasTag && !hasSubmissions && !hasPricing) continue;
+    }
     const avgPrice =
       submissionCount > 0
         ? Math.round(submissions.reduce((s, p) => s + (p.price_paid || 0), 0) / submissionCount)

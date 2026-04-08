@@ -6,7 +6,12 @@
  * no spring physics. Respects prefers-reduced-motion globally.
  */
 
-/* ── Page enter: subtle fade + 8px upward slide ── */
+/* ── Page enter: subtle fade + 8px upward slide ──
+   The `none` in the to-state is critical: once the animation settles,
+   the element should NOT retain a `transform: translateY(0)` value.
+   Any persistent transform creates a new stacking context that can
+   trap `position: fixed` descendants (breaking the mobile bottom nav
+   tap targets) and confuse touch hit-testing on iOS. */
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
@@ -14,17 +19,19 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
+/* `forwards` (not `both`) so opacity stays at 1 but the transform is
+   released back to `none` after the animation completes. */
 .page-enter {
-  animation: fadeSlideUp 0.4s ease-out both;
+  animation: fadeSlideUp 0.4s ease-out forwards;
 }
 
 /* Slight stagger for stacked sections inside a page-enter container */
 .page-enter > * {
-  animation: fadeSlideUp 0.5s ease-out both;
+  animation: fadeSlideUp 0.5s ease-out forwards;
 }
 .page-enter > *:nth-child(1) { animation-delay: 0ms; }
 .page-enter > *:nth-child(2) { animation-delay: 60ms; }

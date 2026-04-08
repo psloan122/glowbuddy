@@ -1,45 +1,23 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { getCategoryLabel } from '../lib/constants';
 
-// FirstTimerModeBanner — editorial cream banner shown at the top of the
-// browse results for users in First-Timer Mode. Displays a "first time with
-// [procedure]?" prompt with a guide link, and tracks per-procedure dismissal
-// via sessionStorage so dismissing one procedure doesn't suppress the banner
-// for every other procedure the user browses.
+// FirstTimerModeBanner — compact editorial banner shown between the
+// filter bar and the first card on /browse. Gated on a localStorage
+// flag so that once the user dismisses it, it never returns. The
+// banner is also hidden if no procedure is selected — there's nothing
+// meaningful to prompt about on the gate/empty state.
 //
 // Props:
 //   procedure      — the current procedure slug from the URL (e.g. "neurotoxin")
 //   brand          — optional brand filter (e.g. "Botox")
-//   onOpenGuide    — called when the user clicks "Read the guide"
-//   onDeactivate   — called when the user clicks the × button
-//
-// If `procedure` is falsy we hide the banner entirely — there's nothing
-// meaningful to prompt about on the gate/empty state.
+//   onOpenGuide    — called when the user clicks the banner / guide link
+//   onDeactivate   — called when the user clicks the × button (after dismiss)
 
-// Map slug + optional brand to a display label. Brand-specific keywords
-// take precedence so a user filtered to Dysport sees "Dysport" rather than
-// the generic neurotoxin label.
+const STORAGE_KEY = 'firstTimerSeen';
+
 function displayName(procedure, brand) {
-  if (brand) return brand;
-  const mapping = {
-    neurotoxin: 'Botox / Neurotoxins',
-    filler: 'Fillers',
-    laser: 'Laser',
-    microneedling: 'Microneedling',
-    'rf-tightening': 'RF Microneedling',
-    'weight-loss': 'GLP-1',
-    'chemical-peel': 'Chemical Peel',
-    hydrafacial: 'HydraFacial',
-    coolsculpting: 'CoolSculpting',
-    'iv-wellness': 'IV Therapy',
-    'laser-hair-removal': 'Laser Hair Removal',
-    'thread-lift': 'Thread Lift',
-    prp: 'PRP',
-    kybella: 'Kybella',
-    emsculpt: 'Emsculpt',
-    dermaplaning: 'Dermaplaning',
-  };
-  return mapping[procedure] || procedure;
+  return getCategoryLabel(procedure, brand) || procedure;
 }
 
 export default function FirstTimerModeBanner({
@@ -48,24 +26,33 @@ export default function FirstTimerModeBanner({
   onOpenGuide,
   onDeactivate,
 }) {
-  const storageKey = `firstTimerDismissed_${procedure || ''}_${brand || 'any'}`;
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(storageKey) === 'true';
+    try {
+      return window.localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
   });
 
-  // Reset dismissed state when the procedure/brand changes so switching
-  // filters doesn't leave the banner permanently hidden.
+  // Re-read on mount in case another tab dismissed it.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setDismissed(sessionStorage.getItem(storageKey) === 'true');
-  }, [storageKey]);
-
-  function handleDismiss() {
     try {
-      sessionStorage.setItem(storageKey, 'true');
+      if (window.localStorage.getItem(STORAGE_KEY) === 'true') {
+        setDismissed(true);
+      }
     } catch {
-      // Silent fail — sessionStorage may be disabled
+      // Ignore storage errors (private mode, etc.)
+    }
+  }, []);
+
+  function handleDismiss(e) {
+    e.stopPropagation();
+    try {
+      window.localStorage.setItem(STORAGE_KEY, 'true');
+    } catch {
+      // Silent fail — localStorage may be disabled
     }
     setDismissed(true);
     if (onDeactivate) onDeactivate();
@@ -77,34 +64,29 @@ export default function FirstTimerModeBanner({
 
   return (
     <div
-      className="mb-4 flex items-center justify-between gap-3"
+      className="mb-3 flex items-center justify-between gap-2"
       style={{
         background: '#FBF9F7',
-        borderLeft: '3px solid #E8347A',
-        borderRadius: 0,
-        padding: '10px 16px',
+        border: '1px solid #EDE8E3',
+        borderRadius: 4,
+        padding: '10px 14px',
       }}
     >
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-[10px] font-bold uppercase text-hot-pink"
-          style={{ letterSpacing: '0.12em', fontFamily: 'var(--font-body)' }}
-        >
-          First time with {label}?
-        </p>
-        <button
-          type="button"
-          onClick={onOpenGuide}
-          className="text-[13px] text-ink hover:text-hot-pink transition-colors"
-          style={{ fontFamily: 'var(--font-body)', fontWeight: 400 }}
-        >
+      <button
+        type="button"
+        onClick={onOpenGuide}
+        className="flex-1 min-w-0 text-left text-[13px] text-ink hover:opacity-80 transition-opacity truncate"
+        style={{ fontFamily: 'var(--font-body)', fontWeight: 400 }}
+      >
+        First time with {label}?{' '}
+        <span style={{ color: '#E8347A', fontWeight: 600 }}>
           Read the guide &rarr;
-        </button>
-      </div>
+        </span>
+      </button>
       <button
         type="button"
         onClick={handleDismiss}
-        className="shrink-0 transition-colors"
+        className="shrink-0 transition-colors -mr-1 p-1"
         style={{ color: '#B8A89A' }}
         onMouseEnter={(e) => (e.currentTarget.style.color = '#111')}
         onMouseLeave={(e) => (e.currentTarget.style.color = '#B8A89A')}

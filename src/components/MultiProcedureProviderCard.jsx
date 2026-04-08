@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { providerProfileUrl } from '../lib/slugify';
+import { haversineMiles, formatMiles } from '../lib/distance';
 
 // MultiProcedureProviderCard — one editorial card showing a single provider
 // with all the rows that matched the user's treatment preferences on the
@@ -38,7 +39,7 @@ function formatPriceDisplay(row) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function MultiProcedureProviderCard({ entry, targetCount }) {
+export default function MultiProcedureProviderCard({ entry, targetCount, userLat, userLng }) {
   const { provider, prices, matchCount } = entry;
 
   const badgeLabel = (() => {
@@ -50,6 +51,13 @@ export default function MultiProcedureProviderCard({ entry, targetCount }) {
   const profileHref =
     providerProfileUrl(provider.slug, provider.name, provider.city, provider.state) ||
     '#';
+
+  // Distance badge ("· 4.2 mi") rendered next to the city/state line in
+  // the provider header. Resolves to null when either coordinate pair is
+  // missing — we never render a broken badge.
+  const distanceLabel = formatMiles(
+    haversineMiles(userLat, userLng, provider.lat, provider.lng),
+  );
 
   return (
     <div
@@ -90,6 +98,9 @@ export default function MultiProcedureProviderCard({ entry, targetCount }) {
             }}
           >
             {[provider.city, provider.state].filter(Boolean).join(', ')}
+            {distanceLabel && (
+              <span> &middot; {distanceLabel}</span>
+            )}
           </p>
         </div>
         {badgeLabel && (

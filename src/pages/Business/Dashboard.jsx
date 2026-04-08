@@ -752,6 +752,64 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Bid Requests waitlist CTA */}
+          <Link
+            to="/business/bid-requests"
+            className="block mb-8"
+            style={{
+              background: '#fff',
+              border: '1px solid #EDE8E3',
+              borderTop: '3px solid #E8347A',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <p
+                className="text-[10px] uppercase"
+                style={{
+                  color: '#888',
+                  letterSpacing: '0.10em',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 700,
+                }}
+              >
+                BID REQUESTS
+              </p>
+              <span
+                style={{
+                  background: '#E8347A',
+                  color: '#fff',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 700,
+                  fontSize: '9px',
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  padding: '2px 6px',
+                  borderRadius: '2px',
+                }}
+              >
+                Waitlist Open
+              </span>
+            </div>
+            <p
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 900,
+                fontSize: '20px',
+                color: '#111',
+              }}
+            >
+              New patients will bid for your availability — coming soon
+            </p>
+            <p
+              className="mt-1 text-[12px]"
+              style={{ fontFamily: 'var(--font-body)', color: '#666' }}
+            >
+              Join the waitlist and we&rsquo;ll notify you the moment it launches.
+            </p>
+          </Link>
+
           {/* Upgrade CTA */}
           <UpgradeCTA />
         </div>
