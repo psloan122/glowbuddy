@@ -1,6 +1,17 @@
 import { supabase } from './supabase';
 
-export async function createAlert({ procedureType, city, state, maxPrice, frequency = 'instant' }) {
+export async function createAlert({
+  procedureType,
+  brand = null,
+  city = null,
+  state = null,
+  lat = null,
+  lng = null,
+  zip = null,
+  radiusMiles = 25,
+  maxPrice = null,
+  frequency = 'instant',
+}) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Must be signed in');
 
@@ -9,8 +20,13 @@ export async function createAlert({ procedureType, city, state, maxPrice, freque
     .insert({
       user_id: user.id,
       procedure_type: procedureType,
+      brand: brand || null,
       city: city || null,
       state: state || null,
+      lat: lat ?? null,
+      lng: lng ?? null,
+      zip_code: zip || null,
+      radius_miles: radiusMiles ?? 25,
       max_price: maxPrice || null,
       frequency,
     })
@@ -27,7 +43,7 @@ export async function getUserAlerts() {
 
   const { data, error } = await supabase
     .from('price_alerts')
-    .select('id, user_id, procedure_type, city, state, max_price, is_active, created_at')
+    .select('id, user_id, procedure_type, brand, city, state, zip_code, lat, lng, radius_miles, max_price, is_active, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

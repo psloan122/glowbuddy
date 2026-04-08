@@ -1,75 +1,39 @@
 import { useState, useEffect, useContext } from 'react';
-import { X, Bell, TrendingDown, CheckCircle } from 'lucide-react';
+import { X, Bell, CheckCircle } from 'lucide-react';
 import { AuthContext } from '../App';
 import { isEmailVerified } from '../lib/auth';
 import { createAlert } from '../lib/priceAlerts';
-import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES, US_STATES } from '../lib/constants';
-import { supabase } from '../lib/supabase';
 import VerifyEmailModal from './VerifyEmailModal';
+import LocationRadiusInput from './LocationRadiusInput';
+import {
+  ALERT_PROCEDURE_GROUPS,
+  findAlertOption,
+  buildAlertOptionValue,
+} from '../lib/alertProcedures';
 
 export default function CreatePriceAlert({
   onClose,
   defaultProcedure = '',
+  defaultBrand = '',
   defaultCity = '',
   defaultState = '',
   defaultPrice = '',
 }) {
   const { user, openAuthModal } = useContext(AuthContext);
 
-  const [procedureType, setProcedureType] = useState(defaultProcedure);
-  const [city, setCity] = useState(defaultCity);
-  const [state, setState] = useState(defaultState);
+  const [optionValue, setOptionValue] = useState(() =>
+    buildAlertOptionValue(defaultProcedure, defaultBrand),
+  );
+  const [location, setLocation] = useState(() => {
+    if (!defaultCity) return null;
+    return { city: defaultCity, state: defaultState || '', zip: '', lat: null, lng: null };
+  });
+  const [radius, setRadius] = useState(25);
   const [maxPrice, setMaxPrice] = useState(defaultPrice ? String(defaultPrice) : '');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [currentAvg, setCurrentAvg] = useState(null);
-  const [avgLoading, setAvgLoading] = useState(false);
-
-  // Fetch current average price when filters change
-  useEffect(() => {
-    if (!procedureType) {
-      setCurrentAvg(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchAverage() {
-      setAvgLoading(true);
-      try {
-        let query = supabase
-          .from('procedures')
-          .select('price_paid')
-          .eq('procedure_type', procedureType)
-          .eq('status', 'active');
-
-        if (city) query = query.eq('city', city);
-        if (state) query = query.eq('state', state);
-
-        const { data } = await query;
-
-        if (!cancelled && data && data.length > 0) {
-          const avg =
-            data.reduce((sum, row) => sum + Number(row.price_paid), 0) /
-            data.length;
-          setCurrentAvg(Math.round(avg));
-        } else if (!cancelled) {
-          setCurrentAvg(null);
-        }
-      } catch {
-        if (!cancelled) setCurrentAvg(null);
-      } finally {
-        if (!cancelled) setAvgLoading(false);
-      }
-    }
-
-    fetchAverage();
-    return () => {
-      cancelled = true;
-    };
-  }, [procedureType, city, state]);
 
   // Auto-close after success
   useEffect(() => {
@@ -79,17 +43,29 @@ export default function CreatePriceAlert({
     }
   }, [success, onClose]);
 
-  const locationLabel = city || state || 'your area';
+  const selectedOption = findAlertOption(optionValue);
 
-  const inputClass =
-    'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent';
+  // Live preview line — tells the user exactly what the alert will do.
+  const previewText = (() => {
+    if (!selectedOption) return null;
+    const name = selectedOption.label;
+    const price = maxPrice && Number(maxPrice) > 0
+      ? `drops below $${Number(maxPrice).toLocaleString()}`
+      : 'is posted';
+    const where = location
+      ? radius > 0
+        ? `within ${radius} miles of ${location.city}, ${location.state}`
+        : `in ${location.city}, ${location.state}`
+      : 'anywhere';
+    return `You'll be notified when ${name} ${price} ${where}.`;
+  })();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    if (!procedureType) {
-      setError('Please select a procedure type.');
+    if (!selectedOption) {
+      setError('Please select a procedure.');
       return;
     }
 
@@ -107,10 +83,15 @@ export default function CreatePriceAlert({
     setSubmitting(true);
     try {
       await createAlert({
-        procedureType,
-        city,
-        state,
-        maxPrice: Number(maxPrice),
+        procedureType: selectedOption.procedureType,
+        brand: selectedOption.brand,
+        city: location?.city || null,
+        state: location?.state || null,
+        lat: location?.lat ?? null,
+        lng: location?.lng ?? null,
+        zip: location?.zip || null,
+        radiusMiles: location ? radius : 0,
+        maxPrice: Number(maxPrice) || null,
       });
       setSuccess(true);
     } catch (err) {
@@ -122,139 +103,138 @@ export default function CreatePriceAlert({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-[80] flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* Modal */}
         <div
-          className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+          className="bg-white w-full max-w-md overflow-hidden"
+          style={{ borderTop: '3px solid #E8347A', borderRadius: '2px' }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Success state */}
           {success ? (
             <div className="flex flex-col items-center gap-3 py-12 px-6 text-center">
-              <CheckCircle className="w-12 h-12 text-emerald-500" />
-              <p className="text-sm text-gray-700">
-                We'll notify you when{' '}
-                <span className="font-semibold">{procedureType}</span> drops
-                below{' '}
-                <span className="font-semibold">${maxPrice}</span> in{' '}
-                {locationLabel}.
+              <CheckCircle className="w-12 h-12 text-verified" />
+              <p className="text-[14px] text-ink" style={{ fontFamily: 'var(--font-body)' }}>
+                Alert created. We'll notify you when a match is posted.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <div
+                className="flex items-center justify-between px-5 py-4"
+                style={{ borderBottom: '1px solid #F0F0F0' }}
+              >
                 <div className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-rose-accent" />
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Set Price Alert
+                  <Bell className="w-4 h-4 text-hot-pink" />
+                  <h2
+                    className="editorial-kicker"
+                    style={{ margin: 0 }}
+                  >
+                    Set price alert
                   </h2>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-1 rounded-full hover:bg-gray-100 transition"
+                  className="p-1 text-text-secondary hover:text-ink transition"
+                  aria-label="Close"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="px-5 pb-5 flex flex-col gap-4">
-                {/* Procedure type */}
+              <div className="px-5 py-5 flex flex-col gap-5">
+                {/* Procedure */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">
                     Procedure
                   </label>
                   <select
-                    value={procedureType}
-                    onChange={(e) => setProcedureType(e.target.value)}
-                    className={inputClass}
+                    value={optionValue}
+                    onChange={(e) => setOptionValue(e.target.value)}
+                    className="w-full px-3 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
+                    style={{ borderRadius: '2px', fontFamily: 'var(--font-body)' }}
                   >
                     <option value="">Select a procedure</option>
-                    {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
-                      <optgroup key={category} label={category}>
-                        {procedures.map((p) => (
-                          <option key={p} value={p}>{p}</option>
+                    {ALERT_PROCEDURE_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
                         ))}
                       </optgroup>
                     ))}
                   </select>
                 </div>
 
-                {/* Location */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Location
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="City or town"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className={inputClass}
-                    />
-                    <select
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="">State</option>
-                      {US_STATES.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                {/* Location + radius */}
+                <LocationRadiusInput
+                  value={location}
+                  onChange={setLocation}
+                  radius={radius}
+                  onRadiusChange={setRadius}
+                />
 
                 {/* Target price */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Target Price
+                  <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">
+                    Alert me when price drops below
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-text-secondary"
+                      style={{ fontFamily: 'var(--font-body)' }}
+                    >
                       $
                     </span>
                     <input
                       type="number"
-                      placeholder="0"
+                      placeholder="0 = any price"
                       value={maxPrice}
                       onChange={(e) => setMaxPrice(e.target.value)}
-                      className={`${inputClass} pl-8`}
+                      min="0"
+                      className="w-full pl-7 pr-3 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
+                      style={{ borderRadius: '2px', fontFamily: 'var(--font-body)' }}
                     />
                   </div>
-
-                  {/* Current average context */}
-                  {currentAvg !== null && !avgLoading && (
-                    <div className="mt-2 bg-sky-50 rounded-xl p-3 flex items-center gap-2 text-sm text-sky-700">
-                      <TrendingDown className="w-4 h-4 flex-shrink-0" />
-                      <span>
-                        Current average in {locationLabel}:{' '}
-                        <span className="font-semibold">${currentAvg}</span>
-                      </span>
-                    </div>
-                  )}
                 </div>
+
+                {/* Live preview */}
+                {previewText && (
+                  <p
+                    className="italic"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '13px',
+                      color: '#B8A89A',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {previewText}
+                  </p>
+                )}
 
                 {/* Error */}
                 {error && (
-                  <p className="text-sm text-red-500 -mt-1">{error}</p>
+                  <p className="text-[13px] text-red-500">{error}</p>
                 )}
 
                 {/* Submit */}
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-rose-accent text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50"
+                  className="w-full py-3 text-[12px] font-bold uppercase text-white bg-hot-pink hover:bg-hot-pink-dark transition disabled:opacity-50"
+                  style={{
+                    letterSpacing: '0.08em',
+                    borderRadius: '2px',
+                    fontFamily: 'var(--font-body)',
+                  }}
                 >
-                  {submitting ? 'Creating...' : 'Create Alert'}
+                  {submitting ? 'Creating\u2026' : 'Create alert'}
                 </button>
               </div>
             </form>
@@ -262,7 +242,6 @@ export default function CreatePriceAlert({
         </div>
       </div>
 
-      {/* Verify email modal */}
       {showVerifyModal && (
         <VerifyEmailModal onClose={() => setShowVerifyModal(false)} />
       )}

@@ -8,13 +8,30 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
   const {
     id,
     procedure_type,
+    brand,
     city,
     state,
+    radius_miles,
     max_price,
     is_active,
     trigger_count,
     last_triggered_at,
   } = alert;
+
+  // Label: prefer the brand (e.g. "Botox") over the generic category slug
+  // (e.g. "neurotoxin") so the user sees what they actually signed up for.
+  const procedureLabel = brand || procedure_type;
+
+  // Location line: "Within 25 miles of Mandeville, LA" when a radius is set,
+  // otherwise just the city/state or "Any location".
+  const locationLabel = (() => {
+    if (!city && !state) return 'Any location';
+    const cityState = [city, state].filter(Boolean).join(', ');
+    if (radius_miles && radius_miles > 0) {
+      return `Within ${radius_miles} miles of ${cityState}`;
+    }
+    return cityState;
+  })();
 
   // Simple relative time helper
   const timeAgo = (dateStr) => {
@@ -59,8 +76,16 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-primary truncate">{procedure_type}</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-primary truncate">{procedureLabel}</h3>
+            {radius_miles > 0 && (
+              <span
+                className="text-[10px] font-semibold uppercase text-hot-pink border border-hot-pink/40 px-2 py-0.5"
+                style={{ letterSpacing: '0.06em', borderRadius: '4px' }}
+              >
+                {radius_miles} mi radius
+              </span>
+            )}
             {!is_active && (
               <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                 Paused
@@ -69,7 +94,7 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
           </div>
 
           <p className="text-sm text-secondary mt-0.5">
-            {city && state ? `${city}, ${state}` : "Any location"}
+            {locationLabel}
           </p>
 
           {max_price != null && (
