@@ -14,6 +14,9 @@ dist-ssr
 .env
 supabase/.temp/
 
+# Large data files
+data/2023_Gaz_place_national.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

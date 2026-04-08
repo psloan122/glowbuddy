@@ -2,8 +2,22 @@
  * seed-all-providers.js
  *
  * Bulk-seeds the providers table from Google Places Nearby Search API.
- * Run once (or periodically to refresh):
- *   npm run seed:providers
+ *
+ * Two modes:
+ *
+ *   CITY MODE (default, legacy):
+ *     npm run seed:providers
+ *     Uses the hand-curated SEED_CITIES list (major metros).
+ *
+ *   NATIONAL MODE (state-by-state, 200/state target):
+ *     npm run seed:national              Full 50-state pass
+ *     npm run seed:topup                 Only states under 200 confirmed
+ *     npm run seed:state -- --state TX   Single state
+ *
+ *     Loads cities from data/2023_Gaz_place_national.txt (Census Gazetteer).
+ *     Inserts with is_active=false and is_medical_aesthetic=null so the
+ *     classifier (classify-medspa.js) can promote confirmed med spas later.
+ *     Uses ignoreDuplicates: true — existing rows are never touched.
  *
  * Required env vars (set in .env):
  *   SUPABASE_URL
@@ -12,6 +26,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve as resolvePath } from 'node:path';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -26,6 +43,21 @@ if (!GOOGLE_API_KEY) {
 
 const REFRESH = process.env.REFRESH === 'true';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ─── CLI arg parsing ──────────────────────────────────────────────────────
+const argv = process.argv.slice(2);
+const argSet = new Set(argv);
+const getArg = (flag) => {
+  const i = argv.indexOf(flag);
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null;
+};
+const NATIONAL_MODE = argSet.has('--national');
+const TOPUP = argSet.has('--topup');
+const SINGLE_STATE = getArg('--state');
+const MIN_SQMI = parseFloat(getArg('--min-sqmi') || '2');
+const TARGET_PER_STATE = 200;
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function slugify(str) {
   return str
@@ -428,7 +460,266 @@ async function runSeed() {
   console.log(`New providers: ${totalNew}`);
 }
 
-runSeed().catch((err) => {
+// ═══════════════════════════════════════════════════════════════════════════
+// NATIONAL MODE (state-by-state, 200/state target)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ALL_STATES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+];
+
+function loadCensusCities() {
+  const filePath = resolvePath(__dirname, '..', 'data', '2023_Gaz_place_national.txt');
+  const raw = readFileSync(filePath, 'utf-8');
+  const lines = raw.trim().split('\n');
+  const headers = lines[0].split('\t').map((h) => h.trim());
+
+  const idx = {
+    usps: headers.indexOf('USPS'),
+    name: headers.indexOf('NAME'),
+    lsad: headers.indexOf('LSAD'),
+    aland_sqmi: headers.indexOf('ALAND_SQMI'),
+    lat: headers.indexOf('INTPTLAT'),
+    lng: headers.indexOf('INTPTLONG'),
+  };
+
+  return lines
+    .slice(1)
+    .map((line) => {
+      const cols = line.split('\t').map((c) => c.trim());
+      return {
+        state: cols[idx.usps],
+        name: cols[idx.name],
+        lsad: cols[idx.lsad],
+        aland_sqmi: parseFloat(cols[idx.aland_sqmi]) || 0,
+        lat: parseFloat(cols[idx.lat]) || 0,
+        lng: parseFloat(cols[idx.lng]) || 0,
+      };
+    })
+    .filter((c) => c.lat && c.lng && c.state);
+}
+
+async function getConfirmedCountsByState() {
+  const counts = {};
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('providers')
+      .select('state')
+      .eq('is_active', true)
+      .eq('is_medical_aesthetic', true)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      if (row.state) counts[row.state] = (counts[row.state] || 0) + 1;
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return counts;
+}
+
+async function getCachedPlaceIds() {
+  const ids = new Set();
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('providers')
+      .select('google_place_id')
+      .not('google_place_id', 'is', null)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      if (row.google_place_id) ids.add(row.google_place_id);
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return ids;
+}
+
+async function upsertNationalBatch(rows) {
+  if (rows.length === 0) return 0;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    const { error } = await supabase.from('providers').upsert(batch, {
+      onConflict: 'google_place_id',
+      ignoreDuplicates: true, // never touch existing rows
+    });
+    if (error) {
+      console.error(`  Upsert error: ${error.message}`);
+    } else {
+      inserted += batch.length;
+    }
+  }
+  return inserted;
+}
+
+async function seedStateNational(stateCode, censusCities, cachedIds, currentCount) {
+  const needed = TARGET_PER_STATE - currentCount;
+  if (needed <= 0) {
+    console.log(`${stateCode}: already has ${currentCount} confirmed, skipping`);
+    return 0;
+  }
+
+  console.log(`\n${stateCode}: need ${needed} more (have ${currentCount})`);
+
+  const stateCities = censusCities
+    .filter((c) => c.state === stateCode)
+    .sort((a, b) => b.aland_sqmi - a.aland_sqmi);
+
+  if (stateCities.length === 0) {
+    console.log(`${stateCode}: no cities found in Census data`);
+    return 0;
+  }
+
+  const seenPlaceIds = new Set();
+  const candidateRows = [];
+
+  for (const city of stateCities) {
+    if (candidateRows.length >= needed * 3) break;
+
+    let cityFound = 0;
+    for (const query of PROCEDURE_SEARCHES) {
+      try {
+        const places = await searchPlaces(query, city.lat, city.lng);
+        const tags = QUERY_TO_TAGS[query] || ['general'];
+
+        for (const place of places) {
+          const placeId = place.place_id;
+          if (!placeId) continue;
+          if (cachedIds.has(placeId)) continue;
+          if (seenPlaceIds.has(placeId)) continue;
+          if (place.business_status && place.business_status !== 'OPERATIONAL') continue;
+
+          const address = place.formatted_address || place.vicinity || '';
+          const parsed = parseAddress(address, city.name, stateCode);
+          const slug =
+            slugify(`${place.name}-${parsed.city}-${parsed.state}`) + '-' + shortHash(placeId);
+
+          candidateRows.push({
+            name: place.name,
+            slug,
+            google_place_id: placeId,
+            provider_type: 'Med Spa (Non-Physician)',
+            lat: place.geometry?.location?.lat ?? null,
+            lng: place.geometry?.location?.lng ?? null,
+            address,
+            city: parsed.city,
+            state: parsed.state,
+            zip_code: parsed.zip || '00000',
+            google_rating: place.rating ?? null,
+            google_review_count: place.user_ratings_total ?? null,
+            is_claimed: false,
+            is_verified: false,
+            is_active: false,
+            is_medical_aesthetic: null,
+            procedure_tags: tags,
+            place_types: place.types || [],
+            seed_city: city.name,
+            photo_reference: place.photos?.[0]?.photo_reference ?? null,
+            last_google_sync: new Date().toISOString(),
+          });
+
+          seenPlaceIds.add(placeId);
+          cachedIds.add(placeId);
+          cityFound++;
+        }
+        await sleep(300);
+      } catch (err) {
+        console.error(`  Error on "${query}" in ${city.name}: ${err.message}`);
+        await sleep(2000);
+      }
+    }
+
+    console.log(
+      `  ${city.name} (${city.aland_sqmi.toFixed(1)} sqmi): +${cityFound} new / ${candidateRows.length} total`,
+    );
+
+    if (candidateRows.length >= needed * 3) {
+      console.log(`  ${stateCode}: reached ${candidateRows.length} candidates, stopping search`);
+      break;
+    }
+
+    await sleep(500);
+  }
+
+  if (candidateRows.length === 0) {
+    console.log(`${stateCode}: no new candidates found`);
+    return 0;
+  }
+
+  const inserted = await upsertNationalBatch(candidateRows);
+  console.log(`${stateCode}: inserted ${inserted} candidates (awaiting classification)`);
+  return inserted;
+}
+
+async function runNationalSeed() {
+  console.log('\n╔════════════════════════════════════════════╗');
+  console.log('║   GlowBuddy National Provider Seed         ║');
+  console.log('╚════════════════════════════════════════════╝');
+  console.log(`Mode:    ${TOPUP ? 'TOPUP' : SINGLE_STATE ? `SINGLE STATE (${SINGLE_STATE.toUpperCase()})` : 'FULL 50-STATE'}`);
+  console.log(`Target:  ${TARGET_PER_STATE} confirmed per state`);
+  console.log(`Min sqmi filter: ${MIN_SQMI}`);
+
+  console.log('\nLoading Census city data...');
+  const allCities = loadCensusCities();
+  const cities = allCities.filter((c) => c.aland_sqmi >= MIN_SQMI);
+  console.log(
+    `Loaded ${allCities.length} places, filtered to ${cities.length} with ALAND_SQMI >= ${MIN_SQMI}`,
+  );
+
+  console.log('\nChecking existing providers...');
+  const existing = await getConfirmedCountsByState();
+  const cachedIds = await getCachedPlaceIds();
+
+  const total = Object.values(existing).reduce((a, b) => a + b, 0);
+  console.log(`Confirmed active med spas: ${total} across ${Object.keys(existing).length} states`);
+  console.log(`Cached Google place IDs (all providers): ${cachedIds.size}`);
+
+  let statesToProcess;
+  if (SINGLE_STATE) {
+    statesToProcess = [SINGLE_STATE.toUpperCase()];
+  } else if (TOPUP) {
+    statesToProcess = ALL_STATES.filter((s) => (existing[s] || 0) < TARGET_PER_STATE);
+    console.log(`Top-up mode: ${statesToProcess.length} states under ${TARGET_PER_STATE}`);
+  } else {
+    statesToProcess = [...ALL_STATES].sort((a, b) => (existing[a] || 0) - (existing[b] || 0));
+  }
+
+  let totalInserted = 0;
+  for (const state of statesToProcess) {
+    const current = existing[state] || 0;
+    try {
+      const inserted = await seedStateNational(state, cities, cachedIds, current);
+      totalInserted += inserted;
+    } catch (err) {
+      console.error(`State ${state} failed: ${err.message}`);
+    }
+  }
+
+  console.log('\n╔════════════════════════════════════════════╗');
+  console.log('║   NATIONAL SEED COMPLETE                    ║');
+  console.log('╚════════════════════════════════════════════╝');
+  console.log(`New candidates added: ${totalInserted}`);
+  console.log(`Next step: npm run classify`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Entry point — dispatch to city or national mode
+// ═══════════════════════════════════════════════════════════════════════════
+
+const entry = NATIONAL_MODE ? runNationalSeed : runSeed;
+entry().catch((err) => {
   console.error('Seed failed:', err);
   process.exit(1);
 });

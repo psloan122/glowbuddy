@@ -12,7 +12,12 @@
     "verify-seed": "node --env-file=.env scripts/verify-seed-data.js",
     "import-quotes": "node --env-file=.env scripts/import-quotes.js",
     "seed:providers": "node --env-file=.env scripts/seed-all-providers.js",
-    "seed:refresh": "REFRESH=true node --env-file=.env scripts/seed-all-providers.js"
+    "seed:refresh": "REFRESH=true node --env-file=.env scripts/seed-all-providers.js",
+    "seed:national": "node --env-file=.env scripts/seed-all-providers.js --national",
+    "seed:topup": "node --env-file=.env scripts/seed-all-providers.js --national --topup",
+    "seed:state": "node --env-file=.env scripts/seed-all-providers.js --national --state",
+    "classify": "node --env-file=.env scripts/classify-medspa.js",
+    "classify:with-claude": "node --env-file=.env scripts/classify-medspa.js --with-claude"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
