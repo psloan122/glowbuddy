@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { Star, X, ArrowRight } from 'lucide-react';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel } from '../../lib/procedureLabel';
+import { PROCEDURE_PILLS } from '../../lib/constants';
 
 function fmtPrice(n) {
   const v = Number(n) || 0;
@@ -25,7 +26,12 @@ function fmtPrice(n) {
   return `$${v.toFixed(2)}`;
 }
 
-export default function ProviderBottomSheet({ group, onClose }) {
+export default function ProviderBottomSheet({
+  group,
+  onClose,
+  gateMode = false,
+  onSelectPill,
+}) {
   // Lock body scroll while the sheet is open so background page swipes
   // don't compete with the sheet's tap targets on iOS.
   useEffect(() => {
@@ -197,8 +203,57 @@ export default function ProviderBottomSheet({ group, onClose }) {
           </button>
         </div>
 
-        {/* Prices */}
-        {topRows.length > 0 ? (
+        {/* Gate mode body: the user hasn't picked a treatment, so instead
+            of showing prices we show the treatment-picker inline so they
+            can refine right here without losing the provider context. */}
+        {gateMode ? (
+          <div
+            style={{
+              borderTop: '1px solid #F0EBE6',
+              paddingTop: 14,
+              marginBottom: 16,
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 300,
+                fontStyle: 'italic',
+                fontSize: 13,
+                color: '#888',
+                marginBottom: 12,
+              }}
+            >
+              No treatment selected yet. Pick one to see this med spa&rsquo;s prices.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+              {PROCEDURE_PILLS.filter((p) => p.isPrimary).map((pill) => (
+                <button
+                  key={`gate-sheet-${pill.slug}-${pill.brand || 'base'}`}
+                  type="button"
+                  onClick={() => onSelectPill?.(pill)}
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 14px',
+                    borderRadius: '2px',
+                    border: '1px solid #EDE8E3',
+                    background: 'white',
+                    color: '#555',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: 11,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    margin: '0 6px 6px 0',
+                  }}
+                >
+                  Select {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : topRows.length > 0 ? (
           <div
             style={{
               borderTop: '1px solid #F0EBE6',

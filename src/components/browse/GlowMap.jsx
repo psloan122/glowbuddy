@@ -171,6 +171,49 @@ function buildPinIcon({ color, label, highlighted }) {
   };
 }
 
+// Gate-mode pin: small gray circle with the provider's 2-letter initials.
+// No price label — the whole point of gate mode is that no treatment is
+// selected yet, so there's nothing to price. Smaller than the price pill
+// pins (scale 14 per the design brief) so a city-dense map doesn't get
+// overwhelming before the user refines.
+function buildGatePinIcon({ initials, highlighted }) {
+  const size = highlighted ? 30 : 26;
+  const r = size / 2;
+  const fill = highlighted ? '#111111' : '#B8A89A';
+  const stroke = highlighted ? '#111111' : '#FFFFFF';
+  const strokeW = highlighted ? 2.5 : 2;
+  const textColor = '#FFFFFF';
+  const fontSize = highlighted ? 11 : 10;
+  const text = (initials || '').slice(0, 2).toUpperCase();
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 4}" height="${size + 4}" viewBox="0 0 ${size + 4} ${size + 4}">
+      <defs>
+        <filter id="shadow-gate" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.22"/>
+        </filter>
+      </defs>
+      <g filter="url(#shadow-gate)">
+        <circle cx="${r + 2}" cy="${r + 2}" r="${r - 1}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
+        <text x="${r + 2}" y="${r + 2 + fontSize / 2 - 1}" text-anchor="middle" fill="${textColor}" font-family="Outfit, Arial, sans-serif" font-weight="700" font-size="${fontSize}" letter-spacing="0.5">${text}</text>
+      </g>
+    </svg>
+  `;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: window.google?.maps ? new window.google.maps.Point(r + 2, r + 2) : undefined,
+    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 4, size + 4) : undefined,
+  };
+}
+
+function providerInitials(name) {
+  if (!name) return '';
+  const cleaned = String(name).replace(/[^A-Za-z0-9 &]/g, ' ').trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 function fmtShortPrice(n) {
   if (n == null || !Number.isFinite(n)) return '';
   if (n >= 1000) return `$${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
@@ -186,6 +229,8 @@ export default function GlowMap({
   highlightedId,
   selectedId,
   onPinClick,
+  gateMode = false,
+  gateProviders,
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -307,9 +352,10 @@ export default function GlowMap({
   }, [ready, city, state]);
 
   // ── Render pins ─────────────────────────────────────────────────────
-  // Re-runs whenever the merged feed changes. We capped at 40 markers
-  // (Airbnb research) and pre-sorted by quality so the most useful
-  // providers always make the cut.
+  // Re-runs whenever the merged feed (or gate provider list) changes.
+  // Priced mode caps at 40 markers (Airbnb research). Gate mode has no
+  // price sorting to do — we just render every active provider in the
+  // city as a gray initials pin so the user can browse the scene.
   useEffect(() => {
     if (!ready || !mapInstanceRef.current || !window.google) return;
 
@@ -317,6 +363,83 @@ export default function GlowMap({
     // from the canvas; dropping the array lets the GC reclaim them.
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+
+    // Gate mode: render gray initials pins from gateProviders. No price
+    // labels, no color coding, no 40-pin cap — the point is discovery.
+    if (gateMode) {
+      const list = Array.isArray(gateProviders) ? gateProviders : [];
+      if (list.length === 0) return;
+
+      const bounds = new window.google.maps.LatLngBounds();
+      let boundsHasPoints = false;
+
+      list.forEach((p) => {
+        if (p.lat == null || p.lng == null) return;
+        const initials = providerInitials(p.name || p.provider_name || '');
+        const group = {
+          key: p.id || `${p.name}|${p.city}|${p.state}`,
+          provider_id: p.id || null,
+          provider_slug: p.slug || null,
+          provider_name: p.name || p.provider_name || 'Unknown',
+          city: p.city || '',
+          state: p.state || '',
+          lat: Number(p.lat),
+          lng: Number(p.lng),
+          rating: p.google_rating ?? p.rating ?? null,
+          google_review_count: p.google_review_count ?? null,
+          rows: [],
+          bestRow: null,
+          bestPrice: null,
+        };
+        const isHighlighted =
+          group.provider_id != null &&
+          (group.provider_id === highlightedId || group.provider_id === selectedId);
+
+        const marker = new window.google.maps.Marker({
+          position: { lat: group.lat, lng: group.lng },
+          map: mapInstanceRef.current,
+          title: group.provider_name,
+          icon: buildGatePinIcon({ initials, highlighted: isHighlighted }),
+          zIndex: isHighlighted ? 1000 : 60,
+        });
+
+        marker.__glowGroup = group;
+        marker.__glowGate = true;
+        marker.__glowInitials = initials;
+
+        marker.addListener('click', () => {
+          onPinClick?.(group);
+        });
+
+        markersRef.current.push(marker);
+        bounds.extend({ lat: group.lat, lng: group.lng });
+        boundsHasPoints = true;
+      });
+
+      // In gate mode the geocoder has already centered on the city —
+      // same rule as priced mode. Only fitBounds as a fallback when the
+      // geocoder hasn't set the viewport (shouldn't normally happen in
+      // gate mode because gate mode requires a city, but defensive).
+      if (
+        boundsHasPoints &&
+        !userInteracted.current &&
+        !initialCenteredRef.current &&
+        list.length > 1
+      ) {
+        mapInstanceRef.current.fitBounds(bounds, 64);
+        const listener = window.google.maps.event.addListenerOnce(
+          mapInstanceRef.current,
+          'idle',
+          () => {
+            if (mapInstanceRef.current && mapInstanceRef.current.getZoom() > 14) {
+              mapInstanceRef.current.setZoom(14);
+            }
+          },
+        );
+        return () => window.google.maps.event.removeListener(listener);
+      }
+      return;
+    }
 
     if (!procedures || procedures.length === 0) return;
 
@@ -391,7 +514,7 @@ export default function GlowMap({
       // Auto-cleanup if the component unmounts before idle fires.
       return () => window.google.maps.event.removeListener(listener);
     }
-  }, [ready, procedures, cityAvg, onPinClick]); // highlight handled separately
+  }, [ready, procedures, cityAvg, onPinClick, gateMode, gateProviders]); // highlight handled separately
 
   // ── Highlight effect ────────────────────────────────────────────────
   // Updating icons in-place is much cheaper than re-rendering all
@@ -403,6 +526,16 @@ export default function GlowMap({
       if (!g) return;
       const isHighlighted =
         g.provider_id != null && (g.provider_id === highlightedId || g.provider_id === selectedId);
+      if (marker.__glowGate) {
+        marker.setIcon(
+          buildGatePinIcon({
+            initials: marker.__glowInitials,
+            highlighted: isHighlighted,
+          }),
+        );
+        marker.setZIndex(isHighlighted ? 1000 : 60);
+        return;
+      }
       marker.setIcon(
         buildPinIcon({
           color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
@@ -459,8 +592,10 @@ export default function GlowMap({
       )}
 
       {/* Legend — bottom-left so it doesn't collide with the right-side
-          zoom controls or the bottom-sheet drawer on mobile. */}
-      {!mapError && (
+          zoom controls or the bottom-sheet drawer on mobile. Hidden in
+          gate mode because there are no priced pins to explain yet — a
+          color legend next to a sea of gray pins would be misleading. */}
+      {!mapError && !gateMode && (
         <div
           style={{
             position: 'absolute',
@@ -481,6 +616,28 @@ export default function GlowMap({
           <LegendRow color={PRICE_COLORS.good} label="Around avg" />
           <LegendRow color={PRICE_COLORS.high} label="Above avg" />
           <LegendRow color={PRICE_COLORS.noPrice} label="No price yet" last />
+        </div>
+      )}
+      {!mapError && gateMode && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 12,
+            background: 'rgba(255,255,255,0.96)',
+            borderRadius: 4,
+            border: '1px solid #EDE8E3',
+            padding: '8px 12px',
+            zIndex: 5,
+            fontFamily: 'var(--font-body)',
+            fontSize: 10,
+            fontStyle: 'italic',
+            color: '#888',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+            maxWidth: 220,
+          }}
+        >
+          Tap any pin to explore a med spa, or pick a treatment to see prices.
         </div>
       )}
     </div>

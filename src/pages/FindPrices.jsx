@@ -39,6 +39,7 @@ import {
 import {
   PROCEDURE_TYPES,
   PROVIDER_TYPES,
+  PROCEDURE_PILLS,
   resolveProcedureFilter,
   makeProcedureFilterFromCanonical,
   makeProcedureFilterFromPill,
@@ -46,6 +47,7 @@ import {
   findPillBySlug,
 } from '../lib/constants';
 import ProcedureGate from '../components/ProcedureGate';
+import GateLeftPanel from '../components/browse/GateLeftPanel';
 import { searchCitiesViaGoogle } from '../lib/places';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
@@ -244,6 +246,17 @@ export default function FindPrices() {
   const [hoveredProviderId, setHoveredProviderId] = useState(null);
   const [selectedProviderGroup, setSelectedProviderGroup] = useState(null);
 
+  // ── Gate state (no procedure selected yet) ─────────────────────────
+  // When the user has a city but no treatment, we fetch every active
+  // provider in that city so the map can render them as gray initials
+  // pins (GasBuddy-style "here's your city, explore it" discovery) and
+  // the mobile list can show provider cards below the treatment picker.
+  // Sorted by google_review_count desc so the most-reviewed med spas
+  // surface first — mirrors Yelp's "most popular" default.
+  const [gateProviders, setGateProviders] = useState([]);
+  const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
+  const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     function handleResize() {
@@ -259,6 +272,82 @@ export default function FindPrices() {
   useEffect(() => {
     if (viewMode !== 'map') setSelectedProviderGroup(null);
   }, [viewMode]);
+
+  // Fetch providers for the gate state. Only runs when (a) there's a
+  // city picked, (b) no procedure/brand filter is active, and (c) the
+  // user isn't in personalized mode. Intentionally queries the
+  // `providers` table directly (not provider_pricing) so we surface
+  // every active med spa in the city — even the ones with zero prices
+  // logged yet. That's the whole point of the discovery experience.
+  useEffect(() => {
+    if (personalizedMode || procFilter || brandFilter || !selectedLoc) {
+      setGateProviders([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setGateProvidersLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('providers')
+          .select(
+            'id, name, slug, city, state, lat, lng, google_rating, google_review_count, provider_type, is_active',
+          )
+          .eq('state', selectedLoc.state)
+          .ilike('city', `%${selectedLoc.city}%`)
+          .eq('is_active', true)
+          .limit(200);
+        if (cancelled) return;
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[FindPrices] gate providers fetch failed', error);
+          setGateProviders([]);
+        } else {
+          const sorted = (data || []).slice().sort((a, b) => {
+            const ac = Number(a.google_review_count) || 0;
+            const bc = Number(b.google_review_count) || 0;
+            if (bc !== ac) return bc - ac;
+            const ar = Number(a.google_rating) || 0;
+            const br = Number(b.google_rating) || 0;
+            return br - ar;
+          });
+          setGateProviders(sorted);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.error('[FindPrices] gate providers fetch threw', err);
+        setGateProviders([]);
+      } finally {
+        if (!cancelled) setGateProvidersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [personalizedMode, procFilter, brandFilter, selectedLoc?.city, selectedLoc?.state]);
+
+  // Clear the gate-mode bottom sheet whenever the underlying gate
+  // conditions change, so a stale provider can't stay selected after
+  // the user changes cities or picks a treatment.
+  useEffect(() => {
+    setGateSelectedProviderGroup(null);
+  }, [personalizedMode, procFilter, brandFilter, selectedLoc?.city, selectedLoc?.state]);
+
+  const handleGatePinClick = useCallback((group) => {
+    setGateSelectedProviderGroup(group);
+  }, []);
+
+  const handleGatePillSelect = useCallback(
+    (pill) => {
+      setGateSelectedProviderGroup(null);
+      setProcFilter(makeProcedureFilterFromPill(pill));
+      setBrandFilter(pill?.brand || null);
+      setProcQuery('');
+      setProcOpen(false);
+    },
+    [],
+  );
 
   const handlePinClick = useCallback(
     (group) => {
@@ -2236,7 +2325,7 @@ export default function FindPrices() {
           procedure/brand yet. Replaces the gate entirely.
           Hidden on mobile (< md) so the user sees price cards immediately. */}
       {personalizedMode && (
-        <div className="hidden md:block bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
+        <div className="hidden md:block bg-cream" style={{ borderBottom: '1px solid #EDE8E3' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
             <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
               {(() => {
@@ -2357,9 +2446,14 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Editorial cream hero header — when procedure/brand selected OR location set */}
-      {!personalizedMode && (procFilter || brandFilter || selectedLoc) && (
-        <div className="hidden md:block bg-cream" style={{ borderBottom: '3px solid #E8347A' }}>
+      {/* Editorial cream hero header — shown when a procedure or brand is
+          selected. The bare "location-only" case used to render this too,
+          but the gate state now owns the split-view layout (including its
+          own big Playfair headline in GateLeftPanel) so we skip this hero
+          entirely when only a city is set. Otherwise we'd stack two
+          competing headlines. */}
+      {!personalizedMode && (procFilter || brandFilter) && (
+        <div className="hidden md:block bg-cream" style={{ borderBottom: '1px solid #EDE8E3' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
             <p className="editorial-kicker mb-3">
               {hasPricesOnly ? 'Verified providers' : 'Real prices · No consultations'}
@@ -2489,7 +2583,10 @@ export default function FindPrices() {
           </div>
         )}
 
-        {/* Editorial gate state — no procedure picked (desktop only; mobile shows prices immediately) */}
+        {/* No-city editorial hero — shown only when the user has no city
+            AND no procedure yet. Once a city is set, the new split-view
+            gate takes over with the GateLeftPanel on the left and the
+            map on the right. */}
         {!personalizedMode && !procFilter && !brandFilter && !selectedLoc && (
           <div className="hidden md:block text-center py-12 mb-6">
             <p className="editorial-kicker mb-4">Med spa price transparency</p>
@@ -2497,7 +2594,7 @@ export default function FindPrices() {
               className="font-display text-ink mx-auto max-w-3xl"
               style={{ fontWeight: 900, fontSize: 'clamp(32px, 5vw, 48px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}
             >
-              Pick a treatment.<br />
+              Pick a city.<br />
               <span className="italic text-hot-pink">See what people actually paid.</span>
             </h1>
             <p className="font-body font-light text-text-secondary mt-4 text-[15px] max-w-xl mx-auto">
@@ -2619,9 +2716,11 @@ export default function FindPrices() {
             </div>
           )
         ) : !procFilter ? (
-          <div className="py-8">
-            <ProcedureGate variant="block" onSelect={selectPill} />
-          </div>
+          // Gate state — the inline split-view gate (desktop) and the
+          // mobile discovery list live outside this 900px container so
+          // the map can fill the full viewport width. Nothing to render
+          // here, but keep the branch so downstream cases stay correct.
+          null
         ) : loadingProcedures ? (
           <SkeletonGrid count={6} />
         ) : displayedProcedures.length === 0 ? (
@@ -2638,6 +2737,315 @@ export default function FindPrices() {
       </div>
         );
       })()}
+
+      {/* ─── Gate state split-view (no procedure picked yet + city set) ───
+          Desktop: inline editorial left panel + map full-height right.
+          Mobile:  soft headline → horizontal pill strip → provider list.
+          Always shows the map so the user can start exploring pins even
+          before they commit to a treatment filter (GasBuddy/Yelp pattern). */}
+      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && (
+        <div>
+          {isMobile ? (
+            <div
+              className="mx-auto px-4"
+              style={{
+                maxWidth: 900,
+                paddingTop: 8,
+                paddingBottom:
+                  'calc(100px + env(safe-area-inset-bottom, 0px))',
+              }}
+            >
+              {/* Soft headline — no gate box. */}
+              <div style={{ paddingTop: 18, paddingBottom: 10 }}>
+                <h1
+                  className="font-display text-ink"
+                  style={{
+                    fontWeight: 900,
+                    fontSize: 32,
+                    lineHeight: 1.04,
+                    letterSpacing: '-0.02em',
+                    marginBottom: 8,
+                  }}
+                >
+                  Treatment prices in
+                  <br />
+                  {selectedLoc.city}, {selectedLoc.state}.
+                </h1>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontSize: 13,
+                    color: '#888',
+                  }}
+                >
+                  What are you looking for?
+                </p>
+              </div>
+
+              {/* Horizontal pill strip — scrollable on narrow screens so
+                  the full list of categories stays reachable without
+                  collapsing into a "More" submenu on mobile. */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  overflowX: 'auto',
+                  paddingBottom: 18,
+                  marginLeft: -4,
+                  paddingLeft: 4,
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                }}
+              >
+                {PROCEDURE_PILLS.map((pill) => (
+                  <button
+                    key={`mobile-gate-${pill.slug}-${pill.brand || 'base'}`}
+                    type="button"
+                    onClick={() => selectPill(pill)}
+                    style={{
+                      flexShrink: 0,
+                      padding: '10px 16px',
+                      borderRadius: '2px',
+                      border: '1px solid #EDE8E3',
+                      background: 'white',
+                      color: '#555',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Section header above the provider list. */}
+              <div
+                style={{
+                  borderTop: '1px solid #EDE8E3',
+                  paddingTop: 22,
+                  marginTop: 4,
+                  marginBottom: 14,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                }}
+              >
+                <p
+                  className="editorial-kicker"
+                  style={{ color: '#111' }}
+                >
+                  All providers in {selectedLoc.city}
+                </p>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontSize: 11,
+                    color: '#888',
+                  }}
+                >
+                  {gateProvidersLoading
+                    ? '…'
+                    : `${gateProviders.length} ${
+                        gateProviders.length === 1 ? 'spa' : 'spas'
+                      }`}
+                </span>
+              </div>
+
+              {gateProvidersLoading ? (
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontStyle: 'italic',
+                    fontSize: 13,
+                    color: '#888',
+                    padding: '24px 0',
+                  }}
+                >
+                  Finding med spas near you…
+                </p>
+              ) : gateProviders.length === 0 ? (
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontStyle: 'italic',
+                    fontSize: 13,
+                    color: '#888',
+                    padding: '24px 0',
+                  }}
+                >
+                  No med spas indexed in {selectedLoc.city} yet.
+                </p>
+              ) : (
+                <div>
+                  {gateProviders.map((p) => {
+                    const profileUrl = providerProfileUrl(
+                      p.slug,
+                      p.name,
+                      p.city,
+                      p.state,
+                    );
+                    return (
+                      <Link
+                        key={p.id}
+                        to={profileUrl || '#'}
+                        style={{
+                          display: 'block',
+                          padding: '16px 0',
+                          borderBottom: '1px solid #F0EBE6',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: "'Playfair Display', Georgia, serif",
+                            fontWeight: 700,
+                            fontSize: 17,
+                            color: '#111',
+                            marginBottom: 4,
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {p.name}
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 300,
+                            fontSize: 12,
+                            color: '#888',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span>
+                            {p.city}
+                            {p.state ? `, ${p.state}` : ''}
+                          </span>
+                          {p.google_rating != null && (
+                            <>
+                              <span style={{ color: '#D6CFC6' }}>·</span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  color: '#111',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                ★ {Number(p.google_rating).toFixed(1)}
+                              </span>
+                              {p.google_review_count != null && (
+                                <span
+                                  style={{
+                                    color: '#888',
+                                    fontWeight: 400,
+                                  }}
+                                >
+                                  (
+                                  {Number(p.google_review_count).toLocaleString()}
+                                  )
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 500,
+                            fontSize: 11,
+                            color: '#E8347A',
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            marginTop: 6,
+                          }}
+                        >
+                          Select treatment to see prices &rarr;
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            // Desktop gate split-view. Same shell as the priced split
+            // below so the transition from gate → results is a pin
+            // recolor, not a layout reshuffle.
+            <div
+              className="mx-auto"
+              style={{
+                maxWidth: 1400,
+                display: 'flex',
+                gap: 0,
+                height: 'calc(100vh - 200px)',
+                minHeight: 560,
+                overflow: 'hidden',
+                paddingLeft: 16,
+                paddingRight: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 460,
+                  flexShrink: 0,
+                  overflowY: 'auto',
+                  paddingRight: 24,
+                  borderRight: '1px solid #EDE8E3',
+                }}
+              >
+                <GateLeftPanel
+                  city={selectedLoc.city}
+                  state={selectedLoc.state}
+                  providerCount={gateProviders.length}
+                  loading={gateProvidersLoading}
+                  onSelectPill={selectPill}
+                />
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  position: 'relative',
+                  paddingLeft: 16,
+                }}
+              >
+                <GlowMap
+                  gateMode
+                  gateProviders={gateProviders}
+                  cityAvg={null}
+                  city={selectedLoc.city}
+                  state={selectedLoc.state}
+                  highlightedId={null}
+                  selectedId={gateSelectedProviderGroup?.provider_id || null}
+                  onPinClick={handleGatePinClick}
+                />
+                {gateSelectedProviderGroup && (
+                  <ProviderBottomSheet
+                    group={gateSelectedProviderGroup}
+                    gateMode
+                    onSelectPill={handleGatePillSelect}
+                    onClose={() => setGateSelectedProviderGroup(null)}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Happy path: header chrome + split-view (desktop) /
               toggled view (mobile) ─── */}
