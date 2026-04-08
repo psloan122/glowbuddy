@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
   BarChart,
@@ -10,25 +11,110 @@ import {
   LineChart,
   Line,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
-  ScatterChart,
-  Scatter,
-  ZAxis,
+  CartesianGrid,
 } from 'recharts';
 
-const COLORS = ['#F4A7B9', '#8B5CF6', '#10B981', '#F59E0B', '#3B82F6'];
+// "The GlowBuddy Price Report" — editorial data feature.
+//
+// This page is not a dashboard. It's a monthly magazine piece: ticker,
+// kicker, hero headline, then section after section of hot-pink charts
+// with Playfair/Outfit typography and wide whitespace. All data is
+// pulled from the same `procedures` query the old Insights page used;
+// what changed is how we present it.
 
 const dollarFormatter = (value) => `$${Number(value).toLocaleString()}`;
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || !payload.length) return null;
+// Hot-pink palette only — no purple, no green. Different shades
+// distinguish lines in the trend chart (STEP CHART 4).
+const PINK_SHADES = ['#E8347A', '#C8001A', '#E8B4C8', '#F06393'];
+
+// Provider-type copy lives alongside the data so the three cards in
+// Chart 2 always read correctly even when the underlying provider
+// naming drifts.
+const PROVIDER_TYPE_COPY = {
+  'Plastic Surgeon': 'Board-certified surgeon. Highest overhead.',
+  'Plastic Surgery': 'Board-certified surgeon. Highest overhead.',
+  'Med Spa': 'Most common. Wide quality range.',
+  'MedSpa': 'Most common. Wide quality range.',
+  'Nurse Injector': 'Often the best value. Look for experience.',
+  'Nurse Practitioner': 'Often the best value. Look for experience.',
+  'Dermatologist': 'Medical expertise at clinical prices.',
+};
+
+// Display-friendly procedure names. The raw `procedures.procedure_type`
+// can read like "Botox / Dysport / Xeomin" — we want "Botox" in the
+// editorial chart.
+function displayProcedureName(raw) {
+  if (!raw) return '';
+  const first = raw.split(/[\s/]+/)[0];
+  // Normal-case the first word so "BOTOX" becomes "Botox"
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
+function unitLabelFor(raw) {
+  const r = (raw || '').toLowerCase();
+  if (r.includes('botox') || r.includes('dysport') || r.includes('xeomin') || r.includes('jeuveau') || r.includes('daxxify') || r.includes('neurotoxin')) {
+    return 'per unit';
+  }
+  if (r.includes('filler') || r.includes('juvederm') || r.includes('restylane')) return 'per syringe';
+  if (r.includes('laser hair')) return 'per session';
+  if (r.includes('microneedling') || r.includes('rf ')) return 'per session';
+  if (r.includes('coolsculpting')) return 'per cycle';
+  if (r.includes('iv ') || r.includes('drip')) return 'per session';
+  return null;
+}
+
+const SectionRule = () => (
+  <div style={{ borderTop: '1px solid #EDE8E3', marginTop: 80, paddingTop: 48 }} />
+);
+
+const Kicker = ({ children }) => (
+  <p
+    className="mb-3"
+    style={{
+      fontFamily: 'var(--font-body)',
+      fontWeight: 700,
+      fontSize: '10px',
+      letterSpacing: '0.14em',
+      textTransform: 'uppercase',
+      color: '#E8347A',
+    }}
+  >
+    {children}
+  </p>
+);
+
+const SectionHeadline = ({ children }) => (
+  <h2
+    className="mb-5"
+    style={{
+      fontFamily: 'var(--font-display)',
+      fontWeight: 900,
+      fontSize: 'clamp(28px, 4vw, 40px)',
+      lineHeight: 1.05,
+      letterSpacing: '-0.02em',
+      color: '#111',
+    }}
+  >
+    {children}
+  </h2>
+);
+
+const EditorialTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white rounded-lg shadow px-4 py-2">
-      <p className="text-sm font-medium text-text-primary mb-1">{label}</p>
+    <div
+      style={{
+        background: '#fff',
+        border: '1px solid #EDE8E3',
+        padding: '8px 12px',
+        fontFamily: 'var(--font-body)',
+        fontSize: '12px',
+      }}
+    >
+      <p style={{ color: '#111', fontWeight: 600, marginBottom: 2 }}>{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} className="text-sm" style={{ color: entry.color || entry.stroke }}>
+        <p key={i} style={{ color: entry.color || entry.stroke }}>
           {entry.name}: ${Number(entry.value).toLocaleString()}
         </p>
       ))}
@@ -36,54 +122,21 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const CountTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div className="bg-white rounded-lg shadow px-4 py-2">
-      <p className="text-sm font-medium text-text-primary mb-1">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="text-sm" style={{ color: entry.color }}>
-          {entry.name}: {entry.value}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-const RADIAN = Math.PI / 180;
-const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
-  const radius = outerRadius + 30;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  if (percent < 0.03) return null;
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="#1A1A2E"
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      className="text-xs"
-    >
-      {name} ({(percent * 100).toFixed(0)}%)
-    </text>
-  );
-};
-
 export default function Insights() {
   const [loading, setLoading] = useState(true);
+  const [rawData, setRawData] = useState([]);
   const [avgByProcedure, setAvgByProcedure] = useState([]);
+  const [procedureRanges, setProcedureRanges] = useState({});
   const [avgByProviderType, setAvgByProviderType] = useState([]);
   const [topCities, setTopCities] = useState([]);
   const [mostSubmitted, setMostSubmitted] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
   const [trendProcedures, setTrendProcedures] = useState([]);
-  const [avgRatingByProvType, setAvgRatingByProvType] = useState([]);
-  const [ratingVsPrice, setRatingVsPrice] = useState([]);
-  const [trustBreakdown, setTrustBreakdown] = useState([]);
+  const [selectedTrendProc, setSelectedTrendProc] = useState(null);
+  const [reportMonth, setReportMonth] = useState('');
 
   useEffect(() => {
-    document.title = 'Price Insights & Trends | GlowBuddy';
+    document.title = 'The GlowBuddy Price Report | GlowBuddy';
   }, []);
 
   useEffect(() => {
@@ -92,7 +145,7 @@ export default function Insights() {
 
       const { data, error } = await supabase
         .from('procedures')
-        .select('procedure_type, provider_type, city, state, price_paid, created_at, rating')
+        .select('procedure_type, provider_type, city, state, price_paid, created_at')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(2000);
@@ -102,70 +155,107 @@ export default function Insights() {
         return;
       }
 
-      // --- Average by Procedure ---
+      setRawData(data);
+
+      // Report month — use the most recent submission date so the page
+      // always reads as a fresh monthly report.
+      const latest = data
+        .map((d) => d.created_at)
+        .filter(Boolean)
+        .sort()
+        .slice(-1)[0];
+      if (latest) {
+        const d = new Date(latest);
+        setReportMonth(d.toLocaleString('en-US', { month: 'long', year: 'numeric' }));
+      }
+
+      // --- Average by Procedure (plus ranges) ---
       const procGroups = {};
       data.forEach((row) => {
         const key = row.procedure_type;
-        if (!key) return;
+        if (!key || !row.price_paid) return;
         if (!procGroups[key]) procGroups[key] = [];
-        procGroups[key].push(row.price_paid);
+        procGroups[key].push(Number(row.price_paid));
       });
 
       const avgByProc = Object.entries(procGroups)
+        .filter(([, prices]) => prices.length >= 2)
         .map(([name, prices]) => ({
           name,
+          displayName: displayProcedureName(name),
+          unitLabel: unitLabelFor(name),
           avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+          min: Math.min(...prices),
+          max: Math.max(...prices),
+          count: prices.length,
         }))
-        .sort((a, b) => b.avgPrice - a.avgPrice);
+        .sort((a, b) => b.avgPrice - a.avgPrice)
+        .slice(0, 8);
       setAvgByProcedure(avgByProc);
+
+      // Keyed map for "What's a fair price?" cards
+      const rangeMap = {};
+      avgByProc.forEach((entry) => {
+        rangeMap[entry.name] = entry;
+      });
+      setProcedureRanges(rangeMap);
 
       // --- Average by Provider Type ---
       const provGroups = {};
       data.forEach((row) => {
         const key = row.provider_type;
-        if (!key) return;
+        if (!key || !row.price_paid) return;
         if (!provGroups[key]) provGroups[key] = [];
-        provGroups[key].push(row.price_paid);
+        provGroups[key].push(Number(row.price_paid));
       });
-
       const avgByProv = Object.entries(provGroups)
+        .filter(([, prices]) => prices.length >= 2)
         .map(([name, prices]) => ({
           name,
           avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+          count: prices.length,
+          copy: PROVIDER_TYPE_COPY[name] || 'Quality varies widely — compare prices carefully.',
         }))
-        .sort((a, b) => b.avgPrice - a.avgPrice);
+        .sort((a, b) => b.avgPrice - a.avgPrice)
+        .slice(0, 3);
       setAvgByProviderType(avgByProv);
 
-      // --- Top 10 Cities ---
+      // --- Top Cities ---
       const cityGroups = {};
       data.forEach((row) => {
         if (!row.city || !row.state) return;
         const key = `${row.city}, ${row.state}`;
-        cityGroups[key] = (cityGroups[key] || 0) + 1;
+        if (!cityGroups[key]) cityGroups[key] = { city: row.city, state: row.state, count: 0 };
+        cityGroups[key].count += 1;
       });
-
-      const topCitiesArr = Object.entries(cityGroups)
-        .map(([name, count]) => ({ name, count }))
+      const topCitiesArr = Object.values(cityGroups)
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .slice(0, 8);
       setTopCities(topCitiesArr);
 
-      // --- Most Submitted Procedures ---
+      // --- Most Submitted (ranked bars for Chart 5) ---
       const procCounts = {};
       data.forEach((row) => {
         const key = row.procedure_type;
         if (!key) return;
         procCounts[key] = (procCounts[key] || 0) + 1;
       });
-
+      const totalSubs = Object.values(procCounts).reduce((a, b) => a + b, 0);
       const mostSub = Object.entries(procCounts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+        .map(([name, value]) => ({
+          name,
+          displayName: displayProcedureName(name),
+          value,
+          pct: totalSubs > 0 ? Math.round((value / totalSubs) * 100) : 0,
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
       setMostSubmitted(mostSub);
 
-      // --- Monthly Trends (top 3 procedures) ---
+      // --- Monthly trends (top 3 procedures) ---
       const top3Procs = mostSub.slice(0, 3).map((p) => p.name);
       setTrendProcedures(top3Procs);
+      setSelectedTrendProc(top3Procs[0] || null);
 
       const monthMap = {};
       data.forEach((row) => {
@@ -177,7 +267,7 @@ export default function Insights() {
         if (!monthMap[monthKey][row.procedure_type]) {
           monthMap[monthKey][row.procedure_type] = [];
         }
-        monthMap[monthKey][row.procedure_type].push(row.price_paid);
+        monthMap[monthKey][row.procedure_type].push(Number(row.price_paid));
       });
 
       const months = Object.keys(monthMap).sort();
@@ -193,391 +283,670 @@ export default function Insights() {
       });
       setMonthlyTrends(trendsArr);
 
-      // --- Average Rating by Provider Type ---
-      const ratingByProv = {};
-      data.forEach((row) => {
-        if (!row.provider_type || !row.rating) return;
-        if (!ratingByProv[row.provider_type]) ratingByProv[row.provider_type] = [];
-        ratingByProv[row.provider_type].push(row.rating);
-      });
-
-      const avgRatingByProv = Object.entries(ratingByProv)
-        .map(([name, ratings]) => ({
-          name,
-          avgRating: Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10,
-          count: ratings.length,
-        }))
-        .filter((x) => x.count >= 2)
-        .sort((a, b) => b.avgRating - a.avgRating);
-      setAvgRatingByProvType(avgRatingByProv);
-
-      // --- Rating vs Price scatter ---
-      const scatter = data
-        .filter((row) => row.rating && row.price_paid)
-        .map((row) => ({
-          rating: row.rating,
-          price: row.price_paid,
-          procedure: row.procedure_type,
-        }));
-      setRatingVsPrice(scatter);
-
-      // --- Trust breakdown from reviews ---
-      const { data: reviewData } = await supabase
-        .from('reviews')
-        .select('trust_tier')
-        .eq('status', 'active');
-
-      if (reviewData && reviewData.length > 0) {
-        const tierCounts = { receipt_verified: 0, has_photo: 0, unverified: 0 };
-        reviewData.forEach((r) => {
-          const tier = r.trust_tier || 'unverified';
-          if (tier === 'receipt_verified' || tier === 'receipt_and_photo') {
-            tierCounts.receipt_verified++;
-          } else if (tier === 'has_photo') {
-            tierCounts.has_photo++;
-          } else {
-            tierCounts.unverified++;
-          }
-        });
-
-        const breakdown = [];
-        if (tierCounts.receipt_verified > 0)
-          breakdown.push({ name: 'Receipt Verified', value: tierCounts.receipt_verified });
-        if (tierCounts.has_photo > 0)
-          breakdown.push({ name: 'Photo Reviews', value: tierCounts.has_photo });
-        if (tierCounts.unverified > 0)
-          breakdown.push({ name: 'Unverified', value: tierCounts.unverified });
-        setTrustBreakdown(breakdown);
-      }
-
       setLoading(false);
     }
 
     fetchData();
   }, []);
 
+  // Compute "Surprising findings" from rawData when it arrives.
+  const surprisingFindings = useMemo(() => {
+    const botoxPrices = rawData
+      .filter((r) => {
+        const pt = (r.procedure_type || '').toLowerCase();
+        return (pt.includes('botox') || pt.includes('neurotoxin')) && r.price_paid;
+      })
+      .map((r) => Number(r.price_paid))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+    if (botoxPrices.length < 3) {
+      return null;
+    }
+    const min = Math.min(...botoxPrices);
+    const max = Math.max(...botoxPrices);
+    const spreadPct = Math.round(((max - min) / min) * 100);
+    const multiplier = Math.round((max / min) * 10) / 10;
+    return {
+      spreadPct: `${spreadPct}%`,
+      highest: `$${Math.round(max).toLocaleString()}`,
+      multiplier: `${multiplier}\u00D7`,
+    };
+  }, [rawData]);
+
+  // Trend delta annotation for the currently selected procedure.
+  const trendDelta = useMemo(() => {
+    if (!selectedTrendProc || monthlyTrends.length < 2) return null;
+    const last = monthlyTrends[monthlyTrends.length - 1]?.[selectedTrendProc];
+    const prev = monthlyTrends[monthlyTrends.length - 2]?.[selectedTrendProc];
+    if (last == null || prev == null) return null;
+    const diff = last - prev;
+    if (diff === 0) return { text: 'Flat vs last month', up: false, down: false };
+    if (diff < 0) return { text: `\u2193 $${Math.abs(diff).toFixed(2)} vs last month`, up: false, down: true };
+    return { text: `\u2191 $${diff.toFixed(2)} vs last month`, up: true, down: false };
+  }, [selectedTrendProc, monthlyTrends]);
+
+  const fairPriceCards = useMemo(() => {
+    // Prefer the big-ticket procedures: Botox first, then top fillers, then laser.
+    const preferred = Object.values(procedureRanges)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+    return preferred;
+  }, [procedureRanges]);
+
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16">
-        <p className="text-center text-text-secondary animate-pulse text-lg">
-          Loading insights...
+      <div className="max-w-[800px] mx-auto px-4 py-24 text-center">
+        <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
+          The GlowBuddy Price Report
+        </p>
+        <p
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontStyle: 'italic',
+            fontSize: '20px',
+            color: '#B8A89A',
+          }}
+        >
+          Loading the latest report&hellip;
         </p>
       </div>
     );
   }
 
-  const lineColors = ['#F4A7B9', '#8B5CF6', '#10B981'];
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <h1 className="text-4xl font-extrabold text-text-primary mb-2">Price Insights</h1>
-      <p className="text-lg text-text-secondary mb-10">
-        Explore crowdsourced pricing trends across the country.
-      </p>
-
-      {/* Chart 1: Average Price by Procedure */}
-      <div className="glow-card p-6 mb-8">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Average Price by Procedure
-        </h2>
-        {avgByProcedure.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={avgByProcedure}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-            >
-              <XAxis
-                type="number"
-                tickFormatter={dollarFormatter}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={180}
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar
-                dataKey="avgPrice"
-                name="Avg Price"
-                fill="#F4A7B9"
-                barSize={20}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-text-secondary text-center py-8">No procedure data yet.</p>
-        )}
+    <div className="min-h-screen" style={{ background: '#fff' }}>
+      {/* Hot-pink ticker bar */}
+      <div
+        className="w-full overflow-hidden"
+        style={{
+          background: '#E8347A',
+          color: '#fff',
+          padding: '8px 16px',
+          fontFamily: 'var(--font-body)',
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          textAlign: 'center',
+        }}
+      >
+        The GlowBuddy Price Report &middot; Updated Monthly
+        {reportMonth ? ` \u00B7 ${reportMonth}` : ''}
       </div>
 
-      {/* Chart 2: Price by Provider Type */}
-      <div className="glow-card p-6 mb-8">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Average Price by Provider Type
-        </h2>
-        {avgByProviderType.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={avgByProviderType}
-              margin={{ top: 5, right: 30, left: 10, bottom: 30 }}
-            >
-              <XAxis
-                dataKey="name"
-                angle={-20}
-                textAnchor="end"
-                height={80}
-                tick={{ fontSize: 11 }}
-              />
-              <YAxis tickFormatter={dollarFormatter} tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar
-                dataKey="avgPrice"
-                name="Avg Price"
-                fill="#8B5CF6"
-                barSize={40}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-text-secondary text-center py-8">No provider data yet.</p>
-        )}
-      </div>
+      {/* Page container — narrow editorial max width */}
+      <div className="max-w-[800px] mx-auto px-4 sm:px-6 py-14">
+        {/* Hero */}
+        <header className="mb-2">
+          <Kicker>Data Report</Kicker>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 900,
+              fontSize: 'clamp(40px, 7vw, 56px)',
+              lineHeight: 1,
+              letterSpacing: '-0.02em',
+              color: '#111',
+              marginBottom: '18px',
+            }}
+          >
+            What women are actually paying.
+          </h1>
+          <p
+            className="mb-3"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+              lineHeight: 1.4,
+              color: '#B8A89A',
+            }}
+          >
+            Crowdsourced from real patients. No brand deals. No sponsored content.
+          </p>
+          <p
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 300,
+              fontSize: '15px',
+              color: '#888',
+              maxWidth: '60ch',
+            }}
+          >
+            Every month we analyze thousands of real patient-reported receipts to
+            show you what a fair price actually looks like &mdash; and where you're
+            probably getting overcharged.
+          </p>
+        </header>
 
-      {/* Chart 3: Top 10 Cities by Submissions */}
-      <div className="glow-card p-6 mb-8">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Top Cities by Volume
-        </h2>
-        {topCities.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={topCities}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-            >
-              <XAxis type="number" tick={{ fontSize: 12 }} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={180}
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip content={<CountTooltip />} />
-              <Bar
-                dataKey="count"
-                name="Submissions"
-                fill="#10B981"
-                barSize={20}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-text-secondary text-center py-8">No city data yet.</p>
-        )}
-      </div>
+        {/* CHART 1 — What does it actually cost? */}
+        <section>
+          <SectionRule />
+          <Kicker>Procedure averages</Kicker>
+          <SectionHeadline>What does it actually cost?</SectionHeadline>
 
-      {/* Chart 4: National Price Trends Over Time */}
-      <div className="glow-card p-6 mb-8">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Price Trends Over Time
-        </h2>
-        {monthlyTrends.length >= 2 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart
-              data={monthlyTrends}
-              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-            >
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={dollarFormatter} tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="bottom" />
-              {trendProcedures.map((proc, i) => (
-                <Line
-                  key={proc}
-                  type="monotone"
-                  dataKey={proc}
-                  name={proc}
-                  stroke={lineColors[i % lineColors.length]}
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  connectNulls
-                />
+          {avgByProcedure.length > 0 ? (
+            <div className="space-y-2">
+              {(() => {
+                const maxVal = Math.max(...avgByProcedure.map((a) => a.avgPrice));
+                return avgByProcedure.map((entry) => {
+                  const widthPct = maxVal > 0 ? (entry.avgPrice / maxVal) * 100 : 0;
+                  return (
+                    <div key={entry.name} className="flex items-center gap-3">
+                      <div className="w-[130px] shrink-0 text-right">
+                        <p
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 500,
+                            fontSize: '13px',
+                            color: '#111',
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {entry.displayName}
+                        </p>
+                        {entry.unitLabel && (
+                          <p
+                            style={{
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: 300,
+                              fontSize: '11px',
+                              color: '#B8A89A',
+                            }}
+                          >
+                            {entry.unitLabel}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-1 flex items-center gap-3">
+                        <div
+                          style={{
+                            height: '32px',
+                            width: `${widthPct}%`,
+                            background: '#E8347A',
+                            transition: 'width 0.5s ease',
+                          }}
+                        />
+                        <p
+                          style={{
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 700,
+                            fontSize: '14px',
+                            color: '#111',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ${entry.avgPrice.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          ) : (
+            <p style={{ fontFamily: 'var(--font-body)', color: '#B8A89A' }}>
+              Not enough data yet.
+            </p>
+          )}
+        </section>
+
+        {/* CHART 2 — Where you pay more, and why */}
+        {avgByProviderType.length > 0 && (
+          <section>
+            <SectionRule />
+            <Kicker>By provider type</Kicker>
+            <SectionHeadline>Where you pay more &mdash; and why.</SectionHeadline>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {avgByProviderType.map((entry) => (
+                <div
+                  key={entry.name}
+                  style={{
+                    background: '#fff',
+                    border: '1px solid #EDE8E3',
+                    borderTop: '3px solid #E8347A',
+                    padding: '20px 18px',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 700,
+                      fontSize: '10px',
+                      letterSpacing: '0.10em',
+                      textTransform: 'uppercase',
+                      color: '#E8347A',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    {entry.name}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 900,
+                      fontSize: '36px',
+                      lineHeight: 1,
+                      color: '#111',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    ${entry.avgPrice.toLocaleString()}
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize: '12px',
+                        color: '#B8A89A',
+                        marginLeft: '6px',
+                      }}
+                    >
+                      avg
+                    </span>
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '13px',
+                      color: '#666',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {entry.copy}
+                  </p>
+                </div>
               ))}
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-text-secondary text-center py-8">
-            Not enough data for trends yet.
-          </p>
+            </div>
+          </section>
         )}
-      </div>
 
-      {/* Chart 5: Most Logged Procedures (Pie) */}
-      <div className="glow-card p-6 mb-8">
-        <h2 className="text-2xl font-bold text-text-primary mb-6">
-          Most Shared Procedures
-        </h2>
-        {mostSubmitted.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
-              <Pie
-                data={mostSubmitted}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={130}
-                label={renderPieLabel}
-              >
-                {mostSubmitted.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
+        {/* CHART 3 — Where GlowBuddy is growing (ranked list) */}
+        {topCities.length > 0 && (
+          <section>
+            <SectionRule />
+            <Kicker>Top cities</Kicker>
+            <SectionHeadline>Where GlowBuddy is growing.</SectionHeadline>
+
+            <ol className="space-y-4">
+              {(() => {
+                const maxCount = Math.max(...topCities.map((c) => c.count));
+                return topCities.map((city, idx) => {
+                  const rank = String(idx + 1).padStart(2, '0');
+                  const widthPct = maxCount > 0 ? (city.count / maxCount) * 100 : 0;
+                  const url = `/browse?city=${encodeURIComponent(city.city)}&state=${encodeURIComponent(city.state)}`;
+                  return (
+                    <li key={`${city.city}-${city.state}`}>
+                      <Link
+                        to={url}
+                        className="flex items-center gap-4 group"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 900,
+                            fontSize: '24px',
+                            color: '#E8B4C8',
+                            width: '38px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {rank}
+                        </span>
+                        <span
+                          className="flex-1 min-w-0"
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 500,
+                            fontSize: '14px',
+                            color: '#111',
+                          }}
+                        >
+                          {city.city}, {city.state}
+                        </span>
+                        <span className="flex-1 max-w-[240px]">
+                          <span
+                            className="block"
+                            style={{
+                              height: '4px',
+                              width: `${widthPct}%`,
+                              background: '#E8347A',
+                              transition: 'width 0.4s ease',
+                            }}
+                          />
+                        </span>
+                        <span
+                          className="shrink-0 text-right"
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 300,
+                            fontSize: '11px',
+                            color: '#B8A89A',
+                            width: '70px',
+                          }}
+                        >
+                          {city.count} {city.count === 1 ? 'price' : 'prices'}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                });
+              })()}
+            </ol>
+          </section>
+        )}
+
+        {/* CHART 4 — Are prices going up or down? */}
+        {monthlyTrends.length >= 2 && trendProcedures.length > 0 && (
+          <section>
+            <SectionRule />
+            <Kicker>6-month trend</Kicker>
+            <SectionHeadline>Are prices going up or down?</SectionHeadline>
+
+            {/* Procedure toggle pills */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {trendProcedures.map((proc) => {
+                const isActive = selectedTrendProc === proc;
+                return (
+                  <button
+                    key={proc}
+                    type="button"
+                    onClick={() => setSelectedTrendProc(proc)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '2px',
+                      border: `1px solid ${isActive ? '#E8347A' : '#DDD'}`,
+                      background: isActive ? '#E8347A' : 'transparent',
+                      color: isActive ? '#fff' : '#888',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: '11px',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {displayProcedureName(proc)}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer>
+                <LineChart data={monthlyTrends} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                  <CartesianGrid stroke="#F5F0EC" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fontFamily: 'var(--font-body)', fill: '#888' }}
+                    axisLine={{ stroke: '#EDE8E3' }}
+                    tickLine={false}
                   />
-                ))}
-              </Pie>
-              <Tooltip content={<CountTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-text-secondary text-center py-8">No submission data yet.</p>
-        )}
-      </div>
+                  <YAxis
+                    tickFormatter={dollarFormatter}
+                    tick={{ fontSize: 11, fontFamily: 'var(--font-body)', fill: '#888' }}
+                    axisLine={{ stroke: '#EDE8E3' }}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<EditorialTooltip />} />
+                  <Legend wrapperStyle={{ fontFamily: 'var(--font-body)', fontSize: 11 }} />
+                  {trendProcedures.map((proc, i) => (
+                    <Line
+                      key={proc}
+                      type="monotone"
+                      dataKey={proc}
+                      name={displayProcedureName(proc)}
+                      stroke={PINK_SHADES[i % PINK_SHADES.length]}
+                      strokeWidth={selectedTrendProc === proc ? 3 : 1.5}
+                      strokeOpacity={
+                        selectedTrendProc && selectedTrendProc !== proc ? 0.25 : 1
+                      }
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
-      {/* Chart 6: Average Rating by Provider Type */}
-      {avgRatingByProvType.length > 0 && (
-        <div className="glow-card p-6 mb-8">
-          <h2 className="text-2xl font-bold text-text-primary mb-6">
-            Average Rating by Provider Type
-          </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={avgRatingByProvType}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-            >
-              <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={180}
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <div className="bg-white rounded-lg shadow px-4 py-2">
-                      <p className="text-sm font-medium text-text-primary mb-1">{label}</p>
-                      <p className="text-sm" style={{ color: payload[0].color }}>
-                        Avg Rating: {payload[0].value} ({payload[0].payload.count} reviews)
-                      </p>
-                    </div>
-                  );
+            {trendDelta && (
+              <p
+                className="mt-3"
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '12px',
+                  color: trendDelta.down ? '#1A7A3A' : trendDelta.up ? '#C8001A' : '#888',
+                  fontWeight: 500,
                 }}
-              />
-              <Bar
-                dataKey="avgRating"
-                name="Avg Rating"
-                fill="#F59E0B"
-                barSize={20}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Chart 7: Rating vs Price */}
-      {ratingVsPrice.length >= 5 && (
-        <div className="glow-card p-6 mb-8">
-          <h2 className="text-2xl font-bold text-text-primary mb-6">
-            Rating vs Price
-          </h2>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-              <XAxis
-                type="number"
-                dataKey="rating"
-                name="Rating"
-                domain={[1, 5]}
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Rating', position: 'bottom', fontSize: 12 }}
-              />
-              <YAxis
-                type="number"
-                dataKey="price"
-                name="Price"
-                tickFormatter={dollarFormatter}
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Price', angle: -90, position: 'insideLeft', fontSize: 12 }}
-              />
-              <ZAxis range={[30, 30]} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const d = payload[0].payload;
-                  return (
-                    <div className="bg-white rounded-lg shadow px-4 py-2">
-                      <p className="text-sm font-medium text-text-primary">{d.procedure}</p>
-                      <p className="text-sm text-text-secondary">
-                        {d.rating} stars &middot; ${Number(d.price).toLocaleString()}
-                      </p>
-                    </div>
-                  );
-                }}
-              />
-              <Scatter data={ratingVsPrice} fill="#F4A7B9" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Chart 8: Trust Breakdown Donut */}
-      {trustBreakdown.length > 0 && (
-        <div className="glow-card p-6 mb-8">
-          <h2 className="text-2xl font-bold text-text-primary mb-2">
-            Review Quality Across GlowBuddy
-          </h2>
-          <p className="text-sm text-text-secondary mb-6">
-            Higher verified percentages mean more trustworthy data.
-          </p>
-          <ResponsiveContainer width="100%" height={350}>
-            <PieChart>
-              <Pie
-                data={trustBreakdown}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={70}
-                outerRadius={120}
-                label={renderPieLabel}
               >
-                {trustBreakdown.map((entry, index) => {
-                  const trustColors = ['#10B981', '#3B82F6', '#9CA3AF'];
-                  return (
-                    <Cell key={`trust-${index}`} fill={trustColors[index % trustColors.length]} />
-                  );
-                })}
-              </Pie>
-              <Tooltip content={<CountTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+                {displayProcedureName(selectedTrendProc)}: {trendDelta.text}
+              </p>
+            )}
+          </section>
+        )}
 
-      {/* Footer note */}
-      <p className="italic text-sm text-text-secondary text-center">
-        Real prices from real patients. All data is self-reported. Provider-listed prices are submitted by providers.
-      </p>
+        {/* CHART 5 — What people are shopping for (ranked bars) */}
+        {mostSubmitted.length > 0 && (
+          <section>
+            <SectionRule />
+            <Kicker>By volume</Kicker>
+            <SectionHeadline>What people are shopping for.</SectionHeadline>
+
+            <div className="space-y-3">
+              {mostSubmitted.map((entry) => (
+                <div key={entry.name} className="flex items-center gap-3">
+                  <p
+                    className="w-[180px] shrink-0"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      color: '#111',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {entry.displayName}
+                  </p>
+                  <div className="flex-1 flex items-center gap-3">
+                    <div
+                      style={{
+                        height: '6px',
+                        width: `${entry.pct}%`,
+                        background: '#E8347A',
+                        transition: 'width 0.5s ease',
+                      }}
+                    />
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        color: '#E8347A',
+                      }}
+                    >
+                      {entry.pct}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* NEW — What's a fair price? */}
+        {fairPriceCards.length > 0 && (
+          <section>
+            <SectionRule />
+            <Kicker>The honest answer</Kicker>
+            <SectionHeadline>What's a fair price?</SectionHeadline>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {fairPriceCards.map((entry) => {
+                const low = Math.round(entry.avgPrice * 0.75);
+                const high = Math.round(entry.avgPrice * 1.15);
+                const unit = entry.unitLabel || '';
+                const browseUrl = `/browse?procedure=${encodeURIComponent(entry.displayName.toLowerCase())}`;
+                return (
+                  <div
+                    key={entry.name}
+                    style={{
+                      background: '#FBF9F7',
+                      borderTop: '3px solid #E8347A',
+                      padding: '20px 18px',
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 700,
+                        fontSize: '10px',
+                        letterSpacing: '0.10em',
+                        textTransform: 'uppercase',
+                        color: '#E8347A',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      {entry.displayName}
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 700,
+                        fontSize: '20px',
+                        color: '#111',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      Fair range: ${low}&ndash;${high}
+                      {unit ? (
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 300,
+                            fontSize: '12px',
+                            color: '#B8A89A',
+                            marginLeft: '4px',
+                          }}
+                        >
+                          {unit}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 400,
+                        fontStyle: 'italic',
+                        fontSize: '13px',
+                        color: '#666',
+                        lineHeight: 1.4,
+                        marginBottom: '14px',
+                      }}
+                    >
+                      If you're being quoted well above this range, shop around. It's the same product.
+                    </p>
+                    <Link
+                      to={browseUrl}
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        color: '#E8347A',
+                        textDecoration: 'none',
+                        borderBottom: '1px solid #E8347A',
+                        paddingBottom: '1px',
+                      }}
+                    >
+                      Find {entry.displayName} near me &rarr;
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* NEW — Surprising findings */}
+        {surprisingFindings && (
+          <section>
+            <SectionRule />
+            <Kicker>Surprising findings</Kicker>
+            <SectionHeadline>The gap is bigger than you think.</SectionHeadline>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { number: surprisingFindings.spreadPct, label: 'Price spread for the same Botox product' },
+                { number: surprisingFindings.highest, label: 'Highest Botox price we found' },
+                { number: surprisingFindings.multiplier, label: 'Markup from cheapest to most expensive' },
+              ].map((stat, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: '#fff',
+                    borderTop: '3px solid #E8347A',
+                    padding: '24px 18px',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 900,
+                      fontSize: '48px',
+                      lineHeight: 1,
+                      color: '#E8347A',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    {stat.number}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 400,
+                      fontSize: '13px',
+                      color: '#666',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Disclaimer */}
+        <section>
+          <SectionRule />
+          <div
+            style={{
+              borderLeft: '3px solid #E8347A',
+              paddingLeft: '16px',
+              marginTop: '24px',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 300,
+                fontStyle: 'italic',
+                fontSize: '12px',
+                color: '#B8A89A',
+                lineHeight: 1.5,
+              }}
+            >
+              Real prices from real patients. All data is self-reported. Provider-listed
+              prices are submitted by providers and clearly labeled where they appear.
+            </p>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
