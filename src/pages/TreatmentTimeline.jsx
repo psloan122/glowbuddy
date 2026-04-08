@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { fetchBenchmark, getBenchmarkLabel } from '../lib/priceBenchmark';
+import { getProcedureLabel } from '../lib/procedureLabel';
 import ProcedureIcon from '../components/ProcedureIcon';
 import StarRating from '../components/StarRating';
 import FairPriceBadge from '../components/FairPriceBadge';
@@ -428,7 +429,7 @@ export default function TreatmentTimeline() {
                 <div className="flex items-center gap-2 flex-wrap mb-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-dark bg-rose-light px-2.5 py-1 rounded-full">
                     <ProcedureIcon type={proc.procedure_type} size={14} className="text-rose-dark" />
-                    {proc.procedure_type}
+                    {getProcedureLabel(proc.procedure_type, proc.brand)}
                   </span>
                   {trustBadge && (
                     <span
@@ -506,6 +507,7 @@ export default function TreatmentTimeline() {
                       src={proc.result_photo_url}
                       alt="Result"
                       className="w-16 h-16 object-cover rounded-lg border border-gray-100"
+                      loading="lazy"
                     />
                   </div>
                 )}

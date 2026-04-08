@@ -64,8 +64,8 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
         .getPublicUrl(path);
 
       setForm((prev) => ({ ...prev, profile_photo_url: publicUrl }));
-    } catch (err) {
-      console.error('Photo upload error:', err);
+    } catch {
+      // Upload failed — user can retry
     } finally {
       setUploading(false);
     }
@@ -262,6 +262,7 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
                     src={form.profile_photo_url}
                     alt="Profile"
                     className="w-12 h-12 rounded-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <ProviderAvatar name={form.name || '?'} size={48} />
@@ -339,6 +340,7 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
                     src={injector.profile_photo_url}
                     alt={injector.name}
                     className="w-10 h-10 rounded-full object-cover shrink-0"
+                    loading="lazy"
                   />
                 ) : (
                   <ProviderAvatar name={injector.name} size={40} />

@@ -18,6 +18,7 @@ import {
   groupForProviderDisplay,
   inferNeurotoxinBrand,
 } from '../../lib/priceUtils';
+import { getProcedureLabel } from '../../lib/procedureLabel';
 import useProviderPrices from '../../hooks/useProviderPrices';
 
 const STALE_DAYS = 90;
@@ -259,13 +260,17 @@ export default function PricesTab({
                 const cityComp = priceComparisons?.[procedureType];
                 const cityCount = communityAverages?.[procedureType]?.count || 0;
                 const nationalAvg = AVG_PRICES[procedureType];
+                // Display label collapses combined strings like "Botox /
+                // Dysport / Xeomin" down to a clean category name. The
+                // group key (procedureType) stays as the raw DB value.
+                const groupLabel = getProcedureLabel(procedureType, null);
                 return (
                   <div key={procedureType} className="p-4">
                     <p
                       className="text-[10px] font-semibold uppercase text-hot-pink mb-3"
                       style={{ letterSpacing: '0.12em' }}
                     >
-                      {procedureType}
+                      {groupLabel}
                     </p>
                     <div className="space-y-2.5">
                       {group.items.map((item) => (

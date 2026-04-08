@@ -68,7 +68,6 @@ export default function InjectorClaim() {
       .eq('id', injector.id);
 
     if (error) {
-      console.error('Claim error:', error);
       setSaving(false);
       return;
     }

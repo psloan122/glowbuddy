@@ -470,7 +470,7 @@ export default function ProcedureGuide() {
             })}
           </div>
           <Link
-            to="/map"
+            to="/browse"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-accent hover:text-rose-dark transition mt-4"
           >
             Find more providers

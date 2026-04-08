@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Award } from 'lucide-react';
 import { getUserPioneerStats } from '../lib/pioneerLogic';
 
 export default function PioneerBadge({ userId }) {
@@ -27,7 +28,7 @@ export default function PioneerBadge({ userId }) {
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
       style={{ background: 'rgba(251, 191, 36, 0.08)', color: '#B45309' }}
     >
-      <span role="img" aria-label="Pioneer">🏅</span>
+      <Award size={12} />
       <span>
         Pioneer{cityName ? ` \u00b7 ${cityName}` : ''} \u00b7 {stats.totalLocations} location{stats.totalLocations !== 1 ? 's' : ''}
       </span>

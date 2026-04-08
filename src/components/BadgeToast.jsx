@@ -21,21 +21,16 @@ export default function BadgeToast({ badge, onClose }) {
           <X size={16} />
         </button>
 
-        <div className="flex items-start gap-3">
-          <span className="text-3xl" role="img" aria-label={badge.label}>
-            {badge.emoji}
-          </span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-rose-accent mb-0.5">
-              Badge Earned!
-            </p>
-            <p className="text-sm font-bold text-text-primary">
-              {badge.label}
-            </p>
-            <p className="text-xs text-text-secondary mt-0.5">
-              {badge.description}
-            </p>
-          </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-rose-accent mb-0.5">
+            Badge Earned
+          </p>
+          <p className="text-sm font-bold text-text-primary">
+            {badge.label}
+          </p>
+          <p className="text-xs text-text-secondary mt-0.5">
+            {badge.description}
+          </p>
         </div>
       </div>
 

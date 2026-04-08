@@ -59,15 +59,6 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  to="/map"
-                  className="text-[13px] font-light hover:text-hot-pink transition-colors"
-                  style={{ color: '#bbb' }}
-                >
-                  Map View
-                </Link>
-              </li>
-              <li>
-                <Link
                   to="/business"
                   className="text-[13px] font-light hover:text-hot-pink transition-colors"
                   style={{ color: '#bbb' }}

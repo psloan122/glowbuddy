@@ -74,6 +74,29 @@ h1, h2, h3, h4 {
   min-height: 100vh;
 }
 
+/* ── Skip-to-content link (a11y) ──
+   Visually hidden until focused via keyboard. */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 9999;
+  padding: 12px 18px;
+  background: var(--color-hot-pink);
+  color: #FFFFFF;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: 0 0 4px 0;
+}
+
+.skip-to-content:focus {
+  left: 0;
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
 /* ── PRICE TYPOGRAPHY ──
    Prices are the hero content. Everywhere a price appears it should
    render as enormous Playfair Display 900 — the product IS the number.

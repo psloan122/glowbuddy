@@ -106,8 +106,7 @@ export default function ResolveDispute() {
         setStatus('success');
         setMessage('Your submission has been removed. Thank you for helping keep GlowBuddy accurate.');
       }
-    } catch (err) {
-      console.error('Resolve dispute error:', err);
+    } catch {
       setStatus('error');
       setMessage('Something went wrong. Please try again.');
     }

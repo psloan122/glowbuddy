@@ -5,8 +5,8 @@ async function invoke(template, to, data) {
     await supabase.functions.invoke('send-email', {
       body: { template, to, data },
     });
-  } catch (err) {
-    console.error(`[email] Failed to send ${template}:`, err);
+  } catch {
+    // Email send is fire-and-forget — failures are silent
   }
 }
 

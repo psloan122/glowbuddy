@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { StatsSkeleton } from './DashboardSkeleton';
+import { getProcedureLabel } from '../../lib/procedureLabel';
 
 export default function YourActivity({ activity, loading }) {
   if (loading) return <StatsSkeleton />;
@@ -51,7 +52,7 @@ export default function YourActivity({ activity, loading }) {
           {recentSubmissions.slice(0, 5).map((s) => (
             <div key={s.id} className="flex items-center justify-between text-xs">
               <span className="text-text-primary font-medium truncate flex-1">
-                {s.procedure_type}
+                {getProcedureLabel(s.procedure_type, s.brand)}
               </span>
               <span className="text-text-secondary shrink-0 ml-2">
                 ${Number(s.price_paid).toLocaleString()}

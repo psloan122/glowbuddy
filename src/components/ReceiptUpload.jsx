@@ -72,9 +72,8 @@ export default function ReceiptUpload({
       } finally {
         setParsing(false);
       }
-    } catch (err) {
+    } catch {
       setError('Upload failed. Please try again.');
-      console.error('Receipt upload error:', err);
     } finally {
       setUploading(false);
     }

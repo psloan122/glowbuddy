@@ -11,6 +11,7 @@ export default function FinancingPartnerCard({ partner, url, onApply }) {
         src={partner.logo}
         alt={partner.name}
         className="h-8 mb-3"
+        loading="lazy"
         onError={(e) => {
           e.target.style.display = 'none';
           e.target.nextSibling.style.display = 'block';

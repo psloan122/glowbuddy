@@ -25,7 +25,6 @@ export async function createPlacementCheckout({ specialId, placementId, tier, we
 
   // If Stripe isn't configured yet, simulate success for development
   if (!stripeKey) {
-    console.warn('[Stripe] No publishable key configured. Simulating checkout success.');
     return {
       simulated: true,
       message: 'Stripe not configured — placement activated directly for development.',

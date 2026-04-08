@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
 import { isEmailVerified } from '../../lib/auth';
@@ -48,6 +49,7 @@ export default function Onboarding() {
   // Google photo import state
   const [googlePhotos, setGooglePhotos] = useState([]);
   const [importPhotos, setImportPhotos] = useState(false);
+  const [menuError, setMenuError] = useState('');
 
   useEffect(() => {
     document.title = 'Set Up Your Practice | GlowBuddy';
@@ -184,7 +186,7 @@ export default function Onboarding() {
       <div className="fixed inset-0 z-50 bg-warm-white flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">
           <div className="flex items-center justify-center w-14 h-14 bg-rose-light rounded-full mx-auto mb-5">
-            <span className="text-2xl">📧</span>
+            <Mail size={24} className="text-rose-accent" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary mb-2">
             Verify your email first
@@ -349,7 +351,16 @@ export default function Onboarding() {
         price: item.price,
         price_label: item.price_label || 'per unit',
       }));
-      await supabase.from('provider_pricing').insert(rows);
+      const { error: menuInsertError } = await supabase
+        .from('provider_pricing')
+        .insert(rows);
+
+      if (menuInsertError) {
+        setMenuError(
+          `Could not save pricing menu. Please try again. (${menuInsertError.message})`
+        );
+        return;
+      }
     }
 
     // Import Google photos (non-blocking)
@@ -368,22 +379,18 @@ export default function Onboarding() {
           .from('providers')
           .update({ photos_imported: true })
           .eq('id', menuProviderId);
-      } catch (err) {
-        console.error('Photo import failed (non-blocking):', err);
+      } catch {
+        // Photo import is non-blocking
       }
     }
 
     // Set user role (JWT metadata + profiles table)
     await supabase.auth.updateUser({ data: { user_role: 'provider' } });
 
-    const { error: profileError } = await supabase
+    await supabase
       .from('profiles')
       .update({ role: 'provider' })
       .eq('id', user.id);
-
-    if (profileError) {
-      console.error('Failed to update profile role:', profileError);
-    }
 
     setShowWelcome(true);
 
@@ -468,11 +475,18 @@ export default function Onboarding() {
           />
         )}
         {step === 5 && (
-          <Step5ChoosePlan
-            profileData={profileData}
-            menuCount={menuItems.length}
-            onComplete={handleStep5Complete}
-          />
+          <>
+            {menuError && (
+              <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+                {menuError}
+              </div>
+            )}
+            <Step5ChoosePlan
+              profileData={profileData}
+              menuCount={menuItems.length}
+              onComplete={handleStep5Complete}
+            />
+          </>
         )}
       </div>
     </div>

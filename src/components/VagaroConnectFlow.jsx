@@ -137,7 +137,7 @@ export default function VagaroConnectFlow({ providerId }) {
       {step === 1 && (
         <div className="glow-card p-6 max-w-xl">
           <div className="flex items-center gap-3 mb-4">
-            <img src="/logos/vagaro.svg" alt="Vagaro" className="h-6" onError={(e) => e.target.style.display = 'none'} />
+            <img src="/logos/vagaro.svg" alt="Vagaro" className="h-6" loading="lazy" onError={(e) => e.target.style.display = 'none'} />
             <h2 className="text-lg font-bold text-text-primary">Connect Vagaro</h2>
           </div>
           <p className="text-sm text-text-secondary mb-6">
@@ -165,6 +165,7 @@ export default function VagaroConnectFlow({ providerId }) {
             src="/screenshots/vagaro-widget.png"
             alt="Where to find the Vagaro Widget URL in Settings → Online Booking → Widget"
             className="w-full rounded-xl border border-gray-200 mb-6"
+            loading="lazy"
             onError={(e) => e.target.style.display = 'none'}
           />
 
@@ -263,7 +264,7 @@ export default function VagaroConnectFlow({ providerId }) {
         <div className="glow-card p-6 max-w-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <img src="/logos/vagaro.svg" alt="Vagaro" className="h-5" onError={(e) => e.target.style.display = 'none'} />
+              <img src="/logos/vagaro.svg" alt="Vagaro" className="h-5" loading="lazy" onError={(e) => e.target.style.display = 'none'} />
               <h2 className="text-lg font-bold text-text-primary">Vagaro</h2>
             </div>
             <ConnectionStatusBadge status={integration.connection_status} />

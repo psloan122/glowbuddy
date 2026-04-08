@@ -34,9 +34,8 @@ export default function PioneerCredit({ providerSlug }) {
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium mb-3"
       style={{ background: 'rgba(251, 191, 36, 0.08)', color: '#B45309' }}
     >
-      <span role="img" aria-label={tierInfo.label}>{tierInfo.emoji}</span>
       <span>
-        First verified by {name}{dateStr ? ` \u00b7 ${dateStr}` : ''}
+        {tierInfo.label}: first verified by {name}{dateStr ? ` \u00b7 ${dateStr}` : ''}
       </span>
     </div>
   );

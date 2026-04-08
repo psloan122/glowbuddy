@@ -1,3 +1,5 @@
+import { getProcedureLabel } from '../lib/procedureLabel';
+
 export default function BeforeAfterCard({ photo, onClick }) {
   return (
     <div
@@ -11,6 +13,7 @@ export default function BeforeAfterCard({ photo, onClick }) {
             src={photo.before_url}
             alt="Before"
             className="w-full h-40 object-cover"
+            loading="lazy"
           />
           <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
             Before
@@ -21,6 +24,7 @@ export default function BeforeAfterCard({ photo, onClick }) {
             src={photo.after_url}
             alt="After"
             className="w-full h-40 object-cover"
+            loading="lazy"
           />
           <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
             After
@@ -33,7 +37,7 @@ export default function BeforeAfterCard({ photo, onClick }) {
         <div className="flex flex-wrap items-center gap-1.5 mb-1">
           {photo.procedure_type && (
             <span className="text-xs bg-rose-light text-rose-dark px-2 py-0.5 rounded-full">
-              {photo.procedure_type}
+              {getProcedureLabel(photo.procedure_type, photo.brand)}
             </span>
           )}
           {photo.treatment_area && (

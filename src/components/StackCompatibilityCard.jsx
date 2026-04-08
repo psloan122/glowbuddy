@@ -65,7 +65,7 @@ export default function StackCompatibilityCard({ rule, otherTreatment, localPric
         {/* Pro tip */}
         {rule.pro_tip && (
           <p className="mt-3 text-sm text-text-secondary bg-gray-50 rounded-lg px-3 py-2">
-            💡 {rule.pro_tip}
+            {rule.pro_tip}
           </p>
         )}
 

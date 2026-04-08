@@ -82,7 +82,7 @@ export default function AdminInjectorsTab() {
     if (update) {
       supabase.functions.invoke('fan-out-injector-update', {
         body: { injector_update_id: update.id },
-      }).catch(console.error);
+      }).catch(() => {});
     }
 
     // Refresh

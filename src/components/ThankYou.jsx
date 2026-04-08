@@ -128,16 +128,19 @@ export default function ThankYou({
             className="rounded-xl p-4 mb-5 text-left"
             style={{ background: '#FFFBEB', border: '1px solid rgba(251, 191, 36, 0.3)' }}
           >
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{tier.emoji}</span>
-              <div>
-                <p className="text-sm font-medium text-text-primary leading-snug">
-                  {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
-                </p>
-                <p className="text-xs mt-2" style={{ color: '#B45309' }}>
-                  You&apos;ve also entered the Pioneer Giveaway ($200/month)
-                </p>
-              </div>
+            <div>
+              <p
+                className="text-xs uppercase tracking-wider mb-1"
+                style={{ color: '#B45309', fontWeight: 600 }}
+              >
+                {tier.label}
+              </p>
+              <p className="text-sm font-medium text-text-primary leading-snug">
+                {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
+              </p>
+              <p className="text-xs mt-2" style={{ color: '#B45309' }}>
+                You&apos;ve also entered the Pioneer Giveaway ($200/month)
+              </p>
             </div>
           </div>
         );
@@ -149,7 +152,7 @@ export default function ThankYou({
           ? 'Almost there'
           : outlierFlagged
             ? 'Your price is under review'
-            : '✨ Your price is live!'}
+            : 'Your price is live.'}
       </h2>
 
       <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">

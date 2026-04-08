@@ -227,25 +227,21 @@ export const ONBOARDING_PROVIDER_TYPES = [
 
 export const BADGE_DEFINITIONS = {
   glowgetter: {
-    emoji: '🌟',
     label: 'Glowgetter',
     description: 'First submission',
     threshold: 1,
   },
   price_pioneer: {
-    emoji: '🔍',
     label: 'Price Pioneer',
     description: '5 submissions',
     threshold: 5,
   },
   club_100: {
-    emoji: '💯',
     label: '100 Club',
     description: '100 submissions',
     threshold: 100,
   },
   location_pioneer: {
-    emoji: '🏅',
     label: 'Pioneer',
     description: 'First verified price at a location',
     threshold: null,
@@ -804,16 +800,16 @@ export function makeProcedureFilterFromPill(pill) {
 
 // Shared interest options for Onboarding + Settings
 export const INTEREST_OPTIONS = [
-  { emoji: '💉', label: 'Botox & Dysport' },
-  { emoji: '💋', label: 'Lip Filler' },
-  { emoji: '✨', label: 'Cheek & Jawline Filler' },
-  { emoji: '🔬', label: 'Microneedling' },
-  { emoji: '⚡', label: 'Laser Treatments' },
-  { emoji: '💆', label: 'HydraFacial' },
-  { emoji: '💪', label: 'Body Contouring' },
-  { emoji: '⚖️', label: 'Weight Loss (GLP-1)' },
-  { emoji: '🫧', label: 'Chemical Peels' },
-  { emoji: '👁️', label: 'Under Eye Filler' },
+  { label: 'Botox & Dysport' },
+  { label: 'Lip Filler' },
+  { label: 'Cheek & Jawline Filler' },
+  { label: 'Microneedling' },
+  { label: 'Laser Treatments' },
+  { label: 'HydraFacial' },
+  { label: 'Body Contouring' },
+  { label: 'Weight Loss (GLP-1)' },
+  { label: 'Chemical Peels' },
+  { label: 'Under Eye Filler' },
 ];
 
 // Maps broad interest labels to specific procedure types for tag resolution

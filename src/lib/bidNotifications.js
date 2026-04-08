@@ -20,12 +20,9 @@ import { haversineMiles } from './distance';
 
 const NOTIF_TABLE = 'user_notifications';
 
-function swallow(error) {
-  if (error) {
-    // Notifications are best-effort. Log so we see it in dev but never
-    // throw — missing notifications should not block a bid submission.
-    console.warn('[bidNotifications]', error.message || error);
-  }
+function swallow() {
+  // Notifications are best-effort. Errors are swallowed — missing
+  // notifications should not block a bid submission.
 }
 
 // ── Fan-out when a new bid_request is created ────────────────────────

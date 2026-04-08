@@ -45,6 +45,7 @@ export default function Step5ChoosePlan({ profileData, menuCount, onComplete }) 
               src={profileData.logo_url}
               alt="Logo"
               className="w-12 h-12 rounded-xl object-cover"
+              loading="lazy"
             />
           ) : (
             <div className="w-12 h-12 rounded-xl bg-rose-light flex items-center justify-center">

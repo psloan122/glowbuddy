@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Flag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 export default function DisputeModal({ procedure, providerId, onClose, onSubmitted }) {
   const [reason, setReason] = useState('');
@@ -74,7 +75,7 @@ export default function DisputeModal({ procedure, providerId, onClose, onSubmitt
         {/* Context */}
         <div className="bg-rose-light/50 rounded-xl p-3 mb-5">
           <p className="text-sm text-text-primary">
-            <span className="font-semibold">{procedure.procedure_type}</span>
+            <span className="font-semibold">{getProcedureLabel(procedure.procedure_type, procedure.brand)}</span>
             {' '}&middot;{' '}
             <span className="font-bold">${Number(procedure.price).toLocaleString()}</span>
           </p>

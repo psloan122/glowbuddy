@@ -3,6 +3,7 @@ import { X, Loader2 } from 'lucide-react';
 import { AuthContext } from '../App';
 import { supabase } from '../lib/supabase';
 import StarRating from './StarRating';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 const TREATMENT_NAMES = [
   'Botox / Dysport / Xeomin',
@@ -171,7 +172,7 @@ export default function LogTreatmentForm({ onClose, onSaved, editEntry }) {
               <option value="">Select a treatment…</option>
               {TREATMENT_NAMES.map((name) => (
                 <option key={name} value={name}>
-                  {name}
+                  {getProcedureLabel(name, null)}
                 </option>
               ))}
             </select>

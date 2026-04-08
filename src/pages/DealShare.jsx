@@ -42,8 +42,8 @@ export default function DealShare() {
 
         const { data } = await query;
         setMatches(data || []);
-      } catch (err) {
-        console.error('Failed to fetch matching submissions:', err);
+      } catch {
+        // Silent — setLoading finalizes below
       } finally {
         setLoading(false);
       }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Gift } from 'lucide-react';
+import { Gift, Award } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { BADGE_DEFINITIONS, procedureToSlug } from '../lib/constants';
@@ -200,7 +200,7 @@ export default function Community() {
       >
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           <div className="flex-shrink-0 p-3 rounded-full" style={{ background: 'rgba(180, 83, 9, 0.1)' }}>
-            <span className="text-3xl" role="img" aria-label="Pioneer">🏅</span>
+            <Award size={28} style={{ color: '#B45309' }} />
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-text-primary mb-1">
@@ -211,7 +211,7 @@ export default function Community() {
             </p>
           </div>
           <Link
-            to="/map"
+            to="/browse"
             className="inline-block text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition whitespace-nowrap"
             style={{ background: '#B45309' }}
           >

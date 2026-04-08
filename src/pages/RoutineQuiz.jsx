@@ -4,6 +4,7 @@ import { ArrowRight, ArrowLeft, CheckCircle, Sparkles, Loader2, Save } from 'luc
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import RoutineVisualizer from '../components/RoutineVisualizer';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 const CONCERNS = [
   'Fine lines & wrinkles',
@@ -390,7 +391,7 @@ export default function RoutineQuiz() {
                   }`}
                 >
                   {selected && <CheckCircle size={14} className="inline mr-1.5 text-sky-500" />}
-                  {name}
+                  {getProcedureLabel(name, null)}
                 </button>
               );
             })}
@@ -477,7 +478,7 @@ export default function RoutineQuiz() {
                 .sort((a, b) => a.weeks - b.weeks)[0];
               return next ? (
                 <p className="text-sm text-text-secondary mt-1.5">
-                  Next up: <span className="font-medium text-text-primary">{next.name}</span> — in ~{Math.round(next.weeks)} week{Math.round(next.weeks) !== 1 ? 's' : ''}
+                  Next up: <span className="font-medium text-text-primary">{getProcedureLabel(next.name, null)}</span> — in ~{Math.round(next.weeks)} week{Math.round(next.weeks) !== 1 ? 's' : ''}
                 </p>
               ) : null;
             })()}
@@ -489,7 +490,7 @@ export default function RoutineQuiz() {
             <div className="space-y-2">
               {results.treatments.map((name) => (
                 <div key={name} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <span className="font-medium text-text-primary">{name}</span>
+                  <span className="font-medium text-text-primary">{getProcedureLabel(name, null)}</span>
                   {(results.localPrices[name] || localPrices[name]) && (
                     <span className="text-sm text-text-secondary">
                       ~${(results.localPrices[name] || localPrices[name]).toLocaleString()} avg

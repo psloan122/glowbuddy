@@ -89,7 +89,6 @@ export default function PendingCharges() {
 
     const { data, error } = await query;
     if (error) {
-      console.warn('[PendingCharges] load failed', error.message);
       setRows([]);
     } else {
       setRows(data || []);
@@ -121,10 +120,7 @@ export default function PendingCharges() {
         .update({ lead_fee_charged: true })
         .eq('id', row.bid_id);
     }
-    const { error } = await supabase.from('pending_charges').update(patch).eq('id', row.id);
-    if (error) {
-      console.warn('[PendingCharges] update failed', error.message);
-    }
+    await supabase.from('pending_charges').update(patch).eq('id', row.id);
     setSavingId(null);
     await load();
   }

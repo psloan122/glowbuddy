@@ -15,6 +15,7 @@ import AlertMatchBadge from './AlertMatchBadge';
 import DisputeButton from './DisputeButton';
 import { getGuideUrl } from '../lib/guideMapping';
 import { inferNeurotoxinBrand } from '../lib/priceUtils';
+import { getProcedureLabel } from '../lib/procedureLabel';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
 import { haversineMiles, formatMiles } from '../lib/distance';
 
@@ -50,6 +51,11 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
     brand: procedure.brand || null,
     perUnitPrice: perUnitForBrand,
   });
+
+  // Single source of truth for the short pink kicker label. Brand wins
+  // when set; otherwise we collapse combined procedure_type strings like
+  // "Botox / Dysport / Xeomin" down to a clean category name.
+  const cardLabel = getProcedureLabel(procedure.procedure_type, procedure.brand);
 
   // "· X mi" suffix next to the city/state line. Resolves to null when
   // either side of the coordinate pair is missing, which is the common
@@ -149,7 +155,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
               color: '#B8A89A',
             }}
           >
-            {mobileUnit || procedure.procedure_type}
+            {mobileUnit || cardLabel}
           </span>
           <FairPriceBadge
             price={procedure.normalized_compare_value || procedure.price_paid}
@@ -163,9 +169,10 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
       {/* ─── Desktop layout (md+) ─── */}
       <div className="hidden md:block">
 
-      {/* Kicker — procedure type as tracked uppercase label */}
+      {/* Kicker — brand-aware label, never the combined "Botox / Dysport
+          / Xeomin" string. See src/lib/procedureLabel.js. */}
       <p className="editorial-kicker mb-2">
-        {procedure.procedure_type}
+        {cardLabel}
         {procedure.treatment_area && (
           <span className="text-text-secondary font-normal normal-case tracking-normal">
             {' '}&middot; {procedure.treatment_area}

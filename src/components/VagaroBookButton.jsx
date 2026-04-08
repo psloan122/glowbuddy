@@ -60,7 +60,7 @@ export default function VagaroBookButton({
         onClick={handleClick}
         className="inline-flex items-center justify-center gap-2 w-full py-3 border-2 border-gray-200 text-text-primary font-semibold rounded-xl hover:bg-gray-50 transition"
       >
-        <img src="/logos/vagaro.svg" alt="Vagaro" className="h-4" onError={(e) => e.target.style.display = 'none'} />
+        <img src="/logos/vagaro.svg" alt="Vagaro" className="h-4" loading="lazy" onError={(e) => e.target.style.display = 'none'} />
         Book on Vagaro
         <ExternalLink size={14} />
       </button>

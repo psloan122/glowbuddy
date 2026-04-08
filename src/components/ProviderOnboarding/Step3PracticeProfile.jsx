@@ -85,6 +85,7 @@ export default function Step3PracticeProfile({ initialData, googleRating, google
                   src={form.logo_url}
                   alt="Logo"
                   className="w-20 h-20 rounded-xl object-cover border border-gray-200"
+                  loading="lazy"
                 />
                 <button
                   type="button"

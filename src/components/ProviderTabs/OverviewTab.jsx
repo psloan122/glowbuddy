@@ -64,6 +64,7 @@ export default function OverviewTab({
                 src={photo.public_url}
                 alt={provider?.name}
                 className="w-full h-48 object-cover rounded-xl"
+                loading="lazy"
               />
             ))}
           </div>
@@ -74,6 +75,7 @@ export default function OverviewTab({
                 src={photo.public_url}
                 alt={provider?.name}
                 className="w-[200px] h-[140px] object-cover rounded-xl flex-shrink-0"
+                loading="lazy"
               />
             ))}
           </div>

@@ -397,6 +397,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                 src={`https://maps.googleapis.com/maps/api/staticmap?center=${selectedPlace.lat},${selectedPlace.lng}&zoom=15&size=400x200&markers=${selectedPlace.lat},${selectedPlace.lng}&key=${mapsKey}`}
                 alt="Map"
                 className="w-full h-[140px] object-cover rounded-lg"
+                loading="lazy"
               />
             )}
 
@@ -410,6 +411,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                       src={photo.displayUrl}
                       alt={`${selectedPlace.name} photo ${i + 1}`}
                       className="w-[120px] h-[80px] rounded-lg object-cover flex-shrink-0"
+                      loading="lazy"
                     />
                   ))}
                 </div>

@@ -1,8 +1,10 @@
 /**
  * Set page-level SEO meta tags.
  * Call from useEffect in each page component.
+ *
+ * If `canonical` is omitted, falls back to the current `window.location.origin + pathname`.
  */
-export function setPageMeta({ title, description }) {
+export function setPageMeta({ title, description, canonical }) {
   if (title) document.title = title;
 
   if (description) {
@@ -16,6 +18,11 @@ export function setPageMeta({ title, description }) {
       document.head.appendChild(meta);
     }
   }
+
+  // Always set canonical — fall back to current origin + pathname (no query/hash)
+  const canonicalUrl = canonical
+    || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : null);
+  if (canonicalUrl) setCanonical(canonicalUrl);
 }
 
 /**

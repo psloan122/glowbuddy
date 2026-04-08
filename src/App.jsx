@@ -32,7 +32,6 @@ const BusinessOnboarding = lazy(() => import('./pages/Business/Onboarding'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Rewards = lazy(() => import('./pages/Rewards'));
 const FindPrices = lazy(() => import('./pages/FindPrices'));
-const MapView = lazy(() => import('./pages/MapView'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Verified = lazy(() => import('./pages/Verified'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
@@ -70,6 +69,7 @@ const BusinessMyBids = lazy(() => import('./pages/Business/MyBids'));
 const AdminPendingCharges = lazy(() => import('./pages/Admin/PendingCharges'));
 const AdminWaitlist = lazy(() => import('./pages/Admin/Waitlist'));
 const GlowFund = lazy(() => import('./pages/GlowFund'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 export const AuthContext = createContext(null);
 
@@ -254,7 +254,7 @@ function App() {
         <ScrollToTop />
         <Navbar />
         <SoftVerifyBanner />
-        <main>
+        <main id="main-content">
           <Suspense fallback={
             <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C94F78', fontSize: '14px' }}>
               Loading...
@@ -263,7 +263,6 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/browse" element={<FindPrices />} />
-              <Route path="/map" element={<MapView />} />
               <Route path="/log" element={<Log />} />
               <Route path="/procedure/:slug" element={<ProcedureDetail />} />
               <Route path="/provider/:slug" element={<ProviderProfile />} />
@@ -316,6 +315,7 @@ function App() {
               <Route path="/business/bid-requests/:requestId/bid" element={<BusinessSubmitBid />} />
               <Route path="/business/my-bids" element={<BusinessMyBids />} />
               <Route path="/glow-fund" element={<GlowFund />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </main>

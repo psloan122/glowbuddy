@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Share2, ArrowRight, Mail } from 'lucide-react';
 import { procedureToSlug } from '../lib/constants';
+import { getProcedureLabel } from '../lib/procedureLabel';
 import { supabase } from '../lib/supabase';
 
 export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stateCount, nationalCount }) {
@@ -11,6 +12,7 @@ export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stat
 
   const price = Number(procedure.price_paid);
   const procedureSlug = procedureToSlug(procedure.procedure_type);
+  const procedureLabel = getProcedureLabel(procedure.procedure_type, procedure.brand);
 
   let stateComparison = null;
   if (stateAvg != null && stateAvg > 0) {
@@ -52,7 +54,7 @@ export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stat
             ${price.toLocaleString()}
           </span>{' '}
           for{' '}
-          <span className="font-semibold">{procedure.procedure_type}</span>
+          <span className="font-semibold">{procedureLabel}</span>
           {procedure.city && ` in ${procedure.city}`}
         </p>
 
@@ -105,7 +107,7 @@ export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stat
           ${price.toLocaleString()}
         </span>{' '}
         for{' '}
-        <span className="font-semibold">{procedure.procedure_type}</span>
+        <span className="font-semibold">{procedureLabel}</span>
         {procedure.city && ` in ${procedure.city}`}
       </p>
 
@@ -154,7 +156,7 @@ export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stat
           to={`/procedure/${procedureSlug}`}
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 text-text-primary font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm"
         >
-          See all {procedure.procedure_type} prices near you
+          See all {procedureLabel} prices near you
           <ArrowRight size={16} />
         </Link>
       </div>

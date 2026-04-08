@@ -53,7 +53,6 @@ export default function Specials() {
         .order('special_added_at', { ascending: false, nullsFirst: false });
 
       if (error) {
-        console.error('Failed to fetch specials', error);
         setProviders([]);
       } else {
         setProviders(data || []);

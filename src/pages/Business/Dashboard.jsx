@@ -63,6 +63,7 @@ export default function Dashboard() {
     price_label: '',
   });
   const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingError, setPricingError] = useState('');
 
   // Disputes state
   const [disputes, setDisputes] = useState([]);
@@ -277,6 +278,7 @@ export default function Dashboard() {
   async function handleSavePricing(e) {
     e.preventDefault();
     setPricingSaving(true);
+    setPricingError('');
 
     const payload = {
       provider_id: provider.id,
@@ -288,13 +290,27 @@ export default function Dashboard() {
     };
 
     if (editingPricingId) {
-      await supabase
+      const { error: updateError } = await supabase
         .from('provider_pricing')
         .update(payload)
         .eq('id', editingPricingId);
+
+      if (updateError) {
+        setPricingError(`Could not save pricing. Please try again. (${updateError.message})`);
+        setPricingSaving(false);
+        return;
+      }
       setEditingPricingId(null);
     } else {
-      await supabase.from('provider_pricing').insert(payload);
+      const { error: insertError } = await supabase
+        .from('provider_pricing')
+        .insert(payload);
+
+      if (insertError) {
+        setPricingError(`Could not save pricing. Please try again. (${insertError.message})`);
+        setPricingSaving(false);
+        return;
+      }
       setShowAddPricing(false);
     }
 
@@ -385,12 +401,12 @@ export default function Dashboard() {
             .from('providers')
             .update({ photos_imported: true })
             .eq('id', provider.id);
-        } catch (err) {
-          console.error('Photo import during refresh failed:', err);
+        } catch {
+          // Photo import is non-blocking during refresh
         }
       }
-    } catch (err) {
-      console.error('Refresh from Google failed:', err);
+    } catch {
+      // Refresh is non-blocking — state is already set
     }
 
     setRefreshing(false);
@@ -539,6 +555,11 @@ export default function Dashboard() {
             />
           </div>
         </div>
+        {pricingError && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            {pricingError}
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <button
             type="submit"

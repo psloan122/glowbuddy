@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Award } from 'lucide-react';
 import { getPioneerLeaderboard, getUnverifiedLocationCount } from '../lib/pioneerLogic';
 
 export default function PioneerLeaderboard({ userCity, userState }) {
@@ -101,7 +102,7 @@ export default function PioneerLeaderboard({ userCity, userState }) {
                   <span className="text-sm text-text-secondary">
                     {leader.location_count} location{leader.location_count !== 1 ? 's' : ''}
                   </span>
-                  <span role="img" aria-label="Pioneer">🏅</span>
+                  <Award size={14} style={{ color: '#B45309' }} />
                 </div>
               </div>
             );
@@ -115,11 +116,11 @@ export default function PioneerLeaderboard({ userCity, userState }) {
 
       {unclaimedCount > 0 && (
         <Link
-          to="/map"
+          to="/browse"
           className="block mt-4 p-3 rounded-lg text-center text-sm font-medium transition-colors"
           style={{ background: 'rgba(251, 191, 36, 0.08)', color: '#B45309' }}
         >
-          🏅 Share a price at{' '}
+          Share a price at{' '}
           <strong>{unclaimedCount} unclaimed location{unclaimedCount !== 1 ? 's' : ''}</strong>
           {scope === 'city' && userCity ? ` near you` : ''} →
         </Link>

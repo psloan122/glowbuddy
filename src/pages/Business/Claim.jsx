@@ -77,7 +77,6 @@ export default function Claim() {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Search error:', error);
       setSearchResults([]);
     } else {
       setSearchResults(data || []);
@@ -147,9 +146,7 @@ export default function Claim() {
       data: { user_role: 'provider' },
     });
 
-    if (metaError) {
-      console.error('Failed to update user role:', metaError);
-    }
+    // metaError is non-blocking — role sync below still runs
 
     // Sync role to profiles table for DB-level checks
     await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
@@ -194,9 +191,7 @@ export default function Claim() {
       data: { user_role: 'provider' },
     });
 
-    if (metaError) {
-      console.error('Failed to update user role:', metaError);
-    }
+    // metaError is non-blocking — role sync below still runs
 
     // Sync role to profiles table for DB-level checks
     await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);

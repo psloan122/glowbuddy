@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function StackCaution({ treatmentName }) {
@@ -54,9 +54,9 @@ export default function StackCaution({ treatmentName }) {
             >
               <div className="flex items-start gap-2">
                 {isAvoid ? (
-                  <span className="text-red-500 text-sm mt-0.5">🚫</span>
+                  <Ban size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
                 ) : (
-                  <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
+                  <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
                 )}
                 <div className="flex-1">
                   <p className="text-sm font-medium text-text-primary">

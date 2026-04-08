@@ -1031,6 +1031,7 @@ export default function Admin() {
                         src={photo.before_url}
                         alt="Before"
                         className="w-full h-40 object-cover rounded-lg"
+                        loading="lazy"
                       />
                       <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
                         Before
@@ -1041,6 +1042,7 @@ export default function Admin() {
                         src={photo.after_url}
                         alt="After"
                         className="w-full h-40 object-cover rounded-lg"
+                        loading="lazy"
                       />
                       <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">
                         After

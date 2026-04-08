@@ -6,6 +6,7 @@ import { AuthContext } from '../App';
 import StackCompatibilityCard from '../components/StackCompatibilityCard';
 import StackAdvisor from '../components/StackAdvisor';
 import RoutineVisualizer from '../components/RoutineVisualizer';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 const TREATMENTS = [
   'Botox / Dysport / Xeomin',
@@ -189,7 +190,7 @@ export default function StackBuilder() {
                   }`}
                 >
                   {selected && <CheckCircle size={14} className="inline mr-1.5 text-rose-accent" />}
-                  {name}
+                  {getProcedureLabel(name, null)}
                 </button>
               );
             })}
@@ -230,7 +231,7 @@ export default function StackBuilder() {
                   }`}
                 >
                   {selected && <CheckCircle size={14} className="inline mr-1.5 text-sky-500" />}
-                  {name}
+                  {getProcedureLabel(name, null)}
                 </button>
               );
             })}
@@ -276,7 +277,7 @@ export default function StackBuilder() {
             <div className="flex flex-wrap gap-1.5">
               {currentTreatments.map((t) => (
                 <span key={t} className="px-2.5 py-1 bg-rose-light text-rose-dark text-xs font-medium rounded-full border border-rose-accent/20">
-                  {t}
+                  {getProcedureLabel(t, null)}
                 </span>
               ))}
             </div>
@@ -307,7 +308,7 @@ export default function StackBuilder() {
                 return (
                   <div key={treatment} className="mb-8">
                     <h3 className="text-lg font-bold text-text-primary mb-3">
-                      Adding {treatment}
+                      Adding {getProcedureLabel(treatment, null)}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {rules.map((rule) => {

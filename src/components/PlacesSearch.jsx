@@ -214,8 +214,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
             }
           }
         );
-      } catch (err) {
-        console.error('Places detail error:', err);
+      } catch {
         onSelect(fallbackFromSuggestion(suggestion));
       }
     },

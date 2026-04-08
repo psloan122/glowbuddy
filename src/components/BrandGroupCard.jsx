@@ -4,6 +4,7 @@ import FairPriceBadge from './FairPriceBadge';
 import { providerProfileUrl } from '../lib/slugify';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
 import { haversineMiles, formatMiles } from '../lib/distance';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 // Brand-group card for the browse page.
 //
@@ -30,11 +31,10 @@ import { haversineMiles, formatMiles } from '../lib/distance';
 //   PBK Medspa · Brooklyn, NY
 
 function brandLabel(row) {
-  // Prefer an explicit brand; otherwise fall back to the procedure_type so
-  // we never show a blank header chip.
-  const b = (row.brand || '').trim();
-  if (b) return b;
-  return row.procedure_type || 'Generic';
+  // Brand wins; otherwise return a clean category label (e.g.
+  // "Neurotoxin") instead of the combined "Botox / Dysport / Xeomin"
+  // procedure_type string. See src/lib/procedureLabel.js.
+  return getProcedureLabel(row.procedure_type, row.brand);
 }
 
 function brandKey(row) {

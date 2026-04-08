@@ -147,7 +147,6 @@ export async function createReferralOnSignup(newUserId) {
     .single();
 
   if (error) {
-    console.error('[referral] Failed to create referral:', error);
     clearStoredReferralCode();
     return null;
   }
@@ -274,9 +273,8 @@ export async function processReferralQualification(userId) {
         },
       });
     }
-  } catch (err) {
+  } catch {
     // Non-blocking — emails are best-effort
-    console.error('[referral] Email notification failed:', err);
   }
 
   return { rewarded: true, referralId: referral.id };

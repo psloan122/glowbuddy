@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Loader2, Eye, EyeOff, CheckCircle, ArrowLeft } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff, CheckCircle, ArrowLeft, Mail, Syringe, Trophy, Lock } from 'lucide-react';
 import { signUpWithPassword, signInWithPassword, signInWithGoogle, resetPassword, getAuthErrorMessage } from '../lib/auth';
 
 function getPasswordStrength(password) {
@@ -237,7 +237,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
           </button>
           <div className="text-center">
             <div className="flex items-center justify-center w-14 h-14 bg-rose-light rounded-full mx-auto mb-5">
-              <span className="text-2xl">📧</span>
+              <Mail size={24} className="text-rose-accent" />
             </div>
             <h2 className="text-xl font-bold text-text-primary mb-2">
               Check your email
@@ -334,15 +334,15 @@ export default function AuthModal({ mode: initialMode, onClose }) {
         {mode === 'signup' && (
           <div className="space-y-3 mb-5">
             <div className="flex items-center gap-3">
-              <span className="text-lg flex-shrink-0">💉</span>
+              <Syringe size={18} className="flex-shrink-0 text-rose-accent" />
               <p className="text-sm text-text-primary">Help women know what things actually cost</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-lg flex-shrink-0">🏆</span>
+              <Trophy size={18} className="flex-shrink-0 text-rose-accent" />
               <p className="text-sm text-text-primary">Earn badges and win monthly treatment giveaways</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-lg flex-shrink-0">🔒</span>
+              <Lock size={18} className="flex-shrink-0 text-rose-accent" />
               <p className="text-sm text-text-primary">Anonymous by default — your name never appears</p>
             </div>
           </div>

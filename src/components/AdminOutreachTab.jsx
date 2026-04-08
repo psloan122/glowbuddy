@@ -192,9 +192,8 @@ export default function AdminOutreachTab() {
       });
 
       loadData();
-    } catch (err) {
-      console.error('Send failed:', err);
-      alert('Failed to send email. Check console.');
+    } catch {
+      alert('Failed to send email. Please try again.');
     } finally {
       setSending(null);
     }

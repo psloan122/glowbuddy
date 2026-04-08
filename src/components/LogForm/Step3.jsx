@@ -140,8 +140,8 @@ export default function Step3({
 
       setFormData((prev) => ({ ...prev, resultPhotoUrl: publicUrl }));
       onResultPhotoUpload?.(publicUrl);
-    } catch (err) {
-      console.error('Result photo upload error:', err);
+    } catch {
+      // Upload failed — user can retry
     } finally {
       setPhotoUploading(false);
     }
@@ -351,7 +351,7 @@ export default function Step3({
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="sm:flex-1">
                 <p className="text-sm font-semibold text-text-primary mb-1">
-                  📸 Add receipt for verified status
+                  Add receipt for verified status
                 </p>
                 <p className="text-sm text-rose-dark mb-1">
                   Verified prices get 3x more visibility and earn you 3 bonus giveaway entries.

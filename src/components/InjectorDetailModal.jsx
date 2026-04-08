@@ -28,6 +28,7 @@ export default function InjectorDetailModal({
                 src={injector.profile_photo_url}
                 alt={injector.name}
                 className="w-16 h-16 rounded-full object-cover shrink-0"
+                loading="lazy"
               />
             ) : (
               <ProviderAvatar name={injector.name} size={64} />

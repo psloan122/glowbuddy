@@ -6,7 +6,6 @@ export function getSourceBadge(dataSource) {
   switch (dataSource) {
     case 'provider_quote':
       return {
-        icon: '💬',
         label: 'Provider quote',
         color: '#6366F1',
         background: '#EEF2FF',
@@ -14,7 +13,6 @@ export function getSourceBadge(dataSource) {
       };
     case 'verified_menu':
       return {
-        icon: '✓',
         label: 'Verified menu',
         color: '#0F6E56',
         background: '#E1F5EE',
@@ -22,7 +20,6 @@ export function getSourceBadge(dataSource) {
       };
     case 'provider_website':
       return {
-        icon: '🌐',
         label: 'From provider website',
         color: '#1E40AF',
         background: '#DBEAFE',
@@ -30,7 +27,6 @@ export function getSourceBadge(dataSource) {
       };
     default:
       return {
-        icon: '👤',
         label: 'Patient reported',
         color: '#6B7280',
         background: '#F3F4F6',
@@ -57,13 +53,11 @@ export function getQuoteFreshness(quoteDate) {
     return {
       text: `Quoted ${Math.floor(days / 30)} months ago`,
       color: '#6B7280',
-      icon: null,
     };
   }
 
   return {
     text: 'Quoted 6+ months ago — prices may have changed',
     color: '#92400E',
-    icon: '⚠️',
   };
 }

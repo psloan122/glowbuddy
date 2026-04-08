@@ -27,6 +27,7 @@ export default function InjectorCard({ injector, compact = false, onClick, revie
           src={injector.profile_photo_url}
           alt={displayName}
           className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full object-cover`}
+          loading="lazy"
         />
       ) : (
         <div

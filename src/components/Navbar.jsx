@@ -1,6 +1,6 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, Heart } from 'lucide-react';
 import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
 import { getUnreadCount } from '../lib/priceAlerts';
@@ -102,18 +102,7 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
                 <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
                   {link.label}
                   {link.heart && (
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        color: '#E8347A',
-                        fontSize: '12px',
-                        lineHeight: 1,
-                        display: 'inline-block',
-                        transform: 'translateY(-1px)',
-                      }}
-                    >
-                      ♥
-                    </span>
+                    <Heart size={11} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
                   )}
                   {link.badge && (
                     <span
@@ -519,12 +508,7 @@ export default function Navbar() {
                     >
                       {link.label}
                       {link.heart && (
-                        <span
-                          aria-hidden="true"
-                          style={{ color: '#E8347A', fontSize: '14px', lineHeight: 1 }}
-                        >
-                          ♥
-                        </span>
+                        <Heart size={13} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
                       )}
                       {link.to === '/alerts' && unreadCount > 0 && (
                         <span className="w-2 h-2 bg-hot-pink rounded-full" />

@@ -4,6 +4,7 @@ import { CheckCircle, RotateCcw, Camera } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import StarRating from './StarRating';
 import { TRUST_TIERS } from '../lib/trustTiers';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 function TrustBadge({ trustTier }) {
   if (!trustTier || trustTier === 'unverified') return null;
@@ -110,7 +111,7 @@ export default function ReviewCard({ review, showProvider = false }) {
       <div className="flex flex-wrap items-center gap-2 mt-3">
         {review.procedure_type && (
           <span className="text-xs bg-rose-light text-rose-dark px-2 py-0.5 rounded-full">
-            {review.procedure_type}
+            {getProcedureLabel(review.procedure_type, review.brand)}
           </span>
         )}
         {review.would_return && (

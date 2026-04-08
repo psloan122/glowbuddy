@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MapPin, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight } from 'lucide-react';
+import { Search, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import FounderStory from '../components/FounderStory';
@@ -194,6 +194,7 @@ export default function Home() {
     setPageMeta({
       title: 'GlowBuddy \u2014 Know Before You Glow',
       description: 'Real prices for Botox, lip filler, and med spa treatments reported by patients. See what people actually paid near you.',
+      canonical: 'https://glowbuddy.com/',
     });
   }, []);
 
@@ -801,13 +802,6 @@ export default function Home() {
                 >
                   <Search size={12} />
                   Find Prices
-                </Link>
-                <Link
-                  to="/map"
-                  className="btn-editorial btn-editorial-secondary"
-                >
-                  <MapPin size={12} />
-                  Map
                 </Link>
               </div>
             </div>

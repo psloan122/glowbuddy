@@ -5,7 +5,6 @@ export const PIONEER_TIERS = {
   early_reporter: {
     key: 'early_reporter',
     label: 'Early Reporter',
-    emoji: '📍',
     giveaway_entries: 1,
     color: '#D4BC78',
     bgColor: '#FFFBEB',
@@ -13,7 +12,6 @@ export const PIONEER_TIERS = {
   pioneer: {
     key: 'pioneer',
     label: 'Pioneer',
-    emoji: '🏅',
     giveaway_entries: 3,
     color: '#B8860B',
     bgColor: '#FEF3C7',
@@ -21,7 +19,6 @@ export const PIONEER_TIERS = {
   founding_patient: {
     key: 'founding_patient',
     label: 'Founding Patient',
-    emoji: '🏆',
     giveaway_entries: 5,
     color: '#DAA520',
     bgColor: '#FEF9C3',

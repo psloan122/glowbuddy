@@ -27,18 +27,13 @@ export default function PioneerToast({ providerName, tier, onClose }) {
           <X size={16} />
         </button>
 
-        <div className="flex items-start gap-3">
-          <span className="text-3xl" role="img" aria-label={tierInfo.label}>
-            {tierInfo.emoji}
-          </span>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide mb-0.5" style={{ color: '#B8860B' }}>
-              {tierInfo.label}
-            </p>
-            <p className="text-sm text-text-primary leading-snug">
-              {message}
-            </p>
-          </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide mb-0.5" style={{ color: '#B8860B' }}>
+            {tierInfo.label}
+          </p>
+          <p className="text-sm text-text-primary leading-snug">
+            {message}
+          </p>
         </div>
       </div>
 

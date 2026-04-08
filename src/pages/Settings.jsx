@@ -307,7 +307,7 @@ export default function Settings() {
         <div className="mb-5">
           <p className="text-sm font-medium text-text-primary mb-2">Interested in</p>
           <div className="flex flex-wrap gap-2">
-            {INTEREST_OPTIONS.map(({ emoji, label }) => {
+            {INTEREST_OPTIONS.map(({ label }) => {
               const procedures = INTEREST_TO_PROCEDURES[label] || [];
               const isActive = procedures.some((p) => procedureTags.includes(p));
               return (
@@ -327,7 +327,6 @@ export default function Settings() {
                       : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
                   }`}
                 >
-                  <span>{emoji}</span>
                   {label}
                 </button>
               );

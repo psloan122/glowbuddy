@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { DollarSign, Star, Users, MessageSquare } from 'lucide-react';
 import StarRating from '../StarRating';
+import { getProcedureLabel } from '../../lib/procedureLabel';
 
 export default function SubmissionsTab({ communityProcedures, pricing }) {
   const [filterType, setFilterType] = useState('all');
@@ -124,7 +125,7 @@ export default function SubmissionsTab({ communityProcedures, pricing }) {
           <option value="all">All Procedures ({totalSubmissions})</option>
           {procedureTypes.map((type) => (
             <option key={type} value={type}>
-              {type} ({communityProcedures.filter((p) => p.procedure_type === type).length})
+              {getProcedureLabel(type, null)} ({communityProcedures.filter((p) => p.procedure_type === type).length})
             </option>
           ))}
         </select>
@@ -151,7 +152,7 @@ export default function SubmissionsTab({ communityProcedures, pricing }) {
                   {/* Header */}
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className="font-semibold text-text-primary">
-                      {proc.procedure_type || 'Unknown'}
+                      {getProcedureLabel(proc.procedure_type, proc.brand) || 'Unknown'}
                     </span>
                     {proc.treatment_area && (
                       <span className="text-xs bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full">

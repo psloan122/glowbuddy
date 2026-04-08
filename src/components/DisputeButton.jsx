@@ -86,7 +86,6 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
         });
 
       if (error) {
-        console.error('Dispute insert error:', error);
         setSubmitting(false);
         return;
       }
@@ -123,8 +122,8 @@ export default function DisputeButton({ procedureId, procedureUserId }) {
         setPopoverOpen(false);
         setSuccess(false);
       }, 1500);
-    } catch (err) {
-      console.error('Dispute error:', err);
+    } catch {
+      // Dispute submission failed — user can retry
     } finally {
       setSubmitting(false);
     }
@@ -240,7 +239,7 @@ async function notifySubmitter(procedureId, userId) {
         },
       });
     }
-  } catch (err) {
-    console.error('[dispute] Failed to notify submitter:', err);
+  } catch {
+    // Notification is best-effort — dispute already recorded
   }
 }

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { providerProfileUrl } from '../lib/slugify';
 import { haversineMiles, formatMiles } from '../lib/distance';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 // MultiProcedureProviderCard — one editorial card showing a single provider
 // with all the rows that matched the user's treatment preferences on the
@@ -19,10 +20,10 @@ import { haversineMiles, formatMiles } from '../lib/distance';
 // not the exhaustive per-row analytics the regular ProcedureCard provides.
 
 function formatRowLabel(row) {
-  // Brand wins when available ("BOTOX" over "neurotoxin")
-  if (row.brand) return row.brand.toUpperCase();
-  if (row.procedure_type) return row.procedure_type.toUpperCase();
-  return 'TREATMENT';
+  // Brand wins when available ("BOTOX" over "NEUROTOXIN"). Falls back to
+  // a clean category label — never the combined "Botox / Dysport /
+  // Xeomin" procedure_type string. See src/lib/procedureLabel.js.
+  return getProcedureLabel(row.procedure_type, row.brand).toUpperCase();
 }
 
 function formatPriceLabel(row) {

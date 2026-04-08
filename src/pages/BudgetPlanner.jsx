@@ -99,8 +99,7 @@ export default function BudgetPlanner() {
             setLocalPrices(averages);
           }
         }
-      } catch (err) {
-        console.error('Error loading budget planner data:', err);
+      } catch {
         setError('Failed to load your treatment data. Please try again.');
       } finally {
         setInitialLoading(false);
@@ -151,8 +150,7 @@ export default function BudgetPlanner() {
       setTotalHigh(result.totalHigh ?? null);
       setLeftoverSuggestion(result.leftoverSuggestion || '');
       setSummary(result.summary || '');
-    } catch (err) {
-      console.error('Budget plan error:', err);
+    } catch {
       setError('Something went wrong generating your plan. Please try again.');
     } finally {
       setLoading(false);

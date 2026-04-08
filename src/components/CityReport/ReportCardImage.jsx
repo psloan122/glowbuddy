@@ -113,6 +113,7 @@ export default function ReportCardImage({ city, state, topProcedure, avgPrice, s
           src={imageUrl}
           alt={`${city}, ${state} price report card`}
           className="w-full rounded-xl border border-gray-100 mb-4"
+          loading="lazy"
         />
       )}
       <div className="flex gap-2">

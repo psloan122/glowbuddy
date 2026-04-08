@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ShieldCheck, Gift, Loader2 } from 'lucide-react';
+import { Sparkles, ShieldCheck, Gift, Loader2, DollarSign } from 'lucide-react';
 import { setInterests, setOnboarded, setProcedureTags, setPreferences as setLocalPrefs } from '../lib/gating';
 import { lookupZip } from '../lib/zipLookup';
 import { supabase } from '../lib/supabase';
@@ -317,19 +317,18 @@ export default function Onboarding({ onComplete }) {
                 Select all that interest you.
               </p>
               <div className="flex flex-wrap gap-2 mb-8">
-                {INTEREST_OPTIONS.map(({ emoji, label }) => {
+                {INTEREST_OPTIONS.map(({ label }) => {
                   const isActive = selected.includes(label);
                   return (
                     <button
                       key={label}
                       onClick={() => toggleInterest(label)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium border transition ${
+                      className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium border transition ${
                         isActive
                           ? 'bg-[#C94F78]/10 border-[#C94F78] text-[#C94F78]'
                           : 'bg-white border-gray-200 text-text-primary hover:border-gray-300'
                       }`}
                     >
-                      <span>{emoji}</span>
                       {label}
                     </button>
                   );
@@ -372,7 +371,7 @@ export default function Onboarding({ onComplete }) {
               <div className="space-y-3 mb-8 text-left">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-rose-light rounded-full flex items-center justify-center">
-                    <span className="text-sm">💰</span>
+                    <DollarSign size={16} className="text-[#C94F78]" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-text-primary">Real prices from real patients</p>

@@ -177,7 +177,7 @@ export default function WrappedShareCard({ data, onClose }) {
         <canvas ref={canvasRef} className="hidden" />
 
         {imageUrl && (
-          <img src={imageUrl} alt="Wrapped share card" className="w-full rounded-xl mb-4" />
+          <img src={imageUrl} alt="Wrapped share card" className="w-full rounded-xl mb-4" loading="lazy" />
         )}
 
         <div className="flex gap-2">

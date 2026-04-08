@@ -59,9 +59,8 @@ export default function BeforeAfterUpload({ providerId, onUploadComplete, onRemo
         setAfterUrl(publicUrl);
         if (beforeUrl) onUploadComplete?.(beforeUrl, publicUrl);
       }
-    } catch (err) {
+    } catch {
       setError('Upload failed. Please try again.');
-      console.error('B&A upload error:', err);
     } finally {
       setUploading((prev) => ({ ...prev, [type]: false }));
     }
@@ -89,11 +88,11 @@ export default function BeforeAfterUpload({ providerId, onUploadComplete, onRemo
       <div>
         <div className="grid grid-cols-2 gap-3">
           <div className="relative">
-            <img src={beforeUrl} alt="Before" className="w-full h-32 object-cover rounded-xl" />
+            <img src={beforeUrl} alt="Before" className="w-full h-32 object-cover rounded-xl" loading="lazy" />
             <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">Before</span>
           </div>
           <div className="relative">
-            <img src={afterUrl} alt="After" className="w-full h-32 object-cover rounded-xl" />
+            <img src={afterUrl} alt="After" className="w-full h-32 object-cover rounded-xl" loading="lazy" />
             <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">After</span>
           </div>
         </div>
@@ -126,7 +125,7 @@ export default function BeforeAfterUpload({ providerId, onUploadComplete, onRemo
     if (url) {
       return (
         <div className="relative">
-          <img src={url} alt={label} className="w-full h-32 object-cover rounded-xl" />
+          <img src={url} alt={label} className="w-full h-32 object-cover rounded-xl" loading="lazy" />
           <span className="absolute bottom-1 left-1 text-[10px] font-medium bg-black/50 text-white px-1.5 py-0.5 rounded">{label}</span>
         </div>
       );

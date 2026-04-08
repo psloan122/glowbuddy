@@ -209,6 +209,7 @@ export default function SavingsShareCard({
             src={imageUrl}
             alt="Savings share card"
             className="w-full rounded-xl border border-gray-100 mb-4"
+            loading="lazy"
           />
         )}
 

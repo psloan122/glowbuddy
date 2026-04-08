@@ -23,6 +23,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { VALID_STATE_CODES } from '../lib/constants';
+import { setPageMeta } from '../lib/seo';
 import { providerSlugFromParts, slugToDisplayName } from '../lib/slugify';
 import { extractPlaceData } from '../lib/places';
 import { loadGoogleMaps } from '../lib/loadGoogleMaps';
@@ -42,6 +43,7 @@ import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
 import { getGuideUrl } from '../lib/guideMapping';
+import { getProcedureLabel } from '../lib/procedureLabel';
 import useSavedProviders from '../hooks/useSavedProviders';
 
 import { SkeletonGrid } from '../components/SkeletonCard';
@@ -427,7 +429,7 @@ export default function ProviderProfile() {
         ? ` — ${provider.avg_rating} stars (${provider.review_count} reviews)`
         : '';
 
-    document.title = location
+    const title = location
       ? `${name} Prices & Reviews in ${location} | GlowBuddy`
       : `${name} Prices & Reviews | GlowBuddy`;
 
@@ -437,15 +439,12 @@ export default function ProviderProfile() {
       ? `${submissionCount} submission${submissionCount !== 1 ? 's' : ''}${verifiedCount > 0 ? `, ${verifiedCount} verified receipt${verifiedCount !== 1 ? 's' : ''}` : ''}.`
       : '';
     const content = `See what patients paid at ${name}${location ? ` in ${location}` : ''}. ${countStr} Real prices, not starting-at guesses.`;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) {
-      meta.setAttribute('content', content);
-    } else {
-      const newMeta = document.createElement('meta');
-      newMeta.name = 'description';
-      newMeta.content = content;
-      document.head.appendChild(newMeta);
-    }
+
+    setPageMeta({
+      title,
+      description: content,
+      canonical: `https://glowbuddy.com/provider/${slug}`,
+    });
 
     // Review schema markup
     if ((provider?.weighted_rating || provider?.avg_rating) && provider?.review_count) {
@@ -963,13 +962,17 @@ export default function ProviderProfile() {
               const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
               const min = Math.min(...prices);
               const max = Math.max(...prices);
+              // Group key is the raw procedure_type ("Botox / Dysport /
+              // Xeomin"). Display label collapses combined strings down
+              // to a clean category name.
+              const displayLabel = getProcedureLabel(type, null);
               return (
                 <div
                   key={type}
                   className="flex items-center justify-between p-3 rounded-lg bg-warm-gray"
                 >
                   <div>
-                    <p className="text-sm font-medium text-text-primary">{type}</p>
+                    <p className="text-sm font-medium text-text-primary">{displayLabel}</p>
                     <p className="text-xs text-text-secondary">
                       {prices.length} {prices.length === 1 ? 'price' : 'prices'}
                       {prices.length > 1 && ` · $${min}–$${max}`}
@@ -980,7 +983,7 @@ export default function ProviderProfile() {
                             to={getGuideUrl(type)}
                             className="text-[#0369A1] hover:text-sky-800 font-medium transition-colors"
                           >
-                            What is {type}? &rarr;
+                            What is {displayLabel}? &rarr;
                           </Link>
                         </>
                       )}
@@ -1015,7 +1018,7 @@ export default function ProviderProfile() {
             Had a treatment here? You&apos;d be the first to share what you paid.
           </p>
           <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
-            First to share = Pioneer badge + bonus entries 🏅
+            First to share = Pioneer badge + bonus entries
           </p>
           <Link
             to={`/log?provider_id=${provider?.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider?.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
@@ -1231,7 +1234,7 @@ export default function ProviderProfile() {
             <h2 className="text-lg font-bold text-text-primary mb-4">
               Published by {providerName}
             </h2>
-            {['Botox / Dysport', 'Lip Filler', 'RF Microneedling'].map((name) => (
+            {['Botox', 'Lip Filler', 'RF Microneedling'].map((name) => (
               <div
                 key={name}
                 className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"

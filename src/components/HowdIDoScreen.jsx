@@ -7,6 +7,7 @@ import { getEntryBreakdown } from '../lib/points';
 import { PIONEER_TIERS, getPioneerToastMessage } from '../lib/pioneerLogic';
 import EmailConfirmation from './EmailConfirmation';
 import SavingsShareCard from './SavingsShareCard';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 const VERIFY_EMAIL = 'verify@glowbuddy.com';
 
@@ -154,9 +155,9 @@ export default function HowdIDoScreen({
       >
         <Check size={32} className="text-white" />
       </div>
-      <h2 className="text-xl font-bold text-text-primary mb-2">✨ Your price is live!</h2>
+      <h2 className="text-xl font-bold text-text-primary mb-2">Your price is live.</h2>
       <p className="text-sm text-text-secondary mb-6">
-        You just helped {comparison?.sample_size || ''} people in {comparison?.city || comparison?.state || 'your area'} who are researching {procedure.procedure_type} prices.
+        You just helped {comparison?.sample_size || ''} people in {comparison?.city || comparison?.state || 'your area'} who are researching {getProcedureLabel(procedure.procedure_type, procedure.brand)} prices.
       </p>
 
       {/* Pioneer celebration */}
@@ -167,16 +168,19 @@ export default function HowdIDoScreen({
             className="rounded-xl p-4 mb-5 text-left"
             style={{ background: '#FFFBEB', border: '1px solid rgba(251, 191, 36, 0.3)' }}
           >
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{tier.emoji}</span>
-              <div>
-                <p className="text-sm font-medium text-text-primary leading-snug">
-                  {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
-                </p>
-                <p className="text-xs mt-2" style={{ color: '#B45309' }}>
-                  You&apos;ve also entered the Pioneer Giveaway ($200/month)
-                </p>
-              </div>
+            <div>
+              <p
+                className="text-xs uppercase tracking-wider mb-1"
+                style={{ color: '#B45309', fontWeight: 600 }}
+              >
+                {tier.label}
+              </p>
+              <p className="text-sm font-medium text-text-primary leading-snug">
+                {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
+              </p>
+              <p className="text-xs mt-2" style={{ color: '#B45309' }}>
+                You&apos;ve also entered the Pioneer Giveaway ($200/month)
+              </p>
             </div>
           </div>
         );

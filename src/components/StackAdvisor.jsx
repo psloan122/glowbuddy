@@ -68,8 +68,7 @@ export default function StackAdvisor({ currentTreatments, consideredTreatments, 
 
       const parsed = typeof data === 'string' ? JSON.parse(data) : data;
       setResult(parsed);
-    } catch (err) {
-      console.error('StackAdvisor error:', err);
+    } catch {
       // Fallback to rule-based
       const fallback = getFallbackAdvice();
       if (fallback) {

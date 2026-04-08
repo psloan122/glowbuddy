@@ -26,7 +26,7 @@ export const TRUST_TIERS = {
   provider_quote: {
     weight: 0.7,
     label: 'Provider quote',
-    badge: '💬',
+    badge: 'quote',
     color: '#6366F1',
     background: '#EEF2FF',
   },

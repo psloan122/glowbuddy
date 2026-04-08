@@ -526,7 +526,6 @@ export default function Log() {
         .single();
 
       if (error) {
-        console.error('Insert error:', error);
         setSubmitError('Something went wrong. Please try again.');
         setIsSubmitting(false);
         return;
@@ -612,8 +611,8 @@ export default function Log() {
                 .eq('id', providerForReview.id);
             }
           }
-        } catch (reviewErr) {
-          console.error('Review insert error (non-blocking):', reviewErr);
+        } catch {
+          // Review insert is non-blocking — main submission already succeeded
         }
       }
 
@@ -720,17 +719,15 @@ export default function Log() {
             }
           }
         }
-      } catch (compErr) {
+      } catch {
         // Non-blocking — comparison is optional
-        console.error('Comparison fetch error (non-blocking):', compErr);
       }
 
       // 10. Show success screen
       setDuplicateWarning(false);
       setDuplicateConfirmed(false);
       setCurrentStep('success');
-    } catch (err) {
-      console.error('Submission error:', err);
+    } catch {
       setSubmitError('Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);

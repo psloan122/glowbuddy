@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import ProcedureIcon from './ProcedureIcon';
 import { AuthContext } from '../App';
 import WalletRedeemModal from './WalletRedeemModal';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 export default function SpecialCard({ special, provider, walletBalance = 0 }) {
   const { user } = useContext(AuthContext);
@@ -61,7 +62,7 @@ export default function SpecialCard({ special, provider, walletBalance = 0 }) {
       {special.procedure_type && (
         <span className="inline-flex items-center gap-1.5 bg-rose-light text-rose-dark px-2 py-0.5 text-xs rounded-full mb-4">
           <ProcedureIcon type={special.procedure_type} size={14} className="text-rose-dark" />
-          {special.procedure_type}
+          {getProcedureLabel(special.procedure_type, special.brand)}
         </span>
       )}
 
