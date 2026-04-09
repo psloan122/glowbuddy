@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
-import { X, ArrowLeft, Share2, ChevronRight } from 'lucide-react';
-import { getProcedureMetadata } from '../lib/procedureMetadata';
+import { ArrowLeft, Share2, ChevronRight, AlertTriangle } from 'lucide-react';
+import { getProcedureMetadata } from '../data/procedureMetadata';
 
 /* ------------------------------------------------------------------ */
 /*  Internal: section header (small-caps label)                       */
@@ -58,6 +58,34 @@ function PainDots({ level }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Internal: bullet list renderer                                    */
+/* ------------------------------------------------------------------ */
+function BulletList({ items, color = 'var(--color-ink)' }) {
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      {items.map((item, i) => (
+        <li
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            lineHeight: 1.6,
+            color,
+            marginBottom: 6,
+          }}
+        >
+          <span style={{ flexShrink: 0, lineHeight: '1.6' }}>{'\u2022'}</span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Keyframe injection (runs once)                                    */
 /* ------------------------------------------------------------------ */
 const KEYFRAME_ID = 'procedure-detail-sheet-keyframes';
@@ -80,6 +108,17 @@ function ensureKeyframes() {
   document.head.appendChild(style);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Recovery timeline labels                                          */
+/* ------------------------------------------------------------------ */
+const RECOVERY_STEPS = [
+  { key: 'day1', label: 'Day 1' },
+  { key: 'days2to3', label: 'Days 2-3' },
+  { key: 'days4to7', label: 'Days 4-7' },
+  { key: 'days7to14', label: 'Week 2' },
+  { key: 'fullHeal', label: 'Full Recovery' },
+];
+
 /* ================================================================== */
 /*  ProcedureDetailSheet                                              */
 /* ================================================================== */
@@ -94,12 +133,8 @@ export default memo(function ProcedureDetailSheet({
 }) {
   const scrollRef = useRef(null);
 
-  // Inject keyframes on mount
-  useEffect(() => {
-    ensureKeyframes();
-  }, []);
+  useEffect(() => { ensureKeyframes(); }, []);
 
-  // Lock body scroll while sheet is open
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -107,32 +142,23 @@ export default memo(function ProcedureDetailSheet({
   }, []);
 
   const metadata = getProcedureMetadata(procedureName);
-
   if (!metadata) return null;
 
-  /* ---- share handler ---- */
   async function handleShare() {
     const shareData = {
       title: `${procedureName} — GlowBuddy`,
       text: `Check out the full intelligence profile for ${procedureName} on GlowBuddy.`,
       url: window.location.href,
     };
-
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(
-          `${shareData.text}\n${shareData.url}`
-        );
-        // Optionally surface a toast here
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
       }
-    } catch {
-      // User cancelled or clipboard failed — silent
-    }
+    } catch { /* user cancelled */ }
   }
 
-  /* ---- style constants ---- */
   const sectionPadding = { padding: '20px 0' };
   const bodyText = {
     fontFamily: 'var(--font-body)',
@@ -141,69 +167,48 @@ export default memo(function ProcedureDetailSheet({
     color: 'var(--color-ink)',
     margin: 0,
   };
-  const bulletItem = {
-    ...bodyText,
-    paddingLeft: 4,
-    marginBottom: 6,
-  };
+
+  const hasRecovery = metadata.recovery && typeof metadata.recovery === 'object'
+    && RECOVERY_STEPS.some(s => metadata.recovery[s.key]);
 
   return (
     <>
-      {/* ---- Backdrop ---- */}
+      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9998,
+          position: 'fixed', inset: 0, zIndex: 9998,
           background: 'rgba(0,0,0,0.4)',
           animation: 'fadeInBackdrop 0.25s ease-out',
         }}
       />
 
-      {/* ---- Sheet ---- */}
+      {/* Sheet */}
       <div
         style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
+          position: 'fixed', inset: 0, zIndex: 9999,
           background: '#FFFFFF',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
           animation: 'slideUpSheet 0.3s ease-out',
         }}
       >
-        {/* ============================================================ */}
-        {/*  1. Sticky Header                                            */}
-        {/* ============================================================ */}
+        {/* ── Header ── */}
         <header
           style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
+            position: 'sticky', top: 0, zIndex: 10,
             background: '#FFFFFF',
             borderBottom: '1px solid #EDE8E3',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '14px 16px',
-            flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', flexShrink: 0,
           }}
         >
           <button
             onClick={onClose}
             aria-label="Back"
             style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 4,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontWeight: 500,
+              background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
               color: 'var(--color-ink)',
             }}
           >
@@ -213,16 +218,9 @@ export default memo(function ProcedureDetailSheet({
 
           <h2
             style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 16,
-              fontWeight: 700,
-              color: 'var(--color-ink)',
-              margin: 0,
-              textAlign: 'center',
-              flex: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700,
+              color: 'var(--color-ink)', margin: 0, textAlign: 'center', flex: 1,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               padding: '0 8px',
             }}
           >
@@ -233,73 +231,67 @@ export default memo(function ProcedureDetailSheet({
             onClick={handleShare}
             aria-label="Share"
             style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 4,
-              display: 'flex',
-              alignItems: 'center',
-              color: 'var(--color-ink)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+              display: 'flex', alignItems: 'center', color: 'var(--color-ink)',
             }}
           >
             <Share2 size={18} />
           </button>
         </header>
 
-        {/* ============================================================ */}
-        {/*  Scrollable content                                          */}
-        {/* ============================================================ */}
+        {/* ── Scrollable Content ── */}
         <div
           ref={scrollRef}
           style={{
-            flex: 1,
-            overflowY: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            padding: '0 20px',
+            flex: 1, overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch', padding: '0 20px',
           }}
         >
-          {/* -------------------------------------------------------- */}
-          {/*  2. Price + Quick Stats                                    */}
-          {/* -------------------------------------------------------- */}
-          <div style={sectionPadding}>
-            {price != null && (
-              <p
+          {/* ── Emergency Warning ── */}
+          {metadata.emergencyWarnings?.length > 0 && (
+            <div style={{ padding: '16px 0 12px 0' }}>
+              <div
                 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: 'var(--color-ink)',
-                  margin: '0 0 4px 0',
+                  background: '#FEF2F2', border: '1px solid #FECACA',
+                  borderLeft: '4px solid #DC2626', borderRadius: 2,
+                  padding: '14px 16px',
                 }}
               >
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+                }}>
+                  <AlertTriangle size={16} color="#DC2626" />
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.08em', textTransform: 'uppercase', color: '#991B1B',
+                  }}>
+                    EMERGENCY WARNING
+                  </span>
+                </div>
+                <BulletList items={metadata.emergencyWarnings} color="#991B1B" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Price + Category ── */}
+          <div style={sectionPadding}>
+            {price != null && (
+              <p style={{
+                fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700,
+                color: 'var(--color-ink)', margin: '0 0 4px 0',
+              }}>
                 ${typeof price === 'number' ? price.toLocaleString() : price}
                 {priceUnit && (
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 14,
-                      fontWeight: 400,
-                      color: '#999',
-                      marginLeft: 2,
-                    }}
-                  >
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 400,
+                    color: '#999', marginLeft: 2,
+                  }}>
                     {priceUnit}
                   </span>
                 )}
               </p>
             )}
-
-            {/* Quick stats row: duration + category */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: price != null ? 12 : 0 }}>
-              {metadata.duration && (
-                <span style={{
-                  fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-                  color: '#666', border: '1px solid #EDE8E3', borderRadius: 2,
-                  padding: '4px 10px', background: '#FAFAFA',
-                }}>
-                  {metadata.duration}
-                </span>
-              )}
               {metadata.category && (
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
@@ -309,61 +301,48 @@ export default memo(function ProcedureDetailSheet({
                   {metadata.category}
                 </span>
               )}
+              {metadata.subcategory && (
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+                  color: '#666', border: '1px solid #EDE8E3', borderRadius: 2,
+                  padding: '4px 10px', background: '#FAFAFA',
+                }}>
+                  {metadata.subcategory}
+                </span>
+              )}
             </div>
           </div>
 
           <Divider />
 
-          {/* -------------------------------------------------------- */}
-          {/*  3. What Is It?                                           */}
-          {/* -------------------------------------------------------- */}
-          {metadata.description && (
+          {/* ── Price Reality ── */}
+          {metadata.priceReality && (
             <>
               <div style={sectionPadding}>
-                <SectionHeader>What Is It?</SectionHeader>
-                <p style={bodyText}>{metadata.description}</p>
+                <SectionHeader>Price Reality</SectionHeader>
+                <p style={bodyText}>{metadata.priceReality}</p>
               </div>
               <Divider />
             </>
           )}
 
-          {/* -------------------------------------------------------- */}
-          {/*  4. How It Works                                          */}
-          {/* -------------------------------------------------------- */}
-          {metadata.howItWorks && (
-            <>
-              <div style={sectionPadding}>
-                <SectionHeader>How It Works</SectionHeader>
-                <p style={bodyText}>{metadata.howItWorks}</p>
-              </div>
-              <Divider />
-            </>
-          )}
-
-          {/* -------------------------------------------------------- */}
-          {/*  5. Pain Level                                            */}
-          {/* -------------------------------------------------------- */}
+          {/* ── Pain Level ── */}
           {metadata.painLevel != null && (
             <>
               <div style={sectionPadding}>
                 <SectionHeader>Pain Level</SectionHeader>
                 <div style={{ marginBottom: 8 }}>
                   <PainDots level={metadata.painLevel} />
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--color-ink)',
-                      marginLeft: 8,
-                    }}
-                  >
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
+                    color: 'var(--color-ink)', marginLeft: 8,
+                  }}>
                     {metadata.painLevel} / 5
                   </span>
                 </div>
-                {(metadata.painNote || metadata.painDescription) && (
+                {metadata.painDescription && (
                   <p style={{ ...bodyText, fontSize: 13, color: '#666' }}>
-                    {metadata.painNote || metadata.painDescription}
+                    {metadata.painDescription}
                   </p>
                 )}
               </div>
@@ -371,107 +350,179 @@ export default memo(function ProcedureDetailSheet({
             </>
           )}
 
-          {/* -------------------------------------------------------- */}
-          {/*  6. Recovery                                              */}
-          {/* -------------------------------------------------------- */}
-          {metadata.recovery && (
+          {/* ── Heads Up (friend-voice) ── */}
+          {metadata.headsUp && (
             <>
               <div style={sectionPadding}>
-                <SectionHeader>Recovery & Downtime</SectionHeader>
-                <p style={bodyText}>{metadata.recovery}</p>
-              </div>
-              <Divider />
-            </>
-          )}
-
-          {/* -------------------------------------------------------- */}
-          {/*  7. Results                                               */}
-          {/* -------------------------------------------------------- */}
-          {metadata.results && (
-            <>
-              <div style={sectionPadding}>
-                <SectionHeader>Results</SectionHeader>
-                <p style={bodyText}>{metadata.results}</p>
-              </div>
-              <Divider />
-            </>
-          )}
-
-          {/* -------------------------------------------------------- */}
-          {/*  8. Warnings / Things to Know                            */}
-          {/* -------------------------------------------------------- */}
-          {metadata.warnings?.length > 0 && (
-            <>
-              <div style={sectionPadding}>
-                <div
-                  style={{
-                    background: '#FFFBEB',
-                    border: '1px solid #FDE68A',
-                    borderLeft: '3px solid #F59E0B',
-                    borderRadius: 2,
-                    padding: '16px 18px',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#92400E',
-                      margin: '0 0 10px 0',
-                    }}
-                  >
-                    THINGS TO KNOW
+                <div style={{
+                  background: '#FFFBEB', border: '1px solid #FDE68A',
+                  borderLeft: '3px solid #F59E0B', borderRadius: 2,
+                  padding: '16px 18px',
+                }}>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                    color: '#92400E', margin: '0 0 10px 0',
+                  }}>
+                    HEADS UP
                   </p>
-                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                    {metadata.warnings.map((w, i) => (
-                      <li
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 8,
-                          fontFamily: 'var(--font-body)',
-                          fontSize: 13,
-                          lineHeight: 1.6,
-                          color: '#78350F',
-                          marginBottom: 6,
-                        }}
-                      >
-                        <span style={{ flexShrink: 0, lineHeight: '1.6' }}>{'\u2022'}</span>
-                        <span>{w}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p style={{ ...bodyText, fontSize: 13, color: '#78350F' }}>
+                    {metadata.headsUp}
+                  </p>
                 </div>
               </div>
               <Divider />
             </>
           )}
 
-          {/* -------------------------------------------------------- */}
-          {/*  9. Ideal For                                             */}
-          {/* -------------------------------------------------------- */}
-          {metadata.idealFor?.length > 0 && (
+          {/* ── Who Should NOT Book ── */}
+          {metadata.whoShouldNotBook?.length > 0 && (
             <>
               <div style={sectionPadding}>
-                <SectionHeader>Best For</SectionHeader>
+                <SectionHeader>Who Should Not Book</SectionHeader>
+                <BulletList items={metadata.whoShouldNotBook} color="#991B1B" />
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Before You Go ── */}
+          {metadata.beforeYouGo?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>Before You Go</SectionHeader>
+                <BulletList items={metadata.beforeYouGo} />
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── What Happens (process steps) ── */}
+          {metadata.processSteps?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>What Happens</SectionHeader>
+                <ol style={{ margin: 0, padding: '0 0 0 20px' }}>
+                  {metadata.processSteps.map((step, i) => (
+                    <li
+                      key={i}
+                      style={{
+                        fontFamily: 'var(--font-body)', fontSize: 13,
+                        lineHeight: 1.6, color: 'var(--color-ink)',
+                        marginBottom: 6, paddingLeft: 4,
+                      }}
+                    >
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Recovery Timeline ── */}
+          {hasRecovery && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>Recovery Timeline</SectionHeader>
+                <div style={{ position: 'relative', paddingLeft: 20 }}>
+                  {/* Vertical line */}
+                  <div style={{
+                    position: 'absolute', left: 5, top: 6, bottom: 6,
+                    width: 2, background: '#EDE8E3',
+                  }} />
+                  {RECOVERY_STEPS.map((step) => {
+                    const text = metadata.recovery[step.key];
+                    if (!text) return null;
+                    return (
+                      <div key={step.key} style={{ position: 'relative', marginBottom: 16 }}>
+                        {/* Dot */}
+                        <div style={{
+                          position: 'absolute', left: -20, top: 6,
+                          width: 12, height: 12, borderRadius: '50%',
+                          background: 'var(--color-hot-pink)', border: '2px solid #FFF',
+                        }} />
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: 12,
+                          fontWeight: 700, color: 'var(--color-ink)',
+                          margin: '0 0 2px 0', letterSpacing: '0.04em',
+                        }}>
+                          {step.label}
+                        </p>
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: 13,
+                          lineHeight: 1.5, color: '#666', margin: 0,
+                        }}>
+                          {text}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Questions to Ask ── */}
+          {metadata.questionsToAsk?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>Questions to Ask</SectionHeader>
+                <BulletList items={metadata.questionsToAsk} />
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Red Flags ── */}
+          {metadata.redFlags?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <div style={{
+                  background: '#FEF2F2', border: '1px solid #FECACA',
+                  borderLeft: '3px solid #DC2626', borderRadius: 2,
+                  padding: '16px 18px',
+                }}>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                    color: '#991B1B', margin: '0 0 10px 0',
+                  }}>
+                    RED FLAGS
+                  </p>
+                  <BulletList items={metadata.redFlags} color="#991B1B" />
+                </div>
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Aftercare ── */}
+          {metadata.aftercare?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>Aftercare</SectionHeader>
+                <BulletList items={metadata.aftercare} />
+              </div>
+              <Divider />
+            </>
+          )}
+
+          {/* ── Amenities to Ask About ── */}
+          {metadata.amenitiesToAskAbout?.length > 0 && (
+            <>
+              <div style={sectionPadding}>
+                <SectionHeader>Amenities to Ask About</SectionHeader>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {metadata.idealFor.map((item, i) => (
+                  {metadata.amenitiesToAskAbout.map((item, i) => (
                     <span
                       key={i}
                       style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: 'var(--color-ink)',
-                        border: '1px solid #EDE8E3',
-                        borderRadius: 2,
-                        padding: '6px 12px',
-                        background: '#FFFFFF',
-                        whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+                        color: 'var(--color-ink)', border: '1px solid #EDE8E3',
+                        borderRadius: 2, padding: '6px 12px', background: '#FFFFFF',
                       }}
                     >
                       {item}
@@ -483,30 +534,19 @@ export default memo(function ProcedureDetailSheet({
             </>
           )}
 
-          {/* -------------------------------------------------------- */}
-          {/*  14. Footer CTAs                                         */}
-          {/* -------------------------------------------------------- */}
+          {/* ── Footer CTAs ── */}
           <div style={{ padding: '24px 0 40px 0' }}>
             {providerName && (
               <a
                 href={providerSlug ? `/provider/${providerSlug}` : '#'}
                 className="btn-editorial btn-editorial-primary"
                 style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'center',
-                  padding: '14px 0',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: '#FFFFFF',
-                  background: 'var(--color-hot-pink)',
-                  border: 'none',
-                  borderRadius: 2,
-                  textDecoration: 'none',
-                  cursor: 'pointer',
+                  display: 'block', width: '100%', textAlign: 'center',
+                  padding: '14px 0', fontFamily: 'var(--font-body)',
+                  fontSize: 13, fontWeight: 600, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: '#FFFFFF',
+                  background: 'var(--color-hot-pink)', border: 'none',
+                  borderRadius: 2, textDecoration: 'none', cursor: 'pointer',
                   boxShadow: 'none',
                 }}
               >
@@ -518,18 +558,11 @@ export default memo(function ProcedureDetailSheet({
               <button
                 onClick={onAddExperience}
                 style={{
-                  display: 'block',
-                  width: '100%',
+                  display: 'block', width: '100%',
                   marginTop: providerName ? 16 : 0,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: '#999',
-                  textAlign: 'center',
-                  padding: '10px 0',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                  color: '#999', textAlign: 'center', padding: '10px 0',
                   letterSpacing: '0.02em',
                 }}
               >
