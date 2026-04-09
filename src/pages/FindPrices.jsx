@@ -103,8 +103,14 @@ function computeTrustWeight(procedure) {
 }
 
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
 
 export default function FindPrices() {
+  // DEBUG: render counter — remove once loop is ruled out
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  console.log('[FindPrices] render #', renderCount.current);
+
   const { user } = useContext(AuthContext);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1795,7 +1801,7 @@ export default function FindPrices() {
 
   return (
     <div className="min-h-screen bg-cream page-enter">
-      {/* ─── Mobile sticky filter bar (< md) ─── */}
+      {/* ─── Mobile search + filter bar (< md) ─── */}
       <div
         className="md:hidden bg-white"
         style={{
@@ -1807,73 +1813,215 @@ export default function FindPrices() {
           borderBottom: '1px solid #EDE8E3',
         }}
       >
-        <div className="px-4 pt-2 pb-2 space-y-2">
-          {/* Row 1 — active filter chips, scrollable horizontally */}
-          <div
-            className="flex items-center gap-2 overflow-x-auto"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
-          >
-            {activeChips.length === 0 ? (
-              <button
-                type="button"
-                onClick={() => setShowSearchSheet(true)}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap"
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  background: '#FBF9F7',
-                  border: '1px dashed #EDE8E3',
-                  borderRadius: 2,
-                  color: '#888',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                }}
+        <div className="px-3 pt-2 pb-2 space-y-1.5">
+          {/* Row 1 — Location input */}
+          <div ref={locRef} className="relative">
+            {selectedLoc ? (
+              <div
+                className="flex items-center gap-2 bg-white px-3"
+                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
               >
-                <Search size={12} />
-                Search treatments
-              </button>
-            ) : (
-              activeChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={chip.onClear}
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                  style={{
-                    height: 32,
-                    padding: '0 12px',
-                    background: '#E8347A',
-                    color: 'white',
-                    borderRadius: 2,
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
+                <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
+                <span
+                  className="flex-1 text-[13px] text-ink truncate"
+                  style={{ fontFamily: 'var(--font-body)' }}
                 >
-                  {String(chip.label).toUpperCase()}
-                  <X size={12} strokeWidth={3} />
+                  {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
+                </span>
+                <button
+                  onClick={clearLocation}
+                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                  aria-label="Clear location"
+                >
+                  <X size={14} />
                 </button>
-              ))
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-2 bg-white px-3"
+                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
+              >
+                <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
+                <input
+                  type="text"
+                  value={locQuery}
+                  onChange={(e) => handleLocInput(e.target.value)}
+                  onFocus={() => locQuery.trim() && setLocOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
+                      selectLocation(locResults[0]);
+                    }
+                    if (e.key === 'Escape') setLocOpen(false);
+                  }}
+                  placeholder="City or zip code..."
+                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
+                />
+              </div>
+            )}
+            {/* Location dropdown — reuses the same results as desktop */}
+            {locOpen && locQuery.trim() && (
+              <div
+                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
+                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
+              >
+                {locLoading ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
+                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                    <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>Looks like a phone area code.</p>
+                    <p>Try a city name or 5-digit zip.</p>
+                  </div>
+                ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
+                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>Keep typing — US zip codes are 5 digits.</div>
+                ) : locResults.length > 0 ? (
+                  locResults.map((loc, i) => (
+                    <button
+                      key={`${loc.city}-${loc.state}-${i}`}
+                      onClick={() => selectLocation(loc)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
+                    >
+                      <MapPin size={14} className="text-text-secondary shrink-0" />
+                      {loc.city}{loc.state ? `, ${loc.state}` : ''}
+                      {loc.zip ? ` (${loc.zip})` : ''}
+                    </button>
+                  ))
+                ) : locQuery.trim().length >= 2 ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
+                ) : null}
+              </div>
             )}
           </div>
 
-          {/* Row 2 — Filters | Has Prices | List/Map */}
-          <div className="flex items-center gap-2">
+          {/* Row 2 — Treatment input */}
+          <div ref={procRef} className="relative">
+            {procFilter ? (
+              <div
+                className="flex items-center gap-2 bg-white px-3"
+                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
+              >
+                <Search size={14} className="text-text-secondary shrink-0" />
+                <span
+                  className="flex-1 text-[13px] text-ink truncate"
+                  style={{ fontFamily: 'var(--font-body)' }}
+                >
+                  {brandFilter || procFilter.label || procFilter.primary}
+                </span>
+                <button
+                  onClick={clearProcedure}
+                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                  aria-label="Clear treatment"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-2 bg-white px-3"
+                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
+              >
+                <Search size={14} className="text-text-secondary shrink-0" />
+                <input
+                  type="text"
+                  value={procQuery}
+                  onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
+                  onFocus={() => procQuery.trim() && setProcOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const next = resolveProcedureFromQuery(procQuery);
+                      if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
+                    }
+                    if (e.key === 'Escape') setProcOpen(false);
+                  }}
+                  placeholder="What are you looking for?"
+                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
+                />
+              </div>
+            )}
+            {/* Treatment dropdown */}
+            {procOpen && procQuery.trim() && (
+              <div
+                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
+                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
+              >
+                {(() => {
+                  const matchedPill = findPillByLabel(procQuery);
+                  return (
+                    <>
+                      {matchedPill && (
+                        <button
+                          key={`pill-${matchedPill.slug}`}
+                          onClick={() => selectPill(matchedPill)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                          style={{ borderBottom: '1px solid #F0F0F0' }}
+                        >
+                          {matchedPill.label}
+                        </button>
+                      )}
+                      {procMatches.slice(0, 6).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => selectProcedure(p)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      {!matchedPill && procMatches.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-text-secondary">No matches</div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Row 3 — Filter pills (always visible) */}
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {PROCEDURE_PILLS.filter((p) => p.isPrimary).slice(0, 8).map((pill) => {
+              const isActive = procFilter?.slug === pill.slug && (
+                !pill.brand || brandFilter === pill.brand
+              );
+              return (
+                <button
+                  key={`mpill-${pill.slug}-${pill.brand || 'base'}`}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) { clearProcedure(); } else { selectPill(pill); }
+                  }}
+                  className="shrink-0"
+                  style={{
+                    height: 30,
+                    padding: '0 10px',
+                    borderRadius: 2,
+                    border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
+                    background: isActive ? '#E8347A' : 'white',
+                    color: isActive ? '#fff' : '#555',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+
+            {/* Filters + Has Prices buttons at end of pill strip */}
             <button
               type="button"
               onClick={() => setShowFilters(true)}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1 shrink-0"
               style={{
-                height: 32,
-                padding: '0 12px',
+                height: 30,
+                padding: '0 10px',
                 border: '1px solid #DDD',
                 borderRadius: 2,
                 background: 'white',
@@ -1881,36 +2029,12 @@ export default function FindPrices() {
                 fontFamily: 'var(--font-body)',
                 fontSize: 11,
                 fontWeight: 500,
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
               }}
             >
-              <SlidersHorizontal size={14} />
+              <SlidersHorizontal size={12} />
               Filters
             </button>
-
-            <button
-              type="button"
-              onClick={() => setHasPricesOnly((p) => !p)}
-              className="inline-flex items-center gap-1.5"
-              style={{
-                height: 32,
-                padding: '0 12px',
-                border: `1px solid ${hasPricesOnly ? '#E8347A' : '#DDD'}`,
-                borderRadius: 2,
-                background: hasPricesOnly ? '#E8347A' : 'white',
-                color: hasPricesOnly ? 'white' : '#111',
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {hasPricesOnly && <span style={{ fontSize: 10 }}>&#10003;</span>}
-              Has prices
-            </button>
-
           </div>
 
           {/* Inline dosage-estimator hint link — only shown when relevant */}
@@ -2908,7 +3032,7 @@ export default function FindPrices() {
       {!personalizedMode && isMobile && selectedLoc && (() => {
         const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
         return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '55dvh', zIndex: 1 }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: SUPPORTS_DVH ? '55dvh' : '55vh', zIndex: 1 }}>
             <GlowMap
               allProviders={gateProviders}
               procedures={hasPricedResults ? displayedProcedures : []}
