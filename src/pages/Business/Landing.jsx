@@ -132,86 +132,35 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Free vs Pro Comparison */}
-      <section className="max-w-5xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-text-primary text-center mb-10">
-          Choose Your Plan
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Free Tier */}
-          <div className="glow-card p-6 border border-gray-200 flex flex-col">
-            <div className="mb-6">
-              <span className="inline-block text-sm font-semibold text-text-secondary uppercase tracking-wide">
-                Free
-              </span>
-              <div className="mt-2">
-                <span className="text-4xl font-extrabold text-text-primary">
-                  $0
-                </span>
-                <span className="text-text-secondary">/mo</span>
-              </div>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {FREE_FEATURES.map((feature) => (
-                <li key={feature} className="flex items-start gap-3">
-                  <Check
-                    size={20}
-                    className="text-verified mt-0.5 shrink-0"
-                  />
-                  <span className="text-text-primary">{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/business/claim"
-              className="block text-center bg-warm-gray text-text-primary px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
-            >
-              Get Started Free
-            </Link>
-          </div>
-
-          {/* Pro Tier */}
-          <div className="glow-card p-6 border border-rose-accent ring-2 ring-rose-accent/20 flex flex-col relative">
-            <div className="mb-6">
-              <div className="flex items-center gap-2">
-                <span className="inline-block text-sm font-semibold text-text-secondary uppercase tracking-wide">
-                  Pro
-                </span>
-                <span className="inline-block text-xs font-bold bg-rose-accent text-white px-2.5 py-0.5 rounded-full">
-                  Popular
-                </span>
-              </div>
-              <div className="mt-2">
-                <span className="text-4xl font-extrabold text-text-primary">
-                  $149
-                </span>
-                <span className="text-text-secondary">/mo</span>
-              </div>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {PRO_FEATURES.map((feature) => (
-                <li key={feature} className="flex items-start gap-3">
-                  <Check
-                    size={20}
-                    className="text-verified mt-0.5 shrink-0"
-                  />
-                  <span className="text-text-primary">{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => alert('Stripe integration coming soon')}
-              className="block w-full text-center bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
-            >
-              Upgrade to Pro
-            </button>
-          </div>
+      {/* Pricing — 4 tier grid */}
+      <section className="max-w-7xl mx-auto px-4 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-text-primary mb-3">
+            Choose Your Plan
+          </h2>
+          <p className="text-text-secondary max-w-2xl mx-auto">
+            Start free. Upgrade when you&rsquo;re ready to reach more patients,
+            unlock demand intelligence, and grow your practice.
+          </p>
         </div>
-        <p className="text-xs text-text-secondary text-center mt-6 max-w-2xl mx-auto">
-          Free providers can claim their listing, upload their menu, and flag inaccurate submissions.
-          Pro providers can additionally post deals, appear in featured placements, and access
-          analytics. Specials require a Pro plan.
-        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {TIERS.map((tier) => (
+            <PricingCard key={tier.name} tier={tier} />
+          ))}
+        </div>
+
+        <div className="text-center mt-10">
+          <Link
+            to="/business/claim"
+            className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
+          >
+            Get Started Free
+          </Link>
+          <p className="text-xs text-text-secondary mt-3">
+            No credit card required for the Free plan.
+          </p>
+        </div>
       </section>
 
       {/* How It Works */}
@@ -263,6 +212,88 @@ export default function Landing() {
           </Link>
         </div>
       </section>
+    </div>
+  );
+}
+
+// ── PricingCard ─────────────────────────────────────────────────────
+// Featured tier (Certified) gets a 2px pink border, soft pink ring,
+// and a "Most popular" pill that floats above the card. All other
+// tiers share the same baseline gray border so they read as a
+// consistent row of four. Each card is column-flex so the CTA always
+// pins to the bottom regardless of how many feature lines a tier has.
+function PricingCard({ tier }) {
+  const { name, price, period, tagline, included, excluded, cta, featured } = tier;
+
+  return (
+    <div className="relative flex">
+      {featured && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 inline-flex items-center text-[11px] font-bold uppercase tracking-wide bg-rose-accent text-white px-3 py-1 rounded-full shadow-sm">
+          Most popular
+        </span>
+      )}
+      <div
+        className={`glow-card p-6 flex flex-col w-full ${
+          featured
+            ? 'border-2 border-rose-accent ring-4 ring-rose-accent/10 bg-gradient-to-b from-rose-light/20 to-warm-white'
+            : 'border border-gray-200'
+        }`}
+      >
+        {/* Header */}
+        <div className="mb-5 pb-5 border-b border-gray-100">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-rose-accent mb-2">
+            {name}
+          </h3>
+          <div className="flex items-baseline">
+            <span className="text-4xl font-extrabold text-text-primary">
+              {price}
+            </span>
+            <span className="text-text-secondary ml-1">{period}</span>
+          </div>
+          <p className="text-xs text-text-secondary mt-2 leading-snug">
+            {tagline}
+          </p>
+        </div>
+
+        {/* Features */}
+        <ul className="space-y-2.5 mb-6 flex-1">
+          {included.map((feature) => (
+            <li key={feature} className="flex items-start gap-2.5">
+              <Check
+                size={16}
+                className="text-verified mt-0.5 shrink-0"
+                strokeWidth={2.5}
+              />
+              <span className="text-sm text-text-primary leading-snug">
+                {feature}
+              </span>
+            </li>
+          ))}
+          {excluded?.map((feature) => (
+            <li
+              key={feature}
+              className="flex items-start gap-2.5 text-text-secondary/60"
+            >
+              <X size={16} className="mt-0.5 shrink-0" strokeWidth={2} />
+              <span className="text-sm leading-snug line-through decoration-text-secondary/30">
+                {feature}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {/* CTA */}
+        <Link
+          to={cta.to}
+          className={`block text-center px-5 py-2.5 rounded-full font-semibold text-sm transition ${
+            featured
+              ? 'bg-rose-accent text-white hover:bg-rose-dark'
+              : 'border-2 border-rose-accent text-rose-accent hover:bg-rose-accent hover:text-white'
+          }`}
+        >
+          {cta.label}
+        </Link>
+      </div>
     </div>
   );
 }
