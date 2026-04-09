@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import ProviderAvatar from './ProviderAvatar';
@@ -25,7 +26,7 @@ function VsAvgBadge({ bestPrice, cityAvg }) {
   );
 }
 
-export default function MapProviderCard({ provider, selected, cityAvg, bestPrice }) {
+export default memo(function MapProviderCard({ provider, selected, cityAvg, bestPrice }) {
   const {
     provider_name,
     provider_slug,
@@ -115,4 +116,4 @@ export default function MapProviderCard({ provider, selected, cityAvg, bestPrice
       )}
     </Wrapper>
   );
-}
+});

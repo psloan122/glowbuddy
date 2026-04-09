@@ -92,6 +92,11 @@
   animation-delay: var(--pin-delay, 0ms);
 }
 
+/* ── Spinner for map skeleton ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Reduced motion: kill all decorative animation, keep functional only ── */
 @media (prefers-reduced-motion: reduce) {
   .page-enter,

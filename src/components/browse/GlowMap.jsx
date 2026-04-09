@@ -45,7 +45,7 @@
  *      The parent decides height; we fill it.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { Search } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import MapLoadingFallback from '../MapLoadingFallback';
@@ -149,7 +149,7 @@ function fmtShortPrice(n) {
   return `$${n.toFixed(0)}`;
 }
 
-export default function GlowMap({
+export default memo(function GlowMap({
   // Always-mounted base layer: every active provider in the current
   // city. Source of truth for which pins exist on the map. NEVER
   // filtered by procedure — that would make pins disappear when the
@@ -216,6 +216,12 @@ export default function GlowMap({
     if (!mapRef.current) return;
     let cancelled = false;
 
+    // Defer map construction off the main thread so it doesn't block
+    // INP during the initial render. requestIdleCallback lets the
+    // browser finish layout/paint first; setTimeout(0) is the fallback
+    // for Safari which doesn't support rIC.
+    const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 0));
+    const idleId = schedule(() => {
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !mapRef.current || mapInstanceRef.current) return;
@@ -289,9 +295,12 @@ export default function GlowMap({
         console.error('[GlowMap] failed to load Google Maps', err);
         setMapError(err?.message || 'Failed to load map');
       });
+    }); // end schedule
 
     return () => {
       cancelled = true;
+      const cancel = window.cancelIdleCallback || clearTimeout;
+      cancel(idleId);
       // Detach all markers from this instance so a remount doesn't
       // leave orphaned pins on a now-unmounted map.
       try {
@@ -693,6 +702,29 @@ export default function GlowMap({
         }}
       />
 
+      {/* Skeleton placeholder — paints immediately so the LCP element
+          is a fast-rendering div, not the Google Maps canvas. Fades out
+          once the map is ready. */}
+      {!ready && !mapError && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: '#F5F0EC',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2,
+          }}
+        >
+          <div style={{ opacity: 0.08, position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(#999 1px, transparent 1px), linear-gradient(90deg, #999 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+          <div style={{ textAlign: 'center', zIndex: 1 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #E8347A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#999', fontWeight: 300, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Loading map</p>
+          </div>
+        </div>
+      )}
+
       {showSearchArea && !mapError && (
         <button
           type="button"
@@ -790,7 +822,7 @@ export default function GlowMap({
       )}
     </div>
   );
-}
+});
 
 function LegendRow({ color, label, last }) {
   return (

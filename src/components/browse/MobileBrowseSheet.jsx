@@ -1,11 +1,11 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, memo } from 'react';
 import MapProviderCard from '../MapProviderCard';
 
 const PEEK_Y = 45; // translateY(45%) — map visible in top ~55%
 const FULL_Y = 5;  // translateY(5%) — sheet covers ~95%
 const SNAP_THRESHOLD = 15; // percentage delta to trigger snap switch
 
-export default function MobileBrowseSheet({
+export default memo(function MobileBrowseSheet({
   providers,
   mode,
   city,
@@ -277,4 +277,4 @@ export default function MobileBrowseSheet({
       </div>
     </div>
   );
-}
+});
