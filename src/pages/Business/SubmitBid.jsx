@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
-import { calculateKnow Before You GlowScore } from '../../lib/glowbuddyScore';
+import { calculateGlowBuddyScore } from '../../lib/glowbuddyScore';
 import { notifyPatientOfNewBid } from '../../lib/bidNotifications';
 
 // Provider bid submission form. Reads the bid_request the provider is
@@ -222,7 +222,7 @@ export default function SubmitBid() {
       add_ons: addOnsString || null,
     };
 
-    const score = calculateKnow Before You GlowScore(bidPayload, request, provider);
+    const score = calculateGlowBuddyScore(bidPayload, request, provider);
     bidPayload.glowbuddy_score = score;
 
     const { data: inserted, error: insertErr } = await supabase
