@@ -193,7 +193,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, communityDisputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials] =
+    const [pending, disputes, communityDisputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials, pendingProviders] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -241,6 +241,11 @@ export default function Admin() {
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true)
           .gt('ends_at', new Date().toISOString()),
+        supabase
+          .from('providers')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', false)
+          .eq('verification_method', 'self_submitted'),
       ]);
     setCounts({
       pending: pending.count || 0,
@@ -253,6 +258,7 @@ export default function Admin() {
       flaggedReviews: flaggedReviews.count || 0,
       verifications: verifications.count || 0,
       specials: specials.count || 0,
+      pendingProviders: pendingProviders.count || 0,
     });
   }
 
