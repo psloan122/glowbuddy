@@ -235,6 +235,16 @@ export default function FindPrices() {
   const { isSaved, saveProvider, unsaveProvider } = useSavedProviders();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // ── Viewport-based filtering state ──
+  // mapBounds: the current viewport rectangle reported by GlowMap on idle.
+  // showSearchArea: true once the user pans/zooms the map manually.
+  // searchAreaBounds: the bounds snapshot used for the last "Search this
+  // area" re-query — distinct from mapBounds so the Supabase fetch only
+  // fires on explicit button click, never on every pan.
+  const [mapBounds, setMapBounds] = useState(null);
+  const [showSearchArea, setShowSearchArea] = useState(false);
+  const [searchAreaBounds, setSearchAreaBounds] = useState(null);
+
   // ── Map view state ──
   // Mobile: list is the default; user toggles to map.
   // Desktop: split view is always on, viewMode is ignored.
@@ -309,15 +319,27 @@ export default function FindPrices() {
     setGateProvidersLoading(true);
     (async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('providers')
           .select(
             'id, name, slug, city, state, lat, lng, google_rating, google_review_count, provider_type, is_active',
           )
-          .eq('state', selectedLoc.state)
-          .ilike('city', `%${selectedLoc.city}%`)
-          .eq('is_active', true)
-          .limit(200);
+          .eq('is_active', true);
+        // When "Search this area" bounds are set, query by lat/lng
+        // instead of city/state so pins match the viewport rectangle.
+        if (searchAreaBounds) {
+          query = query
+            .gte('lat', searchAreaBounds.south)
+            .lte('lat', searchAreaBounds.north)
+            .gte('lng', searchAreaBounds.west)
+            .lte('lng', searchAreaBounds.east);
+        } else {
+          query = query
+            .eq('state', selectedLoc.state)
+            .ilike('city', `%${selectedLoc.city}%`);
+        }
+        query = query.limit(200);
+        const { data, error } = await query;
         if (cancelled) return;
         if (error) {
           // eslint-disable-next-line no-console
@@ -346,7 +368,7 @@ export default function FindPrices() {
     return () => {
       cancelled = true;
     };
-  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state]);
+  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, searchAreaBounds]);
 
   // Clear the gate-mode bottom sheet whenever the underlying gate
   // conditions change, so a stale provider can't stay selected after
@@ -391,6 +413,27 @@ export default function FindPrices() {
   const handleCardHover = useCallback((procedure, isEntering) => {
     setHoveredProviderId(isEntering ? procedure.provider_id || null : null);
   }, []);
+
+  // ── Viewport callbacks for GlowMap ──
+  const handleBoundsChange = useCallback((bounds) => {
+    setMapBounds(bounds);
+  }, []);
+
+  const handleUserMovedMap = useCallback(() => {
+    setShowSearchArea(true);
+  }, []);
+
+  const handleSearchAreaClick = useCallback(() => {
+    setSearchAreaBounds(mapBounds);
+    setShowSearchArea(false);
+  }, [mapBounds]);
+
+  // Reset viewport state when the user changes city.
+  useEffect(() => {
+    setMapBounds(null);
+    setShowSearchArea(false);
+    setSearchAreaBounds(null);
+  }, [selectedLoc]);
 
   // ── SEO meta tags — dynamic per spec ──
   useEffect(() => {
@@ -825,7 +868,7 @@ export default function FindPrices() {
       return [...uniquePending, ...activeRows];
     }
 
-    async function fetchProviderPricingRows({ city, state }) {
+    async function fetchProviderPricingRows({ city, state, bounds }) {
       // provider_pricing has no rating column, so honor a min-rating filter
       // by excluding it from this source entirely.
       if (minRating) return [];
@@ -838,8 +881,18 @@ export default function FindPrices() {
         .eq('is_active', true)
         .eq('display_suppressed', false);
 
-      if (state) query = query.eq('providers.state', state);
-      if (city) query = query.ilike('providers.city', `%${city}%`);
+      // When "Search this area" bounds are set, query by lat/lng instead
+      // of city/state so the results match the viewport rectangle.
+      if (bounds) {
+        query = query
+          .gte('providers.lat', bounds.south)
+          .lte('providers.lat', bounds.north)
+          .gte('providers.lng', bounds.west)
+          .lte('providers.lng', bounds.east);
+      } else {
+        if (state) query = query.eq('providers.state', state);
+        if (city) query = query.ilike('providers.city', `%${city}%`);
+      }
       if (filterFuzzyToken) {
         query = query.ilike('procedure_type', `%${filterFuzzyToken}%`);
       } else if (filterProcedureType) {
@@ -998,7 +1051,11 @@ export default function FindPrices() {
     async function fetchAtScope(filters) {
       const [proc, prov] = await Promise.all([
         fetchProcedureRows(filters),
-        fetchProviderPricingRows({ city: filters.city, state: filters.state }),
+        fetchProviderPricingRows({
+          city: filters.city,
+          state: filters.state,
+          bounds: searchAreaBounds || null,
+        }),
       ]);
       return mergeAndSort(proc, prov);
     }
@@ -1151,6 +1208,7 @@ export default function FindPrices() {
     priceMax,
     minRating,
     user?.id,
+    searchAreaBounds,
   ]);
 
   // ── Personalized fetch: multi-procedure grouped-by-provider ──
@@ -1550,6 +1608,19 @@ export default function FindPrices() {
     if (brandFilter) {
       rows = rows.filter((p) => p.normalized_category !== 'flat_rate_area');
     }
+    // Desktop only: filter to providers visible in the current map
+    // viewport so the list stays in sync with what's on screen.
+    // On mobile the list lives in a separate tab/sheet — viewport
+    // filtering would hide providers the user just scrolled through.
+    if (mapBounds && !isMobile) {
+      rows = rows.filter((p) => {
+        const lat = Number(p.provider_lat);
+        const lng = Number(p.provider_lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true;
+        return lat >= mapBounds.south && lat <= mapBounds.north &&
+               lng >= mapBounds.west  && lng <= mapBounds.east;
+      });
+    }
     if (sortBy === 'nearest' && userLat != null && userLng != null) {
       rows = [...rows].sort((a, b) => {
         const da = haversineMiles(userLat, userLng, a.provider_lat, a.provider_lng);
@@ -1569,7 +1640,7 @@ export default function FindPrices() {
       rows = [...rows].sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     }
     return rows;
-  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter]);
+  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds, isMobile]);
 
   // City average — unit-normalized when possible so $14/unit and $700/20u
   // sit on the same scale. Used for the vs-average badges + savings callout.
@@ -1671,6 +1742,20 @@ export default function FindPrices() {
     groups.sort((a, b) => a.bestPrice - b.bestPrice);
     return groups;
   }, [displayedProcedures]);
+
+  // Viewport-filtered gate-mode provider count. On desktop, only counts
+  // providers visible in the current map viewport so the "X providers in
+  // this area" label stays in sync with the map.
+  const viewportProviderCount = useMemo(() => {
+    if (!mapBounds || isMobile) return gateProviders.length;
+    return gateProviders.filter((p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true;
+      return lat >= mapBounds.south && lat <= mapBounds.north &&
+             lng >= mapBounds.west  && lng <= mapBounds.east;
+    }).length;
+  }, [gateProviders, mapBounds, isMobile]);
 
   // ── Compare tray handlers ──
   const toggleCompare = useCallback((procedure) => {
@@ -2827,6 +2912,10 @@ export default function FindPrices() {
               highlightedId={null}
               selectedId={gateSelectedProviderGroup?.provider_id || null}
               onPinClick={handleGatePinClick}
+              onBoundsChange={handleBoundsChange}
+              onUserMovedMap={handleUserMovedMap}
+              showSearchArea={showSearchArea}
+              onSearchAreaClick={handleSearchAreaClick}
               mobileLegendTop
             />
           </div>
@@ -2912,6 +3001,10 @@ export default function FindPrices() {
               highlightedId={hoveredProviderId}
               selectedId={selectedProviderGroup?.provider_id || null}
               onPinClick={handlePinClick}
+              onBoundsChange={handleBoundsChange}
+              onUserMovedMap={handleUserMovedMap}
+              showSearchArea={showSearchArea}
+              onSearchAreaClick={handleSearchAreaClick}
               mobileLegendTop
             />
           </div>
@@ -2994,7 +3087,7 @@ export default function FindPrices() {
                 <GateLeftPanel
                   city={selectedLoc.city}
                   state={selectedLoc.state}
-                  providerCount={gateProviders.length}
+                  providerCount={viewportProviderCount}
                   loading={gateProvidersLoading}
                   onSelectPill={selectPill}
                 />
@@ -3015,7 +3108,11 @@ export default function FindPrices() {
                   />
                 </div>
               ) : (
-                groupedProviders.map((group) => {
+                <>
+                <div style={{ padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
+                  {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'} in this area
+                </div>
+                {groupedProviders.map((group) => {
                   const primary = group.procedures[0];
                   const slug =
                     primary.provider_slug ||
@@ -3051,7 +3148,8 @@ export default function FindPrices() {
                       />
                     </div>
                   );
-                })
+                })}
+                </>
               )}
             </div>
 
@@ -3080,6 +3178,10 @@ export default function FindPrices() {
                     : gateSelectedProviderGroup?.provider_id || null
                 }
                 onPinClick={procFilter ? handlePinClick : handleGatePinClick}
+                onBoundsChange={handleBoundsChange}
+                onUserMovedMap={handleUserMovedMap}
+                showSearchArea={showSearchArea}
+                onSearchAreaClick={handleSearchAreaClick}
               />
               {!procFilter && gateSelectedProviderGroup && (
                 <ProviderBottomSheet

@@ -38,6 +38,7 @@ const FindPrices = lazy(() => import('./pages/FindPrices'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Verified = lazy(() => import('./pages/Verified'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const AuthConfirm = lazy(() => import('./pages/AuthConfirm'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const GuideDetail = lazy(() => import('./pages/GuideDetail'));
 const GuideIndex = lazy(() => import('./pages/GuideIndex'));
@@ -296,6 +297,7 @@ function App() {
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/verified" element={<Verified />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/auth/confirm" element={<AuthConfirm />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/guides" element={<GuideIndex />} />
               <Route path="/guides/:slug" element={<GuideDetail />} />

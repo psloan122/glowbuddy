@@ -46,6 +46,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { Search } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import MapLoadingFallback from '../MapLoadingFallback';
 
@@ -167,6 +168,10 @@ export default function GlowMap({
   highlightedId,
   selectedId,
   onPinClick,
+  onBoundsChange,
+  onUserMovedMap,
+  showSearchArea,
+  onSearchAreaClick,
   mobileLegendTop,
 }) {
   const mapRef = useRef(null);
@@ -182,6 +187,14 @@ export default function GlowMap({
   useEffect(() => {
     onPinClickRef.current = onPinClick;
   }, [onPinClick]);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
+  const onUserMovedMapRef = useRef(onUserMovedMap);
+  useEffect(() => {
+    onUserMovedMapRef.current = onUserMovedMap;
+  }, [onUserMovedMap]);
   // Has any priced data ever been rendered on the current map? Used
   // to decide whether to show the legend (priced) or the gate hint
   // (no prices yet).
@@ -245,6 +258,17 @@ export default function GlowMap({
           });
           map.addListener('zoom_changed', () => {
             if (initialCenteredRef.current) userInteracted.current = true;
+          });
+
+          // Report viewport bounds on every idle (map fully settled).
+          // No debounce needed — Google Maps fires idle once per settle.
+          map.addListener('idle', () => {
+            const b = map.getBounds();
+            if (!b) return;
+            const ne = b.getNorthEast(), sw = b.getSouthWest();
+            const bounds = { north: ne.lat(), south: sw.lat(), east: ne.lng(), west: sw.lng() };
+            onBoundsChangeRef.current?.(bounds);
+            if (userInteracted.current) onUserMovedMapRef.current?.();
           });
 
           // Clear any stale error from a previous mount that failed —
@@ -668,6 +692,43 @@ export default function GlowMap({
           background: '#F5F0EC',
         }}
       />
+
+      {showSearchArea && !mapError && (
+        <button
+          type="button"
+          onClick={() => onSearchAreaClick?.()}
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '8px 16px',
+            background: '#fff',
+            border: '1px solid #EDE8E3',
+            borderRadius: 999,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#333',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#FFF0F5';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff';
+          }}
+        >
+          <Search size={14} strokeWidth={2.5} />
+          Search this area
+        </button>
+      )}
 
       {mapError && !ready && (
         <MapLoadingFallback
