@@ -482,21 +482,6 @@ export default function Home() {
             className="flex flex-col gap-2 w-full sm:max-w-[600px] mb-7"
           >
             <div className="flex flex-col sm:flex-row gap-2">
-              {/* Location input */}
-              <div
-                className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
-                style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
-              >
-                <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
-                <input
-                  type="text"
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
-                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-                  style={{ fontSize: '16px' }}
-                />
-              </div>
               {/* Treatment input */}
               <div
                 className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
@@ -508,6 +493,21 @@ export default function Home() {
                   value={treatmentQuery}
                   onChange={(e) => setTreatmentQuery(e.target.value)}
                   placeholder="Botox, filler, laser..."
+                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              {/* Location input */}
+              <div
+                className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
+                style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
+              >
+                <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
+                <input
+                  type="text"
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
+                  placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
                   className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
                   style={{ fontSize: '16px' }}
                 />

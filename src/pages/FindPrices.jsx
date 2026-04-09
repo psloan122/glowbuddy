@@ -1811,92 +1811,25 @@ export default function FindPrices() {
           borderBottom: '1px solid #EDE8E3',
         }}
       >
-        <div className="px-3 pt-2 pb-2 space-y-1.5">
-          {/* Row 1 — Location input */}
-          <div ref={locRef} className="relative">
-            {selectedLoc ? (
-              <div
-                className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
-              >
-                <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
-                <span
-                  className="flex-1 text-[13px] text-ink truncate"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                >
-                  {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
-                </span>
-                <button
-                  onClick={clearLocation}
-                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
-                  aria-label="Clear location"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
-              >
-                <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
-                <input
-                  type="text"
-                  value={locQuery}
-                  onChange={(e) => handleLocInput(e.target.value)}
-                  onFocus={() => locQuery.trim() && setLocOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
-                      selectLocation(locResults[0]);
-                    }
-                    if (e.key === 'Escape') setLocOpen(false);
-                  }}
-                  placeholder="City or zip code..."
-                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-                  style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
-                />
-              </div>
-            )}
-            {/* Location dropdown — reuses the same results as desktop */}
-            {locOpen && locQuery.trim() && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
-                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
-              >
-                {locLoading ? (
-                  <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
-                ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
-                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
-                    <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>Looks like a phone area code.</p>
-                    <p>Try a city name or 5-digit zip.</p>
-                  </div>
-                ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
-                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>Keep typing — US zip codes are 5 digits.</div>
-                ) : locResults.length > 0 ? (
-                  locResults.map((loc, i) => (
-                    <button
-                      key={`${loc.city}-${loc.state}-${i}`}
-                      onClick={() => selectLocation(loc)}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
-                    >
-                      <MapPin size={14} className="text-text-secondary shrink-0" />
-                      {loc.city}{loc.state ? `, ${loc.state}` : ''}
-                      {loc.zip ? ` (${loc.zip})` : ''}
-                    </button>
-                  ))
-                ) : locQuery.trim().length >= 2 ? (
-                  <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          {/* Row 2 — Treatment input */}
+        <div className="px-3 pt-2 pb-1">
+          <h1
+            className="font-display text-ink"
+            style={{
+              fontWeight: 900, fontSize: 20, lineHeight: 1,
+              letterSpacing: '-0.02em', textTransform: 'uppercase', margin: 0,
+            }}
+          >
+            KNOW BEFORE YOU{' '}
+            <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
+          </h1>
+        </div>
+        <div className="px-3 pt-1.5 pb-2 space-y-1.5">
+          {/* Row 1 — Treatment input (top) */}
           <div ref={procRef} className="relative">
             {procFilter ? (
               <div
                 className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
+                style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
               >
                 <Search size={14} className="text-text-secondary shrink-0" />
                 <span
@@ -1916,7 +1849,7 @@ export default function FindPrices() {
             ) : (
               <div
                 className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 40, borderRadius: 2, border: '1px solid #EDE8E3' }}
+                style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
               >
                 <Search size={14} className="text-text-secondary shrink-0" />
                 <input
@@ -1931,7 +1864,7 @@ export default function FindPrices() {
                     }
                     if (e.key === 'Escape') setProcOpen(false);
                   }}
-                  placeholder="What are you looking for?"
+                  placeholder="Botox, filler, laser..."
                   className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
                   style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
                 />
@@ -1976,7 +1909,78 @@ export default function FindPrices() {
             )}
           </div>
 
-          {/* Row 3 — Filter pills (always visible) */}
+          {/* Row 2 — Location input (bottom) */}
+          <div ref={locRef} className="relative">
+            <div
+              className="flex items-center gap-2 bg-white px-3"
+              style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
+            >
+              <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
+              <input
+                type="text"
+                value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
+                onChange={(e) => handleLocInput(e.target.value)}
+                onFocus={() => {
+                  if (selectedLoc && !locQuery) {
+                    setLocQuery(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
+                  }
+                  if (locQuery.trim()) setLocOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
+                    selectLocation(locResults[0]);
+                  }
+                  if (e.key === 'Escape') setLocOpen(false);
+                }}
+                placeholder="City or zip code..."
+                className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
+              />
+              {selectedLoc && (
+                <button
+                  onClick={clearLocation}
+                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                  aria-label="Clear location"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {/* Location dropdown */}
+            {locOpen && locQuery.trim() && (
+              <div
+                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
+                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
+              >
+                {locLoading ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
+                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                    <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>Looks like a phone area code.</p>
+                    <p>Try a city name or 5-digit zip.</p>
+                  </div>
+                ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
+                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>Keep typing — US zip codes are 5 digits.</div>
+                ) : locResults.length > 0 ? (
+                  locResults.map((loc, i) => (
+                    <button
+                      key={`${loc.city}-${loc.state}-${i}`}
+                      onClick={() => selectLocation(loc)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
+                    >
+                      <MapPin size={14} className="text-text-secondary shrink-0" />
+                      {loc.city}{loc.state ? `, ${loc.state}` : ''}
+                      {loc.zip ? ` (${loc.zip})` : ''}
+                    </button>
+                  ))
+                ) : locQuery.trim().length >= 2 ? (
+                  <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Row 3 — Filter pills */}
           <div
             className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
@@ -1994,7 +1998,7 @@ export default function FindPrices() {
                   }}
                   className="shrink-0"
                   style={{
-                    height: 30,
+                    height: 28,
                     padding: '0 10px',
                     borderRadius: 2,
                     border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
@@ -2012,13 +2016,12 @@ export default function FindPrices() {
               );
             })}
 
-            {/* Filters + Has Prices buttons at end of pill strip */}
             <button
               type="button"
               onClick={() => setShowFilters(true)}
               className="inline-flex items-center gap-1 shrink-0"
               style={{
-                height: 30,
+                height: 28,
                 padding: '0 10px',
                 border: '1px solid #DDD',
                 borderRadius: 2,
@@ -2035,22 +2038,20 @@ export default function FindPrices() {
             </button>
           </div>
 
-          {/* Inline dosage-estimator hint link — only shown when relevant */}
-          {dosageEstimatorAvailable && (
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className="block text-left"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 300,
-                fontSize: 12,
-                color: '#E8347A',
-              }}
-            >
-              How many units will I need? &rarr;
-            </button>
-          )}
+          {/* Row 4 — Find Prices CTA */}
+          <button
+            type="button"
+            onClick={() => {
+              if (procQuery.trim()) {
+                const next = resolveProcedureFromQuery(procQuery);
+                if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
+              }
+            }}
+            className="btn-editorial btn-editorial-primary w-full"
+            style={{ height: 40, fontSize: 13, letterSpacing: '0.08em', fontWeight: 600 }}
+          >
+            FIND PRICES
+          </button>
         </div>
       </div>
 
