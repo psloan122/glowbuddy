@@ -8,11 +8,11 @@ const KEYS = {
 
 // --- Mode toggle ---
 export function isFirstTimerMode() {
-  return localStorage.getItem(KEYS.MODE) === 'true';
+  try { return localStorage.getItem(KEYS.MODE) === 'true'; } catch { return false; }
 }
 
 export function setFirstTimerMode(on) {
-  localStorage.setItem(KEYS.MODE, on ? 'true' : 'false');
+  try { localStorage.setItem(KEYS.MODE, on ? 'true' : 'false'); } catch { /* private mode */ }
 }
 
 // --- Treatment list ---

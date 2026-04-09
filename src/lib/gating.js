@@ -12,27 +12,27 @@ const KEYS = {
 
 // --- Zip / City / State ---
 export function getZip() {
-  return localStorage.getItem(KEYS.ZIP) || '';
+  try { return localStorage.getItem(KEYS.ZIP) || ''; } catch { return ''; }
 }
 
 export function setZip(zip) {
-  localStorage.setItem(KEYS.ZIP, zip);
+  try { localStorage.setItem(KEYS.ZIP, zip); } catch { /* private mode */ }
 }
 
 export function getCity() {
-  return localStorage.getItem(KEYS.CITY) || '';
+  try { return localStorage.getItem(KEYS.CITY) || ''; } catch { return ''; }
 }
 
 export function setCity(city) {
-  localStorage.setItem(KEYS.CITY, city);
+  try { localStorage.setItem(KEYS.CITY, city); } catch { /* private mode */ }
 }
 
 export function getState() {
-  return localStorage.getItem(KEYS.STATE) || '';
+  try { return localStorage.getItem(KEYS.STATE) || ''; } catch { return ''; }
 }
 
 export function setState(state) {
-  localStorage.setItem(KEYS.STATE, state);
+  try { localStorage.setItem(KEYS.STATE, state); } catch { /* private mode */ }
 }
 
 // --- Onboarding interests ---

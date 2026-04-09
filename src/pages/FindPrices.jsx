@@ -297,20 +297,18 @@ export default function FindPrices() {
     if (!isMobile && viewMode !== 'map') setSelectedProviderGroup(null);
   }, [viewMode, isMobile]);
 
-  // Body scroll lock: when mobile has a city selected AND the map is
-  // actually rendering, the map fills the viewport and the bottom sheet
-  // handles scrolling. Lock the body so the page behind doesn't scroll.
-  // Skip when personalizedMode is active — no map/sheet renders, so the
-  // personalized feed must remain scrollable.
+  // Body scroll lock: when mobile has a city selected, the map fills the
+  // viewport and the bottom sheet handles scrolling. Lock the body so the
+  // page behind doesn't scroll.
   useEffect(() => {
-    if (isMobile && selectedLoc && !personalizedMode) {
+    if (isMobile && selectedLoc) {
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = ''; };
     }
     // Ensure body scroll is restored when conditions change
     document.body.style.overflow = '';
     return undefined;
-  }, [isMobile, selectedLoc, personalizedMode]);
+  }, [isMobile, selectedLoc]);
 
   // Fetch every active provider in the city. Runs whenever there's a
   // city — including when a procedure/brand filter is active — so the
@@ -3029,7 +3027,7 @@ export default function FindPrices() {
       })()}
 
       {/* ─── Mobile unified map — single instance across gate → loading → priced ─── */}
-      {!personalizedMode && isMobile && selectedLoc && (() => {
+      {isMobile && selectedLoc && (() => {
         const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: SUPPORTS_DVH ? '55dvh' : '55vh', zIndex: 1 }}>
@@ -3055,7 +3053,7 @@ export default function FindPrices() {
       })()}
 
       {/* ─── Gate state — mobile bottom sheet (map rendered above) ─── */}
-      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && isMobile && (
+      {!procFilter && !brandFilter && selectedLoc && isMobile && (
         <MobileBrowseSheet
           providers={gateProviders.map((p) => ({
             key: p.id,
@@ -3125,7 +3123,7 @@ export default function FindPrices() {
       )}
 
       {/* ─── Mobile priced view: bottom sheet (map rendered in unified block above) ─── */}
-      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
+      {procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
         <MobileBrowseSheet
           providers={groupedProviders.map((group) => {
             const primary = group.procedures[0];
@@ -3167,7 +3165,7 @@ export default function FindPrices() {
           `procedures` overlay changes when the user picks a treatment.
           The left pane swaps content (gate panel / skeleton / empty
           state / price cards) but the map instance is preserved. */}
-      {!personalizedMode && !isMobile && selectedLoc && (() => {
+      {!isMobile && selectedLoc && (() => {
         const hasResults =
           procFilter &&
           !loadingProcedures &&

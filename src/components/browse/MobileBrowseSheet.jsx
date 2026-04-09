@@ -4,6 +4,7 @@ import MapProviderCard from '../MapProviderCard';
 const PEEK_Y = 45; // translateY(45%) — map visible in top ~55%
 const FULL_Y = 5;  // translateY(5%) — sheet covers ~95%
 const SNAP_THRESHOLD = 15; // percentage delta to trigger snap switch
+const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
 
 export default memo(function MobileBrowseSheet({
   providers,
@@ -126,7 +127,7 @@ export default memo(function MobileBrowseSheet({
         bottom: 0,
         left: 0,
         right: 0,
-        height: '100dvh',
+        height: SUPPORTS_DVH ? '100dvh' : '100vh',
         transform: `translateY(${translateY}%)`,
         transition: isTransitioning ? 'transform 0.3s ease' : 'none',
         borderRadius: '12px 12px 0 0',
