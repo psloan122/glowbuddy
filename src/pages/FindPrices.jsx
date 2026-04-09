@@ -55,6 +55,7 @@ import { lookupZip } from '../lib/zipLookup';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
 import ProcedureDetailSheet from '../components/ProcedureDetailSheet';
+import DosingCalculatorSheet from '../components/DosingCalculatorSheet';
 import AddExperienceSheet from '../components/AddExperienceSheet';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import { setPageMeta } from '../lib/seo';
@@ -202,6 +203,7 @@ export default function FindPrices() {
   const [showFilters, setShowFilters] = useState(false);
   const [detailSheet, setDetailSheet] = useState(null);
   const [experienceSheet, setExperienceSheet] = useState(null);
+  const [dosingSheet, setDosingSheet] = useState(null);
   const [minRating, setMinRating] = useState('');
 
   // First-timer state
@@ -1848,6 +1850,24 @@ export default function FindPrices() {
     });
   }, []);
 
+  // ── Dosing calculator sheet handler ──
+  const handleDosingClick = useCallback((procedure, provider, dosingInfo) => {
+    const compareVal =
+      procedure.normalized_compare_value &&
+      Number.isFinite(Number(procedure.normalized_compare_value))
+        ? Number(procedure.normalized_compare_value)
+        : Number(procedure.price_paid) || 0;
+    setDosingSheet({
+      procedureType: procedure.procedure_type,
+      brand: procedure.brand || null,
+      unitPrice: compareVal,
+      providerName: provider?.provider_name || procedure.provider_name || null,
+      treatmentArea: procedure.treatment_area || null,
+      dosingType: dosingInfo.type,
+      dosingKey: dosingInfo.key,
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-cream page-enter">
       {/* ─── Mobile search + filter bar (< md) ─── */}
@@ -3245,6 +3265,7 @@ export default function FindPrices() {
                   onSaveToggle={() => handleSaveToggle(primary)}
                   comparingFull={comparing.length >= 3 && !isCompared}
                   onProcedureDetail={handleProcedureDetail}
+                  onDosingClick={handleDosingClick}
                 />
               </div>
             );
@@ -3359,6 +3380,7 @@ export default function FindPrices() {
                         onHoverChange={handleCardHover}
                         selected={selected}
                         onProcedureDetail={handleProcedureDetail}
+                        onDosingClick={handleDosingClick}
                       />
                     </div>
                   );
@@ -3462,6 +3484,20 @@ export default function FindPrices() {
           userId={user?.id || null}
           onClose={() => setExperienceSheet(null)}
           onSuccess={() => {}}
+        />
+      )}
+
+      {/* ─── Dosing Calculator Sheet ─── */}
+      {dosingSheet && (
+        <DosingCalculatorSheet
+          procedureType={dosingSheet.procedureType}
+          brand={dosingSheet.brand}
+          unitPrice={dosingSheet.unitPrice}
+          providerName={dosingSheet.providerName}
+          treatmentArea={dosingSheet.treatmentArea}
+          dosingType={dosingSheet.dosingType}
+          dosingKey={dosingSheet.dosingKey}
+          onClose={() => setDosingSheet(null)}
         />
       )}
     </div>

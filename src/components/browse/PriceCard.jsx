@@ -19,13 +19,15 @@
  * Card width: max 860px, centered. Padding 20px 24px. mb 12px.
  */
 
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Star, ShieldCheck, ArrowRight, Info } from 'lucide-react';
+import { Heart, Star, ShieldCheck, ArrowRight, Info, ChevronRight } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel, getProcedureDetail } from '../../lib/procedureLabel';
 import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils';
 import { haversineMiles, formatMiles } from '../../lib/distance';
+import { resolveDosingKey, getQuickEstimates } from '../../data/dosingGuidance';
 
 function fmtPrice(n) {
   const v = Number(n) || 0;
@@ -93,7 +95,7 @@ function VsAverageBadge({ price, avg }) {
 
 // One price row inside the multi-price card. Brand label, big editorial
 // price, vs-avg badge, and an optional dysport equivalency note.
-function PriceRow({ procedure, cityAvg, isFirst, onDetailClick }) {
+function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick }) {
   const displayPrice = procedure.normalized_display
     ? procedure.normalized_display
     : fmtPrice(procedure.price_paid);
@@ -117,6 +119,19 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick }) {
   const isDysport = brandInfo?.isDysport || false;
   const unitsLine = formatUnitsIncluded(procedure.units_or_volume);
   const treatmentArea = getProcedureDetail(procedure);
+
+  // Dosing estimates — only for per-unit neurotoxins or per-syringe fillers
+  const dosingInfo = useMemo(() => {
+    if (compareValue <= 0) return null;
+    const resolved = resolveDosingKey(procedure.procedure_type, procedure.brand);
+    if (!resolved) return null;
+    const unitType = procedure.normalized_compare_unit;
+    if (resolved.type === 'neurotoxin' && unitType !== 'per unit') return null;
+    if (resolved.type === 'filler' && unitType !== 'per syringe') return null;
+    const estimates = getQuickEstimates(resolved.key, resolved.type, compareValue);
+    if (estimates.length === 0) return null;
+    return { ...resolved, estimates };
+  }, [procedure.procedure_type, procedure.brand, procedure.normalized_compare_unit, compareValue]);
 
   return (
     <div
@@ -260,6 +275,93 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick }) {
             : 'Dysport units \u2260 Botox units. Typically 2.5\u00D7 more units needed.'}
         </p>
       )}
+
+      {/* Inline dosing estimates */}
+      {dosingInfo && (
+        <div
+          style={{
+            margin: '10px 0 0 0',
+            padding: '10px 14px',
+            background: '#FBF9F7',
+            borderRadius: 6,
+            border: '1px solid #F4F0EB',
+          }}
+        >
+          {dosingInfo.estimates.map((est) => (
+            <div
+              key={est.label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '3px 0',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                lineHeight: 1.5,
+              }}
+            >
+              <span style={{ color: '#555', fontWeight: 400 }}>
+                {est.label}
+                {est.popular && (
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: '#E8347A',
+                    }}
+                  >
+                    ← most popular
+                  </span>
+                )}
+              </span>
+              <span style={{ color: '#111', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                {est.low === est.high
+                  ? `$${est.low.toLocaleString()}`
+                  : `$${est.low.toLocaleString()}–$${est.high.toLocaleString()}`}
+              </span>
+            </div>
+          ))}
+          {onDosingClick && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDosingClick(procedure, dosingInfo);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                marginTop: 6,
+                padding: 0,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#E8347A',
+              }}
+            >
+              How much will I need? <ChevronRight size={12} />
+            </button>
+          )}
+          <p
+            style={{
+              margin: '4px 0 0 0',
+              fontFamily: 'var(--font-body)',
+              fontSize: 9,
+              fontWeight: 300,
+              color: '#BBB',
+              lineHeight: 1.4,
+            }}
+          >
+            Estimates based on typical clinical dosing ranges.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -281,6 +383,7 @@ export default function PriceCard({
   onHoverChange,
   selected = false,
   onProcedureDetail,
+  onDosingClick,
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
   const rows = Array.isArray(procedures) ? procedures : [];
@@ -517,6 +620,7 @@ export default function PriceCard({
             cityAvg={cityAvg}
             isFirst={i === 0}
             onDetailClick={onProcedureDetail ? (p) => onProcedureDetail(p, primary) : undefined}
+            onDosingClick={onDosingClick ? (p, info) => onDosingClick(p, primary, info) : undefined}
           />
         ))}
       </div>
