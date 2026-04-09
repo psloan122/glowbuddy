@@ -68,3 +68,53 @@ export async function createPlacementCheckout({ specialId, placementId, tier, we
     return { error: 'Something went wrong. Please try again.' };
   }
 }
+
+/**
+ * Create a subscription checkout session for tier upgrades.
+ * Returns { url } for redirect, or { error }, or { simulated } in dev.
+ */
+export async function createSubscriptionCheckout({ tier, providerId }) {
+  const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+  if (!stripeKey) {
+    return {
+      simulated: true,
+      message: `Stripe not configured — would upgrade to "${tier}" tier.`,
+    };
+  }
+
+  try {
+    const { supabase } = await import('./supabase');
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      return { error: 'You must be signed in to checkout' };
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-subscription-checkout`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tier,
+          providerId,
+          successUrl: `${window.location.origin}/business/dashboard?checkout=success`,
+          cancelUrl: `${window.location.origin}/business/dashboard?checkout=cancelled`,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    if (data.url) {
+      window.location.href = data.url;
+      return { url: data.url };
+    }
+    return { error: data.error || 'Failed to create checkout session' };
+  } catch {
+    return { error: 'Something went wrong. Please try again.' };
+  }
+}

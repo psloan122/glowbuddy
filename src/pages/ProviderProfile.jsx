@@ -39,7 +39,7 @@ import CompetitorAds from '../components/CompetitorAds';
 import PriceAlertButton from '../components/PriceAlertButton';
 import FairPriceBadge from '../components/FairPriceBadge';
 import CallNowButton from '../components/CallNowButton';
-import VagaroBookButton from '../components/VagaroBookButton';
+import BookNowButton from '../components/BookNowButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
 import AddProviderModal from '../components/AddProviderModal';
@@ -925,8 +925,10 @@ export default function ProviderProfile() {
                   variant="compact"
                 />
               )}
-              <VagaroBookButton
+              <BookNowButton
                 providerId={provider?.id}
+                bookingUrl={provider?.booking_url}
+                bookingPlatform={provider?.booking_platform}
                 variant="detail-page"
               />
             </div>

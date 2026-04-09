@@ -37,6 +37,7 @@ import SubmissionsTab from '../../components/DashboardTabs/SubmissionsTab';
 import DemandIntelTab from '../../components/DashboardTabs/DemandIntelTab';
 import CallVolumeChart from '../../components/CallVolumeChart';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
+import BookingPlatformConnect from '../../components/BookingPlatformConnect';
 import IntegrationStats from '../../components/IntegrationStats';
 import useTier from '../../hooks/useTier';
 import FeatureGate from '../../components/FeatureGate';
@@ -1070,7 +1071,83 @@ export default function Dashboard() {
       {/* ===== INTEGRATIONS TAB ===== */}
       {activeTab === 'Integrations' && (
         <div>
-          <VagaroConnectFlow providerId={provider?.id} />
+          <h2 className="text-xl font-bold text-text-primary mb-6">Integrations</h2>
+
+          {/* Vagaro (rich integration) */}
+          <div className="mb-8">
+            <VagaroConnectFlow providerId={provider?.id} />
+          </div>
+
+          {/* Other booking platforms (simple URL connect) */}
+          <div className="mb-8">
+            <BookingPlatformConnect provider={provider} setProvider={setProvider} />
+          </div>
+
+          {/* Quick links — Google Business Profile, Instagram, Website */}
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Other connections</h3>
+            <p className="text-xs text-text-secondary mb-4">
+              These links appear on your public profile.
+            </p>
+            <div className="space-y-3">
+              <div className="glow-card p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.website ? 'bg-verified' : 'bg-gray-300'}`} />
+                  <span className="text-sm font-medium text-text-primary">Website</span>
+                  {provider?.website && (
+                    <span className="text-xs text-verified font-medium">Connected</span>
+                  )}
+                </div>
+                {provider?.website ? (
+                  <a href={provider.website} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
+                    {provider.website.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}
+                  </a>
+                ) : (
+                  <button onClick={() => handleTabChange('Settings')} className="text-xs text-rose-accent hover:text-rose-dark transition">
+                    Add in Settings
+                  </button>
+                )}
+              </div>
+
+              <div className="glow-card p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.instagram ? 'bg-verified' : 'bg-gray-300'}`} />
+                  <span className="text-sm font-medium text-text-primary">Instagram</span>
+                  {provider?.instagram && (
+                    <span className="text-xs text-verified font-medium">Connected</span>
+                  )}
+                </div>
+                {provider?.instagram ? (
+                  <a href={`https://instagram.com/${provider.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
+                    @{provider.instagram.replace('@', '')}
+                  </a>
+                ) : (
+                  <button onClick={() => handleTabChange('Settings')} className="text-xs text-rose-accent hover:text-rose-dark transition">
+                    Add in Settings
+                  </button>
+                )}
+              </div>
+
+              <div className="glow-card p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.google_place_id ? 'bg-verified' : 'bg-gray-300'}`} />
+                  <span className="text-sm font-medium text-text-primary">Google Business Profile</span>
+                  {provider?.google_place_id && (
+                    <span className="text-xs text-verified font-medium">Linked</span>
+                  )}
+                </div>
+                {provider?.google_maps_url ? (
+                  <a href={provider.google_maps_url} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
+                    View on Google
+                  </a>
+                ) : (
+                  <span className="text-xs text-text-secondary">Auto-linked during onboarding</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Booking referral stats */}
           <IntegrationStats providerId={provider?.id} />
         </div>
       )}

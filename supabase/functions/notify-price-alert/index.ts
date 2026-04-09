@@ -160,6 +160,24 @@ Deno.serve(async (req: Request) => {
   }
 
   const provider = special.provider
+
+  // ── Tier gate: only paid providers can notify patients ──────────
+  // Free-tier providers can create specials and see demand intel, but
+  // fanning out SMS notifications is a paid feature. Reject early so
+  // we don't burn Twilio credits on an unauthorized call.
+  const { data: providerRow } = await supabase
+    .from('providers')
+    .select('tier')
+    .eq('id', provider.id)
+    .single()
+
+  if (!providerRow || providerRow.tier === 'free') {
+    return jsonResponse({
+      error: 'Upgrade required to notify patients',
+      detail: 'Patient notifications are available on the Verified plan and above.',
+    }, 403)
+  }
+
   const providerCity = provider.city || ''
   const providerState = provider.state || ''
 

@@ -27,6 +27,7 @@ export default function Onboarding() {
   const [placeData, setPlaceData] = useState(null);
   const [existingProvider, setExistingProvider] = useState(null); // null | { id, is_claimed, submissionCount }
   const [verificationMethod, setVerificationMethod] = useState(null);
+  const [selectedTier, setSelectedTier] = useState('free');
   const [profileData, setProfileData] = useState({
     name: '',
     provider_type: '',
@@ -154,7 +155,7 @@ export default function Onboarding() {
       state: data.state || '',
       zip: data.zip_code || '',
     }));
-    // Skip to step 2
+    // Skip to step 2 (Profile)
     setStep(2);
   }
 
@@ -213,6 +214,7 @@ export default function Onboarding() {
     );
   }
 
+  // Step 1: Find Practice → advance to Profile (step 2)
   function handleStep1Complete(place, existing, shouldImportPhotos) {
     setPlaceData(place);
     setExistingProvider(existing);
@@ -233,28 +235,32 @@ export default function Onboarding() {
     setStep(2);
   }
 
-  function handleStep2Complete(method) {
-    setVerificationMethod(method);
+  // Step 2: Practice Profile → advance to Prices (step 3)
+  function handleProfileComplete(data) {
+    setProfileData(data);
     setStep(3);
   }
 
-  function handleStep3Complete(data) {
-    setProfileData(data);
+  // Step 3: Price Menu → advance to Plan (step 4)
+  function handlePricesComplete(items) {
+    setMenuItems(items);
     setStep(4);
   }
 
-  function handleStep4Complete(items) {
-    setMenuItems(items);
+  // Step 4: Choose Plan → store tier, advance to Verify (step 5)
+  async function handlePlanSelected(tier) {
+    setSelectedTier(tier);
     setStep(5);
   }
 
-  async function handleStep5Complete(selectedTier) {
-    // Create or claim the provider. Pro signups land on the 'verified'
-    // tier with a 14-day trial; the Stripe checkout flow that converts
-    // them is wired up in Phase 2.
-    const tier = selectedTier === 'pro' ? 'verified' : 'free';
+  // Step 5: Verify Ownership → create/claim provider with stored tier
+  async function handleVerifyComplete(method) {
+    setVerificationMethod(method);
+
+    // Use the tier stored in step 4 directly — no more pro→verified mapping
+    const tier = selectedTier;
     const trialEndsAt =
-      selectedTier === 'pro'
+      tier !== 'free'
         ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
         : null;
 
@@ -293,7 +299,7 @@ export default function Onboarding() {
           tier,
           trial_ends_at: trialEndsAt,
           onboarding_completed: true,
-          verification_method: verificationMethod,
+          verification_method: method,
           verified_at: new Date().toISOString(),
           ...googleMeta,
         })
@@ -336,7 +342,7 @@ export default function Onboarding() {
           tier,
           trial_ends_at: trialEndsAt,
           onboarding_completed: true,
-          verification_method: verificationMethod,
+          verification_method: method,
           verified_at: new Date().toISOString(),
           ...googleMeta,
         })
@@ -457,29 +463,30 @@ export default function Onboarding() {
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Step content — New order: Find → Profile → Prices → Plan → Verify */}
       <div className="max-w-2xl mx-auto px-4 py-8">
         {step === 1 && (
           <Step1FindPractice onComplete={handleStep1Complete} initialQuery={initialSearchQuery} />
         )}
         {step === 2 && (
-          <Step2VerifyOwnership
-            placeData={placeData}
-            onComplete={handleStep2Complete}
-          />
-        )}
-        {step === 3 && (
           <Step3PracticeProfile
             initialData={profileData}
             googleRating={placeData?.googleRating}
             googleReviewCount={placeData?.googleReviewCount}
-            onComplete={handleStep3Complete}
+            onComplete={handleProfileComplete}
+          />
+        )}
+        {step === 3 && (
+          <Step4PriceMenu
+            existingItems={menuItems}
+            onComplete={handlePricesComplete}
           />
         )}
         {step === 4 && (
-          <Step4PriceMenu
-            existingItems={menuItems}
-            onComplete={handleStep4Complete}
+          <Step5ChoosePlan
+            profileData={profileData}
+            menuCount={menuItems.length}
+            onComplete={handlePlanSelected}
           />
         )}
         {step === 5 && (
@@ -489,10 +496,9 @@ export default function Onboarding() {
                 {menuError}
               </div>
             )}
-            <Step5ChoosePlan
-              profileData={profileData}
-              menuCount={menuItems.length}
-              onComplete={handleStep5Complete}
+            <Step2VerifyOwnership
+              placeData={placeData}
+              onComplete={handleVerifyComplete}
             />
           </>
         )}

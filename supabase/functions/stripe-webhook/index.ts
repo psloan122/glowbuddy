@@ -1,6 +1,7 @@
 // Supabase Edge Function: Stripe Webhook Handler
 // Deploy: supabase functions deploy stripe-webhook
-// Secrets needed: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+// Secrets needed: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+//   STRIPE_PRICE_VERIFIED, STRIPE_PRICE_CERTIFIED, STRIPE_PRICE_ENTERPRISE
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -91,12 +92,75 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    // Map Stripe Price IDs → provider tier names. Used by both the
+    // checkout.session.completed and subscription.updated handlers.
+    const PRICE_TO_TIER: Record<string, string> = {}
+    const pv = Deno.env.get('STRIPE_PRICE_VERIFIED')
+    const pc = Deno.env.get('STRIPE_PRICE_CERTIFIED')
+    const pe = Deno.env.get('STRIPE_PRICE_ENTERPRISE')
+    if (pv) PRICE_TO_TIER[pv] = 'verified'
+    if (pc) PRICE_TO_TIER[pc] = 'certified'
+    if (pe) PRICE_TO_TIER[pe] = 'enterprise'
+
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object
       const placementId = session.metadata?.placement_id
       const specialId = session.metadata?.special_id
 
-      if (placementId) {
+      // ── Subscription checkout (tier upgrade) ──────────────────────
+      // When mode=subscription and metadata.provider_id is set, this is
+      // a tier subscription purchase — update the provider's tier, store
+      // the subscription ID, and mark the subscription as active.
+      if (session.mode === 'subscription' && session.metadata?.provider_id) {
+        const providerId = session.metadata.provider_id
+        // The tier can come from metadata (set at checkout creation) or
+        // we can resolve it from the price ID if the Stripe price secrets
+        // are configured.
+        let tier = session.metadata?.tier || null
+
+        // If we have a subscription, fetch line items to resolve tier
+        // from price ID as the authoritative source.
+        if (session.subscription) {
+          try {
+            const subRes = await fetch(
+              `https://api.stripe.com/v1/subscriptions/${session.subscription}`,
+              {
+                headers: { Authorization: `Bearer ${stripeSecret}` },
+              },
+            )
+            const sub = await subRes.json()
+            const priceId = sub.items?.data?.[0]?.price?.id
+            if (priceId && PRICE_TO_TIER[priceId]) {
+              tier = PRICE_TO_TIER[priceId]
+            }
+          } catch (fetchErr) {
+            console.error('[stripe-webhook] failed to fetch subscription details:', fetchErr)
+            // Fall through to metadata tier
+          }
+        }
+
+        if (tier && ['verified', 'certified', 'enterprise'].includes(tier)) {
+          const { error: updateErr } = await supabase
+            .from('providers')
+            .update({
+              tier,
+              stripe_subscription_id: session.subscription || null,
+              subscription_status: 'active',
+              tier_updated_at: new Date().toISOString(),
+            })
+            .eq('id', providerId)
+
+          if (updateErr) {
+            console.error('[stripe-webhook] provider tier update failed:', updateErr)
+          } else {
+            console.log(`[stripe-webhook] provider ${providerId} upgraded to ${tier}`)
+          }
+        } else {
+          console.warn(`[stripe-webhook] unrecognized tier "${tier}" for provider ${providerId}`)
+        }
+      }
+      // ── Placement checkout (one-time special promotion) ───────────
+      else if (placementId) {
         // Get the placement to calculate expires_at
         const { data: placement } = await supabase
           .from('special_placements')
@@ -226,6 +290,111 @@ serve(async (req: Request) => {
           }
         } catch (emailErr) {
           console.error('Receipt email failed (non-blocking):', emailErr)
+        }
+      }
+    }
+
+    // ── Subscription updated (plan change, renewal, trial end) ────
+    if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object
+      const providerId = subscription.metadata?.provider_id
+      if (providerId) {
+        const priceId = subscription.items?.data?.[0]?.price?.id
+        const newTier = priceId ? PRICE_TO_TIER[priceId] : null
+        const status = subscription.status // active, past_due, canceled, etc.
+
+        const updates: Record<string, unknown> = {
+          subscription_status: status,
+          current_period_end: subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null,
+          tier_updated_at: new Date().toISOString(),
+        }
+
+        // If the subscription is active and we can resolve the tier,
+        // update it (handles plan upgrades/downgrades).
+        if (status === 'active' && newTier) {
+          updates.tier = newTier
+        }
+        // If the subscription is canceled or unpaid, downgrade to free.
+        if (status === 'canceled' || status === 'unpaid') {
+          updates.tier = 'free'
+          updates.stripe_subscription_id = null
+        }
+
+        const { error: updateErr } = await supabase
+          .from('providers')
+          .update(updates)
+          .eq('id', providerId)
+
+        if (updateErr) {
+          console.error('[stripe-webhook] subscription.updated provider update failed:', updateErr)
+        } else {
+          console.log(`[stripe-webhook] subscription.updated for provider ${providerId}: status=${status}, tier=${updates.tier || '(unchanged)'}`)
+        }
+      }
+    }
+
+    // ── Subscription deleted (cancellation at period end or immediate) ─
+    if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object
+      const providerId = subscription.metadata?.provider_id
+
+      if (providerId) {
+        const { error: updateErr } = await supabase
+          .from('providers')
+          .update({
+            tier: 'free',
+            subscription_status: 'cancelled',
+            stripe_subscription_id: null,
+            tier_updated_at: new Date().toISOString(),
+          })
+          .eq('id', providerId)
+
+        if (updateErr) {
+          console.error('[stripe-webhook] subscription.deleted provider downgrade failed:', updateErr)
+        } else {
+          console.log(`[stripe-webhook] provider ${providerId} downgraded to free (subscription deleted)`)
+        }
+      } else {
+        // Fallback: find provider by subscription ID when metadata is missing
+        const { error: fallbackErr } = await supabase
+          .from('providers')
+          .update({
+            tier: 'free',
+            subscription_status: 'cancelled',
+            stripe_subscription_id: null,
+            tier_updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id)
+
+        if (fallbackErr) {
+          console.error('[stripe-webhook] subscription.deleted fallback update failed:', fallbackErr)
+        }
+      }
+    }
+
+    // ── Invoice payment failed (dunning) ──────────────────────────
+    if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data.object
+      const subscriptionId = invoice.subscription
+      if (subscriptionId) {
+        // Mark subscription as past_due so the UI can show a warning.
+        // We don't downgrade to free yet — Stripe's dunning retries will
+        // either recover the payment or eventually cancel the subscription
+        // (which triggers customer.subscription.deleted above).
+        const { error: updateErr } = await supabase
+          .from('providers')
+          .update({
+            subscription_status: 'past_due',
+            tier_updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscriptionId)
+
+        if (updateErr) {
+          console.error('[stripe-webhook] invoice.payment_failed update failed:', updateErr)
+        } else {
+          console.log(`[stripe-webhook] marked subscription ${subscriptionId} as past_due`)
         }
       }
     }
