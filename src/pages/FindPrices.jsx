@@ -2900,18 +2900,22 @@ export default function FindPrices() {
         );
       })()}
 
-      {/* ─── Gate state — mobile: full-viewport map + bottom sheet ─── */}
-      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && isMobile && (
-        <>
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', zIndex: 1 }}>
+      {/* ─── Mobile unified map — single instance across gate → loading → priced ─── */}
+      {!personalizedMode && isMobile && selectedLoc && (() => {
+        const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '55dvh', zIndex: 1 }}>
             <GlowMap
               allProviders={gateProviders}
-              procedures={[]}
+              procedures={hasPricedResults ? displayedProcedures : []}
+              cityAvg={hasPricedResults ? cityAvgPrice : undefined}
               city={selectedLoc.city}
               state={selectedLoc.state}
-              highlightedId={null}
-              selectedId={gateSelectedProviderGroup?.provider_id || null}
-              onPinClick={handleGatePinClick}
+              highlightedId={hasPricedResults ? hoveredProviderId : null}
+              selectedId={hasPricedResults
+                ? (selectedProviderGroup?.provider_id || null)
+                : (gateSelectedProviderGroup?.provider_id || null)}
+              onPinClick={hasPricedResults ? handlePinClick : handleGatePinClick}
               onBoundsChange={handleBoundsChange}
               onUserMovedMap={handleUserMovedMap}
               showSearchArea={showSearchArea}
@@ -2919,29 +2923,33 @@ export default function FindPrices() {
               mobileLegendTop
             />
           </div>
-          <MobileBrowseSheet
-            providers={gateProviders.map((p) => ({
-              key: p.id,
-              id: p.id,
-              provider_id: p.id,
-              provider_name: p.name || p.provider_name,
-              provider_slug: p.slug || p.provider_slug,
-              city: p.city,
-              state: p.state,
-              google_rating: p.google_rating,
-              google_review_count: p.google_review_count,
-              has_submissions: false,
-            }))}
-            mode="gate"
-            city={selectedLoc.city}
-            state={selectedLoc.state}
-            selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
-            providerCount={gateProviders.length}
-            loading={gateProvidersLoading}
-            onSelectPill={selectPill}
-            pills={PROCEDURE_PILLS}
-          />
-        </>
+        );
+      })()}
+
+      {/* ─── Gate state — mobile bottom sheet (map rendered above) ─── */}
+      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && isMobile && (
+        <MobileBrowseSheet
+          providers={gateProviders.map((p) => ({
+            key: p.id,
+            id: p.id,
+            provider_id: p.id,
+            provider_name: p.name || p.provider_name,
+            provider_slug: p.slug || p.provider_slug,
+            city: p.city,
+            state: p.state,
+            google_rating: p.google_rating,
+            google_review_count: p.google_review_count,
+            has_submissions: false,
+          }))}
+          mode="gate"
+          city={selectedLoc.city}
+          state={selectedLoc.state}
+          selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
+          providerCount={gateProviders.length}
+          loading={gateProvidersLoading}
+          onSelectPill={selectPill}
+          pills={PROCEDURE_PILLS}
+        />
       )}
 
       {/* ─── Priced header chrome ───
@@ -2988,55 +2996,36 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* ─── Mobile priced view: full-viewport map + bottom sheet ─── */}
+      {/* ─── Mobile priced view: bottom sheet (map rendered in unified block above) ─── */}
       {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
-        <>
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', zIndex: 1 }}>
-            <GlowMap
-              allProviders={gateProviders}
-              procedures={displayedProcedures}
-              cityAvg={cityAvgPrice}
-              city={selectedLoc?.city}
-              state={selectedLoc?.state}
-              highlightedId={hoveredProviderId}
-              selectedId={selectedProviderGroup?.provider_id || null}
-              onPinClick={handlePinClick}
-              onBoundsChange={handleBoundsChange}
-              onUserMovedMap={handleUserMovedMap}
-              showSearchArea={showSearchArea}
-              onSearchAreaClick={handleSearchAreaClick}
-              mobileLegendTop
-            />
-          </div>
-          <MobileBrowseSheet
-            providers={groupedProviders.map((group) => {
-              const primary = group.procedures[0];
-              return {
-                key: group.key,
-                id: group.provider_id,
-                provider_id: group.provider_id,
-                provider_name: primary.provider_name,
-                provider_slug: primary.provider_slug,
-                city: primary.city,
-                state: primary.state,
-                avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
-                submission_count: group.procedures.length,
-                verified_count: group.procedures.filter((p) => p.receipt_verified).length,
-                has_submissions: true,
-                provider_type: primary.provider_type,
-                google_rating: primary.google_rating || primary.rating,
-                google_review_count: primary.google_review_count,
-                bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
-              };
-            })}
-            mode="priced"
-            city={selectedLoc?.city}
-            state={selectedLoc?.state}
-            cityAvg={cityAvgPrice}
-            selectedProviderId={selectedProviderGroup?.provider_id || null}
-            providerCount={groupedProviders.length}
-          />
-        </>
+        <MobileBrowseSheet
+          providers={groupedProviders.map((group) => {
+            const primary = group.procedures[0];
+            return {
+              key: group.key,
+              id: group.provider_id,
+              provider_id: group.provider_id,
+              provider_name: primary.provider_name,
+              provider_slug: primary.provider_slug,
+              city: primary.city,
+              state: primary.state,
+              avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
+              submission_count: group.procedures.length,
+              verified_count: group.procedures.filter((p) => p.receipt_verified).length,
+              has_submissions: true,
+              provider_type: primary.provider_type,
+              google_rating: primary.google_rating || primary.rating,
+              google_review_count: primary.google_review_count,
+              bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
+            };
+          })}
+          mode="priced"
+          city={selectedLoc?.city}
+          state={selectedLoc?.state}
+          cityAvg={cityAvgPrice}
+          selectedProviderId={selectedProviderGroup?.provider_id || null}
+          providerCount={groupedProviders.length}
+        />
       )}
 
       {/* ─── Desktop unified split-view ───

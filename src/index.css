@@ -378,22 +378,6 @@ h1, h2, h3, h4 {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Map container — full viewport minus navbar + bottom nav on mobile.
-   `overflow: hidden` keeps the map from bleeding beyond its box and
-   `touch-action: pan-y` lets the page scroll past the container edges
-   while the map itself still owns pinch-to-zoom inside its bounds.
-   Without these, iOS Safari will fight the user's zoom gestures and
-   make the map seem to "snap back" on every pinch. */
-.map-container {
-  height: calc(100dvh - 64px);
-  overflow: hidden;
-  touch-action: pan-y;
-}
-@media (max-width: 767px) {
-  .map-container {
-    height: calc(100dvh - 64px - 56px - env(safe-area-inset-bottom, 0px));
-  }
-}
 
 /* Badge icon circle */
 .badge-icon {

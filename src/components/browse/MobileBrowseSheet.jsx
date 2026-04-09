@@ -1,8 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import MapProviderCard from '../MapProviderCard';
 
-const PEEK_Y = 55; // translateY(55%) — map visible in top ~45%
-const FULL_Y = 10; // translateY(10%) — sheet covers ~90%
+const PEEK_Y = 45; // translateY(45%) — map visible in top ~55%
+const FULL_Y = 5;  // translateY(5%) — sheet covers ~95%
 const SNAP_THRESHOLD = 15; // percentage delta to trigger snap switch
 
 export default function MobileBrowseSheet({
@@ -126,7 +126,7 @@ export default function MobileBrowseSheet({
         bottom: 0,
         left: 0,
         right: 0,
-        height: '100vh',
+        height: '100dvh',
         transform: `translateY(${translateY}%)`,
         transition: isTransitioning ? 'transform 0.3s ease' : 'none',
         borderRadius: '12px 12px 0 0',
@@ -223,7 +223,7 @@ export default function MobileBrowseSheet({
           height: 'calc(100% - 80px)',
           paddingLeft: 8,
           paddingRight: 8,
-          paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
           WebkitOverflowScrolling: 'touch',
         }}
       >
