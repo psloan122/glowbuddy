@@ -1,22 +1,77 @@
 import { useState } from 'react';
-import { Check, Star, Zap } from 'lucide-react';
+import { Check, Star } from 'lucide-react';
 
-const FREE_FEATURES = [
-  'Claim your listing',
-  'Upload your price menu',
-  'Verified badge on your profile',
-  'Flag inaccurate patient submissions',
+const TIERS = [
+  {
+    key: 'free',
+    name: 'FREE',
+    price: '$0',
+    period: '/mo',
+    features: [
+      'Claim your listing',
+      'Upload your price menu',
+      'Basic profile page',
+      'See monthly view count',
+    ],
+    buttonLabel: 'Start free',
+    buttonStyle: 'secondary',
+  },
+  {
+    key: 'verified',
+    name: 'VERIFIED',
+    price: '$99',
+    period: '/mo',
+    features: [
+      'Everything in Free',
+      'Demand intelligence — see patient price alerts',
+      'Full analytics (30 day history)',
+      'Post specials + notify matched patients',
+      'Priority search placement',
+      'Verified badge on listing',
+    ],
+    buttonLabel: 'Start for $99/mo',
+    buttonStyle: 'primary',
+  },
+  {
+    key: 'certified',
+    name: 'CERTIFIED',
+    price: '$299',
+    period: '/mo',
+    features: [
+      'Everything in Verified',
+      'Know Before You Glow Certified badge',
+      'Competitor price comparison',
+      'Featured on city price reports',
+      '90 day analytics history',
+      'Price alert targeting — reach all matching patients',
+    ],
+    buttonLabel: 'Start for $299/mo',
+    buttonStyle: 'featured',
+    featured: true,
+  },
+  {
+    key: 'enterprise',
+    name: 'ENTERPRISE',
+    price: '$799',
+    period: '/mo',
+    features: [
+      'Everything in Certified',
+      'Multi-location (up to 20 locations)',
+      'White-label monthly reports',
+      'API access to price data',
+      'Dedicated account manager',
+    ],
+    buttonLabel: 'Contact us',
+    buttonStyle: 'outline',
+  },
 ];
 
-const PRO_FEATURES = [
-  'Everything in Free',
-  'Post deals pushed to patients near you',
-  'Featured placement above organic results',
-  'Analytics — see who views your profile',
-  'Priority dispute review — 24hr response',
-  'Priority email support',
-  'Monthly performance report — emailed to you',
-];
+const TIER_BADGE_STYLE = {
+  free:       { background: '#F3F4F6', color: '#4B5563' },
+  verified:   { background: '#0F766E', color: '#fff' },
+  certified:  { background: '#7C3AED', color: '#fff' },
+  enterprise: { background: '#D4A017', color: '#fff' },
+};
 
 export default function Step5ChoosePlan({ profileData, menuCount, onComplete }) {
   const [selectedTier, setSelectedTier] = useState(null);
@@ -55,7 +110,17 @@ export default function Step5ChoosePlan({ profileData, menuCount, onComplete }) 
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-text-primary truncate">{profileData.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-text-primary truncate">{profileData.name}</p>
+              {selectedTier && (
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap"
+                  style={TIER_BADGE_STYLE[selectedTier] || TIER_BADGE_STYLE.free}
+                >
+                  {selectedTier}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-text-secondary">
               {profileData.city}{profileData.state ? `, ${profileData.state}` : ''}
               {menuCount > 0 && (
@@ -68,61 +133,74 @@ export default function Step5ChoosePlan({ profileData, menuCount, onComplete }) 
         </div>
       </div>
 
-      {/* Plan cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {/* Free plan */}
-        <button
-          type="button"
-          onClick={() => setSelectedTier('free')}
-          className={`glow-card p-5 text-left transition-all ${
-            selectedTier === 'free'
-              ? 'border-rose-accent ring-2 ring-rose-accent/20'
-              : 'hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-text-primary">Free</h3>
-            <span className="text-sm font-medium text-text-secondary">$0/mo</span>
-          </div>
-          <ul className="space-y-2.5">
-            {FREE_FEATURES.map((feature) => (
-              <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-                <Check size={16} className="text-verified flex-shrink-0 mt-0.5" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </button>
+      {/* Plan cards — 4 columns on desktop, stack on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {TIERS.map((tier) => {
+          const isSelected = selectedTier === tier.key;
+          const isFeatured = tier.featured;
 
-        {/* Pro plan */}
-        <button
-          type="button"
-          onClick={() => setSelectedTier('pro')}
-          className={`glow-card p-5 text-left transition-all relative ${
-            selectedTier === 'pro'
-              ? 'border-rose-accent ring-2 ring-rose-accent/20'
-              : 'hover:border-gray-300'
-          }`}
-        >
-          <div className="absolute -top-3 right-4 bg-rose-accent text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-            <Star size={12} /> Most Popular
-          </div>
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-lg font-bold text-text-primary">Pro</h3>
-            <span className="text-sm font-medium text-text-primary">$149/mo</span>
-          </div>
-          <p className="text-xs text-rose-accent font-medium mb-4 flex items-center gap-1">
-            <Zap size={12} /> 30-day free trial — cancel anytime
-          </p>
-          <ul className="space-y-2.5">
-            {PRO_FEATURES.map((feature) => (
-              <li key={feature} className="flex items-start gap-2 text-sm text-text-secondary">
-                <Check size={16} className="text-rose-accent flex-shrink-0 mt-0.5" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </button>
+          return (
+            <button
+              key={tier.key}
+              type="button"
+              onClick={() => setSelectedTier(tier.key)}
+              className={`glow-card p-5 text-left transition-all relative flex flex-col ${
+                isSelected
+                  ? 'ring-2 ring-rose-accent/30'
+                  : 'hover:border-gray-300'
+              }`}
+              style={isFeatured ? { borderColor: '#C94F78', borderWidth: 2 } : isSelected ? { borderColor: '#C94F78' } : undefined}
+            >
+              {/* Most popular badge */}
+              {isFeatured && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rose-accent text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <Star size={10} /> Most popular
+                </div>
+              )}
+
+              {/* Tier name + price */}
+              <div className="mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">
+                  {tier.name}
+                </h3>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-2xl font-bold text-text-primary">{tier.price}</span>
+                  <span className="text-sm text-text-secondary">{tier.period}</span>
+                </div>
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-2 flex-1">
+                {tier.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-[13px] text-text-secondary">
+                    <Check
+                      size={14}
+                      className={`flex-shrink-0 mt-0.5 ${
+                        isFeatured ? 'text-rose-accent' : 'text-verified'
+                      }`}
+                    />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Tier button indicator */}
+              <div
+                className={`mt-4 w-full py-2 rounded-full text-center text-sm font-semibold transition ${
+                  tier.buttonStyle === 'secondary'
+                    ? 'bg-gray-100 text-text-primary'
+                    : tier.buttonStyle === 'outline'
+                    ? 'border border-gray-300 text-text-primary'
+                    : tier.buttonStyle === 'featured'
+                    ? 'bg-rose-accent text-white'
+                    : 'bg-rose-accent text-white'
+                } ${isSelected ? 'opacity-100' : 'opacity-70'}`}
+              >
+                {tier.buttonLabel} &rarr;
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* CTA */}
@@ -134,10 +212,8 @@ export default function Step5ChoosePlan({ profileData, menuCount, onComplete }) 
         >
           {submitting
             ? 'Setting up your listing...'
-            : selectedTier === 'pro'
-            ? 'Start 30-day free trial'
-            : selectedTier === 'free'
-            ? 'Start with Free'
+            : selectedTier
+            ? `Continue with ${TIERS.find((t) => t.key === selectedTier)?.name || selectedTier}`
             : 'Select a plan to continue'}
         </button>
         <p className="text-xs text-text-secondary text-center">
