@@ -908,18 +908,18 @@ export default function Dashboard() {
                 color: '#111',
               }}
             >
-              New patients will bid for your availability — coming soon
+              Win new patients with targeted offers — coming soon
             </p>
             <p
               className="mt-1 text-[12px]"
               style={{ fontFamily: 'var(--font-body)', color: '#666' }}
             >
-              Join the waitlist and we&rsquo;ll notify you the moment it launches.
+              Patients post their desired treatments and budget. You review and submit an offer. Join the waitlist to be first when it launches.
             </p>
           </Link>
 
           {/* Upgrade CTA */}
-          <UpgradeCTA providerId={provider?.id} />
+          <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
         </div>
       )}
 
@@ -1039,7 +1039,7 @@ export default function Dashboard() {
 
           {/* Upgrade CTA */}
           <div className="mt-8">
-            <UpgradeCTA providerId={provider?.id} />
+            <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
           </div>
         </div>
       )}
@@ -1105,7 +1105,7 @@ export default function Dashboard() {
 
       {/* ===== SUBMISSIONS TAB ===== */}
       {activeTab === 'Submissions' && (
-        <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} />
+        <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} providerId={provider?.id} onRefresh={fetchCommunityProcedures} />
       )}
 
       {/* ===== DISPUTES TAB ===== */}
@@ -1327,7 +1327,7 @@ export default function Dashboard() {
 
           {/* Upgrade CTA */}
           <div className="mt-8">
-            <UpgradeCTA providerId={provider?.id} />
+            <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
           </div>
         </div>
       )}
@@ -1338,6 +1338,9 @@ export default function Dashboard() {
           <h2 className="text-xl font-bold text-text-primary mb-6">
             Settings
           </h2>
+
+          {/* Business Info */}
+          <BusinessInfoEditor provider={provider} setProvider={setProvider} />
 
           {/* Google Places Data */}
           {provider.google_place_id && (
@@ -1556,24 +1559,115 @@ function ActiveSpecialEditor({ provider, setProvider }) {
   );
 }
 
-function UpgradeCTA({ providerId }) {
+function BusinessInfoEditor({ provider, setProvider }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function saveField(field, value) {
+    setSaving(true);
+    setSaved(false);
+    const { data } = await supabase
+      .from('providers')
+      .update({ [field]: value || null })
+      .eq('id', provider.id)
+      .select()
+      .single();
+    if (data) setProvider(data);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const fields = [
+    { key: 'name', label: 'Practice Name', required: true },
+    { key: 'tagline', label: 'Tagline' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'website', label: 'Website' },
+    { key: 'instagram', label: 'Instagram' },
+    { key: 'address', label: 'Address' },
+    { key: 'city', label: 'City' },
+    { key: 'state', label: 'State' },
+    { key: 'zip_code', label: 'ZIP Code' },
+  ];
+
+  return (
+    <div className="glow-card p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-text-primary flex items-center gap-2">
+          <SettingsIcon size={16} className="text-text-secondary" />
+          Business Information
+        </h3>
+        {saving && <span className="text-xs text-text-secondary">Saving...</span>}
+        {saved && <span className="text-xs text-verified font-medium">Saved</span>}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {fields.map(({ key, label, required }) => (
+          <div key={key}>
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              {label}{required && ' *'}
+            </label>
+            <input
+              type="text"
+              defaultValue={provider[key] || ''}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val === (provider[key] || '')) return;
+                saveField(key, val);
+              }}
+              className={INPUT_CLASS + ' text-sm'}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4">
+        <label className="block text-xs font-medium text-text-secondary mb-1">
+          About
+        </label>
+        <textarea
+          defaultValue={provider.about || ''}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val === (provider.about || '')) return;
+            saveField('about', val);
+          }}
+          rows={3}
+          placeholder="Tell patients about your practice..."
+          className={INPUT_CLASS + ' text-sm'}
+        />
+      </div>
+      <p className="text-xs text-text-secondary mt-3">
+        Fields save automatically when you click away.
+      </p>
+    </div>
+  );
+}
+
+const UPGRADE_PATHS = {
+  free:      { target: 'verified',  label: 'Verified',   price: '$99/mo',  pitch: 'analytics, demand intel, and promoted specials' },
+  verified:  { target: 'certified', label: 'Certified',  price: '$299/mo', pitch: 'competitor comparison, city report features, and 90-day analytics' },
+  certified: { target: 'enterprise', label: 'Enterprise', price: '$799/mo', pitch: 'multi-location, API access, and a dedicated account manager' },
+};
+
+function UpgradeCTA({ providerId, tierHelpers }) {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
+
+  const path = tierHelpers ? UPGRADE_PATHS[tierHelpers.tier] : UPGRADE_PATHS.free;
+  // Don't show CTA if already at enterprise (no upgrade path)
+  if (!path) return null;
 
   async function handleUpgrade() {
     setChecking(true);
     setError('');
     const result = await createSubscriptionCheckout({
-      tier: 'verified',
+      tier: path.target,
       providerId,
     });
     if (result.simulated) {
-      // Dev mode — Stripe isn't configured yet
       setError(result.message);
     } else if (result.error) {
       setError(result.error);
     }
-    // If result.url, the browser is redirecting to Stripe
     setChecking(false);
   }
 
@@ -1582,9 +1676,9 @@ function UpgradeCTA({ providerId }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-text-primary">
-            Upgrade to Verified for analytics, demand intel, and promoted specials
+            Upgrade to {path.label} for {path.pitch}
           </p>
-          <p className="text-sm text-text-secondary">$99/mo</p>
+          <p className="text-sm text-text-secondary">{path.price}</p>
         </div>
         <button
           onClick={handleUpgrade}
@@ -1597,7 +1691,7 @@ function UpgradeCTA({ providerId }) {
               Loading...
             </span>
           ) : (
-            'Upgrade to Verified'
+            `Upgrade to ${path.label}`
           )}
         </button>
       </div>

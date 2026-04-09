@@ -23,6 +23,7 @@ export default function DashboardBeforeAfterTab({
   });
   const [beforeUrl, setBeforeUrl] = useState(null);
   const [afterUrl, setAfterUrl] = useState(null);
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function handleUploadComplete(before, after) {
@@ -45,7 +46,7 @@ export default function DashboardBeforeAfterTab({
       before_url: beforeUrl,
       after_url: afterUrl,
       caption: uploadForm.caption.trim() || null,
-      consent_confirmed: true,
+      consent_confirmed: consentConfirmed,
       consent_timestamp: new Date().toISOString(),
       status: 'active', // auto-approved for provider uploads
     });
@@ -60,6 +61,7 @@ export default function DashboardBeforeAfterTab({
     setBeforeUrl(null);
     setAfterUrl(null);
     setUploadForm({ procedureType: '', treatmentArea: '', injectorId: '', caption: '' });
+    setConsentConfirmed(false);
     setSaving(false);
     onRefresh();
   }
@@ -175,10 +177,22 @@ export default function DashboardBeforeAfterTab({
               />
             </div>
 
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentConfirmed}
+                onChange={(e) => setConsentConfirmed(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-rose-accent focus:ring-rose-accent"
+              />
+              <span className="text-sm text-text-secondary">
+                I confirm that the patient in these photos has given written consent for their images to be published.
+              </span>
+            </label>
+
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                disabled={saving || !beforeUrl || !afterUrl}
+                disabled={saving || !beforeUrl || !afterUrl || !consentConfirmed}
                 className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Photos'}

@@ -1,9 +1,45 @@
 import { useState, useMemo } from 'react';
-import { DollarSign, Star, Users, MessageSquare } from 'lucide-react';
+import { DollarSign, Star, Users, MessageSquare, Check, AlertTriangle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import StarRating from '../StarRating';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 
-export default function SubmissionsTab({ communityProcedures, pricing }) {
+export default function SubmissionsTab({ communityProcedures, pricing, providerId, onRefresh }) {
+  const [actionLoading, setActionLoading] = useState(null);
+  const [actionError, setActionError] = useState('');
+
+  async function handleConfirm(procId) {
+    setActionLoading(procId);
+    setActionError('');
+    const { error } = await supabase
+      .from('procedures')
+      .update({ provider_confirmed: true, provider_confirmed_at: new Date().toISOString() })
+      .eq('id', procId);
+    if (error) {
+      setActionError(`Could not confirm. ${error.message}`);
+    } else if (onRefresh) {
+      onRefresh();
+    }
+    setActionLoading(null);
+  }
+
+  async function handleFlag(procId, procedureType) {
+    if (!window.confirm('Flag this submission as inaccurate? This will create a dispute for review.')) return;
+    setActionLoading(procId);
+    setActionError('');
+    const { error } = await supabase.from('disputes').insert({
+      procedure_id: procId,
+      provider_id: providerId,
+      reason: 'Provider flagged as inaccurate',
+      status: 'pending',
+    });
+    if (error) {
+      setActionError(`Could not flag. ${error.message}`);
+    } else if (onRefresh) {
+      onRefresh();
+    }
+    setActionLoading(null);
+  }
   const [filterType, setFilterType] = useState('all');
   const [sort, setSort] = useState('newest');
 
@@ -141,6 +177,13 @@ export default function SubmissionsTab({ communityProcedures, pricing }) {
         </select>
       </div>
 
+      {/* Error banner */}
+      {actionError && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+          {actionError}
+        </div>
+      )}
+
       {/* Submission cards */}
       <div className="space-y-3">
         {filtered.map((proc) => {
@@ -227,9 +270,35 @@ export default function SubmissionsTab({ communityProcedures, pricing }) {
                   )}
                 </div>
 
-                {/* Created date */}
-                <div className="text-xs text-text-secondary whitespace-nowrap shrink-0">
-                  {new Date(proc.created_at).toLocaleDateString()}
+                {/* Date + Actions */}
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <span className="text-xs text-text-secondary whitespace-nowrap">
+                    {new Date(proc.created_at).toLocaleDateString()}
+                  </span>
+                  {proc.provider_confirmed ? (
+                    <span className="text-xs text-verified font-medium inline-flex items-center gap-1">
+                      <Check size={12} /> Confirmed
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleConfirm(proc.id)}
+                        disabled={actionLoading === proc.id}
+                        className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 hover:bg-green-100 transition disabled:opacity-50"
+                        title="Confirm this price is accurate"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => handleFlag(proc.id, proc.procedure_type)}
+                        disabled={actionLoading === proc.id}
+                        className="text-xs px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+                        title="Flag as inaccurate"
+                      >
+                        Flag
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

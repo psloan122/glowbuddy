@@ -9,6 +9,7 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
   const [respondingTo, setRespondingTo] = useState(null);
   const [responseText, setResponseText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const filtered =
     filter === 'needs_response'
@@ -20,14 +21,21 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
   async function handleSubmitResponse(reviewId) {
     if (!responseText.trim()) return;
     setSaving(true);
+    setError('');
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('reviews')
       .update({
         provider_response: responseText.trim(),
         provider_responded_at: new Date().toISOString(),
       })
       .eq('id', reviewId);
+
+    if (updateError) {
+      setError(`Could not save response. ${updateError.message}`);
+      setSaving(false);
+      return;
+    }
 
     setRespondingTo(null);
     setResponseText('');
@@ -61,6 +69,13 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
               Needs Response ({needsResponseCount})
             </option>
           </select>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+          {error}
         </div>
       )}
 
