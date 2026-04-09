@@ -3,8 +3,26 @@
  *
  * Only rendered when the lowest price in the result set is 20%+ below
  * the city average. The parent (FindPrices) decides whether to render
- * this and supplies the savings/units/price/avg/city props.
+ * this and supplies the savings/units/price/avg/city/unit props.
  */
+
+const UNIT_LABELS = {
+  per_unit: 'unit',
+  per_session: 'session',
+  per_area: 'area',
+  per_syringe: 'syringe',
+  per_vial: 'vial',
+  per_month: 'month',
+};
+
+function formatUnitSuffix(raw) {
+  if (!raw) return '/unit';
+  // Already formatted: "per unit" → "/unit"
+  if (raw.startsWith('per ')) return `/${raw.replace('per ', '')}`;
+  // Raw DB enum: "per_unit" → "/unit"
+  if (UNIT_LABELS[raw]) return `/${UNIT_LABELS[raw]}`;
+  return `/${raw}`;
+}
 
 export default function SavingsCallout({
   city,
@@ -12,6 +30,7 @@ export default function SavingsCallout({
   units,
   price,
   avg,
+  unit,
 }) {
   const cityLabel = (city || '').toUpperCase();
 
@@ -20,6 +39,13 @@ export default function SavingsCallout({
     if (v >= 100 || Number.isInteger(v)) return `$${Math.round(v).toLocaleString()}`;
     return `$${v.toFixed(2)}`;
   };
+
+  const suffix = formatUnitSuffix(unit);
+
+  // units_or_volume can be a number (20) or a raw DB label ("per_unit").
+  // Only show the unit count when it's actually numeric.
+  const numericUnits = Number(units);
+  const hasNumericUnits = Number.isFinite(numericUnits) && numericUnits > 0;
 
   return (
     <div
@@ -61,7 +87,7 @@ export default function SavingsCallout({
       >
         Save {fmt(savings)} vs average
       </div>
-      {units != null && price != null && avg != null && (
+      {price != null && avg != null && (
         <div
           style={{
             fontFamily: 'var(--font-body)',
@@ -70,7 +96,9 @@ export default function SavingsCallout({
             marginTop: 2,
           }}
         >
-          Based on {units} units at {fmt(price)}/unit vs {fmt(avg)}/unit avg
+          {hasNumericUnits
+            ? `Based on ${numericUnits} ${numericUnits === 1 ? suffix.slice(1) : `${suffix.slice(1)}s`} at ${fmt(price)}${suffix} vs ${fmt(avg)}${suffix} avg`
+            : `${fmt(price)}${suffix} vs ${fmt(avg)}${suffix} avg`}
         </div>
       )}
     </div>

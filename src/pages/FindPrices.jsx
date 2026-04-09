@@ -1732,6 +1732,7 @@ export default function FindPrices() {
       normalizedPrice: bestVal,
       avg: cityAvgPrice,
       units: best.units_or_volume || null,
+      unit: best.normalized_compare_unit || best.normalized_category || null,
     };
   }, [displayedProcedures, cityAvgPrice]);
 
@@ -3171,6 +3172,7 @@ export default function FindPrices() {
               units={bestDealInfo.units}
               price={bestDealInfo.normalizedPrice}
               avg={bestDealInfo.avg}
+              unit={bestDealInfo.unit}
             />
           )}
         </div>
@@ -3206,6 +3208,48 @@ export default function FindPrices() {
           selectedProviderId={selectedProviderGroup?.provider_id || null}
           providerCount={groupedProviders.length}
         />
+      )}
+
+      {/* ─── Desktop cards without map (no city selected) ─── */}
+      {!isMobile && !selectedLoc && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
+        <div
+          className="mx-auto px-4"
+          style={{ maxWidth: 860, paddingBottom: 40 }}
+        >
+          <div style={{ padding: '8px 0', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
+            {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'}
+          </div>
+          {groupedProviders.map((group) => {
+            const primary = group.procedures[0];
+            const slug =
+              primary.provider_slug ||
+              providerSlugFromParts(
+                primary.provider_name,
+                primary.city,
+                primary.state,
+              );
+            const saved = slug ? isSaved(slug) : false;
+            const isCompared = comparing.some(
+              (p) => p.id === primary.id,
+            );
+            return (
+              <div key={group.key}>
+                <PriceCard
+                  procedures={group.procedures}
+                  cityAvg={cityAvgPrice}
+                  userLat={userLat}
+                  userLng={userLng}
+                  isCompared={isCompared}
+                  onCompareToggle={() => toggleCompare(primary)}
+                  isSaved={saved}
+                  onSaveToggle={() => handleSaveToggle(primary)}
+                  comparingFull={comparing.length >= 3 && !isCompared}
+                  onProcedureDetail={handleProcedureDetail}
+                />
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* ─── Desktop unified split-view ───
