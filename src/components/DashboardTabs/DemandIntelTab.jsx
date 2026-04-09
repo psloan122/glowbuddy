@@ -223,7 +223,7 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
             Add prices on the Menu tab to start matching the patients in this city.
           </p>
           <Link
-            to="/business/dashboard?tab=Menu"
+            to="/business/dashboard?tab=menu"
             className="inline-block mt-4"
             style={{
               background: HOT_PINK,
@@ -402,7 +402,7 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
           )
         ) : (
           <Link
-            to="/business/dashboard?tab=Upgrade"
+            to="/business/dashboard?tab=settings"
             style={{
               color: HOT_PINK,
               fontFamily: FONT_BODY,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight } from 'lucide-react';
+import { Search, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import FounderStory from '../components/FounderStory';
@@ -9,8 +9,8 @@ import SpecialCard from '../components/SpecialCard';
 import SpecialOfferCard from '../components/SpecialOfferCard';
 import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
-import LoggedInHome from '../components/home/LoggedInHome';
 import { buildBrowseUrl, parseSearchQuery } from '../lib/urlParams';
+import { getProcedureLabel } from '../lib/procedureLabel';
 
 // ── Placeholder testimonials ──
 const PLACEHOLDER_TESTIMONIALS = [
@@ -177,6 +177,56 @@ export default function Home() {
   // Hero search bar query
   const [searchQuery, setSearchQuery] = useState('');
 
+  // "Find Prices" CTA banner (logged-in only, dismissable per session)
+  const [findPricesDismissed, setFindPricesDismissed] = useState(
+    () => sessionStorage.getItem('gb_find_prices_dismissed') === 'true'
+  );
+
+  // Triggered price alerts (logged-in only)
+  const [alertTrigger, setAlertTrigger] = useState(null); // single best trigger
+  const [triggerCount, setTriggerCount] = useState(0);
+  const [alertDismissed, setAlertDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Check if user already dismissed this session's banner
+    const dismissedAt = localStorage.getItem('gb_home_alert_dismissed');
+    if (dismissedAt) {
+      // Don't show again if dismissed less than 24 hours ago
+      const elapsed = Date.now() - Number(dismissedAt);
+      if (elapsed < 24 * 60 * 60 * 1000) {
+        setAlertDismissed(true);
+        return;
+      }
+    }
+
+    supabase
+      .from('price_alert_triggers')
+      .select('*, price_alerts!inner(user_id, procedure_type, brand, city, state, max_price)')
+      .eq('price_alerts.user_id', user.id)
+      .eq('was_read', false)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        setTriggerCount(data.length);
+        const first = data[0];
+        setAlertTrigger({
+          procedureType: first.price_alerts?.procedure_type,
+          brand: first.price_alerts?.brand,
+          city: first.price_alerts?.city,
+          price: first.triggered_price,
+          unit: first.triggered_unit,
+        });
+      });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function dismissAlertBanner() {
+    setAlertDismissed(true);
+    localStorage.setItem('gb_home_alert_dismissed', String(Date.now()));
+  }
+
   // Parse the freeform search bar input ("Botox in Mandeville LA") into
   // structured params and route to /browse. Falls back to the saved city
   // when the input has no city/state of its own.
@@ -308,8 +358,6 @@ export default function Home() {
     : [];
   const displayPromoted = filteredPromoted.length > 0 ? filteredPromoted : promotedSpecials;
 
-  if (user) return <LoggedInHome />;
-
   return (
     <div className="bg-cream page-enter">
       {/* ═══════════════════════════════════════════════════════
@@ -318,6 +366,37 @@ export default function Home() {
       <div className="editorial-eyebrow-strip">
         Price transparency for injectables &middot; Backed by real patient data
       </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          0B. FIND PRICES BANNER — logged-in users, dismissable
+          ═══════════════════════════════════════════════════════ */}
+      {user && !findPricesDismissed && (
+        <div
+          className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3"
+          style={{ background: '#FFF7F9', borderBottom: '0.5px solid #F5D0DC' }}
+        >
+          <Link
+            to={buildBrowseUrl({
+              city: savedCity || undefined,
+              state: savedState || undefined,
+            })}
+            className="text-[13px] font-medium"
+            style={{ color: '#C8005A' }}
+          >
+            Ready to find prices? &rarr; Browse prices{savedCity ? ` in ${savedCity}` : ' in your city'}
+          </Link>
+          <button
+            onClick={() => {
+              setFindPricesDismissed(true);
+              sessionStorage.setItem('gb_find_prices_dismissed', 'true');
+            }}
+            className="shrink-0 p-1 text-text-secondary/60 hover:text-ink transition-colors"
+            aria-label="Dismiss"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════
           1. HERO — full-bleed cream, editorial LEFT-ALIGNED
@@ -347,7 +426,7 @@ export default function Home() {
             className="font-display text-ink mb-5"
             style={{
               fontWeight: 900,
-              fontSize: 'clamp(56px, 10vw, 120px)',
+              fontSize: 'clamp(36px, 10vw, 120px)',
               lineHeight: 0.92,
               letterSpacing: '-0.02em',
               textTransform: 'uppercase',
@@ -382,14 +461,14 @@ export default function Home() {
               maxWidth: '520px',
             }}
           >
-            Search what people in your city actually paid.
+            {user ? 'Welcome back — search what people in your city actually paid.' : 'Search what people in your city actually paid.'}
           </p>
 
           {/* Search bar — left-aligned. Real input that parses
               "Botox in Mandeville LA" into structured /browse params. */}
           <form
             onSubmit={handleSearch}
-            className="flex flex-col sm:flex-row gap-2 max-w-xl mb-7"
+            className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-[600px] mb-7"
           >
             <div
               className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
@@ -413,10 +492,55 @@ export default function Home() {
             </button>
           </form>
 
+          {/* Triggered price alert banner (logged-in, unread triggers) */}
+          {user && alertTrigger && !alertDismissed && (
+            <div
+              className="flex items-center gap-2.5 max-w-xl mb-5 px-3.5 py-2.5"
+              style={{
+                background: '#FFF7F9',
+                border: '1px solid #F5D0DC',
+                borderRadius: '2px',
+              }}
+            >
+              <span className="shrink-0 text-[15px]" aria-hidden="true">&#128276;</span>
+              <p className="flex-1 text-[13px] text-ink leading-snug">
+                <span className="font-medium">
+                  {triggerCount} price alert{triggerCount !== 1 ? 's' : ''} matched
+                </span>
+                {' — '}
+                {getProcedureLabel(alertTrigger.procedureType, alertTrigger.brand)}
+                {alertTrigger.price != null && (
+                  <>
+                    {' at '}
+                    <span className="font-semibold">
+                      ${Number(alertTrigger.price).toLocaleString()}
+                      {alertTrigger.unit ? `/${alertTrigger.unit}` : ''}
+                    </span>
+                  </>
+                )}
+                {alertTrigger.city && ` in ${alertTrigger.city}`}
+              </p>
+              <Link
+                to="/alerts"
+                className="shrink-0 text-[11px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
+                style={{ letterSpacing: '0.06em' }}
+              >
+                View &rarr;
+              </Link>
+              <button
+                onClick={dismissAlertBanner}
+                className="shrink-0 text-text-secondary/60 hover:text-ink transition-colors p-0.5"
+                aria-label="Dismiss alert banner"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* Procedure pills — left-aligned. Each pill maps to a real
               PROCEDURE_PILLS slug via buildBrowseUrl, and carries the
               user's saved city forward when present. */}
-          <div className="flex flex-wrap items-center justify-start gap-1.5 mb-5">
+          <div className="flex md:flex-wrap items-center justify-start gap-1.5 mb-5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-1 px-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             {HERO_PROCS.map((proc) => (
               <Link
                 key={proc.label}
@@ -426,7 +550,7 @@ export default function Home() {
                   procedure: proc.slug,
                   brand: proc.brand,
                 })}
-                className="proc-pill proc-pill-inactive-light"
+                className="proc-pill proc-pill-inactive-light shrink-0"
               >
                 {proc.label}
               </Link>
@@ -551,9 +675,9 @@ export default function Home() {
           ═══════════════════════════════════════════════════════ */}
       {statItems.length > 0 && (
         <section className="bg-white" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
-          <div className="max-w-5xl mx-auto px-4 py-10">
+          <div className="max-w-5xl mx-auto px-4 py-10 overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             <div
-              className="grid gap-0"
+              className="flex md:grid gap-0"
               style={{ gridTemplateColumns: `repeat(${statItems.length}, 1fr)` }}
             >
               {statItems.map((item, i) => {
@@ -589,13 +713,13 @@ export default function Home() {
                   <Link
                     key={i}
                     to={item.to}
-                    className="px-4 text-center block transition-opacity hover:opacity-80"
+                    className="px-4 text-center block transition-opacity hover:opacity-80 shrink-0 min-w-[120px]"
                     style={cellStyle}
                   >
                     {body}
                   </Link>
                 ) : (
-                  <div key={i} className="px-4 text-center" style={cellStyle}>
+                  <div key={i} className="px-4 text-center shrink-0 min-w-[120px]" style={cellStyle}>
                     {body}
                   </div>
                 );
@@ -635,7 +759,7 @@ export default function Home() {
           ].map((step, i, arr) => (
             <div
               key={i}
-              className="p-6 md:p-8"
+              className="p-6 md:p-8 border-b md:border-b-0 border-[#E8E8E8] last:border-b-0"
               style={{
                 borderRight: i < arr.length - 1 ? '1px solid #E8E8E8' : 'none',
               }}
@@ -682,9 +806,9 @@ export default function Home() {
           <h2 className="editorial-headline text-center mb-10">
             What <span className="italic text-hot-pink">patients</span> are saying.
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             {PLACEHOLDER_TESTIMONIALS.map((t, i) => (
-              <div key={i} className="glow-card p-5">
+              <div key={i} className="glow-card p-5 snap-start shrink-0 w-[85vw] sm:w-[320px] md:w-auto">
                 <div className="flex items-center gap-0.5 mb-3">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} size={12} className="text-hot-pink fill-hot-pink" />
@@ -881,62 +1005,116 @@ export default function Home() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-          9. SIGN-UP CTA (logged-out users only) — hot-pink full bleed
+          9. BOTTOM CTA — hot-pink full bleed
           ═══════════════════════════════════════════════════════ */}
-      {!user && (
-        <section style={{ background: '#E8347A' }} className="py-20">
-          <div className="max-w-2xl mx-auto px-4 text-center">
-            <p
-              className="text-[10px] font-semibold uppercase mb-4"
-              style={{ letterSpacing: '0.20em', color: '#FBE4ED' }}
-            >
-              Join the Movement
-            </p>
-            <h2
-              className="font-display text-white mb-4"
-              style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05 }}
-            >
-              Stop overpaying.<br />
-              <span className="italic">Start knowing.</span>
-            </h2>
-            <p
-              className="text-[14px] mb-8 max-w-md mx-auto font-light"
-              style={{ color: 'rgba(255,255,255,0.88)' }}
-            >
-              Create a free account to set price alerts, track your treatments, and earn rewards for sharing prices.
-            </p>
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              <button
-                onClick={() => openAuthModal('signup')}
-                className="inline-flex items-center justify-center px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
-                style={{
-                  fontSize: '11px',
-                  letterSpacing: '0.14em',
-                  borderRadius: '2px',
-                  fontFamily: 'var(--font-body)',
-                }}
+      <section style={{ background: '#E8347A' }} className="py-20">
+        <div className="max-w-2xl mx-auto px-4 text-center">
+          {user ? (
+            <>
+              <p
+                className="text-[10px] font-semibold uppercase mb-4"
+                style={{ letterSpacing: '0.20em', color: '#FBE4ED' }}
               >
-                Sign up free
-              </button>
-              <Link
-                to={buildBrowseUrl({
-                  city: savedCity || undefined,
-                  state: savedState || undefined,
-                })}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors hover:bg-white hover:text-hot-pink"
-                style={{
-                  letterSpacing: '0.14em',
-                  border: '1px solid rgba(255,255,255,0.50)',
-                  borderRadius: '2px',
-                  background: 'transparent',
-                }}
+                Welcome Back
+              </p>
+              <h2
+                className="font-display text-white mb-4"
+                style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05 }}
               >
-                Find prices first
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+                Keep the data<br />
+                <span className="italic">flowing.</span>
+              </h2>
+              <p
+                className="text-[14px] mb-8 max-w-md mx-auto font-light"
+                style={{ color: 'rgba(255,255,255,0.88)' }}
+              >
+                Every price you share makes the community stronger. Log a treatment or set a price alert.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
+                <Link
+                  to="/log"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
+                  style={{
+                    fontSize: '11px',
+                    letterSpacing: '0.14em',
+                    borderRadius: '2px',
+                    fontFamily: 'var(--font-body)',
+                    minHeight: '48px',
+                  }}
+                >
+                  Log a Treatment
+                </Link>
+                <Link
+                  to="/alerts"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors hover:bg-white hover:text-hot-pink"
+                  style={{
+                    letterSpacing: '0.14em',
+                    border: '1px solid rgba(255,255,255,0.50)',
+                    borderRadius: '2px',
+                    background: 'transparent',
+                    minHeight: '48px',
+                  }}
+                >
+                  Set a Price Alert
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p
+                className="text-[10px] font-semibold uppercase mb-4"
+                style={{ letterSpacing: '0.20em', color: '#FBE4ED' }}
+              >
+                Join the Movement
+              </p>
+              <h2
+                className="font-display text-white mb-4"
+                style={{ fontWeight: 900, fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05 }}
+              >
+                Stop overpaying.<br />
+                <span className="italic">Start knowing.</span>
+              </h2>
+              <p
+                className="text-[14px] mb-8 max-w-md mx-auto font-light"
+                style={{ color: 'rgba(255,255,255,0.88)' }}
+              >
+                Create a free account to set price alerts, track your treatments, and earn rewards for sharing prices.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
+                <button
+                  onClick={() => openAuthModal('signup')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-white text-hot-pink font-semibold uppercase transition hover:bg-cream"
+                  style={{
+                    fontSize: '11px',
+                    letterSpacing: '0.14em',
+                    borderRadius: '2px',
+                    fontFamily: 'var(--font-body)',
+                    minHeight: '48px',
+                  }}
+                >
+                  Sign up free
+                </button>
+                <Link
+                  to={buildBrowseUrl({
+                    city: savedCity || undefined,
+                    state: savedState || undefined,
+                  })}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-[10px] font-semibold uppercase text-white transition-colors hover:bg-white hover:text-hot-pink"
+                  style={{
+                    letterSpacing: '0.14em',
+                    border: '1px solid rgba(255,255,255,0.50)',
+                    borderRadius: '2px',
+                    background: 'transparent',
+                    minHeight: '48px',
+                  }}
+                >
+                  Find prices first
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
 
     </div>
   );

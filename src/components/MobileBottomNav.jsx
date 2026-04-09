@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, Bell, User, Plus } from 'lucide-react';
+import { Heart, Bookmark, Search, Plus, User } from 'lucide-react';
 import { useContext } from 'react';
 import { AuthContext } from '../App';
+import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
+import { buildBrowseUrl } from '../lib/urlParams';
 
 const HIDDEN_PREFIXES = [
   '/log',
@@ -12,95 +14,111 @@ const HIDDEN_PREFIXES = [
   '/admin',
 ];
 
-// Brand colors
 const HOT_PINK = '#E8347A';
-const MUTED = '#B8A89A';
-const RULE = '#EDE8E3';
+const MUTED = '#888';
 
 export default function MobileBottomNav() {
   const location = useLocation();
   const { user, openAuthModal } = useContext(AuthContext);
 
-  // Hide on non-consumer pages
+  // Only show on mobile when logged in
+  if (!user) return null;
+
+  // Hide on routes that have their own nav
   if (HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))) return null;
 
   const path = location.pathname;
+  const search = location.search;
 
-  // Dashboard has its own QuickActionsBar
-  if (path === '/' && user) return null;
+  const savedCity = getGatingCity();
+  const savedState = getGatingState();
+  const findPricesHref = buildBrowseUrl({
+    city: savedCity || undefined,
+    state: savedState || undefined,
+  });
 
   return (
     <nav
       className="md:hidden fixed left-0 right-0 bg-white"
       style={{
-        // Pin to the physical bottom, add safe-area padding so the
-        // iOS Safari home-indicator strip doesn't swallow tap targets.
         bottom: 0,
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        borderTop: `1px solid ${RULE}`,
-        // z-index 9999 keeps us above any accidental stacking context
-        // created by page wrappers (transforms, isolation, etc.).
-        zIndex: 9999,
-        // Force our own stacking context so children are hit-testable
-        // regardless of sibling transforms on the same page.
+        borderTop: '0.5px solid #eee',
+        zIndex: 100,
         isolation: 'isolate',
-        // Guarantee we receive touch events even if an ancestor set
-        // touch-action or pointer-events to something restrictive.
         touchAction: 'manipulation',
         pointerEvents: 'auto',
       }}
     >
-      <div className="flex items-end justify-around px-2" style={{ height: 56 }}>
+      <div className="flex items-end justify-around px-2" style={{ height: 64 }}>
+        {/* My Glow */}
         <NavTab
-          to="/"
-          icon={Home}
-          label="Home"
-          active={path === '/'}
-        />
-        <NavTab
-          to="/browse"
-          icon={Search}
-          label="Prices"
-          active={path === '/browse' || path.startsWith('/browse') || path.startsWith('/prices')}
+          to="/my-treatments"
+          icon={Heart}
+          label="My Glow"
+          active={path === '/my-treatments' || path.startsWith('/my/')}
         />
 
-        {/* Center [+] — flat hot-pink circle, lifted -12px above the nav */}
-        <div className="flex flex-col items-center" style={{ marginTop: -12 }}>
+        {/* Saved */}
+        <NavTab
+          to="/alerts"
+          icon={Bookmark}
+          label="Saved"
+          active={path === '/alerts'}
+        />
+
+        {/* Center: FIND PRICES — elevated pink circle */}
+        <div className="flex flex-col items-center" style={{ marginTop: -20 }}>
           <Link
-            to="/log"
+            to={findPricesHref}
             className="flex items-center justify-center text-white"
             style={{
               backgroundColor: HOT_PINK,
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               borderRadius: '50%',
-              boxShadow: 'none',
+              boxShadow: '0 4px 12px rgba(232, 52, 122, 0.4)',
             }}
-            aria-label="Share what you paid"
+            aria-label="Find Prices"
           >
-            <Plus size={22} strokeWidth={2.5} />
+            <Search size={24} strokeWidth={2.5} />
           </Link>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              fontFamily: 'var(--font-body)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.10em',
+              color: HOT_PINK,
+              marginTop: 3,
+            }}
+          >
+            Find Prices
+          </span>
         </div>
 
+        {/* Log It */}
         <NavTab
-          to="/alerts"
-          icon={Bell}
-          label="Alerts"
-          active={path === '/alerts'}
+          to="/log"
+          icon={Plus}
+          label="Log It"
+          active={path === '/log'}
         />
+
+        {/* Account */}
         <NavTab
-          to={user ? '/my-treatments' : undefined}
+          to="/settings"
           icon={User}
-          label="Me"
-          active={path.startsWith('/my') || path === '/settings' || path === '/rewards'}
-          onClick={!user ? () => openAuthModal('signup') : undefined}
+          label="Account"
+          active={path === '/settings' || path === '/account' || path === '/rewards'}
         />
       </div>
     </nav>
   );
 }
 
-function NavTab({ to, icon: Icon, label, active, onClick }) {
+function NavTab({ to, icon: Icon, label, active }) {
   const color = active ? HOT_PINK : MUTED;
   const labelStyle = {
     fontSize: 10,
@@ -111,19 +129,12 @@ function NavTab({ to, icon: Icon, label, active, onClick }) {
     color,
   };
 
-  const cls = 'flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors';
-
-  if (onClick) {
-    return (
-      <button onClick={onClick} className={cls} style={{ color }}>
-        <Icon size={22} />
-        <span style={labelStyle}>{label}</span>
-      </button>
-    );
-  }
-
   return (
-    <Link to={to} className={cls} style={{ color }}>
+    <Link
+      to={to}
+      className="flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors"
+      style={{ color }}
+    >
       <Icon size={22} />
       <span style={labelStyle}>{label}</span>
     </Link>

@@ -1,3 +1,5 @@
+// TODO: Remove LoggedInHome and its dashboard sub-components after Account page is stable.
+// The homepage no longer gates on auth — Account.jsx now owns all personalized content.
 import { useState, useEffect, useContext } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getUserAlerts } from '../../lib/priceAlerts';

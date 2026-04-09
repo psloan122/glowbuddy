@@ -12,6 +12,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Toast from './components/Toast';
 import Home from './pages/Home';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
+import BusinessContextBar from './components/BusinessContextBar';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -53,6 +54,7 @@ const StackBuilder = lazy(() => import('./pages/StackBuilder'));
 const RoutineQuiz = lazy(() => import('./pages/RoutineQuiz'));
 const ResolveDispute = lazy(() => import('./pages/ResolveDispute'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Account = lazy(() => import('./pages/Account'));
 const TreatmentTimeline = lazy(() => import('./pages/TreatmentTimeline'));
 const CalculatorPage = lazy(() => import('./pages/Calculator'));
 const CityPriceIndex = lazy(() => import('./pages/CityPriceIndex'));
@@ -225,7 +227,8 @@ function App() {
 
   function handleOnboardingComplete() {
     setShowOnboarding(false);
-    handlePostAuth();
+    navigate('/account?welcome=true');
+    showToast('Welcome to Know Before You Glow!');
   }
 
   const openAuthModal = useCallback((mode = 'signup', redirectTo = null) => {
@@ -258,7 +261,8 @@ function App() {
         <ScrollToTop />
         <Navbar />
         <SoftVerifyBanner />
-        <main id="main-content">
+        <BusinessContextBar />
+        <main id="main-content" className="pb-[80px] md:pb-0">
           {/* Per-route ErrorBoundary — a single page crash (e.g. a stale
               chunk hash on /business after a deploy, a malformed prop, a
               third-party SDK throwing) should fall back to an inline
@@ -315,7 +319,8 @@ function App() {
               <Route path="/my-stack" element={<StackBuilder />} />
               <Route path="/build-my-routine" element={<RoutineQuiz />} />
               <Route path="/resolve-dispute" element={<ResolveDispute />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/settings" element={<Navigate to="/account" replace />} />
               <Route path="/my/history" element={<TreatmentTimeline />} />
               <Route path="/calculator" element={<CalculatorPage />} />
               <Route path="/refer" element={<Refer />} />

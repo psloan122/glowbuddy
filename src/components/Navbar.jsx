@@ -38,10 +38,17 @@ const MY_GLOW_LINKS = [
   { to: '/alerts', label: 'Alerts', sub: 'Price drop notifications' },
 ];
 
-const DROPDOWNS = [
+// Base dropdowns (logged-out): all three menus
+const DROPDOWNS_ALL = [
   { key: 'discover', label: 'Discover', tagline: 'Prices, trends & deals', links: DISCOVER_LINKS },
   { key: 'community', label: 'Community', tagline: 'Real patients, real talk', links: COMMUNITY_LINKS },
   { key: 'myglow', label: 'My Glow', tagline: 'Your personal glow tracker', links: MY_GLOW_LINKS },
+];
+
+// Logged-in: merge My Glow links into Discover, drop the My Glow dropdown
+const DROPDOWNS_LOGGED_IN = [
+  { key: 'discover', label: 'Discover', tagline: 'Prices, trends & deals', links: [...DISCOVER_LINKS, ...MY_GLOW_LINKS] },
+  { key: 'community', label: 'Community', tagline: 'Real patients, real talk', links: COMMUNITY_LINKS },
 ];
 
 // ─── Desktop dropdown ───
@@ -298,7 +305,7 @@ export default function Navbar() {
                 );
               })}
 
-              {DROPDOWNS.map((dd) => (
+              {(user ? DROPDOWNS_LOGGED_IN : DROPDOWNS_ALL).map((dd) => (
                 <NavDropdown
                   key={dd.key}
                   dropdown={dd}
@@ -347,11 +354,32 @@ export default function Navbar() {
                       style={{ borderTop: '2px solid #111' }}
                     >
                       <Link
+                        to="/account"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        Account
+                      </Link>
+                      <Link
                         to="/my-treatments"
                         onClick={() => setAvatarOpen(false)}
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         My Treatments
+                      </Link>
+                      <Link
+                        to="/my-stack"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        My Stack
+                      </Link>
+                      <Link
+                        to="/budget"
+                        onClick={() => setAvatarOpen(false)}
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        Budget
                       </Link>
                       <Link
                         to="/rewards"
@@ -366,13 +394,6 @@ export default function Navbar() {
                         className="block px-4 py-2.5 text-[13px] font-medium text-hot-pink hover:bg-cream transition-colors"
                       >
                         Refer &amp; Earn $10
-                      </Link>
-                      <Link
-                        to="/settings"
-                        onClick={() => setAvatarOpen(false)}
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        Settings
                       </Link>
                       <button
                         onClick={handleSignOut}
@@ -402,14 +423,38 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* ═══ Mobile hamburger ═══ */}
-            <button
-              className="md:hidden p-2 text-ink"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Toggle menu"
-            >
-              {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            {/* ═══ Mobile menu toggle ═══ */}
+            {user ? (
+              <button
+                className="md:hidden p-1"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? (
+                  <X size={24} className="text-ink" />
+                ) : (
+                  <div
+                    className="flex items-center justify-center text-[11px] font-semibold text-white"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      backgroundColor: '#E8347A',
+                    }}
+                  >
+                    {getInitials()}
+                  </div>
+                )}
+              </button>
+            ) : (
+              <button
+                className="md:hidden p-2 text-ink"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            )}
           </div>
         </div>
       </nav>
@@ -487,7 +532,7 @@ export default function Navbar() {
             </Link>
 
             {/* Grouped sections */}
-            {DROPDOWNS.map((dd) => (
+            {(user ? DROPDOWNS_LOGGED_IN : DROPDOWNS_ALL).map((dd) => (
               <div key={dd.key} className="mt-8 pt-6 border-t border-rule">
                 <p
                   className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
@@ -541,8 +586,8 @@ export default function Navbar() {
                   <Link to="/refer" className="py-2 text-[14px] font-medium text-hot-pink" onClick={() => setMobileOpen(false)}>
                     Refer &amp; Earn $10
                   </Link>
-                  <Link to="/settings" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    Settings
+                  <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                    Account
                   </Link>
                   <button
                     onClick={handleSignOut}

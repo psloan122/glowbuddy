@@ -52,8 +52,8 @@ export async function createPlacementCheckout({ specialId, placementId, tier, we
           placementId,
           tier,
           weeks,
-          successUrl: `${window.location.origin}/business/dashboard?tab=Specials&checkout=success`,
-          cancelUrl: `${window.location.origin}/business/dashboard?tab=Specials&checkout=cancelled`,
+          successUrl: `${window.location.origin}/business/dashboard?tab=specials&checkout=success`,
+          cancelUrl: `${window.location.origin}/business/dashboard?tab=specials&checkout=cancelled`,
         }),
       }
     );

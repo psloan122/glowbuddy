@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   DollarSign,
@@ -7,16 +7,13 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Check,
   Loader2,
   AlertTriangle,
-  ArrowUpRight,
   RefreshCw,
   Star,
   Settings as SettingsIcon,
   Sparkles,
   Eye,
-  Lock,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -24,7 +21,6 @@ import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import {
-  PROCEDURE_TYPES,
   PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
 } from '../../lib/constants';
@@ -42,20 +38,13 @@ import IntegrationStats from '../../components/IntegrationStats';
 import useTier from '../../hooks/useTier';
 import FeatureGate from '../../components/FeatureGate';
 import { createSubscriptionCheckout } from '../../lib/stripe';
+import { TIER_BADGE_STYLE, TIER_BADGE_LABEL } from '../../lib/tierBadge';
+import { tabLabelFromSlug, tabSlugFromLabel } from '../../lib/businessTabs';
 
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Demand Intel', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Submissions', 'Disputes', 'Settings'];
-
-// Maps a tab label to the FEATURE_TIER_REQUIREMENTS key in useTier so the
-// tab nav can render a Lock icon when a tab requires a paid plan.
-const TAB_FEATURE = {
-  'Demand Intel':      'demand_intel',
-  'Promoted Specials': 'promoted_specials',
-  'Call Analytics':    'call_analytics',
-};
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -64,19 +53,6 @@ function getGreeting() {
   return 'Good evening';
 }
 
-const TIER_BADGE_STYLE = {
-  free:       { background: '#F3F4F6', color: '#4B5563' },
-  verified:   { background: '#0F766E', color: '#fff' },
-  certified:  { background: '#7C3AED', color: '#fff' },
-  enterprise: { background: '#D4A017', color: '#fff' },
-};
-
-const TIER_BADGE_LABEL = {
-  free:       'Free',
-  verified:   'Verified',
-  certified:  'Certified',
-  enterprise: 'Enterprise',
-};
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -85,7 +61,8 @@ export default function Dashboard() {
   const [provider, setProvider] = useState(null);
   const [ownerFirstName, setOwnerFirstName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = tabLabelFromSlug(searchParams.get('tab') || 'overview');
 
   // Demand Intel → Promoted Specials prefill handoff. When a user clicks
   // "Post a $X special" on the Demand Intel tab, we stash the suggested
@@ -298,7 +275,7 @@ export default function Dashboard() {
   // the create form again.
   function handleTabChange(tab) {
     if (specialsPrefill) setSpecialsPrefill(null);
-    setActiveTab(tab);
+    setSearchParams({ tab: tabSlugFromLabel(tab) }, { replace: true });
   }
 
   function handlePostSpecialFromDemand({ procedure_type, suggested_price }) {
@@ -306,7 +283,7 @@ export default function Dashboard() {
       treatmentName: procedure_type,
       promoPrice: String(suggested_price),
     });
-    setActiveTab('Promoted Specials');
+    setSearchParams({ tab: 'specials' }, { replace: true });
   }
 
   // --- Menu Handlers ---
@@ -695,63 +672,6 @@ export default function Dashboard() {
         <p className="text-sm text-text-secondary mt-1">
           Here&rsquo;s what&rsquo;s happening at {provider.name}
         </p>
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-text-primary">
-              {provider.name}
-            </h1>
-            <span
-              className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-              style={
-                TIER_BADGE_STYLE[tierHelpers.tier] || TIER_BADGE_STYLE.free
-              }
-            >
-              {TIER_BADGE_LABEL[tierHelpers.tier] || 'Free'}
-            </span>
-          </div>
-          <p className="text-text-secondary text-sm">
-            {provider.city}, {provider.state}{' '}
-            {provider.is_verified && (
-              <span className="inline-flex items-center gap-1 text-verified text-xs font-medium ml-1">
-                <Check size={14} /> Verified
-              </span>
-            )}
-          </p>
-        </div>
-        <Link
-          to={`/provider/${provider.slug}`}
-          className="inline-flex items-center gap-1.5 text-sm text-rose-accent hover:text-rose-dark transition font-medium"
-        >
-          View Public Profile <ArrowUpRight size={16} />
-        </Link>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-8">
-        <nav className="flex gap-6 -mb-px overflow-x-auto">
-          {TABS.map((tab) => {
-            const feature = TAB_FEATURE[tab];
-            const locked = feature && !tierHelpers.can(feature);
-            return (
-              <button
-                key={tab}
-                onClick={() => handleTabChange(tab)}
-                className={`pb-3 text-sm font-medium transition whitespace-nowrap inline-flex items-center gap-1 ${
-                  activeTab === tab
-                    ? 'border-b-2 border-rose-accent text-text-primary'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {tab}
-                {locked && <Lock size={11} />}
-              </button>
-            );
-          })}
-        </nav>
       </div>
 
       {/* Tab Content */}

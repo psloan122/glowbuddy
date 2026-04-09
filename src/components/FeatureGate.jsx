@@ -97,7 +97,7 @@ export default function FeatureGate({ feature, tierHelpers, children, fallback }
         {copy.body}
       </p>
       <Link
-        to="/business/dashboard?tab=Upgrade"
+        to="/business/dashboard?tab=settings"
         className="inline-block mt-5"
         style={{
           background: '#E8347A',
