@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Loader2, Eye, EyeOff, CheckCircle, ArrowLeft, Mail, Syringe, Trophy, Lock } from 'lucide-react';
 import { signUpWithPassword, signInWithPassword, signInWithGoogle, resetPassword, getAuthErrorMessage } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 function getPasswordStrength(password) {
   if (!password) return null;
@@ -37,6 +38,8 @@ function validateConfirm(confirm, password) {
 
 export default function AuthModal({ mode: initialMode, onClose }) {
   const [mode, setMode] = useState(initialMode || 'signup'); // signup | signin | forgot
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -72,6 +75,8 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     setError('');
     setPassword('');
     setConfirmPassword('');
+    setFirstName('');
+    setLastName('');
     setSuccess(false);
     setForgotSent(false);
     setAgreedToTerms(false);
@@ -108,10 +113,26 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     }
 
     if (mode === 'signup') {
-      const { data, error: authError } = await signUpWithPassword(email, password);
+      const trimmedFirst = firstName.trim();
+      const trimmedLast = lastName.trim();
+      const fullName = [trimmedFirst, trimmedLast].filter(Boolean).join(' ');
+      const metadata = trimmedFirst
+        ? { first_name: trimmedFirst, full_name: fullName }
+        : undefined;
+
+      const { data, error: authError } = await signUpWithPassword(email, password, metadata);
       if (authError) {
         setError(getAuthErrorMessage(authError));
       } else if (data?.user) {
+        // Save name to profiles
+        if (trimmedFirst) {
+          supabase.from('profiles').upsert({
+            id: data.user.id,
+            full_name: fullName,
+            first_name: trimmedFirst,
+            updated_at: new Date().toISOString(),
+          }).then(() => {});
+        }
         setSuccess(true);
         setHasSession(!!data.session);
         // onAuthStateChange in App.jsx handles the rest when session exists
@@ -360,6 +381,28 @@ export default function AuthModal({ mode: initialMode, onClose }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Name fields (signup only) */}
+          {mode === 'signup' && (
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
+                required
+                autoFocus
+              />
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
+              />
+            </div>
+          )}
+
           {/* Email */}
           <div>
             <input
@@ -377,7 +420,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                   : 'border-gray-200 focus:ring-rose-accent/50 focus:border-rose-accent'
               }`}
               required
-              autoFocus={mode !== 'forgot'}
+              autoFocus={mode === 'signin'}
             />
             {touched.email && fieldErrors.email && (
               <p className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.email}</p>

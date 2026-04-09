@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { Settings as SettingsIcon, Mail, Bell, Gift, Loader2, AlertTriangle, DollarSign, Sparkles } from 'lucide-react';
+import { Settings as SettingsIcon, Mail, Bell, Gift, Loader2, AlertTriangle, DollarSign, Sparkles, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
@@ -55,6 +55,10 @@ export default function Settings() {
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [nameFirst, setNameFirst] = useState('');
+  const [nameLast, setNameLast] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
   const [prefs, setPrefs] = useState({
     email_monthly_report: true,
     email_price_alerts: true,
@@ -110,7 +114,7 @@ export default function Settings() {
 
     supabase
       .from('profiles')
-      .select('email_monthly_report, email_price_alerts, email_giveaway')
+      .select('email_monthly_report, email_price_alerts, email_giveaway, first_name, full_name')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -120,6 +124,11 @@ export default function Settings() {
             email_price_alerts: data.email_price_alerts ?? true,
             email_giveaway: data.email_giveaway ?? true,
           });
+          if (data.first_name) setNameFirst(data.first_name);
+          if (data.full_name) {
+            const parts = data.full_name.split(' ');
+            if (parts.length > 1) setNameLast(parts.slice(1).join(' '));
+          }
         }
         setLoading(false);
       });
@@ -364,6 +373,61 @@ export default function Settings() {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Your Name */}
+      <div className="glow-card p-6 mt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <User size={18} className="text-rose-accent" />
+          <h2 className="text-lg font-bold text-text-primary">Your Name</h2>
+        </div>
+        <p className="text-sm text-text-secondary mb-4">
+          {nameFirst ? 'Used to personalize your dashboard and emails.' : 'Add your name to personalize your experience.'}
+        </p>
+        <div className="flex gap-3 mb-3">
+          <input
+            type="text"
+            placeholder="First name"
+            value={nameFirst}
+            onChange={(e) => { setNameFirst(e.target.value); setNameSaved(false); }}
+            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Last name"
+            value={nameLast}
+            onChange={(e) => { setNameLast(e.target.value); setNameSaved(false); }}
+            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              const trimmedFirst = nameFirst.trim();
+              const trimmedLast = nameLast.trim();
+              if (!trimmedFirst) return;
+              setNameSaving(true);
+              setNameSaved(false);
+              const fullName = [trimmedFirst, trimmedLast].filter(Boolean).join(' ');
+              await supabase.from('profiles').update({
+                first_name: trimmedFirst,
+                full_name: fullName,
+              }).eq('user_id', user.id);
+              // Also update user_metadata so auth-email-hook can use it
+              await supabase.auth.updateUser({
+                data: { first_name: trimmedFirst, full_name: fullName },
+              });
+              setNameSaving(false);
+              setNameSaved(true);
+              setTimeout(() => setNameSaved(false), 2000);
+            }}
+            disabled={nameSaving || !nameFirst.trim()}
+            className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
+          >
+            {nameSaving ? 'Saving...' : 'Save'}
+          </button>
+          {nameSaved && <span className="text-xs text-green-600">Saved</span>}
         </div>
       </div>
 

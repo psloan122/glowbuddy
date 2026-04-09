@@ -67,7 +67,7 @@ export default function LoggedInHome() {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('display_name, avatar_url')
+        .select('first_name, full_name, display_name, avatar_url')
         .eq('id', userId)
         .single();
       setProfile(data);
@@ -205,7 +205,7 @@ export default function LoggedInHome() {
     <div className="max-w-6xl mx-auto px-4 py-6 pb-24 lg:pb-6">
       {/* Header */}
       <DashboardHeader
-        displayName={profile?.display_name}
+        displayName={profile?.first_name || profile?.display_name}
         email={user?.email}
         city={city}
         state={state}

@@ -68,11 +68,12 @@ export function getAuthErrorMessage(error) {
  * Sign up with email + password. Creates the account and logs in immediately.
  * Supabase sends a verification email in the background (non-blocking).
  */
-export async function signUpWithPassword(email, password) {
+export async function signUpWithPassword(email, password, metadata) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      data: metadata || undefined,
       emailRedirectTo: `${window.location.origin}/verified`,
     },
   });

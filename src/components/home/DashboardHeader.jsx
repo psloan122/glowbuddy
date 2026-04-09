@@ -11,15 +11,13 @@ function getGreeting() {
 export default function DashboardHeader({ displayName, email, city, state }) {
   const firstName = displayName
     ? displayName.split(' ')[0]
-    : email
-      ? email.split('@')[0]
-      : '';
+    : 'there';
 
   return (
     <div className="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <h1 className="text-[22px] md:text-[28px] font-bold text-text-primary leading-tight">
-          {getGreeting()}, {firstName}.
+        <h1 className="text-[24px] font-medium text-text-primary leading-tight">
+          {getGreeting()}, {firstName}
         </h1>
         {city && state ? (
           <Link

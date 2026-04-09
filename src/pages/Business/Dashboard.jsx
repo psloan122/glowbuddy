@@ -39,6 +39,8 @@ import CallVolumeChart from '../../components/CallVolumeChart';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import IntegrationStats from '../../components/IntegrationStats';
 import useTier from '../../hooks/useTier';
+import FeatureGate from '../../components/FeatureGate';
+import { createSubscriptionCheckout } from '../../lib/stripe';
 
 
 const INPUT_CLASS =
@@ -53,6 +55,13 @@ const TAB_FEATURE = {
   'Promoted Specials': 'promoted_specials',
   'Call Analytics':    'call_analytics',
 };
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'Good morning';
+  if (h >= 12 && h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 const TIER_BADGE_STYLE = {
   free:       { background: '#F3F4F6', color: '#4B5563' },
@@ -73,6 +82,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const [provider, setProvider] = useState(null);
+  const [ownerFirstName, setOwnerFirstName] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Overview');
 
@@ -155,15 +165,18 @@ export default function Dashboard() {
       // Ensure profile role is synced (may have been missed during onboarding)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, first_name, full_name')
         .eq('id', user.id)
         .single();
 
-      if (profile && profile.role !== 'provider') {
-        await supabase
-          .from('profiles')
-          .update({ role: 'provider' })
-          .eq('id', user.id);
+      if (profile) {
+        setOwnerFirstName(profile.first_name || (profile.full_name ? profile.full_name.split(' ')[0] : ''));
+        if (profile.role !== 'provider') {
+          await supabase
+            .from('profiles')
+            .update({ role: 'provider' })
+            .eq('id', user.id);
+        }
       }
     }
 
@@ -673,6 +686,16 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Greeting */}
+      <div className="mb-6">
+        <h1 className="text-[24px] font-medium text-text-primary">
+          {getGreeting()}, {ownerFirstName || 'there'}
+        </h1>
+        <p className="text-sm text-text-secondary mt-1">
+          Here&rsquo;s what&rsquo;s happening at {provider.name}
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -896,7 +919,7 @@ export default function Dashboard() {
           </Link>
 
           {/* Upgrade CTA */}
-          <UpgradeCTA />
+          <UpgradeCTA providerId={provider?.id} />
         </div>
       )}
 
@@ -1016,7 +1039,7 @@ export default function Dashboard() {
 
           {/* Upgrade CTA */}
           <div className="mt-8">
-            <UpgradeCTA />
+            <UpgradeCTA providerId={provider?.id} />
           </div>
         </div>
       )}
@@ -1032,20 +1055,16 @@ export default function Dashboard() {
 
       {/* ===== PROMOTED SPECIALS TAB ===== */}
       {activeTab === 'Promoted Specials' && (
-        tierHelpers.can('promoted_specials') ? (
+        <FeatureGate feature="promoted_specials" tierHelpers={tierHelpers}>
           <SpecialsManager provider={provider} prefill={specialsPrefill} />
-        ) : (
-          <UpgradeGate feature="promoted_specials" />
-        )
+        </FeatureGate>
       )}
 
       {/* ===== CALL ANALYTICS TAB ===== */}
       {activeTab === 'Call Analytics' && (
-        tierHelpers.can('call_analytics') ? (
+        <FeatureGate feature="call_analytics" tierHelpers={tierHelpers}>
           <CallAnalyticsTab providerId={provider?.id} />
-        ) : (
-          <UpgradeGate feature="call_analytics" />
-        )
+        </FeatureGate>
       )}
 
       {/* ===== INTEGRATIONS TAB ===== */}
@@ -1308,7 +1327,7 @@ export default function Dashboard() {
 
           {/* Upgrade CTA */}
           <div className="mt-8">
-            <UpgradeCTA />
+            <UpgradeCTA providerId={provider?.id} />
           </div>
         </div>
       )}
@@ -1537,95 +1556,55 @@ function ActiveSpecialEditor({ provider, setProvider }) {
   );
 }
 
-function UpgradeCTA() {
+function UpgradeCTA({ providerId }) {
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleUpgrade() {
+    setChecking(true);
+    setError('');
+    const result = await createSubscriptionCheckout({
+      tier: 'verified',
+      providerId,
+    });
+    if (result.simulated) {
+      // Dev mode — Stripe isn't configured yet
+      setError(result.message);
+    } else if (result.error) {
+      setError(result.error);
+    }
+    // If result.url, the browser is redirecting to Stripe
+    setChecking(false);
+  }
+
   return (
     <div className="glow-card p-5 bg-gradient-to-r from-rose-light/40 to-warm-white border border-rose-accent/20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-text-primary">
-            Upgrade to Pro for analytics, deals, and featured placement
+            Upgrade to Verified for analytics, demand intel, and promoted specials
           </p>
-          <p className="text-sm text-text-secondary">$149/mo</p>
+          <p className="text-sm text-text-secondary">$99/mo</p>
         </div>
         <button
-          onClick={() => alert('Stripe integration coming soon')}
-          className="bg-rose-accent text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-rose-dark transition shrink-0"
+          onClick={handleUpgrade}
+          disabled={checking}
+          className="bg-rose-accent text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-rose-dark transition shrink-0 disabled:opacity-50"
         >
-          Upgrade to Pro
+          {checking ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" />
+              Loading...
+            </span>
+          ) : (
+            'Upgrade to Verified'
+          )}
         </button>
       </div>
+      {error && (
+        <p className="text-sm mt-2" style={{ color: '#991B1B' }}>{error}</p>
+      )}
     </div>
   );
 }
 
-// Inline upgrade gate shown when a free-tier provider lands on a paid tab.
-// Phase 2 will replace the alert() with a real Stripe checkout flow.
-const GATE_COPY = {
-  promoted_specials: {
-    title: 'Promoted Specials are a Verified feature',
-    body: 'Reach patients searching in your area with featured placements above organic results.',
-  },
-  call_analytics: {
-    title: 'Call Analytics is a Verified feature',
-    body: 'See which marketing channels drive real phone calls — with full call history, durations, and outcomes.',
-  },
-};
-
-function UpgradeGate({ feature }) {
-  const copy = GATE_COPY[feature] || {
-    title: 'This is a Verified feature',
-    body: 'Upgrade to unlock the rest of the dashboard.',
-  };
-  return (
-    <div
-      style={{
-        background: '#FFFCF7',
-        border: '1px solid #EDE8E3',
-        borderTop: '3px solid #E8347A',
-        borderRadius: '2px',
-        padding: '32px',
-        textAlign: 'center',
-      }}
-    >
-      <p
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 900,
-          fontSize: '22px',
-          color: '#111',
-          margin: 0,
-        }}
-      >
-        {copy.title}
-      </p>
-      <p
-        className="mt-2 mx-auto"
-        style={{
-          fontFamily: 'var(--font-body)',
-          color: '#666',
-          fontSize: '14px',
-          maxWidth: '480px',
-        }}
-      >
-        {copy.body}
-      </p>
-      <Link
-        to="/business/dashboard?tab=Upgrade"
-        className="inline-block mt-5"
-        style={{
-          background: '#E8347A',
-          color: '#fff',
-          fontFamily: 'var(--font-body)',
-          fontWeight: 700,
-          fontSize: '12px',
-          letterSpacing: '0.10em',
-          textTransform: 'uppercase',
-          padding: '12px 22px',
-          borderRadius: '2px',
-        }}
-      >
-        Upgrade to Verified
-      </Link>
-    </div>
-  );
-}

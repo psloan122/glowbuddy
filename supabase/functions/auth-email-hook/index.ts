@@ -106,8 +106,11 @@ interface AuthEmail {
   html: string
 }
 
-function buildRecoveryEmail(confirmUrl: string): AuthEmail {
+function buildRecoveryEmail(confirmUrl: string, greeting: string): AuthEmail {
   const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting}
+    </p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
       Reset your password
     </h1>
@@ -125,8 +128,11 @@ function buildRecoveryEmail(confirmUrl: string): AuthEmail {
   }
 }
 
-function buildSignupEmail(confirmUrl: string): AuthEmail {
+function buildSignupEmail(confirmUrl: string, greeting: string): AuthEmail {
   const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting}
+    </p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
       Welcome to Know Before You Glow
     </h1>
@@ -144,8 +150,11 @@ function buildSignupEmail(confirmUrl: string): AuthEmail {
   }
 }
 
-function buildMagicLinkEmail(confirmUrl: string): AuthEmail {
+function buildMagicLinkEmail(confirmUrl: string, greeting: string): AuthEmail {
   const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting}
+    </p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
       Your login link
     </h1>
@@ -163,8 +172,11 @@ function buildMagicLinkEmail(confirmUrl: string): AuthEmail {
   }
 }
 
-function buildEmailChangeEmail(confirmUrl: string): AuthEmail {
+function buildEmailChangeEmail(confirmUrl: string, greeting: string): AuthEmail {
   const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting}
+    </p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
       Confirm email change
     </h1>
@@ -205,17 +217,19 @@ Deno.serve(async (req: Request) => {
 
     const confirmUrl = buildConfirmUrl(emailData)
     const actionType = emailData.email_action_type
+    const firstName: string = user.user_metadata?.first_name || ''
+    const greeting = firstName ? `Hi ${firstName},` : 'Hi there,'
 
     let email: AuthEmail | null = null
 
     if (actionType === 'recovery') {
-      email = buildRecoveryEmail(confirmUrl)
+      email = buildRecoveryEmail(confirmUrl, greeting)
     } else if (actionType === 'signup') {
-      email = buildSignupEmail(confirmUrl)
+      email = buildSignupEmail(confirmUrl, greeting)
     } else if (actionType === 'magic_link' || actionType === 'magiclink') {
-      email = buildMagicLinkEmail(confirmUrl)
+      email = buildMagicLinkEmail(confirmUrl, greeting)
     } else if (actionType === 'email_change') {
-      email = buildEmailChangeEmail(confirmUrl)
+      email = buildEmailChangeEmail(confirmUrl, greeting)
     } else {
       // Unknown type — let Supabase handle it (return success so it doesn't retry)
       console.log(`[auth-email-hook] Unhandled action type "${actionType}", skipping`)
