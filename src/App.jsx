@@ -14,6 +14,8 @@ import Home from './pages/Home';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
+import RouteErrorFallback from './components/RouteErrorFallback';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
 
@@ -255,12 +257,25 @@ function App() {
         <Navbar />
         <SoftVerifyBanner />
         <main id="main-content">
-          <Suspense fallback={
-            <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C94F78', fontSize: '14px' }}>
-              Loading...
-            </div>
-          }>
-            <Routes>
+          {/* Per-route ErrorBoundary — a single page crash (e.g. a stale
+              chunk hash on /business after a deploy, a malformed prop, a
+              third-party SDK throwing) should fall back to an inline
+              "this section broke" message inside the app shell, NOT the
+              full-page "Oops" that nukes Navbar/Footer/auth state. The
+              root boundary in main.jsx still catches anything that
+              escapes this one. */}
+          <ErrorBoundary
+            label="route"
+            fallback={({ error, reset }) => (
+              <RouteErrorFallback error={error} reset={reset} />
+            )}
+          >
+            <Suspense fallback={
+              <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C94F78', fontSize: '14px' }}>
+                Loading...
+              </div>
+            }>
+              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/browse" element={<FindPrices />} />
               <Route path="/log" element={<Log />} />
@@ -321,8 +336,9 @@ function App() {
               <Route path="/business/my-bids" element={<BusinessMyBids />} />
               <Route path="/glow-fund" element={<GlowFund />} />
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </main>
         <Footer />
 
