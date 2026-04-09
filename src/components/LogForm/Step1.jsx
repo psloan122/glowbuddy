@@ -8,6 +8,7 @@ import {
   AVG_PRICES,
 } from '../../lib/constants';
 import { getCity, getState } from '../../lib/gating';
+import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -127,6 +128,9 @@ export default function Step1({ formData, setFormData }) {
               Avg price nationally: <span className="font-medium">${avgPrice.avg.toLocaleString()}{avgPrice.unit}</span>
             </p>
           )}
+
+          {/* Don't see your treatment? — inline suggest form. */}
+          <SuggestTreatmentBlock variant="soft" source="log_step1" />
         </div>
 
         {/* Treatment area */}

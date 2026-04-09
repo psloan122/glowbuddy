@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   TREATMENT_NAMES,
@@ -15,15 +15,16 @@ import SpecialPreview from './SpecialPreview';
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm';
 
-export default function CreateSpecialForm({ provider, onComplete, onCancel }) {
-  const [treatmentName, setTreatmentName] = useState('');
+export default function CreateSpecialForm({ provider, defaultValues, onComplete, onCancel }) {
+  const [treatmentName, setTreatmentName] = useState(defaultValues?.treatmentName ?? '');
   const [customTreatment, setCustomTreatment] = useState('');
-  const [promoPrice, setPromoPrice] = useState('');
-  const [priceUnit, setPriceUnit] = useState('unit');
+  const [promoPrice, setPromoPrice] = useState(defaultValues?.promoPrice ?? '');
+  const [priceUnit, setPriceUnit] = useState(defaultValues?.priceUnit ?? 'unit');
   const [headline, setHeadline] = useState('');
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(1);
   const [tier, setTier] = useState('featured');
+  const [notifyAlerts, setNotifyAlerts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -74,6 +75,7 @@ export default function CreateSpecialForm({ provider, onComplete, onCancel }) {
         starts_at: now.toISOString(),
         ends_at: endsAt.toISOString(),
         placement_tier: tier,
+        notify_alerts: notifyAlerts,
         is_active: false, // Activated after payment
       })
       .select()
@@ -134,6 +136,31 @@ export default function CreateSpecialForm({ provider, onComplete, onCancel }) {
           ends_at: expiresAt.toISOString(),
         })
         .eq('id', special.id);
+
+      // Fire-and-forget: fan out SMS to matching price alerts. The
+      // Stripe-paid path triggers the same call from the webhook so
+      // we only do it here for the simulated/dev mode.
+      if (notifyAlerts) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-price-alert`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session?.access_token || ''}`,
+              },
+              body: JSON.stringify({ special_id: special.id }),
+            },
+          ).catch((err) => {
+            // Don't block special creation on a notification failure.
+            console.warn('[CreateSpecialForm] notify-price-alert failed:', err);
+          });
+        } catch (err) {
+          console.warn('[CreateSpecialForm] notify-price-alert dispatch failed:', err);
+        }
+      }
 
       onComplete?.();
     } else if (checkoutResult?.error) {
@@ -290,6 +317,32 @@ export default function CreateSpecialForm({ provider, onComplete, onCancel }) {
             weeks={weeks}
             onChange={setTier}
           />
+        </div>
+
+        {/* Notify matching price-alert subscribers */}
+        <div className="rounded-xl border border-gray-200 bg-rose-50/40 p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={notifyAlerts}
+              onChange={(e) => setNotifyAlerts(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-rose-accent cursor-pointer"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5">
+                <Bell size={14} className="text-rose-accent" />
+                <span className="text-sm font-medium text-text-primary">
+                  Text matching patients
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+                When this special goes live, GlowBuddy will SMS verified
+                patients in your city whose price alerts match this
+                treatment and price. Each patient is texted at most once
+                per special and can reply STOP to opt out.
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Total + Submit */}

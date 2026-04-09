@@ -256,6 +256,21 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
     const trimmed = q.trim();
     if (!trimmed) { setCityResults([]); return; }
 
+    // Phone area-code detection — first-time users sometimes type their
+    // 3-digit area code into the location input thinking it's a "city
+    // ID". Catch the 3-digit case explicitly and surface a friendly
+    // hint instead of falling through to the city ilike search.
+    if (/^\d{3}$/.test(trimmed)) {
+      setCityResults([{ kind: 'areaCodeHint' }]);
+      return;
+    }
+
+    // 4-digit numeric — keep typing your zip.
+    if (/^\d{4}$/.test(trimmed)) {
+      setCityResults([{ kind: 'partialZipHint' }]);
+      return;
+    }
+
     // Zip code path. Uses the centralized resolver so EVERY US zip
     // works — zippopotam first, Google Geocoding fallback for the long
     // tail (new zips, IRS PO box zips, rural-route consolidations).
@@ -418,17 +433,33 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
                   <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                   <input
                     type="text"
-                    placeholder="City, town, or zip code"
+                    placeholder="City or zip code (e.g. Miami FL)"
                     value={cityQuery}
                     onChange={(e) => handleCityInput(e.target.value)}
                     onFocus={() => cityQuery.trim() && setCityOpen(true)}
                     className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
                   />
                 </div>
-                {cityOpen && cityQuery.trim().length >= 2 && (
+                {cityOpen && cityQuery.trim().length >= 1 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-30 overflow-hidden">
                     {cityLoading ? (
                       <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                    ) : cityResults.length > 0 && cityResults[0].kind === 'areaCodeHint' ? (
+                      <div className="px-4 py-3 text-sm" style={{ color: '#888', lineHeight: 1.5 }}>
+                        <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>
+                          Looks like a phone area code.
+                        </p>
+                        <p>
+                          Try typing your city name instead — e.g.{' '}
+                          <span style={{ color: '#C94F78', fontWeight: 500 }}>Miami FL</span>,{' '}
+                          <span style={{ color: '#C94F78', fontWeight: 500 }}>Mandeville LA</span>,{' '}
+                          or a full 5-digit zip code.
+                        </p>
+                      </div>
+                    ) : cityResults.length > 0 && cityResults[0].kind === 'partialZipHint' ? (
+                      <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                        Keep typing &mdash; US zip codes are 5 digits.
+                      </div>
                     ) : cityResults.length > 0 ? (
                       cityResults.map((loc, i) => (
                         <button
@@ -440,9 +471,9 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
                           {loc.city}, {loc.state}
                         </button>
                       ))
-                    ) : (
+                    ) : cityQuery.trim().length >= 2 ? (
                       <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </>

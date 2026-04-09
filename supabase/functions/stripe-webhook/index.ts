@@ -129,6 +129,36 @@ serve(async (req: Request) => {
               is_active: true,
             })
             .eq('id', specialId)
+
+          // Fan out SMS to matching price-alert subscribers if the
+          // provider opted in. notify-price-alert is idempotent (it
+          // dedupes against alert_notifications), so a webhook retry
+          // can't double-text anyone. Fire-and-forget — a notification
+          // failure must never roll back the paid placement.
+          try {
+            const { data: specialFlag } = await supabase
+              .from('provider_specials')
+              .select('notify_alerts')
+              .eq('id', specialId)
+              .maybeSingle()
+
+            if (specialFlag?.notify_alerts) {
+              const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+              const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+              fetch(`${SUPABASE_URL}/functions/v1/notify-price-alert`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({ special_id: specialId }),
+              }).catch((err) => {
+                console.error('[stripe-webhook] notify-price-alert dispatch failed:', err)
+              })
+            }
+          } catch (notifyErr) {
+            console.error('[stripe-webhook] notify-price-alert lookup failed:', notifyErr)
+          }
         }
 
         // Send receipt email to the provider (fire-and-forget)

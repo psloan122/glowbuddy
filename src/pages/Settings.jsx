@@ -6,13 +6,14 @@ import { signOut } from '../lib/auth';
 import { AuthContext } from '../App';
 import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES, PROCEDURE_PILLS } from '../lib/constants';
 import useUserPreferences from '../hooks/useUserPreferences';
+import PhoneVerificationCard from '../components/PhoneVerificationCard';
 
 // Brand chips surfaced under Treatment Preferences so users can opt into
 // specific brands (Botox vs Dysport) alongside the category pill. These
 // match provider_pricing.brand values exactly.
 const BRAND_OPTIONS = [
-  { category: 'Neurotoxins', brands: ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify'] },
-  { category: 'Fillers',     brands: ['Juvederm', 'Restylane', 'Sculptra', 'Radiesse'] },
+  { category: 'Botox & more', brands: ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify'] },
+  { category: 'Fillers',      brands: ['Juvederm', 'Restylane', 'Sculptra', 'Radiesse'] },
 ];
 
 const BUDGET_RANGES = [
@@ -222,6 +223,11 @@ export default function Settings() {
             <span className="text-xs text-green-600">Saved</span>
           )}
         </div>
+      </div>
+
+      {/* Phone + SMS preferences — needed for the price-alert fan-out */}
+      <div className="mt-6">
+        <PhoneVerificationCard />
       </div>
 
       {/* Treatment Preferences */}

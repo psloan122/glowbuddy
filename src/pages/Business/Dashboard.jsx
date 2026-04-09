@@ -16,6 +16,7 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Eye,
+  Lock,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -33,15 +34,39 @@ import DashboardReviewsTab from '../../components/DashboardTabs/ReviewsTab';
 import SpecialsManager from '../../components/SpecialsManager';
 import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
 import SubmissionsTab from '../../components/DashboardTabs/SubmissionsTab';
+import DemandIntelTab from '../../components/DashboardTabs/DemandIntelTab';
 import CallVolumeChart from '../../components/CallVolumeChart';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import IntegrationStats from '../../components/IntegrationStats';
+import useTier from '../../hooks/useTier';
 
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-const TABS = ['Overview', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Submissions', 'Disputes', 'Settings'];
+const TABS = ['Overview', 'Demand Intel', 'Menu', 'Promoted Specials', 'Call Analytics', 'Integrations', 'Injectors', 'Before & Afters', 'Reviews', 'Submissions', 'Disputes', 'Settings'];
+
+// Maps a tab label to the FEATURE_TIER_REQUIREMENTS key in useTier so the
+// tab nav can render a Lock icon when a tab requires a paid plan.
+const TAB_FEATURE = {
+  'Demand Intel':      'demand_intel',
+  'Promoted Specials': 'promoted_specials',
+  'Call Analytics':    'call_analytics',
+};
+
+const TIER_BADGE_STYLE = {
+  free:       { background: '#F3F4F6', color: '#4B5563' },
+  verified:   { background: '#0F766E', color: '#fff' },
+  certified:  { background: '#7C3AED', color: '#fff' },
+  enterprise: { background: '#D4A017', color: '#fff' },
+};
+
+const TIER_BADGE_LABEL = {
+  free:       'Free',
+  verified:   'Verified',
+  certified:  'Certified',
+  enterprise: 'Enterprise',
+};
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -50,6 +75,14 @@ export default function Dashboard() {
   const [provider, setProvider] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Overview');
+
+  // Demand Intel → Promoted Specials prefill handoff. When a user clicks
+  // "Post a $X special" on the Demand Intel tab, we stash the suggested
+  // values here, jump to the Promoted Specials tab, and pass them to
+  // SpecialsManager so the Create form opens pre-filled.
+  const [specialsPrefill, setSpecialsPrefill] = useState(null);
+
+  const tierHelpers = useTier(provider);
 
   // Menu state
   const [pricing, setPricing] = useState([]);
@@ -245,6 +278,22 @@ export default function Dashboard() {
       fetchPageViewAnalytics();
     }
   }, [provider, fetchPricing, fetchDisputes, fetchCommunityProcedures, fetchInjectors, fetchBAPhotos, fetchDashReviews, fetchPageViewAnalytics]);
+
+  // Single tab-change entry point. Clears the specials prefill on every
+  // tab switch so revisiting Promoted Specials later doesn't auto-open
+  // the create form again.
+  function handleTabChange(tab) {
+    if (specialsPrefill) setSpecialsPrefill(null);
+    setActiveTab(tab);
+  }
+
+  function handlePostSpecialFromDemand({ procedure_type, suggested_price }) {
+    setSpecialsPrefill({
+      treatmentName: procedure_type,
+      promoPrice: String(suggested_price),
+    });
+    setActiveTab('Promoted Specials');
+  }
 
   // --- Menu Handlers ---
 
@@ -627,9 +676,19 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">
-            {provider.name}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-text-primary">
+              {provider.name}
+            </h1>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+              style={
+                TIER_BADGE_STYLE[tierHelpers.tier] || TIER_BADGE_STYLE.free
+              }
+            >
+              {TIER_BADGE_LABEL[tierHelpers.tier] || 'Free'}
+            </span>
+          </div>
           <p className="text-text-secondary text-sm">
             {provider.city}, {provider.state}{' '}
             {provider.is_verified && (
@@ -650,19 +709,24 @@ export default function Dashboard() {
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-8">
         <nav className="flex gap-6 -mb-px overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium transition whitespace-nowrap ${
-                activeTab === tab
-                  ? 'border-b-2 border-rose-accent text-text-primary'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const feature = TAB_FEATURE[tab];
+            const locked = feature && !tierHelpers.can(feature);
+            return (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`pb-3 text-sm font-medium transition whitespace-nowrap inline-flex items-center gap-1 ${
+                  activeTab === tab
+                    ? 'border-b-2 border-rose-accent text-text-primary'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {tab}
+                {locked && <Lock size={11} />}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -957,14 +1021,31 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ===== DEMAND INTEL TAB ===== */}
+      {activeTab === 'Demand Intel' && (
+        <DemandIntelTab
+          provider={provider}
+          tierHelpers={tierHelpers}
+          onPostSpecial={handlePostSpecialFromDemand}
+        />
+      )}
+
       {/* ===== PROMOTED SPECIALS TAB ===== */}
       {activeTab === 'Promoted Specials' && (
-        <SpecialsManager provider={provider} />
+        tierHelpers.can('promoted_specials') ? (
+          <SpecialsManager provider={provider} prefill={specialsPrefill} />
+        ) : (
+          <UpgradeGate feature="promoted_specials" />
+        )
       )}
 
       {/* ===== CALL ANALYTICS TAB ===== */}
       {activeTab === 'Call Analytics' && (
-        <CallAnalyticsTab providerId={provider?.id} />
+        tierHelpers.can('call_analytics') ? (
+          <CallAnalyticsTab providerId={provider?.id} />
+        ) : (
+          <UpgradeGate feature="call_analytics" />
+        )
       )}
 
       {/* ===== INTEGRATIONS TAB ===== */}
@@ -1473,6 +1554,78 @@ function UpgradeCTA() {
           Upgrade to Pro
         </button>
       </div>
+    </div>
+  );
+}
+
+// Inline upgrade gate shown when a free-tier provider lands on a paid tab.
+// Phase 2 will replace the alert() with a real Stripe checkout flow.
+const GATE_COPY = {
+  promoted_specials: {
+    title: 'Promoted Specials are a Verified feature',
+    body: 'Reach patients searching in your area with featured placements above organic results.',
+  },
+  call_analytics: {
+    title: 'Call Analytics is a Verified feature',
+    body: 'See which marketing channels drive real phone calls — with full call history, durations, and outcomes.',
+  },
+};
+
+function UpgradeGate({ feature }) {
+  const copy = GATE_COPY[feature] || {
+    title: 'This is a Verified feature',
+    body: 'Upgrade to unlock the rest of the dashboard.',
+  };
+  return (
+    <div
+      style={{
+        background: '#FFFCF7',
+        border: '1px solid #EDE8E3',
+        borderTop: '3px solid #E8347A',
+        borderRadius: '2px',
+        padding: '32px',
+        textAlign: 'center',
+      }}
+    >
+      <p
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 900,
+          fontSize: '22px',
+          color: '#111',
+          margin: 0,
+        }}
+      >
+        {copy.title}
+      </p>
+      <p
+        className="mt-2 mx-auto"
+        style={{
+          fontFamily: 'var(--font-body)',
+          color: '#666',
+          fontSize: '14px',
+          maxWidth: '480px',
+        }}
+      >
+        {copy.body}
+      </p>
+      <Link
+        to="/business/dashboard?tab=Upgrade"
+        className="inline-block mt-5"
+        style={{
+          background: '#E8347A',
+          color: '#fff',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 700,
+          fontSize: '12px',
+          letterSpacing: '0.10em',
+          textTransform: 'uppercase',
+          padding: '12px 22px',
+          borderRadius: '2px',
+        }}
+      >
+        Upgrade to Verified
+      </Link>
     </div>
   );
 }

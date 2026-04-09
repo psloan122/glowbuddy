@@ -218,7 +218,7 @@ const FEATURES = [
   },
   {
     section: 'Consumer tools',
-    name: 'First-timer treatment guides',
+    name: 'Glossary of treatment terms',
     description: 'What to expect, dosing, questions to ask.',
     goodrx: true,
     status: 'LIVE',
@@ -245,7 +245,7 @@ const FEATURES = [
     goodrx: true,
     status: 'PARTIAL',
     priority: 'P2',
-    evidence: 'tier column (free/pro/pro_trial); no $99/$299 paid ladder yet',
+    evidence: 'tier column (free/verified/certified/enterprise); Stripe checkout deferred to Phase 2',
     effort: 'M',
   },
   {

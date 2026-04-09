@@ -158,7 +158,7 @@ export function inferNeurotoxinBrand({ procedureType, brand, perUnitPrice }) {
   }
 
   return {
-    label: 'Botox / neurotoxin',
+    label: 'Botox',
     isInferred: true,
     tooltip:
       'Brand not specified by the provider — most clinics in this price range carry Botox.',

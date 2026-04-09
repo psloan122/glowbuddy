@@ -4,11 +4,19 @@ import { supabase } from '../lib/supabase';
 import SpecialCountdownBadge from './SpecialCountdownBadge';
 import CreateSpecialForm from './CreateSpecialForm';
 
-export default function SpecialsManager({ provider }) {
+export default function SpecialsManager({ provider, prefill }) {
   const [specials, setSpecials] = useState([]);
   const [placements, setPlacements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+
+  // Auto-open the create form when the parent passes a prefill payload
+  // (e.g. from the Demand Intel "Post a $X special" handoff).
+  useEffect(() => {
+    if (prefill) {
+      setShowCreate(true);
+    }
+  }, [prefill]);
 
   const fetchData = useCallback(async () => {
     if (!provider) return;
@@ -86,6 +94,7 @@ export default function SpecialsManager({ provider }) {
         </h2>
         <CreateSpecialForm
           provider={provider}
+          defaultValues={prefill}
           onComplete={handleCreateComplete}
           onCancel={() => setShowCreate(false)}
         />

@@ -16,7 +16,7 @@ import { buildBrowseUrl } from '../lib/urlParams';
 // the user's saved city/state forward into the /browse URL.
 
 const DISCOVER_LINKS = [
-  { to: '/guides', label: 'Treatment Guides', sub: 'First-timer guides for every treatment' },
+  { to: '/guides', label: 'Glossary', sub: 'Common treatments explained — no jargon' },
   { to: '/specials', label: 'Specials', sub: 'New deals from verified providers' },
   { to: '/insights', label: 'Insights', sub: 'Price trends & data' },
   { to: '/prices', label: 'City Reports', sub: 'Prices by location' },

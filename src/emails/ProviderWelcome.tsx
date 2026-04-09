@@ -26,7 +26,11 @@ export default function ProviderWelcome({
   menuCount = 8,
   tier = 'free',
 }: Props) {
-  const tierLabel = tier === 'pro_trial' ? 'Pro Trial' : 'Free';
+  const tierLabel =
+    tier === 'enterprise' ? 'Enterprise'
+    : tier === 'certified' ? 'Certified'
+    : tier === 'verified' ? 'Verified'
+    : 'Free';
   const listingUrl = `https://glowbuddy.com/provider/${slug}`;
 
   return (

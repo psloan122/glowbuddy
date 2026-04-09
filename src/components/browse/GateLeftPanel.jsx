@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { PROCEDURE_PILLS } from '../../lib/constants';
+import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
 export default function GateLeftPanel({
   city,
@@ -80,11 +81,11 @@ export default function GateLeftPanel({
           fontWeight: 300,
           fontStyle: 'italic',
           fontSize: 13,
-          color: '#888',
-          marginBottom: 24,
+          color: '#B8A89A',
+          marginBottom: 20,
         }}
       >
-        Select a treatment to compare prices &rarr;
+        Select a treatment to compare prices.
       </p>
 
       <div
@@ -175,6 +176,12 @@ export default function GateLeftPanel({
         >
           Or tap any pin on the map to explore a specific med spa.
         </p>
+
+        <SuggestTreatmentBlock
+          source="gate_left_panel"
+          city={city}
+          state={state}
+        />
       </div>
     </div>
   );

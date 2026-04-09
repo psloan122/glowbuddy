@@ -116,7 +116,7 @@ export default function ProviderProfile() {
       // 2. Try procedures by provider_slug (claimed providers)
       const { data: community } = await supabase
         .from('procedures')
-        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
+        .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, provider_slug')
         .eq('provider_slug', slug)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
@@ -130,7 +130,7 @@ export default function ProviderProfile() {
         if (state) {
           const { data: stateProcedures } = await supabase
             .from('procedures')
-            .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
+            .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, provider_slug')
             .eq('state', state)
             .eq('status', 'active')
             .order('created_at', { ascending: false })
@@ -216,6 +216,19 @@ export default function ProviderProfile() {
   // Track page view for analytics
   useEffect(() => {
     if (loading || !provider?.id) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const referrer = document.referrer || '';
+    const source =
+      params.get('from') ||
+      (referrer.includes('/browse')
+        ? 'search'
+        : referrer.includes('/city')
+        ? 'city_report'
+        : referrer === ''
+        ? 'direct'
+        : 'other');
+
     supabase
       .from('custom_events')
       .insert({
@@ -224,6 +237,9 @@ export default function ProviderProfile() {
           provider_id: provider.id,
           provider_slug: slug,
           is_claimed: provider.is_claimed || false,
+          source,
+          procedure: params.get('procedure') || null,
+          city: params.get('city') || null,
         },
       })
       .then(() => {});
@@ -477,11 +493,27 @@ export default function ProviderProfile() {
   function handleDisputeSubmitted() {
     supabase
       .from('procedures')
-      .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, trust_tier, provider_slug')
+      .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, provider_slug')
       .eq('provider_slug', slug)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .then(({ data }) => setCommunityData(data || []));
+      .then(({ data, error }) => {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[ProviderProfile] procedures refetch after dispute failed:', error);
+          try {
+            supabase.from('submission_errors').insert({
+              error_code: error.code || null,
+              error_message: `[ProviderProfile.handleDisputeSubmitted] ${error.message || ''}`,
+              payload: { provider_slug: slug },
+            });
+          } catch {
+            // submission_errors table optional
+          }
+          return;
+        }
+        setCommunityData(data || []);
+      });
   }
 
   async function handleFollowProvider() {

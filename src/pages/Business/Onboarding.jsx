@@ -249,8 +249,14 @@ export default function Onboarding() {
   }
 
   async function handleStep5Complete(selectedTier) {
-    // Create or claim the provider
-    const tier = selectedTier === 'pro' ? 'pro_trial' : 'free';
+    // Create or claim the provider. Pro signups land on the 'verified'
+    // tier with a 14-day trial; the Stripe checkout flow that converts
+    // them is wired up in Phase 2.
+    const tier = selectedTier === 'pro' ? 'verified' : 'free';
+    const trialEndsAt =
+      selectedTier === 'pro'
+        ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
 
     const googleMeta = {
       google_rating: placeData?.googleRating || null,
@@ -285,6 +291,7 @@ export default function Onboarding() {
           zip_code: profileData.zip,
           logo_url: profileData.logo_url || null,
           tier,
+          trial_ends_at: trialEndsAt,
           onboarding_completed: true,
           verification_method: verificationMethod,
           verified_at: new Date().toISOString(),
@@ -327,6 +334,7 @@ export default function Onboarding() {
           is_claimed: true,
           is_verified: true,
           tier,
+          trial_ends_at: trialEndsAt,
           onboarding_completed: true,
           verification_method: verificationMethod,
           verified_at: new Date().toISOString(),

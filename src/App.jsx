@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, createContext, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded, syncProcedureTagsToSupabase } from './lib/gating';
@@ -283,6 +283,11 @@ function App() {
               <Route path="/guides" element={<GuideIndex />} />
               <Route path="/guides/:slug" element={<GuideDetail />} />
               <Route path="/guide/:slug" element={<ProcedureGuide />} />
+              {/* Friendly alias — "Glossary of Terms" is the user-facing
+                  name for the same content. Keeps /guides as the canonical
+                  URL so existing links and SEO don't break. */}
+              <Route path="/glossary" element={<Navigate to="/guides" replace />} />
+              <Route path="/glossary/:slug" element={<Navigate to="/guides" replace />} />
               <Route path="/goals/:slug" element={<GoalDetail />} />
               <Route path="/injectors/:slugOrId" element={<InjectorProfile />} />
               <Route path="/injectors/:slugOrId/claim" element={<InjectorClaim />} />

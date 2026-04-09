@@ -70,8 +70,8 @@ export default function GuideIndex() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Treatment Guides — Everything You Need to Know | GlowBuddy';
-    const desc = 'Comprehensive first-timer guides for every aesthetic treatment. Fair prices, what to expect, questions to ask, and red flags. Botox, fillers, lasers, and more.';
+    document.title = 'Glossary of Terms — Common Treatments Explained | GlowBuddy';
+    const desc = 'A plain-English glossary of common aesthetic treatments. What they are, what they cost, and what to expect — no industry jargon. Botox, fillers, lasers, and more.';
     let meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute('content', desc);
@@ -113,10 +113,10 @@ export default function GuideIndex() {
       {/* Hero */}
       <div className="text-center mb-10">
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-text-primary mb-2">
-          Treatment Guides
+          Glossary of Terms
         </h1>
         <p className="text-lg text-text-secondary max-w-lg mx-auto">
-          Everything you need to know before your first appointment
+          Common treatments and what they mean &mdash; no industry jargon.
         </p>
       </div>
 

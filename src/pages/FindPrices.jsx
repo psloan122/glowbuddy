@@ -203,9 +203,10 @@ export default function FindPrices() {
   const [personalProviders, setPersonalProviders] = useState([]);
   const [personalLoading, setPersonalLoading] = useState(false);
 
-  // Location personalization
-  const [fallbackLabel, setFallbackLabel] = useState('');
-  const [fallbackScope, setFallbackScope] = useState(''); // 'state' | 'national'
+  // (No cross-city fallback. When a city has no prices for the chosen
+  // treatment we show the empty state with a "Be the first" CTA — we
+  // never silently substitute national results under a city headline,
+  // because that misleads users into thinking those prices are local.)
 
   // Fair price averages: { [procedure_type]: { avg, scope } }
   const [fairPriceAvgs, setFairPriceAvgs] = useState({});
@@ -247,13 +248,18 @@ export default function FindPrices() {
   const [hoveredProviderId, setHoveredProviderId] = useState(null);
   const [selectedProviderGroup, setSelectedProviderGroup] = useState(null);
 
-  // ── Gate state (no procedure selected yet) ─────────────────────────
-  // When the user has a city but no treatment, we fetch every active
-  // provider in that city so the map can render them as gray initials
-  // pins (GasBuddy-style "here's your city, explore it" discovery) and
-  // the mobile list can show provider cards below the treatment picker.
-  // Sorted by google_review_count desc so the most-reviewed med spas
-  // surface first — mirrors Yelp's "most popular" default.
+  // ── City providers (always fetched when there's a city) ────────────
+  // Every active med spa in the selected city. This is the source of
+  // truth for which pins exist on the map regardless of whether a
+  // treatment is selected — when no treatment is picked we show every
+  // provider as a gray initials pin (GasBuddy-style discovery), and
+  // when a treatment is picked the same pins recolor based on which
+  // ones have prices for that treatment. The pins NEVER disappear on
+  // procedure selection because the GlowMap reads from this list, not
+  // from the priced query. Sorted by google_review_count desc so the
+  // most-reviewed med spas surface first in the discovery list.
+  // (Variable kept named `gateProviders` to minimize diff churn — its
+  // semantics are now "city providers" regardless of gate state.)
   const [gateProviders, setGateProviders] = useState([]);
   const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
   const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
@@ -274,14 +280,16 @@ export default function FindPrices() {
     if (viewMode !== 'map') setSelectedProviderGroup(null);
   }, [viewMode]);
 
-  // Fetch providers for the gate state. Only runs when (a) there's a
-  // city picked, (b) no procedure/brand filter is active, and (c) the
-  // user isn't in personalized mode. Intentionally queries the
-  // `providers` table directly (not provider_pricing) so we surface
-  // every active med spa in the city — even the ones with zero prices
-  // logged yet. That's the whole point of the discovery experience.
+  // Fetch every active provider in the city. Runs whenever there's a
+  // city — including when a procedure/brand filter is active — so the
+  // GlowMap always has the full base layer of pins to render. The
+  // priced overlay is a separate query (`procedures`) that the map
+  // applies on top of these base pins; pins never disappear on
+  // procedure selection because they're driven by this list, not
+  // the priced query. Skips only in personalized mode (which has its
+  // own provider feed) or when there's no city.
   useEffect(() => {
-    if (personalizedMode || procFilter || brandFilter || !selectedLoc) {
+    if (personalizedMode || !selectedLoc) {
       setGateProviders([]);
       return undefined;
     }
@@ -326,7 +334,7 @@ export default function FindPrices() {
     return () => {
       cancelled = true;
     };
-  }, [personalizedMode, procFilter, brandFilter, selectedLoc?.city, selectedLoc?.state]);
+  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state]);
 
   // Clear the gate-mode bottom sheet whenever the underlying gate
   // conditions change, so a stale provider can't stay selected after
@@ -522,6 +530,25 @@ export default function FindPrices() {
     const trimmed = q.trim();
     if (!trimmed) { setLocResults([]); return; }
 
+    // Phone area-code detection — first-time users sometimes type their
+    // 3-digit area code into the location input thinking it's a "city
+    // ID". When that happens we used to fall through to the city ilike
+    // search, which returned weird matches. Catch the 3-digit case
+    // explicitly and surface a friendly hint instead of polluting the
+    // dropdown with junk.
+    if (/^\d{3}$/.test(trimmed)) {
+      setLocResults([{ kind: 'areaCodeHint' }]);
+      return;
+    }
+
+    // 4-digit numeric is also nonsense for both zips (5 digits) and
+    // area codes (3 digits) — surface a "keep typing your zip" hint
+    // so the user knows the system is waiting on the full 5 digits.
+    if (/^\d{4}$/.test(trimmed)) {
+      setLocResults([{ kind: 'partialZipHint' }]);
+      return;
+    }
+
     if (/^\d{5}$/.test(trimmed)) {
       setLocLoading(true);
       try {
@@ -646,7 +673,7 @@ export default function FindPrices() {
     function buildProcedureQuery({ city, state, zip }) {
       let query = supabase
         .from('procedures')
-        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
+        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug')
         .eq('status', 'active');
 
       if (filterProcedureTypes.length === 1) {
@@ -680,6 +707,19 @@ export default function FindPrices() {
       }
       const { data, error } = await query;
       if (error) {
+        // Never swallow schema/RLS errors silently — they hide outages like
+        // the 4-column drift that made patient prices invisible for days.
+        // eslint-disable-next-line no-console
+        console.error('[FindPrices] procedures query failed:', error);
+        try {
+          await supabase.from('submission_errors').insert({
+            error_code: error.code || null,
+            error_message: `[FindPrices.fetchProcedureRows] ${error.message || ''}`,
+            payload: { filters, brandFilter, filterProcedureTypes },
+          });
+        } catch {
+          // submission_errors may not exist on older deploys — ignore
+        }
         return [];
       }
       const activeRows = (data || []).map((r) => ({
@@ -697,7 +737,7 @@ export default function FindPrices() {
 
       let pendingQuery = supabase
         .from('procedures')
-        .select('id, procedure_type, price_paid, unit, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, trust_weight, trust_tier, status, is_anonymous, provider_slug, provider_id')
+        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug')
         .eq('user_id', user.id)
         .in('status', ['pending', 'pending_confirmation'])
         .order('created_at', { ascending: false })
@@ -714,7 +754,11 @@ export default function FindPrices() {
         pendingQuery = pendingQuery.ilike('procedure_type', `%${brandFilter}%`);
       }
 
-      const { data: pendingData } = await pendingQuery;
+      const { data: pendingData, error: pendingErr } = await pendingQuery;
+      if (pendingErr) {
+        // eslint-disable-next-line no-console
+        console.error('[FindPrices] pending procedures query failed:', pendingErr);
+      }
       const pendingRows = (pendingData || []).map((r) => ({
         ...r,
         data_source: r.data_source || 'patient_reported',
@@ -764,6 +808,17 @@ export default function FindPrices() {
 
       const { data, error } = await query;
       if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[FindPrices] provider_pricing query failed:', error);
+        try {
+          await supabase.from('submission_errors').insert({
+            error_code: error.code || null,
+            error_message: `[FindPrices.fetchProviderPricingRows] ${error.message || ''}`,
+            payload: { city, state, brandFilter, filterProcedureType },
+          });
+        } catch {
+          // submission_errors may not exist on older deploys — ignore
+        }
         return [];
       }
 
@@ -788,7 +843,6 @@ export default function FindPrices() {
           brand: row.brand || null,
           treatment_area: row.treatment_area || null,
           price_paid: Number(row.price) || 0,
-          unit: null,
           units_or_volume: row.units_or_volume || row.price_label || null,
           provider_name: provider.name || 'Unknown provider',
           provider_type: provider.provider_type || null,
@@ -801,8 +855,6 @@ export default function FindPrices() {
           receipt_verified: false,
           result_photo_url: null,
           has_receipt: false,
-          trust_weight: null,
-          trust_tier: null,
           status: 'active',
           is_anonymous: false,
           provider_slug: provider.slug || null,
@@ -936,14 +988,10 @@ export default function FindPrices() {
       if (filterProcedureTypes.length === 0) {
         setProcedures([]);
         setLoadingProcedures(false);
-        setFallbackLabel('');
-        setFallbackScope('');
         return;
       }
 
       setLoadingProcedures(true);
-      setFallbackLabel('');
-      setFallbackScope('');
 
       // Safety net: if any of the awaits below throw (network blip,
       // unexpected schema mismatch, attachProviderSpecials failure), the
@@ -981,33 +1029,23 @@ export default function FindPrices() {
         setTotalCount((procCnt.count || 0) + (provCnt.count || 0))
       );
 
-      // 1. City + state
+      // City + state — strict match only. No state-level or national
+      // fallback: silently substituting prices from other cities under
+      // a "{city} prices" headline misleads users into thinking those
+      // prices are local. When the city has no prices for the chosen
+      // treatment, we set results = [] and let SmartEmptyState render
+      // the "Be the first to share what you paid" CTA.
       let results = await fetchAtScope({
         city: filterCity,
         state: filterState,
         zip: filterZip,
       });
 
-      // 2. State-level fallback
-      if (results.length === 0 && filterCity && filterState) {
-        results = await fetchAtScope({ city: '', state: filterState, zip: '' });
-        if (results.length > 0) {
-          setFallbackLabel(filterState);
-          setFallbackScope('state');
-        }
-      }
-
-      // 3. National fallback
-      if (results.length === 0 && filterState) {
-        results = await fetchAtScope({ city: '', state: '', zip: '' });
-        if (results.length > 0) {
-          setFallbackLabel('national');
-          setFallbackScope('national');
-        }
-      }
-
-      // 4. Catch-all most-recent (no filters at all)
-      if (results.length === 0) {
+      // Catch-all most-recent — only when there is no location filter
+      // at all (the user has not picked a city or state). This is the
+      // "browsing without a city" experience, not a fallback for a
+      // missing-city result.
+      if (results.length === 0 && !filterCity && !filterState) {
         const [proc, prov] = await Promise.all([
           fetchProcedureRows({ city: '', state: '', zip: '' }),
           fetchProviderPricingRows({ city: '', state: '' }),
@@ -1019,10 +1057,6 @@ export default function FindPrices() {
               new Date(a.created_at).getTime()
           )
           .slice(0, 12);
-        if (results.length > 0 && (filterCity || filterState)) {
-          setFallbackLabel('national');
-          setFallbackScope('national');
-        }
       }
 
       let resultsWithSpecials = results;
@@ -1948,12 +1982,14 @@ export default function FindPrices() {
                   <input
                     ref={locInputRef}
                     type="text"
-                    placeholder="City or zip code"
+                    placeholder="City or zip code (e.g. Miami FL)"
                     value={locQuery}
                     onChange={(e) => handleLocInput(e.target.value)}
                     onFocus={() => locQuery.trim() && setLocOpen(true)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && locResults.length > 0) selectLocation(locResults[0]);
+                      if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
+                        selectLocation(locResults[0]);
+                      }
                       if (e.key === 'Escape') setLocOpen(false);
                     }}
                     className="w-full pl-10 pr-4 py-2.5 outline-none transition-colors focus:border-hot-pink text-sm"
@@ -1979,6 +2015,22 @@ export default function FindPrices() {
                   {locLoading ? (
                     <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">
                       Searching...
+                    </div>
+                  ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
+                    <div className="px-4 py-3 text-sm" style={{ color: '#888', lineHeight: 1.5 }}>
+                      <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>
+                        Looks like a phone area code.
+                      </p>
+                      <p>
+                        Try typing your city name instead — e.g.{' '}
+                        <span style={{ color: '#E8347A', fontWeight: 500 }}>Miami FL</span>,{' '}
+                        <span style={{ color: '#E8347A', fontWeight: 500 }}>Mandeville LA</span>,{' '}
+                        or a full 5-digit zip code.
+                      </p>
+                    </div>
+                  ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
+                    <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                      Keep typing &mdash; US zip codes are 5 digits.
                     </div>
                   ) : locResults.length > 0 ? (
                     locResults.map((loc, i) => (
@@ -2181,7 +2233,7 @@ export default function FindPrices() {
                     <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
                     <input
                       type="text"
-                      placeholder="City or zip code"
+                      placeholder="City or zip code (e.g. Miami FL)"
                       value={locQuery}
                       onChange={(e) => handleLocInput(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
@@ -2203,6 +2255,22 @@ export default function FindPrices() {
                       >
                         {locLoading ? (
                           <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+                        ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
+                          <div className="px-4 py-3 text-sm" style={{ color: '#888', lineHeight: 1.5 }}>
+                            <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>
+                              Looks like a phone area code.
+                            </p>
+                            <p>
+                              Try typing your city name instead — e.g.{' '}
+                              <span style={{ color: '#E8347A', fontWeight: 500 }}>Miami FL</span>,{' '}
+                              <span style={{ color: '#E8347A', fontWeight: 500 }}>Mandeville LA</span>,{' '}
+                              or a full 5-digit zip code.
+                            </p>
+                          </div>
+                        ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
+                          <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                            Keep typing &mdash; US zip codes are 5 digits.
+                          </div>
                         ) : locResults.length > 0 ? (
                           locResults.map((loc, i) => (
                             <button
@@ -2469,7 +2537,7 @@ export default function FindPrices() {
                 // string to "Neurotoxin" — we never want the raw combined
                 // string in the page headline.
                 const label = getProcedureLabel(procFilter?.label, brandFilter) || 'Treatment';
-                const loc = selectedLoc && !fallbackScope
+                const loc = selectedLoc
                   ? `${selectedLoc.city}, ${selectedLoc.state}`
                   : null;
                 return loc
@@ -2647,33 +2715,6 @@ export default function FindPrices() {
           </div>
         )}
 
-        {/* Fallback note */}
-        {fallbackLabel && (
-          <div
-            className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-3 mb-4 text-[13px] font-light"
-            style={{
-              background: '#FBF9F7',
-              borderLeft: '3px solid #E8347A',
-              color: '#111',
-              fontFamily: 'var(--font-body)',
-              paddingRight: 16,
-            }}
-          >
-            <span className="flex-1 min-w-0 break-words">
-              {fallbackScope === 'national'
-                ? `Showing national prices \u2014 no results found near ${filterCity || filterState}`
-                : `No prices in ${filterCity} yet \u2014 showing ${fallbackLabel} prices`}
-            </span>
-            <Link
-              to="/log"
-              className="self-start sm:self-auto sm:ml-auto shrink-0 text-[10px] font-semibold uppercase hover:opacity-80 transition-opacity"
-              style={{ color: '#E8347A', letterSpacing: '0.10em', borderBottom: '1px solid #E8347A' }}
-            >
-              Be the first
-            </Link>
-          </div>
-        )}
-
         {/* Unhappy paths only — gate, personalized, loading, empty.
             The happy path (we have results) is rendered OUTSIDE this
             900px container so the desktop split-view map can fill the
@@ -2722,39 +2763,48 @@ export default function FindPrices() {
           // here, but keep the branch so downstream cases stay correct.
           null
         ) : loadingProcedures ? (
-          <SkeletonGrid count={6} />
+          // Loading state is owned by the desktop unified split-view
+          // on desktop (so the map stays mounted with gray gate pins
+          // while procedures load). Only render the inline skeleton
+          // here on mobile.
+          isMobile ? <SkeletonGrid count={6} /> : null
         ) : displayedProcedures.length === 0 ? (
-          <SmartEmptyState
-            procedureLabel={procFilter?.label}
-            procedureSlug={procFilter?.slug}
-            procedureType={procFilter?.primary || selectedProc}
-            procedureTypes={filterProcedureTypes}
-            brand={brandFilter}
-            city={selectedLoc?.city}
-            state={selectedLoc?.state}
-          />
+          // Empty state, same story — desktop puts SmartEmptyState in
+          // the left pane of the unified split-view so the map keeps
+          // its gate pins visible alongside the empty message.
+          isMobile ? (
+            <SmartEmptyState
+              procedureLabel={procFilter?.label}
+              procedureSlug={procFilter?.slug}
+              procedureType={procFilter?.primary || selectedProc}
+              procedureTypes={filterProcedureTypes}
+              brand={brandFilter}
+              city={selectedLoc?.city}
+              state={selectedLoc?.state}
+            />
+          ) : null
         ) : null}
       </div>
         );
       })()}
 
-      {/* ─── Gate state split-view (no procedure picked yet + city set) ───
-          Desktop: inline editorial left panel + map full-height right.
-          Mobile:  soft headline → horizontal pill strip → provider list.
-          Always shows the map so the user can start exploring pins even
-          before they commit to a treatment filter (GasBuddy/Yelp pattern). */}
-      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && (
+      {/* ─── Gate state — mobile only ───
+          Mobile: soft headline → horizontal pill strip → provider list.
+          The desktop gate state lives in the unified desktop split-view
+          block below so its <GlowMap> instance is the same one the
+          priced state uses (otherwise switching from gate → priced
+          unmounts the map and pins disappear during the transition). */}
+      {!personalizedMode && !procFilter && !brandFilter && selectedLoc && isMobile && (
         <div>
-          {isMobile ? (
-            <div
-              className="mx-auto px-4"
-              style={{
-                maxWidth: 900,
-                paddingTop: 8,
-                paddingBottom:
-                  'calc(100px + env(safe-area-inset-bottom, 0px))',
-              }}
-            >
+          <div
+            className="mx-auto px-4"
+            style={{
+              maxWidth: 900,
+              paddingTop: 8,
+              paddingBottom:
+                'calc(100px + env(safe-area-inset-bottom, 0px))',
+            }}
+          >
               {/* Soft headline — no gate box. */}
               <div style={{ paddingTop: 18, paddingBottom: 10 }}>
                 <h1
@@ -2980,33 +3030,186 @@ export default function FindPrices() {
                   })}
                 </div>
               )}
-            </div>
-          ) : (
-            // Desktop gate split-view. Same shell as the priced split
-            // below so the transition from gate → results is a pin
-            // recolor, not a layout reshuffle.
+          </div>
+        </div>
+      )}
+
+      {/* ─── Priced header chrome ───
+          Renders for both mobile and desktop when there are priced
+          results. The split-view body diverges below — mobile uses the
+          list/map toggle, desktop uses the unified split-view block
+          which keeps the GlowMap mounted across the entire gate →
+          priced transition. */}
+      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
+        <div className="mx-auto px-4" style={{ maxWidth: 1400 }}>
+          <PriceContextBar
+            prices={displayedProcedures}
+            brandLabel={brandFilter || procFilter?.label}
+            city={selectedLoc?.city}
+            state={selectedLoc?.state}
+          />
+          <StickyFilterBar
+            brandPills={brandPills}
+            activeBrand={brandFilter}
+            onBrandChange={(b) => setBrandFilter(b)}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            hasPricesOnly={hasPricesOnly}
+            onHasPricesToggle={() => setHasPricesOnly((v) => !v)}
+            verifiedOnly={verifiedOnly}
+            onVerifiedToggle={() => setVerifiedOnly((v) => !v)}
+            userHasLocation={userLat != null && userLng != null}
+          />
+          <ResultsCountBar
+            count={displayedProcedures.length}
+            brandLabel={brandFilter || procFilter?.label}
+            city={selectedLoc?.city}
+            state={selectedLoc?.state}
+          />
+          {bestDealInfo && (
+            <SavingsCallout
+              city={selectedLoc?.city}
+              savings={bestDealInfo.savings}
+              units={bestDealInfo.units}
+              price={bestDealInfo.normalizedPrice}
+              avg={bestDealInfo.avg}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ─── Mobile priced split-view (list/map toggle) ───
+          Desktop priced state is rendered by the unified desktop
+          split-view block below. */}
+      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
+        <div>
+          {viewMode === 'map' ? (
             <div
-              className="mx-auto"
               style={{
-                maxWidth: 1400,
-                display: 'flex',
-                gap: 0,
-                height: 'calc(100vh - 200px)',
-                minHeight: 560,
-                overflow: 'hidden',
-                paddingLeft: 16,
-                paddingRight: 16,
+                position: 'relative',
+                height: 'calc(100vh - 220px)',
+                // Same bottom-padding logic as the list so the
+                // mobile bottom nav never overlaps the map.
+                marginBottom:
+                  'calc(80px + env(safe-area-inset-bottom, 0px))',
               }}
             >
-              <div
-                style={{
-                  width: 460,
-                  flexShrink: 0,
-                  overflowY: 'auto',
-                  paddingRight: 24,
-                  borderRight: '1px solid #EDE8E3',
-                }}
-              >
+              <GlowMap
+                allProviders={gateProviders}
+                procedures={displayedProcedures}
+                cityAvg={cityAvgPrice}
+                city={selectedLoc?.city}
+                state={selectedLoc?.state}
+                highlightedId={hoveredProviderId}
+                selectedId={selectedProviderGroup?.provider_id || null}
+                onPinClick={handlePinClick}
+              />
+              {selectedProviderGroup && (
+                <ProviderBottomSheet
+                  group={selectedProviderGroup}
+                  onClose={() => setSelectedProviderGroup(null)}
+                />
+              )}
+            </div>
+          ) : (
+            <div
+              className="mx-auto px-4"
+              style={{
+                maxWidth: 900,
+                paddingTop: 8,
+                paddingBottom:
+                  'calc(100px + env(safe-area-inset-bottom, 0px))',
+              }}
+            >
+              {groupedProviders.map((group) => {
+                const primary = group.procedures[0];
+                const slug =
+                  primary.provider_slug ||
+                  providerSlugFromParts(
+                    primary.provider_name,
+                    primary.city,
+                    primary.state,
+                  );
+                const saved = slug ? isSaved(slug) : false;
+                // Compare state is per-procedure (the cheapest one
+                // is what gets toggled), so reflect that in the
+                // button state too.
+                const isCompared = comparing.some(
+                  (p) => p.id === primary.id,
+                );
+                const selected =
+                  selectedProviderGroup?.provider_id != null &&
+                  selectedProviderGroup.provider_id === group.provider_id;
+                return (
+                  <div
+                    key={group.key}
+                    data-provider-card={group.provider_id || ''}
+                  >
+                    <PriceCard
+                      procedures={group.procedures}
+                      cityAvg={cityAvgPrice}
+                      userLat={userLat}
+                      userLng={userLng}
+                      isCompared={isCompared}
+                      onCompareToggle={() => toggleCompare(primary)}
+                      isSaved={saved}
+                      onSaveToggle={() => handleSaveToggle(primary)}
+                      comparingFull={comparing.length >= 3 && !isCompared}
+                      selected={selected}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Desktop unified split-view ───
+          The whole point of this block is that the <GlowMap> below
+          stays mounted across the entire gate → loading → priced
+          lifecycle. Previously the gate state and the priced state
+          each rendered their own <GlowMap> in completely separate JSX
+          subtrees, so picking a treatment unmounted the gate map and
+          remounted a fresh priced map (with no pins until the priced
+          query returned). Now there is exactly one map; only its
+          `procedures` overlay changes when the user picks a treatment.
+          The left pane swaps content (gate panel / skeleton / empty
+          state / price cards) but the map instance is preserved. */}
+      {!personalizedMode && !isMobile && selectedLoc && (() => {
+        const hasResults =
+          procFilter &&
+          !loadingProcedures &&
+          displayedProcedures.length > 0;
+        return (
+          <div
+            className="mx-auto"
+            style={{
+              maxWidth: 1400,
+              display: 'flex',
+              gap: 0,
+              height: hasResults
+                ? 'calc(100vh - 260px)'
+                : 'calc(100vh - 200px)',
+              minHeight: hasResults ? 520 : 560,
+              overflow: 'hidden',
+              paddingLeft: 16,
+              paddingRight: 16,
+            }}
+          >
+            {/* Left: scrollable content — content swaps but the pane
+                stays mounted so the map's flex sibling never reflows. */}
+            <div
+              style={{
+                width: 460,
+                flexShrink: 0,
+                overflowY: 'auto',
+                paddingRight: !procFilter ? 24 : 16,
+                paddingBottom: !procFilter ? 0 : 40,
+                borderRight: '1px solid #EDE8E3',
+              }}
+            >
+              {!procFilter ? (
                 <GateLeftPanel
                   city={selectedLoc.city}
                   state={selectedLoc.state}
@@ -3014,191 +3217,24 @@ export default function FindPrices() {
                   loading={gateProvidersLoading}
                   onSelectPill={selectPill}
                 />
-              </div>
-
-              <div
-                style={{
-                  flex: 1,
-                  position: 'relative',
-                  paddingLeft: 16,
-                }}
-              >
-                <GlowMap
-                  gateMode
-                  gateProviders={gateProviders}
-                  cityAvg={null}
-                  city={selectedLoc.city}
-                  state={selectedLoc.state}
-                  highlightedId={null}
-                  selectedId={gateSelectedProviderGroup?.provider_id || null}
-                  onPinClick={handleGatePinClick}
-                />
-                {gateSelectedProviderGroup && (
-                  <ProviderBottomSheet
-                    group={gateSelectedProviderGroup}
-                    gateMode
-                    onSelectPill={handleGatePillSelect}
-                    onClose={() => setGateSelectedProviderGroup(null)}
+              ) : loadingProcedures ? (
+                <div style={{ padding: '24px 8px 40px 8px' }}>
+                  <SkeletonGrid count={4} />
+                </div>
+              ) : displayedProcedures.length === 0 ? (
+                <div style={{ padding: '24px 8px 40px 8px' }}>
+                  <SmartEmptyState
+                    procedureLabel={procFilter?.label}
+                    procedureSlug={procFilter?.slug}
+                    procedureType={procFilter?.primary || selectedProc}
+                    procedureTypes={filterProcedureTypes}
+                    brand={brandFilter}
+                    city={selectedLoc?.city}
+                    state={selectedLoc?.state}
                   />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── Happy path: header chrome + split-view (desktop) /
-              toggled view (mobile) ─── */}
-      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
-        <div>
-          {/* Header chrome — clamped to ~1400 so it doesn't sprawl on
-              ultrawide monitors but does extend wider than the prior
-              900px so it lines up with the split layout below. */}
-          <div className="mx-auto px-4" style={{ maxWidth: 1400 }}>
-            <PriceContextBar
-              prices={displayedProcedures}
-              brandLabel={brandFilter || procFilter?.label}
-              city={selectedLoc?.city}
-              state={selectedLoc?.state}
-            />
-            <StickyFilterBar
-              brandPills={brandPills}
-              activeBrand={brandFilter}
-              onBrandChange={(b) => setBrandFilter(b)}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              hasPricesOnly={hasPricesOnly}
-              onHasPricesToggle={() => setHasPricesOnly((v) => !v)}
-              verifiedOnly={verifiedOnly}
-              onVerifiedToggle={() => setVerifiedOnly((v) => !v)}
-              userHasLocation={userLat != null && userLng != null}
-            />
-            <ResultsCountBar
-              count={displayedProcedures.length}
-              brandLabel={brandFilter || procFilter?.label}
-              city={selectedLoc?.city}
-              state={selectedLoc?.state}
-            />
-            {bestDealInfo && (
-              <SavingsCallout
-                city={selectedLoc?.city}
-                savings={bestDealInfo.savings}
-                units={bestDealInfo.units}
-                price={bestDealInfo.normalizedPrice}
-                avg={bestDealInfo.avg}
-              />
-            )}
-          </div>
-
-          {/* Split-view body. Desktop: list left + map right. Mobile:
-              list-or-map toggle. The split is responsive purely off
-              `isMobile` so the desktop map never has to mount on a
-              phone. */}
-          {isMobile ? (
-            viewMode === 'map' ? (
-              <div
-                style={{
-                  position: 'relative',
-                  height: 'calc(100vh - 220px)',
-                  // Same bottom-padding logic as the list so the
-                  // mobile bottom nav never overlaps the map.
-                  marginBottom:
-                    'calc(80px + env(safe-area-inset-bottom, 0px))',
-                }}
-              >
-                <GlowMap
-                  procedures={displayedProcedures}
-                  cityAvg={cityAvgPrice}
-                  city={selectedLoc?.city}
-                  state={selectedLoc?.state}
-                  highlightedId={hoveredProviderId}
-                  selectedId={selectedProviderGroup?.provider_id || null}
-                  onPinClick={handlePinClick}
-                />
-                {selectedProviderGroup && (
-                  <ProviderBottomSheet
-                    group={selectedProviderGroup}
-                    onClose={() => setSelectedProviderGroup(null)}
-                  />
-                )}
-              </div>
-            ) : (
-              <div
-                className="mx-auto px-4"
-                style={{
-                  maxWidth: 900,
-                  paddingTop: 8,
-                  paddingBottom:
-                    'calc(100px + env(safe-area-inset-bottom, 0px))',
-                }}
-              >
-                {groupedProviders.map((group) => {
-                  const primary = group.procedures[0];
-                  const slug =
-                    primary.provider_slug ||
-                    providerSlugFromParts(
-                      primary.provider_name,
-                      primary.city,
-                      primary.state,
-                    );
-                  const saved = slug ? isSaved(slug) : false;
-                  // Compare state is per-procedure (the cheapest one
-                  // is what gets toggled), so reflect that in the
-                  // button state too.
-                  const isCompared = comparing.some(
-                    (p) => p.id === primary.id,
-                  );
-                  const selected =
-                    selectedProviderGroup?.provider_id != null &&
-                    selectedProviderGroup.provider_id === group.provider_id;
-                  return (
-                    <div
-                      key={group.key}
-                      data-provider-card={group.provider_id || ''}
-                    >
-                      <PriceCard
-                        procedures={group.procedures}
-                        cityAvg={cityAvgPrice}
-                        userLat={userLat}
-                        userLng={userLng}
-                        isCompared={isCompared}
-                        onCompareToggle={() => toggleCompare(primary)}
-                        isSaved={saved}
-                        onSaveToggle={() => handleSaveToggle(primary)}
-                        comparingFull={comparing.length >= 3 && !isCompared}
-                        selected={selected}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          ) : (
-            <div
-              className="mx-auto"
-              style={{
-                maxWidth: 1400,
-                display: 'flex',
-                gap: 0,
-                height: 'calc(100vh - 260px)',
-                minHeight: 520,
-                overflow: 'hidden',
-                paddingLeft: 16,
-                paddingRight: 16,
-              }}
-            >
-              {/* Left: scrollable list */}
-              <div
-                style={{
-                  width: 460,
-                  flexShrink: 0,
-                  overflowY: 'auto',
-                  paddingRight: 16,
-                  paddingBottom: 40,
-                  borderRight: '1px solid #EDE8E3',
-                }}
-              >
-                {groupedProviders.map((group) => {
+                </div>
+              ) : (
+                groupedProviders.map((group) => {
                   const primary = group.procedures[0];
                   const slug =
                     primary.provider_slug ||
@@ -3234,31 +3270,48 @@ export default function FindPrices() {
                       />
                     </div>
                   );
-                })}
-              </div>
-
-              {/* Right: sticky map filling remaining width */}
-              <div
-                style={{
-                  flex: 1,
-                  position: 'relative',
-                  paddingLeft: 16,
-                }}
-              >
-                <GlowMap
-                  procedures={displayedProcedures}
-                  cityAvg={cityAvgPrice}
-                  city={selectedLoc?.city}
-                  state={selectedLoc?.state}
-                  highlightedId={hoveredProviderId}
-                  selectedId={selectedProviderGroup?.provider_id || null}
-                  onPinClick={handlePinClick}
-                />
-              </div>
+                })
+              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Right: stable map — same component instance for the
+                entire gate → priced lifecycle so markers never get
+                wiped. allProviders is the always-fetched base layer
+                of city pins (gray); procedures is the priced overlay
+                (colored by price tier) and is empty in gate state. */}
+            <div
+              style={{
+                flex: 1,
+                position: 'relative',
+                paddingLeft: 16,
+              }}
+            >
+              <GlowMap
+                allProviders={gateProviders}
+                procedures={procFilter ? displayedProcedures : []}
+                cityAvg={procFilter ? cityAvgPrice : null}
+                city={selectedLoc.city}
+                state={selectedLoc.state}
+                highlightedId={hoveredProviderId}
+                selectedId={
+                  procFilter
+                    ? selectedProviderGroup?.provider_id || null
+                    : gateSelectedProviderGroup?.provider_id || null
+                }
+                onPinClick={procFilter ? handlePinClick : handleGatePinClick}
+              />
+              {!procFilter && gateSelectedProviderGroup && (
+                <ProviderBottomSheet
+                  group={gateSelectedProviderGroup}
+                  gateMode
+                  onSelectPill={handleGatePillSelect}
+                  onClose={() => setGateSelectedProviderGroup(null)}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Compare tray slides up when 2+ providers are selected */}
       <CompareTray

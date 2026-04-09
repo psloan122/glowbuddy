@@ -14,14 +14,14 @@
 
 export const ALERT_PROCEDURE_GROUPS = [
   {
-    label: 'Neurotoxins',
+    label: 'Botox & more',
     options: [
       { value: 'neurotoxin:Botox',    procedureType: 'neurotoxin',  brand: 'Botox',    label: 'Botox' },
       { value: 'neurotoxin:Dysport',  procedureType: 'neurotoxin',  brand: 'Dysport',  label: 'Dysport' },
       { value: 'neurotoxin:Xeomin',   procedureType: 'neurotoxin',  brand: 'Xeomin',   label: 'Xeomin' },
       { value: 'neurotoxin:Jeuveau',  procedureType: 'neurotoxin',  brand: 'Jeuveau',  label: 'Jeuveau' },
       { value: 'neurotoxin:Daxxify',  procedureType: 'neurotoxin',  brand: 'Daxxify',  label: 'Daxxify' },
-      { value: 'neurotoxin:any',      procedureType: 'neurotoxin',  brand: null,       label: 'Any neurotoxin' },
+      { value: 'neurotoxin:any',      procedureType: 'neurotoxin',  brand: null,       label: 'Any Botox-type brand' },
     ],
   },
   {

@@ -191,7 +191,7 @@ export default function ProcedureGuide() {
       {/* Breadcrumb */}
       <Link to="/guides" className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-rose-accent transition mb-6">
         <ArrowLeft size={14} />
-        All Treatment Guides
+        Glossary of Terms
       </Link>
 
       {/* Hero */}

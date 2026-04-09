@@ -469,13 +469,13 @@ export default function Log() {
         }
       }
 
-      // Determine status based on auth and outlier
-      let status;
-      if (user) {
-        status = isOutlier ? 'pending' : 'active';
-      } else {
-        status = 'pending_confirmation';
-      }
+      // Determine status based on outlier detection. Anonymous and
+      // signed-in submissions follow the same path — there is no
+      // server-side promotion from `pending_confirmation` to `active`,
+      // and the `Public read active procedures` RLS policy only
+      // exposes rows where status='active', so anything else is a
+      // black hole that never reaches the map or profile feed.
+      const status = isOutlier ? 'pending' : 'active';
 
       // Build the procedure row to insert
       const row = {

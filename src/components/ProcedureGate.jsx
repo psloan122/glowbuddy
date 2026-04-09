@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { PROCEDURE_PILLS } from '../lib/constants';
+import SuggestTreatmentBlock from './SuggestTreatmentBlock';
 
 /**
  * Procedure-selection gate shown on the browse/map page when no procedure
@@ -57,6 +58,9 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
             onSelect={onSelect}
             compact
           />
+          <div className="text-center">
+            <SuggestTreatmentBlock source="procedure_gate_overlay" />
+          </div>
         </div>
       </div>
     );
@@ -77,6 +81,7 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
         onToggleMore={() => setMoreOpen((v) => !v)}
         onSelect={onSelect}
       />
+      <SuggestTreatmentBlock source="procedure_gate_block" />
     </div>
   );
 }

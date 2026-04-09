@@ -56,80 +56,6 @@ const PRICE_COLORS = {
   highlight: '#111111', // black, when hovered/selected
 };
 
-// Group merged feed rows by provider_id (or provider_name+city as a
-// fallback when provider_id is missing — patient submissions sometimes
-// don't have one). Returns an array sorted by best-quality first so we
-// can take the top N pins without losing the most useful providers.
-function groupByProvider(rows, cityAvg) {
-  if (!Array.isArray(rows) || rows.length === 0) return [];
-
-  const map = new Map();
-  for (const r of rows) {
-    if (r.provider_lat == null || r.provider_lng == null) continue;
-    const key = r.provider_id || `${r.provider_name}|${r.city}|${r.state}`;
-    if (!map.has(key)) {
-      map.set(key, {
-        key,
-        provider_id: r.provider_id || null,
-        provider_slug: r.provider_slug || null,
-        provider_name: r.provider_name || 'Unknown',
-        city: r.city || '',
-        state: r.state || '',
-        lat: Number(r.provider_lat),
-        lng: Number(r.provider_lng),
-        rating: r.rating || null,
-        rows: [],
-        bestRow: null,
-      });
-    }
-    const entry = map.get(key);
-    entry.rows.push(r);
-    // Track the row whose normalized comparable value (or raw price) is
-    // lowest — that becomes the headline price on the pin.
-    const v = Number(
-      r.normalized_compare_value != null && Number.isFinite(Number(r.normalized_compare_value))
-        ? r.normalized_compare_value
-        : r.price_paid,
-    );
-    if (Number.isFinite(v) && v > 0) {
-      const best = entry.bestRow;
-      const bestV = best
-        ? Number(
-            best.normalized_compare_value != null && Number.isFinite(Number(best.normalized_compare_value))
-              ? best.normalized_compare_value
-              : best.price_paid,
-          )
-        : Infinity;
-      if (v < bestV) entry.bestRow = r;
-    }
-  }
-
-  const groups = [...map.values()].map((g) => {
-    const v = g.bestRow
-      ? Number(
-          g.bestRow.normalized_compare_value != null && Number.isFinite(Number(g.bestRow.normalized_compare_value))
-            ? g.bestRow.normalized_compare_value
-            : g.bestRow.price_paid,
-        )
-      : null;
-    return { ...g, bestPrice: Number.isFinite(v) ? v : null };
-  });
-
-  // Sort: pins with prices first, then by how good the deal is vs avg
-  // (lowest first), then by rating. Ties at the end fall back to name.
-  groups.sort((a, b) => {
-    const ah = a.bestPrice != null ? 1 : 0;
-    const bh = b.bestPrice != null ? 1 : 0;
-    if (ah !== bh) return bh - ah;
-    if (a.bestPrice != null && b.bestPrice != null) {
-      return a.bestPrice - b.bestPrice;
-    }
-    return (b.rating || 0) - (a.rating || 0);
-  });
-
-  return groups;
-}
-
 function colorForGroup(group, cityAvg) {
   if (group.bestPrice == null) return PRICE_COLORS.noPrice;
   if (!cityAvg || cityAvg <= 0) return PRICE_COLORS.good;
@@ -222,15 +148,24 @@ function fmtShortPrice(n) {
 }
 
 export default function GlowMap({
-  procedures,
+  // Always-mounted base layer: every active provider in the current
+  // city. Source of truth for which pins exist on the map. NEVER
+  // filtered by procedure — that would make pins disappear when the
+  // user selects a treatment. Selection is reflected in `procedures`.
+  allProviders = [],
+  // Optional priced rows for the currently-selected treatment. When
+  // empty (gate state), every provider renders as a gray initials
+  // pin. When populated, providers with matching prices are recolored
+  // and labeled with their best price; the rest stay gray. The map
+  // never wipes and rebuilds — markers are reconciled in place by
+  // provider key, so picking a treatment is a recolor, not a remount.
+  procedures = [],
   cityAvg,
   city,
   state,
   highlightedId,
   selectedId,
   onPinClick,
-  gateMode = false,
-  gateProviders,
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -238,6 +173,17 @@ export default function GlowMap({
   const userInteracted = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef = useRef(null);
+  // Latest click handler stored on a ref so the markers effect doesn't
+  // need to re-run (and re-create every marker) when the parent passes
+  // a new function reference. Listeners read from the ref at click time.
+  const onPinClickRef = useRef(onPinClick);
+  useEffect(() => {
+    onPinClickRef.current = onPinClick;
+  }, [onPinClick]);
+  // Has any priced data ever been rendered on the current map? Used
+  // to decide whether to show the legend (priced) or the gate hint
+  // (no prices yet).
+  const hasPrices = Array.isArray(procedures) && procedures.length > 0;
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState(null);
 
@@ -254,10 +200,20 @@ export default function GlowMap({
           zoom: 11,
           center: { lat: 39.5, lng: -98.35 }, // US fallback
           gestureHandling: 'greedy',
+          // Every chrome control is explicitly disabled. The defaults
+          // include a Street View pegman, a map-type toggle, and a
+          // rotate/tilt compass — any one of which can render as a
+          // small thumbnail-looking artifact in the corner of the
+          // canvas. We want a clean map with only the zoom buttons.
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          rotateControl: false,
+          scaleControl: false,
+          panControl: false,
+          keyboardShortcuts: false,
           clickableIcons: false,
+          draggableCursor: 'default',
           zoomControlOptions: {
             position: window.google.maps.ControlPosition.RIGHT_CENTER,
           },
@@ -352,156 +308,239 @@ export default function GlowMap({
   }, [ready, city, state]);
 
   // ── Render pins ─────────────────────────────────────────────────────
-  // Re-runs whenever the merged feed (or gate provider list) changes.
-  // Priced mode caps at 40 markers (Airbnb research). Gate mode has no
-  // price sorting to do — we just render every active provider in the
-  // city as a gray initials pin so the user can browse the scene.
+  //
+  // Single source of truth: `allProviders`. We build one marker per
+  // provider in the city, keyed stably by provider id, and reconcile
+  // against the existing markers — only providers added/removed since
+  // last render touch the map. Picking a treatment changes `procedures`
+  // (the price overlay), which recolors and labels the matching pins
+  // without ever wiping markers off the canvas.
+  //
+  // This effect intentionally does NOT depend on `highlightedId`/
+  // `selectedId` — those are handled by the lightweight highlight
+  // effect below so a hover state change doesn't rebuild every marker.
   useEffect(() => {
     if (!ready || !mapInstanceRef.current || !window.google) return;
 
-    // Wipe existing markers cleanly. Setting map to null detaches them
-    // from the canvas; dropping the array lets the GC reclaim them.
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
-
-    // Gate mode: render gray initials pins from gateProviders. No price
-    // labels, no color coding, no 40-pin cap — the point is discovery.
-    if (gateMode) {
-      const list = Array.isArray(gateProviders) ? gateProviders : [];
-      if (list.length === 0) return;
-
-      const bounds = new window.google.maps.LatLngBounds();
-      let boundsHasPoints = false;
-
-      list.forEach((p) => {
-        if (p.lat == null || p.lng == null) return;
-        const initials = providerInitials(p.name || p.provider_name || '');
-        const group = {
-          key: p.id || `${p.name}|${p.city}|${p.state}`,
-          provider_id: p.id || null,
-          provider_slug: p.slug || null,
-          provider_name: p.name || p.provider_name || 'Unknown',
-          city: p.city || '',
-          state: p.state || '',
-          lat: Number(p.lat),
-          lng: Number(p.lng),
-          rating: p.google_rating ?? p.rating ?? null,
-          google_review_count: p.google_review_count ?? null,
-          rows: [],
-          bestRow: null,
-          bestPrice: null,
-        };
-        const isHighlighted =
-          group.provider_id != null &&
-          (group.provider_id === highlightedId || group.provider_id === selectedId);
-
-        const marker = new window.google.maps.Marker({
-          position: { lat: group.lat, lng: group.lng },
-          map: mapInstanceRef.current,
-          title: group.provider_name,
-          icon: buildGatePinIcon({ initials, highlighted: isHighlighted }),
-          zIndex: isHighlighted ? 1000 : 60,
-        });
-
-        marker.__glowGroup = group;
-        marker.__glowGate = true;
-        marker.__glowInitials = initials;
-
-        marker.addListener('click', () => {
-          onPinClick?.(group);
-        });
-
-        markersRef.current.push(marker);
-        bounds.extend({ lat: group.lat, lng: group.lng });
-        boundsHasPoints = true;
-      });
-
-      // In gate mode the geocoder has already centered on the city —
-      // same rule as priced mode. Only fitBounds as a fallback when the
-      // geocoder hasn't set the viewport (shouldn't normally happen in
-      // gate mode because gate mode requires a city, but defensive).
-      if (
-        boundsHasPoints &&
-        !userInteracted.current &&
-        !initialCenteredRef.current &&
-        list.length > 1
-      ) {
-        mapInstanceRef.current.fitBounds(bounds, 64);
-        const listener = window.google.maps.event.addListenerOnce(
-          mapInstanceRef.current,
-          'idle',
-          () => {
-            if (mapInstanceRef.current && mapInstanceRef.current.getZoom() > 14) {
-              mapInstanceRef.current.setZoom(14);
-            }
-          },
-        );
-        return () => window.google.maps.event.removeListener(listener);
-      }
-      return;
+    // Index allProviders by a `provider_name|city|state` composite
+    // key so procedures rows that don't carry a `provider_id` (e.g.
+    // raw patient submissions to the `procedures` table, which has
+    // no provider_id column at all) can still be resolved to a real
+    // provider record. Mirrors the fallback key FindPrices uses for
+    // grouping at the list level, so map + list stay in sync.
+    const providerCompositeKey = (name, city, state) =>
+      `${(name || '').trim().toLowerCase()}|${(city || '').trim().toLowerCase()}|${(state || '').trim().toLowerCase()}`;
+    const providerByComposite = new Map();
+    for (const p of Array.isArray(allProviders) ? allProviders : []) {
+      if (!p) continue;
+      const compKey = providerCompositeKey(p.name || p.provider_name, p.city, p.state);
+      if (compKey !== '||') providerByComposite.set(compKey, p);
     }
 
-    if (!procedures || procedures.length === 0) return;
+    // Build a price index from `procedures`, keyed by provider_id, so
+    // we can decide each pin's icon/label in a single pass over
+    // allProviders. Mirrors the old groupByProvider sort behavior so
+    // ranking (best deal first) is preserved when capping label slots.
+    const priceByProviderId = new Map();
+    for (const r of procedures || []) {
+      let pid = r.provider_id || null;
+      if (!pid) {
+        // Patient submissions don't carry provider_id — resolve via
+        // the composite-key fallback against allProviders instead of
+        // silently dropping the row off the map.
+        const match = providerByComposite.get(
+          providerCompositeKey(r.provider_name, r.city, r.state),
+        );
+        if (match?.id) pid = match.id;
+      }
+      if (!pid) continue;
+      if (!priceByProviderId.has(pid)) {
+        priceByProviderId.set(pid, { rows: [], bestRow: null });
+      }
+      const entry = priceByProviderId.get(pid);
+      entry.rows.push(r);
+      const v = Number(
+        r.normalized_compare_value != null && Number.isFinite(Number(r.normalized_compare_value))
+          ? r.normalized_compare_value
+          : r.price_paid,
+      );
+      if (Number.isFinite(v) && v > 0) {
+        const bestV = entry.bestRow
+          ? Number(
+              entry.bestRow.normalized_compare_value != null &&
+              Number.isFinite(Number(entry.bestRow.normalized_compare_value))
+                ? entry.bestRow.normalized_compare_value
+                : entry.bestRow.price_paid,
+            )
+          : Infinity;
+        if (v < bestV) entry.bestRow = r;
+      }
+    }
+    for (const entry of priceByProviderId.values()) {
+      const r = entry.bestRow;
+      entry.bestPrice = r
+        ? Number(
+            r.normalized_compare_value != null && Number.isFinite(Number(r.normalized_compare_value))
+              ? r.normalized_compare_value
+              : r.price_paid,
+          )
+        : null;
+    }
 
-    const groups = groupByProvider(procedures, cityAvg).slice(0, 40);
+    // Build the next set of groups, one per provider in allProviders.
+    // Providers that have a matching price get the priced fields filled
+    // in; providers without prices stay as gray initials pins.
+    const list = Array.isArray(allProviders) ? allProviders : [];
+    const nextGroups = [];
+    for (const p of list) {
+      if (p.lat == null || p.lng == null) continue;
+      const key = p.id || `${p.name || p.provider_name}|${p.city}|${p.state}`;
+      const priced = (p.id && priceByProviderId.get(p.id)) || null;
+      nextGroups.push({
+        key,
+        provider_id: p.id || null,
+        provider_slug: p.slug || p.provider_slug || null,
+        provider_name: p.name || p.provider_name || 'Unknown',
+        city: p.city || '',
+        state: p.state || '',
+        lat: Number(p.lat),
+        lng: Number(p.lng),
+        rating: p.google_rating ?? p.rating ?? null,
+        google_review_count: p.google_review_count ?? null,
+        rows: priced?.rows || [],
+        bestRow: priced?.bestRow || null,
+        bestPrice: priced?.bestPrice ?? null,
+      });
+    }
 
-    // If we have at least 2 pins and the user hasn't taken over the
-    // viewport yet, fit the bounds to all rendered pins on the FIRST
-    // render after a city change. After that, we leave the viewport
-    // alone — the recenter effect handles new cities.
+    // Defensive: if `procedures` contains a row whose provider isn't in
+    // allProviders (e.g. a stale row from a slightly different city
+    // ilike), surface it as a synthetic pin so the price doesn't vanish
+    // from the map. Synthetic pins still get a stable key off provider_id.
+    const nextKeys = new Set(nextGroups.map((g) => g.key));
+    for (const [pid, entry] of priceByProviderId.entries()) {
+      if (!pid || nextKeys.has(pid)) continue;
+      const r = entry.bestRow || entry.rows[0];
+      if (!r || r.provider_lat == null || r.provider_lng == null) continue;
+      nextKeys.add(pid);
+      nextGroups.push({
+        key: pid,
+        provider_id: pid,
+        provider_slug: r.provider_slug || null,
+        provider_name: r.provider_name || 'Unknown',
+        city: r.city || '',
+        state: r.state || '',
+        lat: Number(r.provider_lat),
+        lng: Number(r.provider_lng),
+        rating: r.rating ?? null,
+        google_review_count: null,
+        rows: entry.rows,
+        bestRow: entry.bestRow,
+        bestPrice: entry.bestPrice,
+      });
+    }
+
+    // Sort: priced first (cheapest deal first), then unpriced by review
+    // count and rating. Pins are drawn in order so high-priority ones
+    // sit on top in dense areas.
+    nextGroups.sort((a, b) => {
+      const ah = a.bestPrice != null ? 1 : 0;
+      const bh = b.bestPrice != null ? 1 : 0;
+      if (ah !== bh) return bh - ah;
+      if (a.bestPrice != null && b.bestPrice != null) {
+        return a.bestPrice - b.bestPrice;
+      }
+      const arc = Number(a.google_review_count) || 0;
+      const brc = Number(b.google_review_count) || 0;
+      if (brc !== arc) return brc - arc;
+      return (b.rating || 0) - (a.rating || 0);
+    });
+
+    // Reconcile: drop markers no longer represented, update existing
+    // ones in place, create markers for newly-introduced providers.
+    const existingByKey = new Map();
+    for (const m of markersRef.current) {
+      if (m.__glowKey) existingByKey.set(m.__glowKey, m);
+    }
+
+    const kept = [];
+    for (const m of markersRef.current) {
+      if (m.__glowKey && nextKeys.has(m.__glowKey)) {
+        kept.push(m);
+      } else {
+        m.setMap(null);
+      }
+    }
+    markersRef.current = kept;
+
     const bounds = new window.google.maps.LatLngBounds();
     let boundsHasPoints = false;
 
-    groups.forEach((g) => {
-      const color = colorForGroup(g, cityAvg);
-      const label = g.bestPrice != null ? fmtShortPrice(g.bestPrice) : '—';
-      const isHighlighted = g.provider_id != null && (g.provider_id === highlightedId || g.provider_id === selectedId);
+    nextGroups.forEach((g) => {
+      const isPriced = g.bestPrice != null;
+      const baseColor = isPriced ? colorForGroup(g, cityAvg) : null;
+      const isHighlighted =
+        g.provider_id != null &&
+        (g.provider_id === highlightedId || g.provider_id === selectedId);
+      const initials = providerInitials(g.provider_name);
+      const label = isPriced ? fmtShortPrice(g.bestPrice) : null;
 
-      const marker = new window.google.maps.Marker({
-        position: { lat: g.lat, lng: g.lng },
-        map: mapInstanceRef.current,
-        title: g.provider_name,
-        icon: buildPinIcon({ color, label, highlighted: isHighlighted }),
-        zIndex: isHighlighted ? 1000 : g.bestPrice != null ? 100 : 50,
-      });
+      const icon = isPriced
+        ? buildPinIcon({
+            color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
+            label,
+            highlighted: isHighlighted,
+          })
+        : buildGatePinIcon({
+            initials,
+            highlighted: isHighlighted,
+          });
 
-      // Stash the group on the marker so the highlight effect can read
-      // it back without re-running groupByProvider.
+      let marker = existingByKey.get(g.key);
+      if (!marker) {
+        marker = new window.google.maps.Marker({
+          position: { lat: g.lat, lng: g.lng },
+          map: mapInstanceRef.current,
+          title: g.provider_name,
+          icon,
+        });
+        marker.__glowKey = g.key;
+        // Use the click ref so the listener always sees the newest
+        // handler without us having to re-create the marker on every
+        // parent re-render.
+        marker.addListener('click', () => {
+          onPinClickRef.current?.(marker.__glowGroup);
+        });
+        markersRef.current.push(marker);
+      } else {
+        marker.setIcon(icon);
+        marker.setPosition({ lat: g.lat, lng: g.lng });
+      }
+
+      // Stash everything the highlight effect needs to recompute the
+      // icon without re-running this whole reconciliation pass.
       marker.__glowGroup = g;
-      marker.__glowColor = color;
+      marker.__glowColor = baseColor;
       marker.__glowLabel = label;
+      marker.__glowInitials = initials;
+      marker.__glowPriced = isPriced;
+      marker.setZIndex(isHighlighted ? 1000 : isPriced ? 100 : 50);
 
-      marker.addListener('click', () => {
-        onPinClick?.(g);
-      });
-
-      markersRef.current.push(marker);
       bounds.extend({ lat: g.lat, lng: g.lng });
       boundsHasPoints = true;
     });
 
     // Fit-to-bounds is only a fallback for the no-city case. When the
-    // user has filtered to a specific city, the geocoder has already
-    // centered the map on that city — and we want that center to WIN,
-    // not get overridden by a fitBounds that pulls the viewport off
-    // toward whichever pins happen to be in the result set (e.g.
-    // "Botox in Mandeville" would otherwise yank the map down to
-    // Metairie because the only $12 pin is there).
-    //
-    // Rule: only fitBounds when the geocoder has NOT centered yet.
-    // - City filter set → geocoder ran → initialCenteredRef.current === true
-    //   → SKIP fitBounds, geocode center wins.
-    // - No city filter → geocoder didn't run → initialCenteredRef.current === false
-    //   → fitBounds runs as a one-time fallback so the user lands on
-    //     their data instead of staring at the whole continental US.
+    // user has filtered to a specific city the geocoder has already
+    // centered on that city, and we don't want fitBounds to yank the
+    // viewport off toward whichever pins happen to land in the bbox.
     if (
       boundsHasPoints &&
       !userInteracted.current &&
       !initialCenteredRef.current &&
-      groups.length > 1
+      nextGroups.length > 1
     ) {
       mapInstanceRef.current.fitBounds(bounds, 64);
-      // Cap zoom so we don't fly into a single-pin closeup.
       const listener = window.google.maps.event.addListenerOnce(
         mapInstanceRef.current,
         'idle',
@@ -511,14 +550,20 @@ export default function GlowMap({
           }
         },
       );
-      // Auto-cleanup if the component unmounts before idle fires.
       return () => window.google.maps.event.removeListener(listener);
     }
-  }, [ready, procedures, cityAvg, onPinClick, gateMode, gateProviders]); // highlight handled separately
+    return undefined;
+    // highlight is intentionally NOT in the dep array — it's handled
+    // by the lightweight highlight effect below so a hover doesn't
+    // re-run this expensive reconciliation pass.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, allProviders, procedures, cityAvg]);
 
   // ── Highlight effect ────────────────────────────────────────────────
   // Updating icons in-place is much cheaper than re-rendering all
-  // markers. We re-build only the affected pins.
+  // markers. We re-build only the affected pins, and read everything
+  // we need (color, label, initials, priced flag) from the data we
+  // stashed on each marker during the reconciliation pass.
   useEffect(() => {
     if (!ready || !window.google) return;
     markersRef.current.forEach((marker) => {
@@ -526,26 +571,24 @@ export default function GlowMap({
       if (!g) return;
       const isHighlighted =
         g.provider_id != null && (g.provider_id === highlightedId || g.provider_id === selectedId);
-      if (marker.__glowGate) {
+      if (marker.__glowPriced) {
+        marker.setIcon(
+          buildPinIcon({
+            color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
+            label: marker.__glowLabel,
+            highlighted: isHighlighted,
+          }),
+        );
+        marker.setZIndex(isHighlighted ? 1000 : 100);
+      } else {
         marker.setIcon(
           buildGatePinIcon({
             initials: marker.__glowInitials,
             highlighted: isHighlighted,
           }),
         );
-        marker.setZIndex(isHighlighted ? 1000 : 60);
-        return;
+        marker.setZIndex(isHighlighted ? 1000 : 50);
       }
-      marker.setIcon(
-        buildPinIcon({
-          color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
-          label: marker.__glowLabel,
-          highlighted: isHighlighted,
-        }),
-      );
-      marker.setZIndex(
-        isHighlighted ? 1000 : marker.__glowGroup.bestPrice != null ? 100 : 50,
-      );
     });
   }, [ready, highlightedId, selectedId]);
 
@@ -592,10 +635,10 @@ export default function GlowMap({
       )}
 
       {/* Legend — bottom-left so it doesn't collide with the right-side
-          zoom controls or the bottom-sheet drawer on mobile. Hidden in
-          gate mode because there are no priced pins to explain yet — a
-          color legend next to a sea of gray pins would be misleading. */}
-      {!mapError && !gateMode && (
+          zoom controls or the bottom-sheet drawer on mobile. Hidden
+          when there are no priced rows to explain yet — a color legend
+          next to a sea of gray pins would be misleading. */}
+      {!mapError && hasPrices && (
         <div
           style={{
             position: 'absolute',
@@ -618,7 +661,7 @@ export default function GlowMap({
           <LegendRow color={PRICE_COLORS.noPrice} label="No price yet" last />
         </div>
       )}
-      {!mapError && gateMode && (
+      {!mapError && !hasPrices && (
         <div
           style={{
             position: 'absolute',

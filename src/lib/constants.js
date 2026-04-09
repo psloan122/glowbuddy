@@ -665,15 +665,21 @@ export const PROCEDURE_PILLS = [
 
 // Generic category labels used when the URL has a procedure slug but no
 // brand. These produce the chip / headline / first-timer banner copy
-// ("Neurotoxins" instead of "Botox / Dysport / Xeomin"). When a brand IS
-// set the brand string wins everywhere — see callers in FindPrices.jsx
+// ("Botox & more" instead of "Botox / Dysport / Xeomin"). When a brand
+// IS set the brand string wins everywhere — see callers in FindPrices.jsx
 // and FirstTimerModeBanner.jsx.
 //
-// Title-case version is used for headlines ("Neurotoxin prices in ...")
-// and the banner ("First time with Neurotoxins?"). UI that needs the
+// The neurotoxin label is intentionally "Botox & more" (not the medical
+// jargon "Neurotoxin") because that's how real shoppers think and
+// search. The "& more" half signals that this view spans every brand
+// in the category — Botox, Dysport, Xeomin, Jeuveau, Daxxify — without
+// hiding the most-recognized name behind unfamiliar terminology.
+//
+// Title-case version is used for headlines ("Botox & more prices in ...")
+// and the banner ("First time with Botox & more?"). UI that needs the
 // uppercase chip form should call .toUpperCase() at the render site.
 export const CATEGORY_LABELS = {
-  neurotoxin: 'Neurotoxins',
+  neurotoxin: 'Botox & more',
   filler: 'Fillers',
   laser: 'Laser',
   microneedling: 'Microneedling',

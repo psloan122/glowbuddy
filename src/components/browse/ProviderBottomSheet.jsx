@@ -19,6 +19,7 @@ import { Star, X, ArrowRight } from 'lucide-react';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 import { PROCEDURE_PILLS } from '../../lib/constants';
+import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
 function fmtPrice(n) {
   const v = Number(n) || 0;
@@ -204,7 +205,7 @@ export default function ProviderBottomSheet({
         </div>
 
         {/* Gate mode body: the user hasn't picked a treatment, so instead
-            of showing prices we show the treatment-picker inline so they
+            of showing prices we show a compact pill picker inline so they
             can refine right here without losing the provider context. */}
         {gateMode ? (
           <div
@@ -214,44 +215,54 @@ export default function ProviderBottomSheet({
               marginBottom: 16,
             }}
           >
-            <p
+            <div
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 300,
                 fontStyle: 'italic',
-                fontSize: 13,
-                color: '#888',
-                marginBottom: 12,
+                fontSize: 12,
+                color: '#B8A89A',
+                marginBottom: 8,
               }}
             >
-              No treatment selected yet. Pick one to see this med spa&rsquo;s prices.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+              Select a treatment to see prices &rarr;
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6,
+              }}
+            >
               {PROCEDURE_PILLS.filter((p) => p.isPrimary).map((pill) => (
                 <button
                   key={`gate-sheet-${pill.slug}-${pill.brand || 'base'}`}
                   type="button"
                   onClick={() => onSelectPill?.(pill)}
                   style={{
-                    display: 'inline-block',
-                    padding: '8px 14px',
-                    borderRadius: '2px',
+                    padding: '6px 12px',
                     border: '1px solid #EDE8E3',
+                    borderRadius: '2px',
                     background: 'white',
                     color: '#555',
                     fontFamily: 'var(--font-body)',
                     fontWeight: 500,
                     fontSize: 11,
-                    letterSpacing: '0.08em',
+                    letterSpacing: '0.06em',
                     textTransform: 'uppercase',
                     cursor: 'pointer',
-                    margin: '0 6px 6px 0',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  Select {pill.label}
+                  {pill.label}
                 </button>
               ))}
             </div>
+            <SuggestTreatmentBlock
+              source="provider_bottom_sheet_gate"
+              city={group?.city}
+              state={group?.state}
+            />
           </div>
         ) : topRows.length > 0 ? (
           <div
