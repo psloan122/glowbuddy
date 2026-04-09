@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
-import { normalizePrice } from '../lib/priceUtils';
+import { normalizePrice, formatUnitsIncluded } from '../lib/priceUtils';
 import { getProcedureLabel } from '../lib/procedureLabel';
 
 export default function ProviderPricingSection({ verifiedPricing, priceComparisons, interestedProcedures }) {
@@ -36,9 +36,9 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
             <div key={item.id} className="flex items-center justify-between p-4">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary">{getProcedureLabel(item.procedure_type, item.brand)}</p>
-                {(item.treatment_area || item.units_or_volume) && (
+                {(item.treatment_area || formatUnitsIncluded(item.units_or_volume)) && (
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {item.treatment_area || item.units_or_volume}
+                    {item.treatment_area || formatUnitsIncluded(item.units_or_volume)}
                   </p>
                 )}
               </div>

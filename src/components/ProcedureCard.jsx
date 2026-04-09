@@ -14,7 +14,7 @@ import FinancingWidget from './FinancingWidget';
 import AlertMatchBadge from './AlertMatchBadge';
 import DisputeButton from './DisputeButton';
 import { getGuideUrl } from '../lib/guideMapping';
-import { inferNeurotoxinBrand } from '../lib/priceUtils';
+import { inferNeurotoxinBrand, formatUnitsIncluded } from '../lib/priceUtils';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
 import { haversineMiles, formatMiles } from '../lib/distance';
@@ -69,7 +69,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
   const mobilePrice = procedure.normalized_display
     ? procedure.normalized_display
     : `$${Number(procedure.price_paid).toLocaleString()}`;
-  const mobileUnit = procedure.units_or_volume || null;
+  const mobileUnit = formatUnitsIncluded(procedure.units_or_volume);
 
   return (
     <Wrapper
@@ -145,7 +145,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
           </div>
         )}
 
-        {/* Row 4: Unit + vs-avg badge */}
+        {/* Row 4: Label + units + vs-avg badge */}
         <div className="mt-2 flex items-center justify-between gap-2">
           <span
             style={{
@@ -155,7 +155,8 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
               color: '#B8A89A',
             }}
           >
-            {mobileUnit || cardLabel}
+            {cardLabel}
+            {mobileUnit && <span> &middot; {mobileUnit}</span>}
           </span>
           <FairPriceBadge
             price={procedure.normalized_compare_value || procedure.price_paid}
@@ -181,24 +182,17 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
       </p>
 
       {/* Layer 1: Price hero — Playfair 900 huge, ink on light */}
-      <div className="flex items-baseline gap-2 mb-3 flex-wrap">
-        {procedure.normalized_display ? (
-          <span className="price-display-light whitespace-normal">
-            {procedure.normalized_display}
-          </span>
-        ) : (
-          <>
-            <span className="price-display-light">
-              ${Number(procedure.price_paid).toLocaleString()}
-            </span>
-            {procedure.units_or_volume && (
-              <span className="text-[12px] font-light text-text-secondary">
-                {procedure.units_or_volume}
-              </span>
-            )}
-          </>
-        )}
+      <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+        <span className="price-display-light whitespace-normal">
+          {procedure.normalized_display || `$${Number(procedure.price_paid).toLocaleString()}`}
+        </span>
       </div>
+      {formatUnitsIncluded(procedure.units_or_volume) && (
+        <p className="text-[11px] font-light text-text-secondary mb-3">
+          {formatUnitsIncluded(procedure.units_or_volume)}
+        </p>
+      )}
+      {!formatUnitsIncluded(procedure.units_or_volume) && <div className="mb-2" />}
 
       {/* FairPrice + Brand chips row */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
@@ -224,7 +218,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
                      Dysport units needed to match 1u of Botox).
           Daxxify  — longevity note (6+ months vs 3–4 for Botox).
           Xeomin / Jeuveau are 1:1 with Botox — no note needed. */}
-      {procedure.brand && procedure.brand.toLowerCase() === 'dysport' && (
+      {brandInfo?.isDysport && (
         <p
           className="italic mb-3"
           style={{

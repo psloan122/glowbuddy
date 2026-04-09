@@ -17,6 +17,7 @@ import {
   normalizePrice,
   groupForProviderDisplay,
   inferNeurotoxinBrand,
+  formatUnitsIncluded,
 } from '../../lib/priceUtils';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 import useProviderPrices from '../../hooks/useProviderPrices';
@@ -139,8 +140,8 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
         <p className="text-[13px] text-ink font-medium">
           {item.treatment_area || normalized.compareUnit || 'Listed price'}
         </p>
-        {item.units_or_volume && !item.treatment_area && (
-          <p className="text-[11px] text-text-secondary mt-0.5 font-light">{item.units_or_volume}</p>
+        {formatUnitsIncluded(item.units_or_volume) && !item.treatment_area && (
+          <p className="text-[11px] text-text-secondary mt-0.5 font-light">{formatUnitsIncluded(item.units_or_volume)}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           <BrandChip item={item} perUnitPrice={normalized.comparableValue} />

@@ -24,6 +24,7 @@ import { Heart, Star, ShieldCheck, ArrowRight } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel } from '../../lib/procedureLabel';
+import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils';
 import { haversineMiles, formatMiles } from '../../lib/distance';
 
 function fmtPrice(n) {
@@ -93,17 +94,28 @@ function VsAverageBadge({ price, avg }) {
 // One price row inside the multi-price card. Brand label, big editorial
 // price, vs-avg badge, and an optional dysport equivalency note.
 function PriceRow({ procedure, cityAvg, isFirst }) {
-  const label = getProcedureLabel(procedure.procedure_type, procedure.brand);
   const displayPrice = procedure.normalized_display
     ? procedure.normalized_display
     : fmtPrice(procedure.price_paid);
+  // Only show the compare-unit suffix inline — units_or_volume moves below
   const unitLabel =
-    procedure.units_or_volume ||
-    (procedure.normalized_compare_unit === 'per unit' ? '/unit' : null);
+    procedure.normalized_compare_unit === 'per unit' ? '/unit' : null;
   const compareValue = compareValueOf(procedure);
-  const isDysport =
-    (procedure.brand && String(procedure.brand).toLowerCase() === 'dysport') ||
-    /dysport/i.test(procedure.procedure_type || '');
+
+  // Price-aware brand inference — overrides "Botox" label when price < $10/unit
+  const perUnitForBrand =
+    procedure.normalized_compare_unit === 'per unit' &&
+    Number.isFinite(Number(procedure.normalized_compare_value))
+      ? Number(procedure.normalized_compare_value)
+      : null;
+  const brandInfo = inferNeurotoxinBrand({
+    procedureType: procedure.procedure_type,
+    brand: procedure.brand || null,
+    perUnitPrice: perUnitForBrand,
+  });
+  const label = brandInfo?.label || getProcedureLabel(procedure.procedure_type, procedure.brand);
+  const isDysport = brandInfo?.isDysport || false;
+  const unitsLine = formatUnitsIncluded(procedure.units_or_volume);
 
   return (
     <div
@@ -170,6 +182,21 @@ function PriceRow({ procedure, cityAvg, isFirst }) {
           <VsAverageBadge price={compareValue} avg={cityAvg} />
         </span>
       </div>
+
+      {unitsLine && (
+        <p
+          style={{
+            margin: '4px 0 0 0',
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            fontWeight: 300,
+            color: '#888',
+            textAlign: 'center',
+          }}
+        >
+          {unitsLine}
+        </p>
+      )}
 
       {isDysport && (
         <p

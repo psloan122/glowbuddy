@@ -27,7 +27,7 @@ function formatRowLabel(row) {
 }
 
 function formatPriceLabel(row) {
-  const unitLabel = row.price_label || row.units_or_volume || null;
+  const unitLabel = row.price_label || null;
   if (!unitLabel) return null;
   // Normalize obvious variants so the card reads "per unit" / "per syringe"
   // rather than "per Unit" / "Per Syringe".

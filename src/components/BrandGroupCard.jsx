@@ -5,6 +5,7 @@ import { providerProfileUrl } from '../lib/slugify';
 import SpecialBanner, { hasActiveSpecial, SpecialUpgradeSlot } from './SpecialBanner';
 import { haversineMiles, formatMiles } from '../lib/distance';
 import { getProcedureLabel } from '../lib/procedureLabel';
+import { inferNeurotoxinBrand } from '../lib/priceUtils';
 
 // Brand-group card for the browse page.
 //
@@ -31,9 +32,20 @@ import { getProcedureLabel } from '../lib/procedureLabel';
 //   PBK Medspa · Brooklyn, NY
 
 function brandLabel(row) {
-  // Brand wins; otherwise return a clean category label (e.g.
-  // "Neurotoxin") instead of the combined "Botox / Dysport / Xeomin"
-  // procedure_type string. See src/lib/procedureLabel.js.
+  // For neurotoxins, use price-aware brand inference (overrides "Botox"
+  // when per-unit price suggests Dysport). Falls back to the clean
+  // category label for non-neurotoxins.
+  const perUnit =
+    row.normalized_compare_unit === 'per unit' &&
+    Number.isFinite(Number(row.normalized_compare_value))
+      ? Number(row.normalized_compare_value)
+      : null;
+  const info = inferNeurotoxinBrand({
+    procedureType: row.procedure_type,
+    brand: row.brand || null,
+    perUnitPrice: perUnit,
+  });
+  if (info) return info.label;
   return getProcedureLabel(row.procedure_type, row.brand);
 }
 
@@ -85,9 +97,19 @@ export default function BrandGroupCard({ group, userLat, userLng }) {
   const Wrapper = profileUrl ? Link : 'div';
   const wrapperProps = profileUrl ? { to: profileUrl } : {};
 
-  const dysportRow = rows.find(
-    (r) => r.brand && r.brand.toLowerCase() === 'dysport',
-  );
+  const dysportRow = rows.find((r) => {
+    const perUnit =
+      r.normalized_compare_unit === 'per unit' &&
+      Number.isFinite(Number(r.normalized_compare_value))
+        ? Number(r.normalized_compare_value)
+        : null;
+    const info = inferNeurotoxinBrand({
+      procedureType: r.procedure_type,
+      brand: r.brand || null,
+      perUnitPrice: perUnit,
+    });
+    return info?.isDysport;
+  });
   const hasDaxxify = rows.some(
     (r) => r.brand && r.brand.toLowerCase() === 'daxxify',
   );

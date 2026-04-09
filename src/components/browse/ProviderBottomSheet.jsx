@@ -276,8 +276,7 @@ export default function ProviderBottomSheet({
               const label = getProcedureLabel(row.procedure_type, row.brand);
               const display = row.normalized_display || fmtPrice(row.price_paid);
               const unit =
-                row.units_or_volume ||
-                (row.normalized_compare_unit === 'per unit' ? '/unit' : null);
+                row.normalized_compare_unit === 'per unit' ? '/unit' : null;
               return (
                 <div
                   key={row.id || `${row.procedure_type}-${i}`}

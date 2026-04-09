@@ -147,51 +147,80 @@ export function normalizePrice(listing) {
   return HIDDEN;
 }
 
-// Below this per-unit price, the row is almost certainly Dysport or Xeomin
-// (both are typically 1/3 the per-unit price of Botox). Used by the
-// inferNeurotoxinBrand display helper.
-const NEUROTOXIN_BUDGET_THRESHOLD = 8;
+// Below this per-unit price, the row is almost certainly Dysport (Botox
+// never goes below ~$10/unit, while Dysport at $5–9/unit is normal).
+// Used by the inferNeurotoxinBrand display helper. Also applies when
+// the scraper labeled a row as "Botox" but the price is too low.
+const NEUROTOXIN_BUDGET_THRESHOLD = 10;
 
 /**
  * Decide what brand label to show for a neurotoxin row.
  *
- *   1. If `brand` is set on the row → use it directly (isInferred=false)
- *   2. If no brand AND we have a per-unit comparable value:
- *      - < $8/unit → "Dysport / Xeomin est."
- *      - >= $8/unit → "Botox / neurotoxin"
- *   3. If no brand AND no per-unit value → "Botox / neurotoxin" (generic)
+ *   1. If `brand` is set to something other than "Botox" → use it directly
+ *   2. If brand is null or "Botox" AND per-unit price < $10 →
+ *      "Dysport (est.)" — scrapers often mislabel Dysport as Botox
+ *   3. If brand is "Botox" AND price >= $10 → trust it
+ *   4. If brand is null AND price >= $10 (or no per-unit price) → infer Botox
  *
  * Returns null when the row isn't a neurotoxin (caller should not render).
+ * Returns `isDysport: true` when the brand is Dysport (explicit or inferred)
+ * so callers can render the Botox-equivalent note.
  */
 export function inferNeurotoxinBrand({ procedureType, brand, perUnitPrice }) {
   if (!isNeurotoxin(procedureType)) return null;
 
-  if (brand) {
+  const brandLower = brand ? brand.toLowerCase() : null;
+
+  // Explicit brand that isn't "Botox" — trust it directly
+  if (brand && brandLower !== 'botox') {
     return {
       label: brand,
       isInferred: false,
+      isDysport: brandLower === 'dysport',
       tooltip: `Provider listed this as ${brand}.`,
     };
   }
 
+  // Brand is null or "Botox" — check if per-unit price suggests Dysport
   const valid =
     perUnitPrice != null && Number.isFinite(perUnitPrice) && perUnitPrice > 0;
 
   if (valid && perUnitPrice < NEUROTOXIN_BUDGET_THRESHOLD) {
     return {
-      label: 'Dysport / Xeomin est.',
+      label: 'Dysport (est.)',
       isInferred: true,
+      isDysport: true,
       tooltip:
-        'This may be Dysport or Xeomin pricing. Botox typically costs more per unit.',
+        "Price suggests this may be Dysport \u2014 provider hasn\u2019t confirmed brand.",
     };
   }
 
+  // Price >= threshold or no per-unit price
   return {
-    label: 'Botox',
-    isInferred: true,
-    tooltip:
-      'Brand not specified by the provider — most clinics in this price range carry Botox.',
+    label: brand || 'Botox',
+    isInferred: !brand,
+    isDysport: false,
+    tooltip: brand
+      ? `Provider listed this as ${brand}.`
+      : 'Brand not specified by the provider \u2014 most clinics in this price range carry Botox.',
   };
+}
+
+/**
+ * Format the `units_or_volume` field for display below a price.
+ * Returns null when nothing should be shown.
+ *
+ *   "60"        → "incl. 60 units"
+ *   "20 units"  → "incl. 20 units"
+ *   "1 syringe" → "incl. 1 syringe"
+ *   ""          → null
+ */
+export function formatUnitsIncluded(unitsOrVolume) {
+  if (!unitsOrVolume) return null;
+  const s = String(unitsOrVolume).trim();
+  if (!s) return null;
+  if (/^\d+$/.test(s)) return `incl. ${s} units`;
+  return `incl. ${s}`;
 }
 
 /**
