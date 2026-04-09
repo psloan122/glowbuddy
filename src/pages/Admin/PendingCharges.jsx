@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
 import { Check, Copy, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 
-// Admin-only ledger of $35 lead fees that GlowBuddy needs to charge a
+// Admin-only ledger of $35 lead fees that Know Before You Glow needs to charge a
 // provider after a patient accepts their bid. Each row points back to
 // the bid + request. The admin runs Stripe manually, then flips status
 // to 'charged' and pastes the Stripe payment intent into the notes.
@@ -48,7 +48,7 @@ export default function PendingCharges() {
   const [draftIntent, setDraftIntent] = useState({});
 
   useEffect(() => {
-    document.title = 'Pending charges | Admin | GlowBuddy';
+    document.title = 'Pending charges | Admin | Know Before You Glow';
   }, []);
 
   // JWT user_metadata.user_role check, mirroring Admin.jsx.

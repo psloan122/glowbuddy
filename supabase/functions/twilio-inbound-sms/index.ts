@@ -1,4 +1,4 @@
-// twilio-inbound-sms — receives consumer replies to any GlowBuddy SMS
+// twilio-inbound-sms — receives consumer replies to any Know Before You Glow SMS
 // and handles the STOP / START / HELP / INFO keywords per the TCPA
 // opt-out rules and Twilio's guidelines.
 //
@@ -15,7 +15,7 @@
 // The function returns TwiML XML with an optional confirmation reply.
 // Twilio auto-handles STOP acknowledgement at the carrier level for
 // numbers on their platform, but we still write our own confirmation
-// so the reply matches GlowBuddy's voice and the user sees a clear
+// so the reply matches Know Before You Glow's voice and the user sees a clear
 // opt-out confirmation from us specifically.
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
   // (HELP must always elicit instructions, even after STOP).
   if (isHelp) {
     return twimlResponse(
-      'GlowBuddy alerts. Reply STOP to opt out, START to opt in. Support: hello@glowbuddy.com',
+      'Know Before You Glow alerts. Reply STOP to opt out, START to opt in. Support: hello@knowbeforeyouglow.com',
     )
   }
 
@@ -173,12 +173,12 @@ Deno.serve(async (req: Request) => {
   // ── Reply ──────────────────────────────────────────────────────────
   if (isStop) {
     return twimlResponse(
-      "You've been unsubscribed from GlowBuddy alerts. Reply START to re-enable.",
+      "You've been unsubscribed from Know Before You Glow alerts. Reply START to re-enable.",
     )
   }
   // isStart
   return twimlResponse(
-    "You're re-subscribed to GlowBuddy alerts. Reply STOP to opt out.",
+    "You're re-subscribed to Know Before You Glow alerts. Reply STOP to opt out.",
   )
 })
 

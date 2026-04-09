@@ -36,7 +36,7 @@ export default function Refer() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    document.title = 'Give $10, Get $10 — Refer a Friend | GlowBuddy';
+    document.title = 'Give $10, Get $10 — Refer a Friend | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -59,9 +59,9 @@ export default function Refer() {
     setLoading(false);
   }
 
-  const referralUrl = code ? `https://glowbuddy.com/r/${code}` : '';
+  const referralUrl = code ? `https://knowbeforeyouglow.com/r/${code}` : '';
   const city = getCity() || 'my city';
-  const shareText = `I use GlowBuddy to find real Botox prices in ${city} before I book. Use my link and we both get $10 in credit: ${referralUrl}`;
+  const shareText = `I use Know Before You Glow to find real Botox prices in ${city} before I book. Use my link and we both get $10 in credit: ${referralUrl}`;
 
   function handleCopy() {
     navigator.clipboard.writeText(referralUrl);
@@ -123,7 +123,7 @@ export default function Refer() {
         <Gift size={40} className="mx-auto mb-3 text-rose-accent" />
         <h1 className="text-3xl font-bold text-text-primary mb-2">Give $10, Get $10</h1>
         <p className="text-text-secondary max-w-md mx-auto">
-          Invite friends to GlowBuddy. When they verify their first treatment receipt, you both earn $10 in wallet credit — redeemable on provider specials.
+          Invite friends to Know Before You Glow. When they verify their first treatment receipt, you both earn $10 in wallet credit — redeemable on provider specials.
         </p>
       </div>
 

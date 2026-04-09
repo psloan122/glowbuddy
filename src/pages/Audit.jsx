@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 
-// /audit — internal product audit dashboard for GoodRx vs GlowBuddy
+// /audit — internal product audit dashboard for GoodRx vs Know Before You Glow
 // feature parity. Not wired into the main nav; footer link only.
 // Status is hand-maintained based on a codebase grep at time of write;
 // update when features land.
@@ -304,7 +304,7 @@ const FEATURES = [
   {
     section: 'Platform',
     name: 'Employer / B2B product',
-    description: 'Offer GlowBuddy as an employee wellness benefit.',
+    description: 'Offer Know Before You Glow as an employee wellness benefit.',
     goodrx: true,
     status: 'YEAR_2',
     priority: 'P3',
@@ -328,7 +328,7 @@ export default function Audit() {
   const [overrides, setOverrides] = useState({}); // local-only "mark as done"
 
   useEffect(() => {
-    document.title = 'Product Audit · GlowBuddy';
+    document.title = 'Product Audit · Know Before You Glow';
   }, []);
 
   const rowsWithOverride = useMemo(
@@ -375,7 +375,7 @@ export default function Audit() {
   }
 
   function generatePrompt(featureName) {
-    const prompt = `Write a Claude Code prompt to build ${featureName} for GlowBuddy`;
+    const prompt = `Write a Claude Code prompt to build ${featureName} for Know Before You Glow`;
     // Copy-first UX — the "button" is effectively a launcher.
     navigator.clipboard?.writeText(prompt).catch(() => {});
     alert(`Prompt copied to clipboard:\n\n${prompt}`);
@@ -421,7 +421,7 @@ export default function Audit() {
             margin: '10px 0 12px',
           }}
         >
-          GlowBuddy vs GoodRx
+          Know Before You Glow vs GoodRx
         </h1>
         <p
           style={{
@@ -760,7 +760,7 @@ function TableHeader() {
     >
       <p style={{ ...cell, margin: 0 }}>Feature</p>
       <p style={{ ...cell, margin: 0 }}>GoodRx</p>
-      <p style={{ ...cell, margin: 0 }}>GlowBuddy</p>
+      <p style={{ ...cell, margin: 0 }}>Know Before You Glow</p>
       <p style={{ ...cell, margin: 0 }}>Priority</p>
       <p style={{ ...cell, margin: 0, textAlign: 'center' }}>Done</p>
     </div>
@@ -808,7 +808,7 @@ function FeatureRow({ row, onToggle }) {
                 color: '#E8347A',
               }}
             >
-              &middot; GlowBuddy advantage
+              &middot; Know Before You Glow advantage
             </span>
           )}
         </p>

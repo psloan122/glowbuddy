@@ -73,7 +73,7 @@ export default function AddBusiness() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    document.title = 'Add Your Business | GlowBuddy';
+    document.title = 'Add Your Business | Know Before You Glow';
   }, []);
 
   // Load Google Maps on mount
@@ -858,7 +858,7 @@ export default function AddBusiness() {
               </>
             ) : (
               <>
-                New to GlowBuddy?{' '}
+                New to Know Before You Glow?{' '}
                 <button
                   onClick={() => {
                     setAuthMode('signup');

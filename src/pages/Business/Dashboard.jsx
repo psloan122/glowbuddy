@@ -125,7 +125,7 @@ export default function Dashboard() {
   const detailsServiceRef = useRef(null);
 
   useEffect(() => {
-    document.title = 'Provider Dashboard | GlowBuddy';
+    document.title = 'Provider Dashboard | Know Before You Glow';
   }, []);
 
   // Auth redirect
@@ -760,7 +760,7 @@ export default function Dashboard() {
                   <Star size={18} className="text-amber-500" />
                 </div>
                 <span className="text-sm text-text-secondary">
-                  GlowBuddy Rating
+                  Know Before You Glow Rating
                 </span>
               </div>
               <p className="text-2xl font-bold text-text-primary">

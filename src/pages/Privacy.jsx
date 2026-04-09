@@ -24,13 +24,13 @@ export default function Privacy() {
             <li>Send price alerts you request.</li>
             <li>Send the monthly Glow Report email (opt-out available in Settings).</li>
             <li>Fraud and spam prevention — detecting fake submissions and duplicate accounts.</li>
-            <li>Improve GlowBuddy through aggregate, anonymized usage patterns.</li>
+            <li>Improve Know Before You Glow through aggregate, anonymized usage patterns.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-xl font-bold mb-3">Who We Share It With</h2>
-          <p className="text-text-secondary mb-2">We use the following services to operate GlowBuddy:</p>
+          <p className="text-text-secondary mb-2">We use the following services to operate Know Before You Glow:</p>
           <ul className="list-disc pl-5 space-y-1 text-text-secondary">
             <li><strong>Supabase</strong> — database hosting and authentication.</li>
             <li><strong>Stripe</strong> — payment processing for provider placements.</li>
@@ -45,7 +45,7 @@ export default function Privacy() {
         <section>
           <h2 className="text-xl font-bold mb-3">Your Rights</h2>
           <ul className="list-disc pl-5 space-y-1 text-text-secondary">
-            <li><strong>Access your data</strong> — email privacy@glowbuddy.com and we will provide a copy of your data within 30 days.</li>
+            <li><strong>Access your data</strong> — email privacy@knowbeforeyouglow.com and we will provide a copy of your data within 30 days.</li>
             <li><strong>Delete your account and data</strong> — go to Settings and click "Delete Account." Your submissions will be anonymized (prices remain for community benefit, but your identity is permanently removed).</li>
             <li><strong>Opt out of marketing emails</strong> — use the unsubscribe link in every email, or manage preferences in Settings.</li>
             <li><strong>California residents (CCPA)</strong> — you have the right to know what data we collect, request deletion, and opt out of any sale of personal information. We do not sell personal information.</li>
@@ -55,7 +55,7 @@ export default function Privacy() {
         <section id="ccpa">
           <h2 className="text-xl font-bold mb-3">Do Not Sell My Personal Information</h2>
           <p className="text-text-secondary">
-            GlowBuddy does not sell, rent, or trade your personal information to third parties for monetary consideration. If you have questions about this policy, contact us at privacy@glowbuddy.com.
+            Know Before You Glow does not sell, rent, or trade your personal information to third parties for monetary consideration. If you have questions about this policy, contact us at privacy@knowbeforeyouglow.com.
           </p>
         </section>
 
@@ -76,7 +76,7 @@ export default function Privacy() {
         <section>
           <h2 className="text-xl font-bold mb-3">Contact</h2>
           <p className="text-text-secondary">
-            For privacy questions or data requests: <a href="mailto:privacy@glowbuddy.com" className="text-rose-accent hover:text-rose-dark transition">privacy@glowbuddy.com</a>
+            For privacy questions or data requests: <a href="mailto:privacy@knowbeforeyouglow.com" className="text-rose-accent hover:text-rose-dark transition">privacy@knowbeforeyouglow.com</a>
           </p>
         </section>
       </div>

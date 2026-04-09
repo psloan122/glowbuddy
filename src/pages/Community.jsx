@@ -56,7 +56,7 @@ export default function Community() {
   const [userState, setUserState] = useState('');
 
   useEffect(() => {
-    document.title = 'Community & Badges | GlowBuddy';
+    document.title = 'Community & Badges | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function Community() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <h1 className="text-4xl font-extrabold text-text-primary mb-10">
-        GlowBuddy Community
+        Know Before You Glow Community
       </h1>
 
       {/* Monthly Giveaway Banner */}

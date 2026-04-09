@@ -89,7 +89,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     checkExisting();
   }, [selectedPlace?.placeId]);
 
-  // Search GlowBuddy's own providers table
+  // Search Know Before You Glow's own providers table
   function searchLocalProviders(input) {
     if (localDebounceRef.current) clearTimeout(localDebounceRef.current);
 
@@ -148,7 +148,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
     }, 300);
   }
 
-  // Select a local GlowBuddy provider — no Google API call needed
+  // Select a local Know Before You Glow provider — no Google API call needed
   function handleSelectLocal(provider) {
     setValue(provider.name);
     setSuggestions([]);
@@ -340,11 +340,11 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
       {/* Combined dropdown: local results first, then Google suggestions */}
       {hasDropdown && (
         <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
-          {/* GlowBuddy local providers */}
+          {/* Know Before You Glow local providers */}
           {localResults.length > 0 && (
             <>
               <li className="px-4 py-1.5 text-[10px] font-semibold text-text-secondary uppercase tracking-wider bg-gray-50 border-b border-gray-100">
-                On GlowBuddy
+                On Know Before You Glow
               </li>
               {localResults.map((provider) => (
                 <li key={`local-${provider.id}`}>

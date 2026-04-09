@@ -70,7 +70,7 @@ export default function GuideIndex() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Glossary of Terms — Common Treatments Explained | GlowBuddy';
+    document.title = 'Glossary of Terms — Common Treatments Explained | Know Before You Glow';
     const desc = 'A plain-English glossary of common aesthetic treatments. What they are, what they cost, and what to expect — no industry jargon. Botox, fillers, lasers, and more.';
     let meta = document.querySelector('meta[name="description"]');
     if (meta) {

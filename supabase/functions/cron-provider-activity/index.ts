@@ -9,7 +9,7 @@ import { createHmac } from 'node:crypto'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPTOUT_SECRET = Deno.env.get('OPTOUT_SECRET') || 'glowbuddy-optout-secret'
-const BASE_URL = 'https://glowbuddy.com'
+const BASE_URL = 'https://knowbeforeyouglow.com'
 
 function generateOptoutToken(providerId: string): string {
   return createHmac('sha256', OPTOUT_SECRET)
@@ -158,8 +158,8 @@ Deno.serve(async (req: Request) => {
       // ─── Step 5: Choose subject line ───
       const useCompetitorSubject = (competitorCount || 0) > 0 && competitorName
       const subject = useCompetitorSubject
-        ? `A competitor is advertising on your GlowBuddy page`
-        : `${provider.page_view_count_week} people viewed ${provider.name} on GlowBuddy this week`
+        ? `A competitor is advertising on your Know Before You Glow page`
+        : `${provider.page_view_count_week} people viewed ${provider.name} on Know Before You Glow this week`
 
       // ─── Step 6: Send email ───
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {

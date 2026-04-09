@@ -160,7 +160,7 @@ function App() {
                 await checkAndAwardBadges(userId);
                 // Navigate to my-treatments and show toast
                 navigate('/my-treatments');
-                showToast('Your submission is now live! Welcome to GlowBuddy.');
+                showToast('Your submission is now live! Welcome to Know Before You Glow.');
                 return;
               }
 
@@ -182,7 +182,7 @@ function App() {
 
               // If user signed up from a /business page, stay there
               if (window.location.pathname.startsWith('/business')) {
-                showToast('Welcome to GlowBuddy!');
+                showToast('Welcome to Know Before You Glow!');
                 return;
               }
 
@@ -218,7 +218,7 @@ function App() {
       navigate(redirect);
       showToast('Welcome back!');
     } else {
-      showToast('Welcome to GlowBuddy!');
+      showToast('Welcome to Know Before You Glow!');
     }
   }
 

@@ -141,7 +141,7 @@ export default function VagaroConnectFlow({ providerId }) {
             <h2 className="text-lg font-bold text-text-primary">Connect Vagaro</h2>
           </div>
           <p className="text-sm text-text-secondary mb-6">
-            Connect your Vagaro account to let patients book directly from your GlowBuddy listing.
+            Connect your Vagaro account to let patients book directly from your Know Before You Glow listing.
           </p>
 
           <div className="space-y-4 mb-6">

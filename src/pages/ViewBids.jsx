@@ -54,7 +54,7 @@ export default function ViewBids() {
   const [acceptedBid, setAcceptedBid] = useState(null);
 
   useEffect(() => {
-    document.title = 'Your bids | GlowBuddy';
+    document.title = 'Your bids | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -574,7 +574,7 @@ function ScoreCircle({ score, color }) {
           color: '#888',
         }}
       >
-        GlowBuddy Score
+        Know Before You Glow Score
       </p>
     </div>
   );

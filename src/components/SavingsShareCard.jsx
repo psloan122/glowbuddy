@@ -37,7 +37,7 @@ function drawCard(canvas, {
   ctx.fillStyle = '#C94F78';
   ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('\u2728 GlowBuddy', 80, 120);
+  ctx.fillText('\u2728 Know Before You Glow', 80, 120);
 
   // ── Main price line ──
   ctx.fillStyle = '#1A1A1A';
@@ -84,7 +84,7 @@ function drawCard(canvas, {
   // ── Footer ──
   ctx.fillStyle = '#9CA3AF';
   ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('Find real prices at glowbuddy.com', S / 2, 920);
+  ctx.fillText('Find real prices at knowbeforeyouglow.com', S / 2, 920);
   ctx.fillText('Know before you glow. \u2728', S / 2, 965);
 }
 
@@ -114,7 +114,7 @@ export default function SavingsShareCard({
   const [captionCopied, setCaptionCopied] = useState(false);
 
   const savingsDirection = paidBelow ? 'saving' : 'overpaying';
-  const caption = `Found real ${procedureType} prices in ${city} using @glowbuddy \u2014 I'm ${savingsDirection} $${Math.round(yearlySavings)}/yr vs the average \u{1F489}\u2728 glowbuddy.com`;
+  const caption = `Found real ${procedureType} prices in ${city} using @glowbuddy \u2014 I'm ${savingsDirection} $${Math.round(yearlySavings)}/yr vs the average \u{1F489}\u2728 knowbeforeyouglow.com`;
 
   useEffect(() => {
     if (!canvasRef.current) return;

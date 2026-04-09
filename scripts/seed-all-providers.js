@@ -419,7 +419,7 @@ async function upsertProviders(providerRows) {
 // ─── Main seed loop ──────────────────────────────────────────────────────────
 
 async function runSeed() {
-  console.log(`\nGlowBuddy Provider Seed`);
+  console.log(`\nKnow Before You Glow Provider Seed`);
   console.log(`Mode: ${REFRESH ? 'REFRESH (update existing)' : 'INITIAL SEED'}`);
   console.log(`Cities: ${SEED_CITIES.length}`);
   console.log(`Queries per city: ${PROCEDURE_SEARCHES.length}\n`);
@@ -731,7 +731,7 @@ async function seedStateNational(stateCode, censusCities, cachedIds, currentCoun
 
 async function runNationalSeed() {
   console.log('\n╔════════════════════════════════════════════╗');
-  console.log('║   GlowBuddy National Provider Seed         ║');
+  console.log('║   Know Before You Glow National Provider Seed         ║');
   console.log('╚════════════════════════════════════════════╝');
   console.log(`Mode:    ${TOPUP ? 'TOPUP' : SINGLE_STATE ? `SINGLE STATE (${SINGLE_STATE.toUpperCase()})` : 'FULL 50-STATE'}`);
   console.log(`Target:  ${TARGET_PER_STATE} confirmed per state`);

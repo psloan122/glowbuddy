@@ -1,5 +1,5 @@
 /**
- * GlowBuddy Seed Data Verification Script
+ * Know Before You Glow Seed Data Verification Script
  *
  * Verifies every provider in the seed data is a real, legitimate business
  * by cross-referencing against Google Places Text Search API.

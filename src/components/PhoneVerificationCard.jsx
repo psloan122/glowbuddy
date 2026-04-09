@@ -33,7 +33,7 @@ const SMS_PREFS = [
   {
     key: 'sms',
     label: 'SMS notifications',
-    description: 'Master switch for all text messages from GlowBuddy.',
+    description: 'Master switch for all text messages from Know Before You Glow.',
   },
   {
     key: 'price_alerts',
@@ -409,7 +409,7 @@ export default function PhoneVerificationCard() {
               })}
             </div>
             <p className="text-[11px] text-text-secondary mt-4">
-              Message &amp; data rates may apply. Reply STOP to any GlowBuddy text to unsubscribe.
+              Message &amp; data rates may apply. Reply STOP to any Know Before You Glow text to unsubscribe.
             </p>
           </div>
         </>

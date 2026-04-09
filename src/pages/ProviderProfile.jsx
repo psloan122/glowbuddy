@@ -446,8 +446,8 @@ export default function ProviderProfile() {
         : '';
 
     const title = location
-      ? `${name} Prices & Reviews in ${location} | GlowBuddy`
-      : `${name} Prices & Reviews | GlowBuddy`;
+      ? `${name} Prices & Reviews in ${location} | Know Before You Glow`
+      : `${name} Prices & Reviews | Know Before You Glow`;
 
     const submissionCount = communityData.length;
     const verifiedCount = communityData.filter(p => p.receipt_verified).length;
@@ -459,7 +459,7 @@ export default function ProviderProfile() {
     setPageMeta({
       title,
       description: content,
-      canonical: `https://glowbuddy.com/provider/${slug}`,
+      canonical: `https://knowbeforeyouglow.com/provider/${slug}`,
     });
 
     // Review schema markup
@@ -722,11 +722,11 @@ export default function ProviderProfile() {
                       verifiedPricing.length > 0 && `${verifiedPricing.length} verified price${verifiedPricing.length !== 1 ? 's' : ''}`,
                       reviews.length > 0 && `${reviews.length} patient review${reviews.length !== 1 ? 's' : ''}`,
                       baPhotos.length > 0 && `${baPhotos.length} before/after${baPhotos.length !== 1 ? 's' : ''}`,
-                    ].filter(Boolean).join(' \u00b7 ') || 'Claimed and verified on GlowBuddy'}
+                    ].filter(Boolean).join(' \u00b7 ') || 'Claimed and verified on Know Before You Glow'}
                   </p>
                 )}
 
-              {/* GlowBuddy Rating */}
+              {/* Know Before You Glow Rating */}
               {(provider?.weighted_rating || provider?.avg_rating) && (
                 <div className="mb-2">
                   <div className="flex items-center gap-1.5 text-[12px] text-text-secondary">

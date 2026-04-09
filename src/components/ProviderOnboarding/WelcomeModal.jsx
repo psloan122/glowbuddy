@@ -20,8 +20,8 @@ export default function WelcomeModal({ provider, menuCount, tier, onDismiss }) {
     if (!profileUrl) return;
     if (navigator.share) {
       navigator.share({
-        title: `${provider.name} on GlowBuddy`,
-        text: `Check out ${provider.name}'s pricing on GlowBuddy`,
+        title: `${provider.name} on Know Before You Glow`,
+        text: `Check out ${provider.name}'s pricing on Know Before You Glow`,
         url: profileUrl,
       });
     } else {
@@ -42,7 +42,7 @@ export default function WelcomeModal({ provider, menuCount, tier, onDismiss }) {
             You're all set!
           </h1>
           <p className="text-text-secondary">
-            Your practice listing is live on GlowBuddy.
+            Your practice listing is live on Know Before You Glow.
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export default function WelcomeModal({ provider, menuCount, tier, onDismiss }) {
             <div className="flex-1">
               <p className="text-sm font-semibold text-text-primary">Share your profile</p>
               <p className="text-xs text-text-secondary mt-0.5">
-                Send your GlowBuddy link to patients so they can find your prices.
+                Send your Know Before You Glow link to patients so they can find your prices.
               </p>
               {profileUrl && (
                 <div className="flex items-center gap-2 mt-2">

@@ -21,7 +21,7 @@ export default function MyTreatments() {
   const [confirming, setConfirming] = useState(null);
 
   useEffect(() => {
-    document.title = 'My Treatments | GlowBuddy';
+    document.title = 'My Treatments | Know Before You Glow';
   }, []);
 
   useEffect(() => {

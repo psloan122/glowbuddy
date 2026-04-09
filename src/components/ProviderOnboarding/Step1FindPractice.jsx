@@ -88,7 +88,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
           if (data) {
             if (data.is_claimed && data.owner_user_id !== user?.id) {
               setError(
-                'This listing has already been claimed. Contact support@glowbuddy.com if you believe this is an error.'
+                'This listing has already been claimed. Contact support@knowbeforeyouglow.com if you believe this is an error.'
               );
               return;
             }
@@ -297,7 +297,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     <div>
       <h1 className="text-3xl font-bold text-text-primary mb-2">Find your practice</h1>
       <p className="text-text-secondary mb-8">
-        Search for your med spa or clinic to see if it's already on GlowBuddy.
+        Search for your med spa or clinic to see if it's already on Know Before You Glow.
       </p>
 
       {error && (
@@ -428,7 +428,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                   onChange={(e) => setImportPhotos(e.target.checked)}
                   className="w-4 h-4 rounded border-gray-300 text-rose-accent focus:ring-rose-accent/20"
                 />
-                <span className="text-sm text-text-primary">Import these photos to my GlowBuddy profile</span>
+                <span className="text-sm text-text-primary">Import these photos to my Know Before You Glow profile</span>
               </label>
             )}
 
@@ -466,7 +466,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
           {providerStatus === 'new' && (
             <div className="bg-verified/10 border border-verified/20 rounded-xl p-4 mb-6">
               <p className="text-sm text-verified font-medium">
-                Great news — you're the first to claim this listing on GlowBuddy.
+                Great news — you're the first to claim this listing on Know Before You Glow.
               </p>
             </div>
           )}
@@ -474,7 +474,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
           {providerStatus === 'unclaimed' && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
               <p className="text-sm text-blue-700 font-medium">
-                Your practice already has a GlowBuddy profile with {submissionCount} patient submission{submissionCount !== 1 ? 's' : ''}. Claim it to manage your listing.
+                Your practice already has a Know Before You Glow profile with {submissionCount} patient submission{submissionCount !== 1 ? 's' : ''}. Claim it to manage your listing.
               </p>
             </div>
           )}
@@ -489,7 +489,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                   </p>
                   <p className="text-sm text-yellow-600 mt-1">
                     If you own this practice and believe this is an error, contact us at{' '}
-                    <a href="mailto:support@glowbuddy.com" className="underline">support@glowbuddy.com</a>.
+                    <a href="mailto:support@knowbeforeyouglow.com" className="underline">support@knowbeforeyouglow.com</a>.
                   </p>
                 </div>
               </div>

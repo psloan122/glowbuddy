@@ -49,7 +49,7 @@ const TWILIO_ENABLED = Boolean(
 // the production host; override with a secret if you want SMS links
 // to point at staging.
 const PUBLIC_SITE_URL =
-  Deno.env.get('PUBLIC_SITE_URL') || 'https://glowbuddy.com'
+  Deno.env.get('PUBLIC_SITE_URL') || 'https://knowbeforeyouglow.com'
 
 interface RequestBody {
   special_id?: string
@@ -275,9 +275,9 @@ Deno.serve(async (req: Request) => {
   // The spec wants the provider name shortened first if the message
   // overflows 160 chars. truncateSMS() handles that by keeping the
   // URL at the end intact and shrinking the head of the message.
-  const longProviderName = provider.name || 'a GlowBuddy provider'
+  const longProviderName = provider.name || 'a Know Before You Glow provider'
   const rawBody =
-    `GlowBuddy: ${longProviderName} in ${providerCity} posted ${procedureName} ` +
+    `Know Before You Glow: ${longProviderName} in ${providerCity} posted ${procedureName} ` +
     `at ${priceFragment} — matches your price alert.${validFragment} ${link}`
 
   const smsBody = withStopSuffix(truncateSMS(rawBody, 320), 320)

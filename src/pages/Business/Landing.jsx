@@ -52,7 +52,7 @@ const TIERS = [
     tagline: 'Featured placement + competitor intel.',
     included: [
       'Everything in Verified',
-      'GlowBuddy Certified badge',
+      'Know Before You Glow Certified badge',
       'Competitor price comparison',
       'Featured on city price reports',
       '90 day analytics history',
@@ -100,7 +100,7 @@ const STEPS = [
 
 export default function Landing() {
   useEffect(() => {
-    document.title = 'For Providers \u2014 GlowBuddy';
+    document.title = 'For Providers \u2014 Know Before You Glow';
   }, []);
 
   return (
@@ -207,7 +207,7 @@ export default function Landing() {
             <Sparkles size={24} />
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary mb-3">
-            Join 500+ providers on GlowBuddy
+            Join 500+ providers on Know Before You Glow
           </h2>
           <p className="text-text-secondary max-w-xl mx-auto mb-8">
             Providers across the country are claiming their listings, sharing

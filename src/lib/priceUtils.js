@@ -1,5 +1,5 @@
 /**
- * Price display for GlowBuddy.
+ * Price display for Know Before You Glow.
  *
  * Simplified for the initial seeded dataset: we only render prices we are
  * certain about. Anything other than a confirmed per_unit / per_syringe /

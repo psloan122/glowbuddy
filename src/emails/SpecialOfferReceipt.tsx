@@ -41,11 +41,11 @@ export default function SpecialOfferReceipt({
       <Head>
         <Font fontFamily="system-ui" fallbackFontFamily="Arial" />
       </Head>
-      <Preview>Your GlowBuddy placement for {treatmentName} is now live!</Preview>
+      <Preview>Your Know Before You Glow placement for {treatmentName} is now live!</Preview>
       <Body style={{ backgroundColor: BG, fontFamily: FONT_FAMILY, margin: 0, padding: '40px 16px' }}>
         <Container style={{ maxWidth: 560, margin: '0 auto' }}>
           <Text style={{ textAlign: 'center' as const, fontSize: 24, fontWeight: 700, color: ACCENT, marginBottom: 24 }}>
-            Glow<span style={{ fontWeight: 400 }}>Buddy</span>
+            Know Before You Glow
           </Text>
           <Section style={{ backgroundColor: CARD_BG, borderRadius: 16, padding: '40px 32px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <Text style={{ fontSize: 24, fontWeight: 700, color: TEXT_PRIMARY, textAlign: 'center' as const, margin: '0 0 8px' }}>
@@ -83,16 +83,16 @@ export default function SpecialOfferReceipt({
             </Section>
 
             <Section style={{ textAlign: 'center' as const, marginTop: 24 }}>
-              <Button href="https://glowbuddy.com/business/dashboard" style={{ backgroundColor: ACCENT, color: '#fff', borderRadius: 999, padding: '14px 32px', fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>
+              <Button href="https://knowbeforeyouglow.com/business/dashboard" style={{ backgroundColor: ACCENT, color: '#fff', borderRadius: 999, padding: '14px 32px', fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>
                 View Performance
               </Button>
             </Section>
           </Section>
 
           <Text style={{ textAlign: 'center' as const, fontSize: 13, color: TEXT_SECONDARY, marginTop: 32 }}>
-            <a href="https://glowbuddy.com" style={{ color: TEXT_SECONDARY }}>glowbuddy.com</a> · <a href="https://glowbuddy.com/settings" style={{ color: TEXT_SECONDARY }}>Manage email preferences</a>
+            <a href="https://knowbeforeyouglow.com" style={{ color: TEXT_SECONDARY }}>knowbeforeyouglow.com</a> · <a href="https://knowbeforeyouglow.com/settings" style={{ color: TEXT_SECONDARY }}>Manage email preferences</a>
           </Text>
-          <Text style={{ textAlign: 'center' as const, fontSize: 12, color: TEXT_SECONDARY }}>GlowBuddy · New Orleans, LA</Text>
+          <Text style={{ textAlign: 'center' as const, fontSize: 12, color: TEXT_SECONDARY }}>Know Before You Glow · New Orleans, LA</Text>
         </Container>
       </Body>
     </Html>

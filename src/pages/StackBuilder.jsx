@@ -37,7 +37,7 @@ export default function StackBuilder() {
   const [city, setCity] = useState('');
 
   useEffect(() => {
-    document.title = 'My Stack | GlowBuddy';
+    document.title = 'My Stack | Know Before You Glow';
   }, []);
 
   // Pre-fill from treatment_log if user is signed in

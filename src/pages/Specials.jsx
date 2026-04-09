@@ -24,10 +24,10 @@ export default function Specials() {
 
   // SEO
   useEffect(() => {
-    document.title = "This Week's Med Spa Deals & Specials | GlowBuddy";
+    document.title = "This Week's Med Spa Deals & Specials | Know Before You Glow";
     let meta = document.querySelector('meta[name="description"]');
     const content =
-      'Browse current med spa specials and promotions from verified providers on GlowBuddy. New deals added weekly.';
+      'Browse current med spa specials and promotions from verified providers on Know Before You Glow. New deals added weekly.';
     if (meta) {
       meta.setAttribute('content', content);
     } else {

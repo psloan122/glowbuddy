@@ -29,7 +29,7 @@ function drawCard(canvas, data) {
   ctx.fillStyle = ACCENT;
   ctx.font = `bold 42px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText(`GlowBuddy Wrapped ${data.year}`, S / 2, 110);
+  ctx.fillText(`Know Before You Glow Wrapped ${data.year}`, S / 2, 110);
 
   // Decorative line
   ctx.strokeStyle = ACCENT;
@@ -99,7 +99,7 @@ function drawCard(canvas, data) {
   ctx.fillStyle = DIM;
   ctx.font = `26px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText('glowbuddy.com \u00B7 Know before you glow.', S / 2, 940);
+  ctx.fillText('knowbeforeyouglow.com \u00B7 Know before you glow.', S / 2, 940);
 
   if (data.displayName) {
     ctx.fillStyle = ACCENT;
@@ -148,7 +148,7 @@ export default function WrappedShareCard({ data, onClose }) {
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
-          text: `My ${data.year} GlowBuddy Wrapped \u2728 glowbuddy.com`,
+          text: `My ${data.year} Know Before You Glow Wrapped \u2728 knowbeforeyouglow.com`,
           files: [file],
         });
         return;

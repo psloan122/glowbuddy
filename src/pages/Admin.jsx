@@ -62,7 +62,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    document.title = 'Admin | GlowBuddy';
+    document.title = 'Admin | Know Before You Glow';
   }, []);
 
   // Check admin role from JWT user_metadata

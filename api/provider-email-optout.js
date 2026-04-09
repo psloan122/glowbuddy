@@ -73,7 +73,7 @@ function successPage(name, slug) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unsubscribed | GlowBuddy</title>
+  <title>Unsubscribed | Know Before You Glow</title>
   <style>
     body { margin: 0; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FDFBF9; color: #1A1A2E; text-align: center; }
     .card { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 40px 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
@@ -82,16 +82,16 @@ function successPage(name, slug) {
     a.btn { display: inline-block; background: #C94F78; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 999px; font-weight: 600; font-size: 15px; }
     a.btn:hover { opacity: 0.9; }
     .logo { font-size: 22px; font-weight: 700; color: #C94F78; margin-bottom: 32px; }
-    .logo span { font-weight: 400; color: #1A1A2E; }
+
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="logo">Glow<span>Buddy</span></div>
+    <div class="logo">Know Before You Glow</div>
     <h1>You&rsquo;ve been unsubscribed</h1>
-    <p>You won&rsquo;t receive weekly activity updates for <strong>${escapeHtml(name)}</strong>. Your page remains visible on GlowBuddy.</p>
+    <p>You won&rsquo;t receive weekly activity updates for <strong>${escapeHtml(name)}</strong>. Your page remains visible on Know Before You Glow.</p>
     <p>You can claim your listing any time to manage your page, add pricing, and remove competitor ads.</p>
-    <a class="btn" href="https://glowbuddy.com/business/onboarding?provider=${encodeURIComponent(slug)}&source=optout">Claim Your Listing</a>
+    <a class="btn" href="https://knowbeforeyouglow.com/business/onboarding?provider=${encodeURIComponent(slug)}&source=optout">Claim Your Listing</a>
   </div>
 </body>
 </html>`;
@@ -103,7 +103,7 @@ function errorPage(message) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Error | GlowBuddy</title>
+  <title>Error | Know Before You Glow</title>
   <style>
     body { margin: 0; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FDFBF9; color: #1A1A2E; text-align: center; }
     .card { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 40px 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }

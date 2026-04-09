@@ -11,7 +11,7 @@ export default function InjectorFeed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Following — GlowBuddy';
+    document.title = 'Following — Know Before You Glow';
   }, []);
 
   useEffect(() => {

@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
           total_estimated_high: 0,
           leftover_suggestion: '',
           summary:
-            'You haven\'t logged any treatments yet. Start by adding your treatment history in GlowBuddy so we can give you personalized budget recommendations based on your unique routine and timing.',
+            'You haven\'t logged any treatments yet. Start by adding your treatment history in Know Before You Glow so we can give you personalized budget recommendations based on your unique routine and timing.',
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are a medical aesthetics advisor for GlowBuddy. Recommend how to best spend the user's budget based on their treatment history, what's overdue, and local prices. Base all timing recommendations on FDA-approved retreatment intervals from the cadence data provided. Use "may" and "typically" language — never guarantee outcomes. Prioritize: overdue treatments → best value per month → complementary treatments. Respond ONLY in JSON: { "recommendations": [{ "treatment": string, "reason": string, "estimated_cost_low": number, "estimated_cost_high": number, "priority": "high" | "medium" | "low", "value_note": string }], "total_estimated_low": number, "total_estimated_high": number, "leftover_suggestion": string, "summary": string }`,
+        system: `You are a medical aesthetics advisor for Know Before You Glow. Recommend how to best spend the user's budget based on their treatment history, what's overdue, and local prices. Base all timing recommendations on FDA-approved retreatment intervals from the cadence data provided. Use "may" and "typically" language — never guarantee outcomes. Prioritize: overdue treatments → best value per month → complementary treatments. Respond ONLY in JSON: { "recommendations": [{ "treatment": string, "reason": string, "estimated_cost_low": number, "estimated_cost_high": number, "priority": "high" | "medium" | "low", "value_note": string }], "total_estimated_low": number, "total_estimated_high": number, "leftover_suggestion": string, "summary": string }`,
         messages: [
           {
             role: 'user',

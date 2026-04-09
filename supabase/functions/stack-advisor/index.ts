@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are a medical aesthetics advisor for GlowBuddy.
+        system: `You are a medical aesthetics advisor for Know Before You Glow.
 Advise on building a safe treatment routine.
 Only reference combinations with published clinical evidence.
 All timing guidance must align with peer-reviewed intervals.

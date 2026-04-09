@@ -336,7 +336,7 @@ export default function CreateSpecialForm({ provider, defaultValues, onComplete,
                 </span>
               </div>
               <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                When this special goes live, GlowBuddy will SMS verified
+                When this special goes live, Know Before You Glow will SMS verified
                 patients in your city whose price alerts match this
                 treatment and price. Each patient is texted at most once
                 per special and can reply STOP to opt out.

@@ -23,17 +23,17 @@ export default function ProcedureDetail() {
 
   // SEO
   useEffect(() => {
-    document.title = `${procedureName} Prices Near You | GlowBuddy`;
+    document.title = `${procedureName} Prices Near You | Know Before You Glow`;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute(
         'content',
-        `Compare real ${procedureName} prices from patients and verified providers. See averages, lowest, and highest prices near you on GlowBuddy.`
+        `Compare real ${procedureName} prices from patients and verified providers. See averages, lowest, and highest prices near you on Know Before You Glow.`
       );
     } else {
       const newMeta = document.createElement('meta');
       newMeta.name = 'description';
-      newMeta.content = `Compare real ${procedureName} prices from patients and verified providers. See averages, lowest, and highest prices near you on GlowBuddy.`;
+      newMeta.content = `Compare real ${procedureName} prices from patients and verified providers. See averages, lowest, and highest prices near you on Know Before You Glow.`;
       document.head.appendChild(newMeta);
     }
   }, [procedureName]);

@@ -25,7 +25,7 @@ function toNumber(n) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function calculateGlowBuddyScore(bid, request, provider) {
+export function calculateKnow Before You GlowScore(bid, request, provider) {
   let score = 0;
 
   // ── Price competitiveness (40 pts) ───────────────────────────────

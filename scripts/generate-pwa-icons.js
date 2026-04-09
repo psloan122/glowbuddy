@@ -1,6 +1,6 @@
 // Generates solid-color placeholder PNG icons for PWA manifest.
 // Uses only Node built-ins (zlib + Buffer) — no extra deps.
-// Color: GlowBuddy hot-pink #E8347A.
+// Color: Know Before You Glow hot-pink #E8347A.
 //
 // Run with: node scripts/generate-pwa-icons.js
 

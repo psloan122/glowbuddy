@@ -68,7 +68,7 @@ export default function GoalDetail() {
   // SEO
   useEffect(() => {
     if (!outcome) return;
-    document.title = `How to ${outcome.label} — Best Treatments & Costs | GlowBuddy`;
+    document.title = `How to ${outcome.label} — Best Treatments & Costs | Know Before You Glow`;
 
     const desc = `Discover the best treatments to ${outcome.label.toLowerCase()}. Compare ${treatments.length} options with sourced clinical data, typical sessions, and real prices from patients.`;
     let meta = document.querySelector('meta[name="description"]');

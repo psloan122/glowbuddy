@@ -62,7 +62,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
           ))}
           {providers.length === 0 && (
             <p className="text-sm text-text-secondary text-center py-6">
-              No providers in this area yet. GlowBuddy is growing &mdash; your city might be next.
+              No providers in this area yet. Know Before You Glow is growing &mdash; your city might be next.
             </p>
           )}
         </div>

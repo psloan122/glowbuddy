@@ -14,9 +14,9 @@ export default function DealShare() {
 
   useEffect(() => {
     if (treatment) {
-      document.title = `${treatment} deal${city ? ` in ${city}` : ''} | GlowBuddy`;
+      document.title = `${treatment} deal${city ? ` in ${city}` : ''} | Know Before You Glow`;
     } else {
-      document.title = 'Shared Deal | GlowBuddy';
+      document.title = 'Shared Deal | Know Before You Glow';
     }
   }, [treatment, city]);
 
@@ -57,7 +57,7 @@ export default function DealShare() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Browse prices on GlowBuddy
+          Browse prices on Know Before You Glow
         </h1>
         <p className="text-gray-600 mb-8">
           Compare real med spa prices from real patients.
@@ -66,7 +66,7 @@ export default function DealShare() {
           to="/"
           className="inline-flex items-center gap-2 bg-rose-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-rose-600 transition-colors"
         >
-          Go to GlowBuddy
+          Go to Know Before You Glow
           <ArrowRight className="w-5 h-5" />
         </Link>
       </div>

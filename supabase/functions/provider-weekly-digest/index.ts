@@ -39,9 +39,9 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const RESEND_ENABLED = Boolean(RESEND_API_KEY)
 
 const FROM_ADDRESS =
-  Deno.env.get('DIGEST_FROM_ADDRESS') || 'GlowBuddy <hello@glowbuddy.com>'
+  Deno.env.get('DIGEST_FROM_ADDRESS') || 'Know Before You Glow <hello@knowbeforeyouglow.com>'
 const PUBLIC_SITE_URL =
-  Deno.env.get('PUBLIC_SITE_URL') || 'https://glowbuddy.com'
+  Deno.env.get('PUBLIC_SITE_URL') || 'https://knowbeforeyouglow.com'
 
 interface RequestBody {
   provider_id?: string
@@ -348,7 +348,7 @@ function buildSubject(stats: DigestStats, provider: Provider): string {
     stats.demandTotal > 0
       ? `${stats.demandTotal} patients watching ${provider.city || 'your area'}`
       : 'no alerts nearby yet'
-  return `Your week on GlowBuddy — ${viewsFragment}, ${demandFragment}`
+  return `Your week on Know Before You Glow — ${viewsFragment}, ${demandFragment}`
 }
 
 // HTML email that renders cleanly in Gmail, Outlook, and Apple Mail.
@@ -381,7 +381,7 @@ function buildEmailHtml(provider: Provider, stats: DigestStats): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Your week on GlowBuddy</title>
+<title>Your week on Know Before You Glow</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111; max-width: 600px; margin: 0 auto; padding: 20px; background: #fff; }
   .header { border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 24px; }
@@ -406,7 +406,7 @@ function buildEmailHtml(provider: Provider, stats: DigestStats): string {
 </head>
 <body>
   <div class="header">
-    <div class="logo">GlowBuddy</div>
+    <div class="logo">Know Before You Glow</div>
     <div class="sub">Weekly summary for ${providerName}</div>
   </div>
 
@@ -443,7 +443,7 @@ function buildEmailHtml(provider: Provider, stats: DigestStats): string {
     &nbsp;&middot;&nbsp;
     <a href="${PUBLIC_SITE_URL}/unsubscribe?provider=${provider.id}">Unsubscribe</a>
     <br><br>
-    GlowBuddy &middot; ${providerCity}${providerState ? ', ' + providerState : ''}
+    Know Before You Glow &middot; ${providerCity}${providerState ? ', ' + providerState : ''}
   </div>
 </body>
 </html>`

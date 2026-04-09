@@ -52,7 +52,7 @@ export default function Onboarding() {
   const [menuError, setMenuError] = useState('');
 
   useEffect(() => {
-    document.title = 'Set Up Your Practice | GlowBuddy';
+    document.title = 'Set Up Your Practice | Know Before You Glow';
   }, []);
 
   // Pre-fill from place_id URL param (from "Claim This Listing" banner)

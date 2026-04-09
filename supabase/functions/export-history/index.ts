@@ -123,7 +123,7 @@ function buildHtml(
 <body>
   <div class="header">
     <div>
-      <h1>GlowBuddy Treatment History</h1>
+      <h1>Know Before You Glow Treatment History</h1>
       <p style="color:#666;font-size:11px;margin-top:4px;">${escapeHtml(userEmail)}</p>
     </div>
     <div class="meta">
@@ -150,7 +150,7 @@ function buildHtml(
   </table>
 
   <div class="footer">
-    <span>Generated ${now} · glowbuddy.com</span>
+    <span>Generated ${now} · knowbeforeyouglow.com</span>
     <span>This document is self-reported data and not a medical record.</span>
   </div>
 </body>
@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="GlowBuddy-Treatment-History.html"',
+        'Content-Disposition': 'attachment; filename="Know Before You Glow-Treatment-History.html"',
       },
     })
   } catch (err) {

@@ -23,7 +23,7 @@ export default function BudgetPlanner() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Budget Planner | GlowBuddy';
+    document.title = 'Budget Planner | Know Before You Glow';
   }, []);
 
   useEffect(() => {

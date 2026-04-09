@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
             PhoneNumber: twilioNumber!,
             VoiceUrl: voiceUrl,
             VoiceMethod: 'POST',
-            FriendlyName: `GlowBuddy - ${provider?.city || 'Provider'}`,
+            FriendlyName: `Know Before You Glow - ${provider?.city || 'Provider'}`,
           }),
         }
       )

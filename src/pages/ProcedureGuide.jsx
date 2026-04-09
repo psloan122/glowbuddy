@@ -111,7 +111,7 @@ export default function ProcedureGuide() {
   useEffect(() => {
     if (!guide) return;
     const location = [userCity, userState].filter(Boolean).join(', ');
-    document.title = `${guide.name} Guide — What to Expect, Costs & Tips | GlowBuddy`;
+    document.title = `${guide.name} Guide — What to Expect, Costs & Tips | Know Before You Glow`;
 
     const desc = `Everything you need to know before your first ${guide.name} treatment. Average cost $${guide.avg_cost_low}–$${guide.avg_cost_high}, satisfaction rate ${guide.satisfaction_rate}%. Questions to ask, red flags, and real prices.`;
     let meta = document.querySelector('meta[name="description"]');
@@ -412,7 +412,7 @@ export default function ProcedureGuide() {
           <p className="text-sm text-text-secondary mb-4">
             {userCity && userState
               ? `Real prices near ${userCity}, ${userState}`
-              : 'Real prices from GlowBuddy patients'}
+              : 'Real prices from Know Before You Glow patients'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {prices.slice(0, 6).map((p) => (
@@ -435,7 +435,7 @@ export default function ProcedureGuide() {
           <h2 className="font-display text-xl font-semibold text-text-primary mb-1">
             Providers Offering {guide.name}
           </h2>
-          <p className="text-sm text-text-secondary mb-4">Claimed and verified on GlowBuddy</p>
+          <p className="text-sm text-text-secondary mb-4">Claimed and verified on Know Before You Glow</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {providers.slice(0, 4).map((prov) => {
               const url = providerProfileUrl(prov.slug, prov.name, prov.city, prov.state);
@@ -513,7 +513,7 @@ export default function ProcedureGuide() {
         <p className="text-xs text-text-secondary leading-relaxed">
           <strong>Medical disclaimer:</strong> This guide is for informational purposes only and does not constitute medical advice.
           Always consult a licensed medical professional before undergoing any treatment. Individual results vary.
-          GlowBuddy does not endorse or recommend specific providers or products.
+          Know Before You Glow does not endorse or recommend specific providers or products.
         </p>
       </div>
     </div>

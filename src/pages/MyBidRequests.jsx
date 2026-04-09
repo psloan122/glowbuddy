@@ -32,7 +32,7 @@ export default function MyBidRequests() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'My bid requests | GlowBuddy';
+    document.title = 'My bid requests | Know Before You Glow';
   }, []);
 
   useEffect(() => {

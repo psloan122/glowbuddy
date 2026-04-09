@@ -99,7 +99,7 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    document.title = 'Settings | GlowBuddy';
+    document.title = 'Settings | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -176,7 +176,7 @@ export default function Settings() {
       <div className="glow-card p-6">
         <h2 className="text-lg font-bold text-text-primary mb-1">Email Preferences</h2>
         <p className="text-sm text-text-secondary mb-5">
-          Choose which emails you&apos;d like to receive from GlowBuddy.
+          Choose which emails you&apos;d like to receive from Know Before You Glow.
         </p>
 
         <div className="space-y-4">
@@ -237,7 +237,7 @@ export default function Settings() {
           <h2 className="text-lg font-bold text-text-primary">Treatment Preferences</h2>
         </div>
         <p className="text-sm text-text-secondary mb-5">
-          Personalize what you see across GlowBuddy. Your picks drive the Browse page so you can skip the gate and jump straight to your treatments.
+          Personalize what you see across Know Before You Glow. Your picks drive the Browse page so you can skip the gate and jump straight to your treatments.
         </p>
 
         {/* Treatments I get — drives personalized browse */}

@@ -349,7 +349,7 @@ async function fetchUnclassified() {
 
 async function main() {
   console.log('\n╔════════════════════════════════════════════╗');
-  console.log('║   GlowBuddy Med Spa Classifier              ║');
+  console.log('║   Know Before You Glow Med Spa Classifier              ║');
   console.log('╚════════════════════════════════════════════╝');
   console.log(`Stage 2 (Claude): ${WITH_CLAUDE ? 'ENABLED' : 'disabled (use --with-claude)'}`);
   if (LIMIT) console.log(`Limit: ${LIMIT} rows`);

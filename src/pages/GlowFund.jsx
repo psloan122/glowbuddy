@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { setPageMeta } from '../lib/seo';
 
-// The Glow Fund — public marketing page. 5% of every dollar GlowBuddy
+// The Glow Fund — public marketing page. 5% of every dollar Know Before You Glow
 // earns funds aesthetic reconstructive treatments for domestic violence
 // survivors and veterans. See migration 060_glow_fund.sql for the
 // backing tables (glow_fund running total + glow_fund_reports ledger).
@@ -62,9 +62,9 @@ export default function GlowFund() {
 
   useEffect(() => {
     setPageMeta({
-      title: 'The Glow Fund — Beauty is our business. Healing is our purpose. | GlowBuddy',
+      title: 'The Glow Fund — Beauty is our business. Healing is our purpose. | Know Before You Glow',
       description:
-        '5% of every dollar GlowBuddy earns funds aesthetic reconstructive treatments for domestic violence survivors and veterans.',
+        '5% of every dollar Know Before You Glow earns funds aesthetic reconstructive treatments for domestic violence survivors and veterans.',
     });
   }, []);
 
@@ -140,7 +140,7 @@ export default function GlowFund() {
               maxWidth: '620px',
             }}
           >
-            5% of every dollar GlowBuddy earns funds aesthetic reconstructive
+            5% of every dollar Know Before You Glow earns funds aesthetic reconstructive
             treatments for domestic violence survivors and veterans.
           </p>
         </div>
@@ -278,7 +278,7 @@ export default function GlowFund() {
                 num: '01',
                 title: 'Revenue comes in',
                 body:
-                  'Every provider subscription, bid lead fee, and ad dollar earned by GlowBuddy.',
+                  'Every provider subscription, bid lead fee, and ad dollar earned by Know Before You Glow.',
               },
               {
                 num: '02',
@@ -621,7 +621,7 @@ export default function GlowFund() {
               marginRight: 'auto',
             }}
           >
-            When a provider claims their listing on GlowBuddy, they join a
+            When a provider claims their listing on Know Before You Glow, they join a
             platform that gives back. When you share your prices, you help
             someone find the best deal — and fund someone else's fresh start.
           </p>

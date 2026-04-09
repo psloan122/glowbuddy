@@ -1,5 +1,5 @@
 /**
- * Stripe client scaffold for GlowBuddy.
+ * Stripe client scaffold for Know Before You Glow.
  * Wire up VITE_STRIPE_PUBLISHABLE_KEY in .env when ready.
  */
 

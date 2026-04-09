@@ -11,7 +11,7 @@ export default function Rewards() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'My Rewards | GlowBuddy';
+    document.title = 'My Rewards | Know Before You Glow';
   }, []);
 
   useEffect(() => {

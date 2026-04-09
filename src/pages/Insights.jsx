@@ -14,7 +14,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-// "The GlowBuddy Price Report" — editorial data feature.
+// "The Know Before You Glow Price Report" — editorial data feature.
 //
 // This page is not a dashboard. It's a monthly magazine piece: ticker,
 // kicker, hero headline, then section after section of hot-pink charts
@@ -136,7 +136,7 @@ export default function Insights() {
   const [reportMonth, setReportMonth] = useState('');
 
   useEffect(() => {
-    document.title = 'The GlowBuddy Price Report | GlowBuddy';
+    document.title = 'The Know Before You Glow Price Report | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -337,7 +337,7 @@ export default function Insights() {
     return (
       <div className="max-w-[800px] mx-auto px-4 py-24 text-center">
         <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
-          The GlowBuddy Price Report
+          The Know Before You Glow Price Report
         </p>
         <p
           style={{
@@ -371,7 +371,7 @@ export default function Insights() {
           textAlign: 'center',
         }}
       >
-        The GlowBuddy Price Report &middot; Updated Monthly
+        The Know Before You Glow Price Report &middot; Updated Monthly
         {reportMonth ? ` \u00B7 ${reportMonth}` : ''}
       </div>
 
@@ -564,12 +564,12 @@ export default function Insights() {
           </section>
         )}
 
-        {/* CHART 3 — Where GlowBuddy is growing (ranked list) */}
+        {/* CHART 3 — Where Know Before You Glow is growing (ranked list) */}
         {topCities.length > 0 && (
           <section>
             <SectionRule />
             <Kicker>Top cities</Kicker>
-            <SectionHeadline>Where GlowBuddy is growing.</SectionHeadline>
+            <SectionHeadline>Where Know Before You Glow is growing.</SectionHeadline>
 
             <ol className="space-y-4">
               {(() => {

@@ -71,7 +71,7 @@ Deno.serve(async () => {
             providerName: provider.name,
             treatmentName: special.treatment_name || special.headline || 'Special Offer',
             expiryDate,
-            renewUrl: `https://glowbuddy.com/business/dashboard`,
+            renewUrl: `https://knowbeforeyouglow.com/business/dashboard`,
           },
         }),
       })

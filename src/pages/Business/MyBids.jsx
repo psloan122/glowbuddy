@@ -44,7 +44,7 @@ export default function MyBids() {
   const [providerName, setProviderName] = useState('');
 
   useEffect(() => {
-    document.title = 'My bids | GlowBuddy for Providers';
+    document.title = 'My bids | Know Before You Glow for Providers';
   }, []);
 
   useEffect(() => {

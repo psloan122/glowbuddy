@@ -4,7 +4,7 @@ import SavingsCalculator from '../components/SavingsCalculator';
 
 export default function Calculator() {
   useEffect(() => {
-    document.title = 'Savings Calculator | GlowBuddy';
+    document.title = 'Savings Calculator | Know Before You Glow';
   }, []);
 
   return (

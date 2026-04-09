@@ -9,7 +9,7 @@ import EmailConfirmation from './EmailConfirmation';
 import SavingsShareCard from './SavingsShareCard';
 import { getProcedureLabel } from '../lib/procedureLabel';
 
-const VERIFY_EMAIL = 'verify@glowbuddy.com';
+const VERIFY_EMAIL = 'verify@knowbeforeyouglow.com';
 
 // Typical units per treatment for savings calculation
 const TYPICAL_UNITS = {

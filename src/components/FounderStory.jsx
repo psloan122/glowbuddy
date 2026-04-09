@@ -6,12 +6,12 @@ export default function FounderStory({ full = false }) {
       <p className="font-display italic text-[15px] md:text-base leading-relaxed text-text-primary/80">
         &ldquo;My wife called five med spas in New Orleans just to find out what Botox
         costs. Nobody would tell her the price without booking a consultation.
-        We built GlowBuddy so nobody has to make that call again.&rdquo;
+        We built Know Before You Glow so nobody has to make that call again.&rdquo;
       </p>
 
       {full && (
         <p className="mt-4 text-sm leading-relaxed text-text-secondary">
-          GlowBuddy is built on a simple idea: patients deserve to know what things
+          Know Before You Glow is built on a simple idea: patients deserve to know what things
           cost before they walk in the door. Every price on this site comes from a
           real person who went through it. No estimates. No advertised rates.
           Just what people actually paid.
@@ -19,7 +19,7 @@ export default function FounderStory({ full = false }) {
       )}
 
       <p className="mt-3 text-xs text-text-secondary/60">
-        &mdash; Founder, GlowBuddy
+        &mdash; Founder, Know Before You Glow
       </p>
 
       {!full && (

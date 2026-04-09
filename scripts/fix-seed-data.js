@@ -1,5 +1,5 @@
 /**
- * GlowBuddy Seed Data Fix Script (v2)
+ * Know Before You Glow Seed Data Fix Script (v2)
  *
  * The initial verify-seed-data.js script identified correct Google matches but
  * all DB updates failed because migration 009 (verification columns) was never applied.

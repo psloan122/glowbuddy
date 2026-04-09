@@ -59,7 +59,7 @@ export default function WalletRedeemModal({ special, onClose, onSuccess }) {
           </div>
           <h3 className="text-lg font-bold text-text-primary mb-2">Credit Applied!</h3>
           <p className="text-sm text-text-secondary mb-4">
-            ${(creditToApply / 100).toFixed(2)} has been applied to this special. The provider will see your full booking intent — GlowBuddy covers the discount.
+            ${(creditToApply / 100).toFixed(2)} has been applied to this special. The provider will see your full booking intent — Know Before You Glow covers the discount.
           </p>
           <button
             onClick={onClose}

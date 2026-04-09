@@ -12,7 +12,7 @@ export default function YourActivity({ activity, loading }) {
 
   return (
     <div className="glow-card p-5">
-      <h2 className="text-lg font-bold text-text-primary mb-4">Your GlowBuddy Activity</h2>
+      <h2 className="text-lg font-bold text-text-primary mb-4">Your Know Before You Glow Activity</h2>
 
       {/* 3-column stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">

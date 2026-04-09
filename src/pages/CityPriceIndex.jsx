@@ -45,9 +45,9 @@ export default function CityPriceIndex() {
 
   // SEO
   useEffect(() => {
-    document.title = 'Compare Real Cosmetic Prices by City | GlowBuddy';
+    document.title = 'Compare Real Cosmetic Prices by City | Know Before You Glow';
     const meta = document.querySelector('meta[name="description"]');
-    const desc = 'Browse real patient-reported cosmetic procedure prices by city. Compare Botox, filler, and facial prices near you on GlowBuddy.';
+    const desc = 'Browse real patient-reported cosmetic procedure prices by city. Compare Botox, filler, and facial prices near you on Know Before You Glow.';
     if (meta) {
       meta.setAttribute('content', desc);
     } else {
@@ -64,10 +64,10 @@ export default function CityPriceIndex() {
     script.textContent = JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'Dataset',
-      name: 'GlowBuddy City Price Reports',
+      name: 'Know Before You Glow City Price Reports',
       description: 'Patient-reported cosmetic procedure prices by city across the United States.',
-      url: 'https://glowbuddy.com/prices',
-      creator: { '@type': 'Organization', name: 'GlowBuddy' },
+      url: 'https://knowbeforeyouglow.com/prices',
+      creator: { '@type': 'Organization', name: 'Know Before You Glow' },
     });
     document.head.appendChild(script);
 

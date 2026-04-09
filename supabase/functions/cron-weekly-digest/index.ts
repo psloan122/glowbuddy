@@ -88,7 +88,7 @@ Deno.serve(async () => {
             impressions,
             clicks,
             topProcedure,
-            analyticsUrl: `https://glowbuddy.com/business/dashboard`,
+            analyticsUrl: `https://knowbeforeyouglow.com/business/dashboard`,
           },
         }),
       })

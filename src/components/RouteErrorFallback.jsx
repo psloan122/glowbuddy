@@ -67,7 +67,7 @@ export default function RouteErrorFallback({ error, reset }) {
           lineHeight: 1.55,
         }}
       >
-        Something on this page crashed, but the rest of GlowBuddy is fine.
+        Something on this page crashed, but the rest of Know Before You Glow is fine.
         Try again, or head somewhere else.
       </p>
 

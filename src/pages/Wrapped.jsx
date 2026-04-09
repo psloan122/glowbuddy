@@ -114,7 +114,7 @@ export default function Wrapped() {
       <div className="max-w-md mx-auto px-4 py-16 text-center">
         <div className="glow-card p-8">
           <Sparkles className="w-12 h-12 text-rose-accent mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-text-primary mb-2">GlowBuddy Wrapped</h1>
+          <h1 className="text-2xl font-bold text-text-primary mb-2">Know Before You Glow Wrapped</h1>
           <p className="text-text-secondary mb-6">
             Sign in to see your personalized year in review.
           </p>
@@ -146,7 +146,7 @@ export default function Wrapped() {
           <Sparkles className="w-12 h-12 text-rose-accent mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-text-primary mb-2">Coming Soon</h1>
           <p className="text-text-secondary mb-4">
-            Your {year} GlowBuddy Wrapped will be ready December 1.
+            Your {year} Know Before You Glow Wrapped will be ready December 1.
           </p>
           <p className="text-sm text-text-secondary">
             Keep logging treatments to make it even better!

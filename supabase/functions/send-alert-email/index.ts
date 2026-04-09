@@ -57,7 +57,7 @@ Deno.serve(async () => {
         return `- ${proc.procedure_type}: $${Number(proc.price_paid).toLocaleString()} at ${proc.provider_name} (${proc.city}, ${proc.state})`;
       });
 
-      const body = `Hi there!\n\nNew prices matching your alerts have been posted on GlowBuddy:\n\n${lines.join("\n")}\n\nView your alerts: https://glowbuddy.com/alerts\n\n— GlowBuddy`;
+      const body = `Hi there!\n\nNew prices matching your alerts have been posted on Know Before You Glow:\n\n${lines.join("\n")}\n\nView your alerts: https://knowbeforeyouglow.com/alerts\n\n— Know Before You Glow`;
 
       // Send via Resend
       const res = await fetch("https://api.resend.com/emails", {
@@ -67,7 +67,7 @@ Deno.serve(async () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "GlowBuddy <alerts@glowbuddy.com>",
+          from: "Know Before You Glow <alerts@knowbeforeyouglow.com>",
           to: [user.email],
           subject: `New ${userTriggers.length === 1 ? "price" : "prices"} matching your alert`,
           text: body,

@@ -3,16 +3,16 @@
 // Secrets needed: RESEND_API_KEY
 //
 // Resend Inbound Setup:
-// 1. Configure Resend inbound domain (e.g. verify.glowbuddy.com)
+// 1. Configure Resend inbound domain (e.g. verify.knowbeforeyouglow.com)
 // 2. Set webhook URL to this function's endpoint
-// 3. Users forward booking confirmations to verify@glowbuddy.com
+// 3. Users forward booking confirmations to verify@knowbeforeyouglow.com
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const VERIFY_FROM_EMAIL = Deno.env.get('VERIFY_FROM_EMAIL') || 'verify@glowbuddy.com'
+const VERIFY_FROM_EMAIL = Deno.env.get('VERIFY_FROM_EMAIL') || 'verify@knowbeforeyouglow.com'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -133,7 +133,7 @@ async function sendReply(to: string, subject: string, message: string) {
       body: JSON.stringify({
         from: VERIFY_FROM_EMAIL,
         to,
-        subject: `GlowBuddy: ${subject}`,
+        subject: `Know Before You Glow: ${subject}`,
         text: message,
       }),
     })
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'No sender email' }, 400)
     }
 
-    // 1. Find GlowBuddy account by sender email
+    // 1. Find Know Before You Glow account by sender email
     const { data: { users }, error: userError } = await supabase.auth.admin.listUsers()
     const matchedUser = !userError
       ? users?.find((u: { email?: string }) => u.email?.toLowerCase() === senderEmail)
@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
       await sendReply(
         senderEmail,
         'Email not recognized',
-        'Make sure you forward from the same email you used to sign up for GlowBuddy.'
+        'Make sure you forward from the same email you used to sign up for Know Before You Glow.'
       )
       return jsonResponse({ status: 'unknown_user' })
     }
@@ -197,7 +197,7 @@ Deno.serve(async (req: Request) => {
       await sendReply(
         senderEmail,
         'Could not read your confirmation',
-        "We couldn't parse your appointment confirmation. Try uploading a receipt screenshot instead from your GlowBuddy profile."
+        "We couldn't parse your appointment confirmation. Try uploading a receipt screenshot instead from your Know Before You Glow profile."
       )
       return jsonResponse({ status: 'parse_failed', confidence: parsed.confidence })
     }
@@ -225,7 +225,7 @@ Deno.serve(async (req: Request) => {
       await sendReply(
         senderEmail,
         'No recent submission found',
-        'Log your treatment on GlowBuddy first, then forward the confirmation email within 7 days.'
+        'Log your treatment on Know Before You Glow first, then forward the confirmation email within 7 days.'
       )
       return jsonResponse({ status: 'no_match' })
     }

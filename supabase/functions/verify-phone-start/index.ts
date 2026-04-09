@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Send the SMS ───────────────────────────────────────────────────
-  const rawBody = `Your GlowBuddy verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`
+  const rawBody = `Your Know Before You Glow verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`
   const smsBody = withStopSuffix(truncateSMS(rawBody, 160), 160)
 
   if (TWILIO_ENABLED) {

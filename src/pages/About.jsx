@@ -4,7 +4,7 @@ import FounderStory from '../components/FounderStory';
 
 export default function About() {
   useEffect(() => {
-    document.title = 'About \u2014 GlowBuddy';
+    document.title = 'About \u2014 Know Before You Glow';
   }, []);
 
   return (
@@ -13,14 +13,14 @@ export default function About() {
         Know before you glow.
       </h1>
       <p className="text-text-secondary mb-8">
-        The story behind GlowBuddy.
+        The story behind Know Before You Glow.
       </p>
 
       <FounderStory full />
 
       <div className="mt-10 space-y-5 text-[15px] leading-relaxed text-text-secondary">
         <p>
-          GlowBuddy is a crowdsourced pricing platform for cosmetic treatments.
+          Know Before You Glow is a crowdsourced pricing platform for cosmetic treatments.
           Every price you see comes from a real patient who shared what they
           actually paid &mdash; not an advertised rate, not a &ldquo;starting
           at&rdquo; number.
@@ -32,7 +32,7 @@ export default function About() {
           they deserve.
         </p>
         <p>
-          GlowBuddy is free to browse. No account required. No ads between you
+          Know Before You Glow is free to browse. No account required. No ads between you
           and the data. Just real prices from real people.
         </p>
       </div>

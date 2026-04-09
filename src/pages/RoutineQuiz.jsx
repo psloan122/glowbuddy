@@ -70,7 +70,7 @@ export default function RoutineQuiz() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    document.title = 'Build My Routine | GlowBuddy';
+    document.title = 'Build My Routine | Know Before You Glow';
   }, []);
 
   const ALL_TREATMENTS = [

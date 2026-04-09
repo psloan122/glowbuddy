@@ -138,16 +138,16 @@ export default function AdminOutreachTab() {
         }
       }
 
-      const claimUrl = `https://glowbuddy.com/business/onboarding?provider=${provider.slug}&source=email`;
-      const pageUrl = `https://glowbuddy.com/provider/${provider.slug}`;
+      const claimUrl = `https://knowbeforeyouglow.com/business/onboarding?provider=${provider.slug}&source=email`;
+      const pageUrl = `https://knowbeforeyouglow.com/provider/${provider.slug}`;
 
       // Use simple HMAC for opt-out (same logic as cron function)
-      const optoutUrl = `https://glowbuddy.com/api/provider-email-optout?id=${provider.id}&token=admin-manual`;
+      const optoutUrl = `https://knowbeforeyouglow.com/api/provider-email-optout?id=${provider.id}&token=admin-manual`;
 
       const useCompetitorSubject = (competitors || 0) > 0 && competitorName;
       const subject = useCompetitorSubject
-        ? 'A competitor is advertising on your GlowBuddy page'
-        : `${provider.page_view_count_week || 0} people viewed ${provider.name} on GlowBuddy this week`;
+        ? 'A competitor is advertising on your Know Before You Glow page'
+        : `${provider.page_view_count_week || 0} people viewed ${provider.name} on Know Before You Glow this week`;
 
       await supabase.functions.invoke('send-email', {
         body: {

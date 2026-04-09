@@ -26,7 +26,7 @@ export default function GuideDetail() {
   // SEO
   useEffect(() => {
     if (!guide) return;
-    document.title = `First Time ${guide.treatment_name} Guide — What to Expect, Costs & Tips | GlowBuddy`;
+    document.title = `First Time ${guide.treatment_name} Guide — What to Expect, Costs & Tips | Know Before You Glow`;
 
     const desc = `Everything you need to know before your first ${guide.treatment_name} treatment. Fair price ranges ($${guide.typical_price_range_low}–$${guide.typical_price_range_high}), starter doses, questions to ask, and red flags.`;
     let meta = document.querySelector('meta[name="description"]');

@@ -42,7 +42,7 @@ export default function PhoneMockup() {
 
         {/* Screen header */}
         <div className="px-4 pb-2">
-          <p className="text-[10px] font-bold text-text-primary tracking-wide">GlowBuddy</p>
+          <p className="text-[10px] font-bold text-text-primary tracking-wide">Know Before You Glow</p>
           <p className="text-[8px] text-text-secondary">Recent prices near you</p>
         </div>
 

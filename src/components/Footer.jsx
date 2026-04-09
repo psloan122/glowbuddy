@@ -14,7 +14,7 @@ export default function Footer() {
               className="font-display text-white leading-none mb-2"
               style={{ fontWeight: 900, fontSize: '28px' }}
             >
-              GlowBuddy
+              Know Before You Glow
             </p>
             <p
               className="font-display italic text-hot-pink mb-4"
@@ -26,7 +26,7 @@ export default function Footer() {
               className="text-[10px] font-semibold uppercase"
               style={{ letterSpacing: '0.10em', color: '#666' }}
             >
-              &copy; {new Date().getFullYear()} GlowBuddy LLC
+              &copy; {new Date().getFullYear()} Know Before You Glow LLC
             </p>
           </div>
 
@@ -107,7 +107,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:hello@glowbuddy.com"
+                  href="mailto:hello@knowbeforeyouglow.com"
                   className="text-[13px] font-light hover:text-hot-pink transition-colors"
                   style={{ color: '#bbb' }}
                 >

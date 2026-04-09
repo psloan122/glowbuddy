@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const SITE_URL = 'https://glowbuddy.com';
+const SITE_URL = 'https://knowbeforeyouglow.com';
 const SITEMAP_PATH = resolve(__dirname, '..', 'public', 'sitemap.xml');
 const MIN_SUBMISSIONS = 5;
 

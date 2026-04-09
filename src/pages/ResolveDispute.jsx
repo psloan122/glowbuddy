@@ -16,7 +16,7 @@ export default function ResolveDispute() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    document.title = 'Resolve Dispute | GlowBuddy';
+    document.title = 'Resolve Dispute | Know Before You Glow';
   }, []);
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function ResolveDispute() {
           .eq('id', procedureId);
 
         setStatus('success');
-        setMessage('Your submission has been removed. Thank you for helping keep GlowBuddy accurate.');
+        setMessage('Your submission has been removed. Thank you for helping keep Know Before You Glow accurate.');
       }
     } catch {
       setStatus('error');

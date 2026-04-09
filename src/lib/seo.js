@@ -119,14 +119,14 @@ export function applyCityReportMeta({
   const monthName = MONTH_NAMES[monthIdx] || MONTH_NAMES[now.getMonth()];
 
   const procName = topProc || 'Cosmetic procedure';
-  const title = `${procName} prices in ${city}, ${state} — ${monthName} ${year} | GlowBuddy`;
+  const title = `${procName} prices in ${city}, ${state} — ${monthName} ${year} | Know Before You Glow`;
 
   const submissionCount = Number(totalSubmissions || 0);
   const providerCount = Number(distinctProviders || 0);
   const avgText = topProcAvg ? `Average $${Number(topProcAvg).toLocaleString()}` : 'Real patient-reported prices';
   const description = `${avgText} for ${procName} in ${city}, ${state}. Based on ${submissionCount} data point${submissionCount === 1 ? '' : 's'} from ${providerCount} provider${providerCount === 1 ? '' : 's'}. Updated ${monthName} ${year}.`;
 
-  const canonicalUrl = `https://glowbuddy.com/prices/${slug}${yearMonth ? `/${yearMonth}` : ''}`;
+  const canonicalUrl = `https://knowbeforeyouglow.com/prices/${slug}${yearMonth ? `/${yearMonth}` : ''}`;
 
   // Title + description
   setPageMeta({ title, description });
@@ -156,7 +156,7 @@ export function applyCityReportMeta({
     url: canonicalUrl,
     temporalCoverage: yearMonth || `${year}-${String(monthIdx + 1).padStart(2, '0')}`,
     spatialCoverage: { '@type': 'Place', name: `${city}, ${state}` },
-    creator: { '@type': 'Organization', name: 'GlowBuddy' },
+    creator: { '@type': 'Organization', name: 'Know Before You Glow' },
     ...(dataFreshness?.mostRecent ? { dateModified: dataFreshness.mostRecent } : {}),
   });
 

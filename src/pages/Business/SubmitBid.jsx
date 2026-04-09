@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
-import { calculateGlowBuddyScore } from '../../lib/glowbuddyScore';
+import { calculateKnow Before You GlowScore } from '../../lib/glowbuddyScore';
 import { notifyPatientOfNewBid } from '../../lib/bidNotifications';
 
 // Provider bid submission form. Reads the bid_request the provider is
@@ -74,7 +74,7 @@ export default function SubmitBid() {
   const [addOns, setAddOns] = useState([]);
 
   useEffect(() => {
-    document.title = 'Submit a bid | GlowBuddy for Providers';
+    document.title = 'Submit a bid | Know Before You Glow for Providers';
   }, []);
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function SubmitBid() {
       add_ons: addOnsString || null,
     };
 
-    const score = calculateGlowBuddyScore(bidPayload, request, provider);
+    const score = calculateKnow Before You GlowScore(bidPayload, request, provider);
     bidPayload.glowbuddy_score = score;
 
     const { data: inserted, error: insertErr } = await supabase
@@ -797,7 +797,7 @@ export default function SubmitBid() {
               className="text-[12px]"
               style={{ fontFamily: 'var(--font-body)', color: '#7A5A1E', lineHeight: 1.5 }}
             >
-              GlowBuddy charges a flat <strong>$35 lead fee</strong> only if this patient
+              Know Before You Glow charges a flat <strong>$35 lead fee</strong> only if this patient
               accepts your bid. Submitting a bid is free. We never charge for bids that
               don&rsquo;t convert.
             </p>

@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       : '\nNo other reviews from this user.'
 
     // Call Claude API
-    const prompt = `You are a fraud detection system for a medical spa review platform called GlowBuddy.
+    const prompt = `You are a fraud detection system for a medical spa review platform called Know Before You Glow.
 
 Analyze this review and determine if it appears to be fake, manipulated, or suspicious.
 

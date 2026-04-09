@@ -32,7 +32,7 @@ export default function Claim() {
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    document.title = 'Claim Your Listing | GlowBuddy';
+    document.title = 'Claim Your Listing | Know Before You Glow';
   }, []);
 
   // Debounced search

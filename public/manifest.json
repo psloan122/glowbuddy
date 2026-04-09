@@ -1,6 +1,6 @@
 {
-  "name": "GlowBuddy",
-  "short_name": "GlowBuddy",
+  "name": "Know Before You Glow",
+  "short_name": "Know Before You Glow",
   "description": "Real prices for Botox, lip filler, and med spa treatments reported by patients.",
   "start_url": "/",
   "display": "standalone",

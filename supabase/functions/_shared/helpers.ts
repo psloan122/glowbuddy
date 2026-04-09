@@ -1,4 +1,4 @@
-// Shared helpers for GlowBuddy edge functions.
+// Shared helpers for Know Before You Glow edge functions.
 //
 // Kept deliberately small — no Supabase client, no network calls,
 // just stateless utilities used by notify-price-alert and

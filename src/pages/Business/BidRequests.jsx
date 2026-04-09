@@ -23,7 +23,7 @@ const BENEFITS = [
   'Only pay $35 when a patient accepts your bid',
   'See patient budget, experience level, and notes before you submit an offer',
   'Fill cancellations and open slots instantly',
-  'GlowBuddy Score ranks your bid on quality, not just price',
+  'Know Before You Glow Score ranks your bid on quality, not just price',
 ];
 
 export default function BidRequests() {
@@ -32,7 +32,7 @@ export default function BidRequests() {
   const [providerChecked, setProviderChecked] = useState(false);
 
   useEffect(() => {
-    document.title = 'Bid Requests for providers — coming soon | GlowBuddy';
+    document.title = 'Bid Requests for providers — coming soon | Know Before You Glow';
   }, []);
 
   // Look up the user's claimed provider listing (if any). We gate

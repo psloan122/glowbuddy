@@ -406,20 +406,20 @@ export default function FindPrices() {
     let desc;
 
     if (procedure && city) {
-      title = `${capitalize(procedure)} prices in ${city}, ${state} | GlowBuddy`;
+      title = `${capitalize(procedure)} prices in ${city}, ${state} | Know Before You Glow`;
       if (!brandFilter && procFilter?.slug === 'neurotoxin') {
         desc = `Compare Botox, Dysport, and Xeomin prices from med spas in ${city}, ${state}. Real prices from verified patients. Know before you glow.`;
       } else {
-        desc = `See what patients actually paid for ${procedure} in ${city}, ${state}. Real prices from verified patients. Know before you glow. Free on GlowBuddy.`;
+        desc = `See what patients actually paid for ${procedure} in ${city}, ${state}. Real prices from verified patients. Know before you glow. Free on Know Before You Glow.`;
       }
     } else if (city) {
-      title = `Med spa prices in ${city}, ${state} | GlowBuddy`;
+      title = `Med spa prices in ${city}, ${state} | Know Before You Glow`;
       desc = `Compare real patient-reported prices for Botox, fillers, and more in ${city}, ${state}. Know before you glow.`;
     } else if (procedure) {
-      title = `${capitalize(procedure)} prices near you | GlowBuddy`;
-      desc = `See what patients actually paid for ${procedure}. Real prices from verified patients on GlowBuddy.`;
+      title = `${capitalize(procedure)} prices near you | Know Before You Glow`;
+      desc = `See what patients actually paid for ${procedure}. Real prices from verified patients on Know Before You Glow.`;
     } else {
-      title = 'Find Med Spa Prices Near You | GlowBuddy';
+      title = 'Find Med Spa Prices Near You | Know Before You Glow';
       desc = 'Compare real patient-reported prices for Botox, lip filler, and med spa treatments. See what people actually paid near you.';
     }
 
@@ -431,7 +431,7 @@ export default function FindPrices() {
     if (selectedLoc?.city) canonicalParams.set('city', selectedLoc.city);
     if (selectedLoc?.state) canonicalParams.set('state', selectedLoc.state);
     const qs = canonicalParams.toString();
-    const canonical = `https://glowbuddy.com/browse${qs ? `?${qs}` : ''}`;
+    const canonical = `https://knowbeforeyouglow.com/browse${qs ? `?${qs}` : ''}`;
 
     setPageMeta({ title, description: desc, canonical });
   }, [procFilter, brandFilter, selectedLoc]);

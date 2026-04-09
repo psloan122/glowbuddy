@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
     if (!phoneRecord) {
       console.error(`No provider found for number: ${calledNumber}`)
       return new Response(
-        '<Response><Say>Sorry, this number is no longer active. Please visit glowbuddy.com for contact information.</Say></Response>',
+        '<Response><Say>Sorry, this number is no longer active. Please visit knowbeforeyouglow.com for contact information.</Say></Response>',
         { headers: { 'Content-Type': 'text/xml' } }
       )
     }

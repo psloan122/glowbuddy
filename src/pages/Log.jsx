@@ -178,7 +178,7 @@ export default function Log() {
 
   // SEO
   useEffect(() => {
-    document.title = 'Share What You Paid | GlowBuddy';
+    document.title = 'Share What You Paid | Know Before You Glow';
   }, []);
 
   // Fetch user's active submission count for entry calculation
@@ -544,7 +544,7 @@ export default function Log() {
           // Non-blocking — table may not exist yet
         }
         setSubmitError(
-          `Could not save your price: ${error.message || 'unknown database error'}. Please try again or email hello@glowbuddy.com.`
+          `Could not save your price: ${error.message || 'unknown database error'}. Please try again or email hello@knowbeforeyouglow.com.`
         );
         setIsSubmitting(false);
         return;
@@ -750,7 +750,7 @@ export default function Log() {
       // eslint-disable-next-line no-console
       console.error('[Log] handleSubmit threw', err);
       setSubmitError(
-        `Could not save your price: ${err?.message || 'unexpected error'}. Please try again or email hello@glowbuddy.com.`
+        `Could not save your price: ${err?.message || 'unexpected error'}. Please try again or email hello@knowbeforeyouglow.com.`
       );
     } finally {
       setIsSubmitting(false);

@@ -215,7 +215,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
               className="mt-4 text-sm font-medium transition"
               style={{ color: '#C94F78' }}
             >
-              Continue to GlowBuddy →
+              Continue to Know Before You Glow →
             </button>
           )}
         </div>
@@ -292,11 +292,10 @@ export default function AuthModal({ mode: initialMode, onClose }) {
           ) : (
             <>
               <div className="flex items-center justify-center gap-0 mb-4">
-                <span className="text-2xl font-bold text-rose-accent">Glow</span>
-                <span className="text-2xl font-light text-text-primary">Buddy</span>
+                <span className="text-2xl font-bold text-rose-accent">Know Before You Glow</span>
               </div>
               <h2 className="text-xl font-bold text-text-primary">
-                {mode === 'signup' ? 'Join GlowBuddy' : 'Welcome back'}
+                {mode === 'signup' ? 'Join Know Before You Glow' : 'Welcome back'}
               </h2>
               {mode === 'signup' && (
                 <p className="text-sm text-text-secondary mt-1">

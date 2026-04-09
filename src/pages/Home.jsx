@@ -18,14 +18,14 @@ const PLACEHOLDER_TESTIMONIALS = [
     name: 'Sarah M.',
     city: 'Austin, TX',
     treatment: 'Botox',
-    quote: 'I was quoted $14/unit at one place and found $11/unit down the street on GlowBuddy. Saved over $90 on my forehead alone.',
+    quote: 'I was quoted $14/unit at one place and found $11/unit down the street on Know Before You Glow. Saved over $90 on my forehead alone.',
     savings: '$90',
   },
   {
     name: 'Jessica L.',
     city: 'Nashville, TN',
     treatment: 'Lip Filler',
-    quote: 'I always felt like I was overpaying but had no way to compare. Now I check GlowBuddy before every appointment.',
+    quote: 'I always felt like I was overpaying but had no way to compare. Now I check Know Before You Glow before every appointment.',
     savings: '$200',
   },
   {
@@ -192,9 +192,9 @@ export default function Home() {
   // SEO
   useEffect(() => {
     setPageMeta({
-      title: 'GlowBuddy \u2014 Know Before You Glow',
+      title: 'Know Before You Glow \u2014 Know Before You Glow',
       description: 'Real prices for Botox, lip filler, and med spa treatments reported by patients. See what people actually paid near you.',
-      canonical: 'https://glowbuddy.com/',
+      canonical: 'https://knowbeforeyouglow.com/',
     });
   }, []);
 
@@ -625,7 +625,7 @@ export default function Home() {
             {
               num: '02',
               title: 'They share what they paid',
-              body: 'They log the real price on GlowBuddy — anonymously and in seconds.',
+              body: 'They log the real price on Know Before You Glow — anonymously and in seconds.',
             },
             {
               num: '03',
@@ -721,7 +721,7 @@ export default function Home() {
               Based on community-reported savings. Individual results vary.
             </p>
             <a
-              href="mailto:hello@glowbuddy.com?subject=My GlowBuddy Story"
+              href="mailto:hello@knowbeforeyouglow.com?subject=My Know Before You Glow Story"
               className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
               style={{ letterSpacing: '0.10em' }}
             >

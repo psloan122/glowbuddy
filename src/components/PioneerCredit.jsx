@@ -26,7 +26,7 @@ export default function PioneerCredit({ providerSlug }) {
     credits[0];
 
   const tierInfo = PIONEER_TIERS[best.tier] || PIONEER_TIERS.pioneer;
-  const name = best.display_name ? `@${best.display_name}` : 'a GlowBuddy member';
+  const name = best.display_name ? `@${best.display_name}` : 'a Know Before You Glow member';
   const dateStr = best.earned_at ? format(new Date(best.earned_at), 'MMMM yyyy') : '';
 
   return (

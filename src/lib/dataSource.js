@@ -16,7 +16,7 @@ export function getSourceBadge(dataSource) {
         label: 'Verified menu',
         color: '#0F6E56',
         background: '#E1F5EE',
-        tooltip: "Price from this provider's verified GlowBuddy menu.",
+        tooltip: "Price from this provider's verified Know Before You Glow menu.",
       };
     case 'provider_website':
       return {

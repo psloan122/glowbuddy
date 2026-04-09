@@ -40,7 +40,7 @@ export default function Waitlist() {
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    document.title = 'Waitlist | Admin | GlowBuddy';
+    document.title = 'Waitlist | Admin | Know Before You Glow';
   }, []);
 
   useEffect(() => {

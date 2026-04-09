@@ -1,4 +1,4 @@
-# GlowBuddy
+# Know Before You Glow
 
 **Know before you glow.** A crowdsourced cosmetic procedure price index — think GasBuddy for med spa treatments.
 

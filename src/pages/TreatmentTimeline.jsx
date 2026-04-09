@@ -82,7 +82,7 @@ export default function TreatmentTimeline() {
   const deleteRef = useRef(null);
 
   useEffect(() => {
-    document.title = 'My Treatment History | GlowBuddy';
+    document.title = 'My Treatment History | Know Before You Glow';
   }, []);
 
   // Close delete modal on outside click
@@ -215,7 +215,7 @@ export default function TreatmentTimeline() {
       if (savings > 0) savingsText = ` · Saved $${Math.round(savings)} vs avg`;
     }
 
-    const text = `${proc.procedure_type} at ${proc.provider_name} · ${proc.city}, ${proc.state}\n$${Number(proc.price_paid).toLocaleString()}${proc.units_or_volume ? ` · ${proc.units_or_volume}` : ''}${savingsText}\n\nTracked on GlowBuddy`;
+    const text = `${proc.procedure_type} at ${proc.provider_name} · ${proc.city}, ${proc.state}\n$${Number(proc.price_paid).toLocaleString()}${proc.units_or_volume ? ` · ${proc.units_or_volume}` : ''}${savingsText}\n\nTracked on Know Before You Glow`;
 
     if (navigator.share) {
       try {
@@ -592,7 +592,7 @@ export default function TreatmentTimeline() {
             </div>
             <p className="text-sm text-text-secondary mb-6">
               Remove this treatment from your history? This will also remove it from
-              GlowBuddy&apos;s price data. Your giveaway entries will be adjusted.
+              Know Before You Glow&apos;s price data. Your giveaway entries will be adjusted.
             </p>
             <div className="flex items-center gap-3">
               <button

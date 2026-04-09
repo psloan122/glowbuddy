@@ -26,7 +26,7 @@ export default function PriceAlert({
   price = '10',
   providerName = 'Glow Med Spa',
   neighborhood = 'Mid-City',
-  providerUrl = 'https://glowbuddy.com/provider/glow-med-spa-new-orleans',
+  providerUrl = 'https://knowbeforeyouglow.com/provider/glow-med-spa-new-orleans',
 }: Props) {
   return (
     <Html lang="en">
@@ -37,7 +37,7 @@ export default function PriceAlert({
       <Body style={{ backgroundColor: BG, fontFamily: FONT_FAMILY, margin: 0, padding: '40px 16px' }}>
         <Container style={{ maxWidth: 560, margin: '0 auto' }}>
           <Text style={{ textAlign: 'center' as const, fontSize: 24, fontWeight: 700, color: ACCENT, marginBottom: 24 }}>
-            Glow<span style={{ fontWeight: 400 }}>Buddy</span>
+            Know Before You Glow
           </Text>
           <Section style={{ backgroundColor: CARD_BG, borderRadius: 16, padding: '40px 32px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <Text style={{ fontSize: 24, fontWeight: 700, color: TEXT_PRIMARY, textAlign: 'center' as const, margin: '0 0 8px' }}>
@@ -80,9 +80,9 @@ export default function PriceAlert({
           </Section>
 
           <Text style={{ textAlign: 'center' as const, fontSize: 13, color: TEXT_SECONDARY, marginTop: 32 }}>
-            <a href="https://glowbuddy.com" style={{ color: TEXT_SECONDARY }}>glowbuddy.com</a> · <a href="https://glowbuddy.com/settings" style={{ color: TEXT_SECONDARY }}>Manage email preferences</a>
+            <a href="https://knowbeforeyouglow.com" style={{ color: TEXT_SECONDARY }}>knowbeforeyouglow.com</a> · <a href="https://knowbeforeyouglow.com/settings" style={{ color: TEXT_SECONDARY }}>Manage email preferences</a>
           </Text>
-          <Text style={{ textAlign: 'center' as const, fontSize: 12, color: TEXT_SECONDARY }}>GlowBuddy · New Orleans, LA</Text>
+          <Text style={{ textAlign: 'center' as const, fontSize: 12, color: TEXT_SECONDARY }}>Know Before You Glow · New Orleans, LA</Text>
         </Container>
       </Body>
     </Html>

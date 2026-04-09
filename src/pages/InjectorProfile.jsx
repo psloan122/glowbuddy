@@ -68,7 +68,7 @@ export default function InjectorProfile() {
 
   useEffect(() => {
     if (!injector) return;
-    document.title = `${injector.display_name || injector.name} — Injector Profile | GlowBuddy`;
+    document.title = `${injector.display_name || injector.name} — Injector Profile | Know Before You Glow`;
   }, [injector]);
 
   if (loading) {

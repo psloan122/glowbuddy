@@ -23,7 +23,7 @@ const STEPS = [
   {
     number: '03',
     title: 'You pick the winner',
-    body: 'Choose the best offer. Provider pays GlowBuddy a small fee. You pay nothing extra.',
+    body: 'Choose the best offer. Provider pays Know Before You Glow a small fee. You pay nothing extra.',
   },
 ];
 
@@ -31,7 +31,7 @@ export default function RequestBid() {
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
-    document.title = 'Bid Requests — coming soon | GlowBuddy';
+    document.title = 'Bid Requests — coming soon | Know Before You Glow';
   }, []);
 
   return (

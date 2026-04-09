@@ -31,7 +31,7 @@ export default function ResetPassword() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    document.title = 'Reset Password | GlowBuddy';
+    document.title = 'Reset Password | Know Before You Glow';
 
     // Check if there's a valid session (Supabase sets it from the recovery link)
     supabase.auth.getSession().then(({ data: { session } }) => {

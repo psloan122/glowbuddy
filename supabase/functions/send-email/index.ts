@@ -16,12 +16,12 @@ const ACCENT = '#C94F78'
 const TEXT_PRIMARY = '#1A1A2E'
 const TEXT_SECONDARY = '#6B7280'
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-const BASE_URL = 'https://glowbuddy.com'
+const BASE_URL = 'https://knowbeforeyouglow.com'
 
 // ─── Shared helpers ───
 
 function logo(): string {
-  return `<span style="font-size:24px;font-weight:700;color:${ACCENT};font-family:${FONT};">Glow<span style="font-weight:400;">Buddy</span></span>`
+  return `<span style="font-size:24px;font-weight:700;color:${ACCENT};font-family:${FONT};">Know Before You Glow</span>`
 }
 
 function ctaButton(text: string, url: string): string {
@@ -41,7 +41,7 @@ function emailWrapper(content: string, previewText: string): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>GlowBuddy</title>
+  <title>Know Before You Glow</title>
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
 <body style="margin:0;padding:0;background-color:${BG};font-family:${FONT};-webkit-font-smoothing:antialiased;">
@@ -67,7 +67,7 @@ function emailWrapper(content: string, previewText: string): string {
           <tr>
             <td align="center" style="padding-top:32px;">
               <p style="margin:0;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
-                <a href="${BASE_URL}" style="color:${TEXT_SECONDARY};text-decoration:underline;">glowbuddy.com</a>
+                <a href="${BASE_URL}" style="color:${TEXT_SECONDARY};text-decoration:underline;">knowbeforeyouglow.com</a>
                 &nbsp;&middot;&nbsp;
                 <a href="${BASE_URL}/settings" style="color:${TEXT_SECONDARY};text-decoration:underline;">Manage email preferences</a>
               </p>
@@ -75,7 +75,7 @@ function emailWrapper(content: string, previewText: string): string {
                 Know before you glow.
               </p>
               <p style="margin:6px 0 0;font-size:11px;color:${TEXT_SECONDARY};font-family:${FONT};">
-                GlowBuddy &middot; New Orleans, LA
+                Know Before You Glow &middot; New Orleans, LA
               </p>
             </td>
           </tr>
@@ -112,7 +112,7 @@ function htmlToText(html: string): string {
 function buildWelcomeUser(): { html: string; text: string } {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
-      Welcome to GlowBuddy!
+      Welcome to Know Before You Glow!
     </h1>
     <p style="margin:0 0 32px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
       See what real people pay for med spa treatments near you.
@@ -181,7 +181,7 @@ function buildProviderWelcome(data: {
       ${data.providerName} is live!
     </h1>
     <p style="margin:0 0 32px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
-      Your practice is now listed on GlowBuddy. Here's what to do next.
+      Your practice is now listed on Know Before You Glow. Here's what to do next.
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -218,7 +218,7 @@ function buildProviderWelcome(data: {
               <td style="width:40px;vertical-align:top;font-size:18px;font-weight:700;color:${ACCENT};font-family:${FONT};">3.</td>
               <td style="font-family:${FONT};">
                 <p style="margin:0;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};">Share your listing</p>
-                <p style="margin:4px 0 0;font-size:14px;color:${TEXT_SECONDARY};">Send your GlowBuddy profile link to existing clients.</p>
+                <p style="margin:4px 0 0;font-size:14px;color:${TEXT_SECONDARY};">Send your Know Before You Glow profile link to existing clients.</p>
               </td>
             </tr>
           </table>
@@ -245,7 +245,7 @@ function buildProviderWelcome(data: {
 
     ${ctaButton('Go to Dashboard', dashboardUrl)}`
 
-  const html = emailWrapper(content, `${data.providerName} is now live on GlowBuddy`)
+  const html = emailWrapper(content, `${data.providerName} is now live on Know Before You Glow`)
   return { html, text: htmlToText(html) }
 }
 
@@ -314,7 +314,7 @@ function buildSpecialOfferReceipt(data: {
 
     ${ctaButton('View Performance', dashboardUrl)}`
 
-  const html = emailWrapper(content, `Your GlowBuddy placement for ${data.treatmentName} is now live!`)
+  const html = emailWrapper(content, `Your Know Before You Glow placement for ${data.treatmentName} is now live!`)
   return { html, text: htmlToText(html) }
 }
 
@@ -504,7 +504,7 @@ function buildFreshnessNudge(data: {
       ${greeting}
     </p>
     <p style="margin:0 0 24px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};">
-      You have ${data.staleCount} price${data.staleCount === 1 ? '' : 's'} on GlowBuddy that
+      You have ${data.staleCount} price${data.staleCount === 1 ? '' : 's'} on Know Before You Glow that
       ${data.staleCount === 1 ? "hasn't" : "haven't"} been updated in over 6 months.
       A quick confirmation helps others know these prices are still accurate.
     </p>
@@ -671,7 +671,7 @@ function buildGlowReport(data: {
             $${data.lifetimeSavings.toLocaleString()}
           </p>
           <p style="margin:0;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};">
-            Since joining GlowBuddy, you&rsquo;ve saved an estimated $${data.lifetimeSavings.toLocaleString()} vs average pricing.
+            Since joining Know Before You Glow, you&rsquo;ve saved an estimated $${data.lifetimeSavings.toLocaleString()} vs average pricing.
           </p>
         </td>
       </tr>
@@ -858,7 +858,7 @@ function buildProviderActivity(data: {
       Hi ${data.providerName} team,
     </h1>
     <p style="margin:0 0 24px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.5;">
-      Your practice appeared on GlowBuddy this week. Here&rsquo;s what happened:
+      Your practice appeared on Know Before You Glow this week. Here&rsquo;s what happened:
     </p>
 
     <!-- Stats Card -->
@@ -883,15 +883,15 @@ function buildProviderActivity(data: {
 
     <!-- Footer note -->
     <p style="margin:32px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.6;border-top:1px solid #E5E7EB;padding-top:20px;">
-      You&rsquo;re receiving this because your practice appears on GlowBuddy. We never fabricate data &mdash; these are real patient reports.<br><br>
+      You&rsquo;re receiving this because your practice appears on Know Before You Glow. We never fabricate data &mdash; these are real patient reports.<br><br>
       <a href="${data.optoutUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;">Opt out of these updates</a>
       &nbsp;&middot;&nbsp;
       <a href="${data.pageUrl}" style="color:${TEXT_SECONDARY};text-decoration:underline;">View your page</a>
     </p>`
 
   const previewText = data.competitorCount > 0
-    ? `A competitor is advertising on your GlowBuddy page`
-    : `${data.pageViews} people viewed ${data.providerName} on GlowBuddy this week`
+    ? `A competitor is advertising on your Know Before You Glow page`
+    : `${data.pageViews} people viewed ${data.providerName} on Know Before You Glow this week`
 
   const html = emailWrapper(content, previewText)
   return { html, text: htmlToText(html) }
@@ -922,12 +922,12 @@ function buildWrappedReady(data: {
       ${highlight}
     </p>
     <p style="margin:0 0 32px;font-size:15px;color:${TEXT_SECONDARY};font-family:${FONT};line-height:1.6;">
-      Your personalized GlowBuddy Wrapped is ready &mdash; see your top procedures, savings,
+      Your personalized Know Before You Glow Wrapped is ready &mdash; see your top procedures, savings,
       city rankings, and more in an interactive year-in-review you can share with friends.
     </p>
     ${ctaButton('See My Wrapped', wrappedUrl)}`
 
-  const html = emailWrapper(content, `Your ${data.year} GlowBuddy Wrapped is ready`)
+  const html = emailWrapper(content, `Your ${data.year} Know Before You Glow Wrapped is ready`)
   return { html, text: htmlToText(html) }
 }
 
@@ -943,7 +943,7 @@ function buildProviderListingApproved(data: {
       Your listing is live!
     </h1>
     <p style="margin:0 0 32px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
-      Your listing for <strong>${data.providerName}</strong> is now live on GlowBuddy.
+      Your listing for <strong>${data.providerName}</strong> is now live on Know Before You Glow.
       Add your prices to start getting discovered by patients.
     </p>
 
@@ -963,7 +963,7 @@ function buildProviderListingApproved(data: {
       <a href="${dashboardUrl}" style="color:${ACCENT};text-decoration:underline;">Go to your dashboard</a>
     </p>`
 
-  const html = emailWrapper(content, `Your listing for ${data.providerName} is now live on GlowBuddy`)
+  const html = emailWrapper(content, `Your listing for ${data.providerName} is now live on Know Before You Glow`)
   return { html, text: htmlToText(html) }
 }
 
@@ -974,18 +974,18 @@ type TemplateData = Record<string, unknown>
 function buildEmail(template: string, data: TemplateData): { html: string; text: string; subject: string } {
   switch (template) {
     case 'welcome_user':
-      return { ...buildWelcomeUser(), subject: 'Welcome to GlowBuddy!' }
+      return { ...buildWelcomeUser(), subject: 'Welcome to Know Before You Glow!' }
 
     case 'provider_welcome':
       return {
         ...buildProviderWelcome(data as Parameters<typeof buildProviderWelcome>[0]),
-        subject: `${data.providerName} is live on GlowBuddy`,
+        subject: `${data.providerName} is live on Know Before You Glow`,
       }
 
     case 'special_offer_receipt':
       return {
         ...buildSpecialOfferReceipt(data as Parameters<typeof buildSpecialOfferReceipt>[0]),
-        subject: 'Your GlowBuddy placement is live!',
+        subject: 'Your Know Before You Glow placement is live!',
       }
 
     case 'special_offer_expiring':
@@ -1035,21 +1035,21 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
     case 'wrapped_ready':
       return {
         ...buildWrappedReady(data as Parameters<typeof buildWrappedReady>[0]),
-        subject: `Your ${data.year} GlowBuddy Wrapped is ready`,
+        subject: `Your ${data.year} Know Before You Glow Wrapped is ready`,
       }
 
     case 'provider_activity':
       return {
         ...buildProviderActivity(data as Parameters<typeof buildProviderActivity>[0]),
         subject: data.competitorCount && (data.competitorCount as number) > 0
-          ? 'A competitor is advertising on your GlowBuddy page'
-          : `${data.pageViews} people viewed ${data.providerName} on GlowBuddy this week`,
+          ? 'A competitor is advertising on your Know Before You Glow page'
+          : `${data.pageViews} people viewed ${data.providerName} on Know Before You Glow this week`,
       }
 
     case 'provider_listing_approved':
       return {
         ...buildProviderListingApproved(data as Parameters<typeof buildProviderListingApproved>[0]),
-        subject: 'Your GlowBuddy listing is live!',
+        subject: 'Your Know Before You Glow listing is live!',
       }
 
     default:
@@ -1082,7 +1082,7 @@ Deno.serve(async (req: Request) => {
     const subject = subjectOverride || email.subject
 
     // Provider activity emails use hello@ as reply-to (not support@)
-    const replyTo = template === 'provider_activity' ? 'hello@glowbuddy.com' : 'support@glowbuddy.com'
+    const replyTo = template === 'provider_activity' ? 'hello@knowbeforeyouglow.com' : 'support@knowbeforeyouglow.com'
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -1091,7 +1091,7 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'GlowBuddy <hello@glowbuddy.com>',
+        from: 'Know Before You Glow <hello@knowbeforeyouglow.com>',
         reply_to: replyTo,
         to: Array.isArray(to) ? to : [to],
         subject,

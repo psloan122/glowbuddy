@@ -8,7 +8,7 @@ export default function Verified() {
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
-    document.title = 'Email Verified | GlowBuddy';
+    document.title = 'Email Verified | Know Before You Glow';
     // Refresh the session so email_confirmed_at is current
     supabase.auth.getSession();
   }, []);
@@ -25,7 +25,7 @@ export default function Verified() {
         </h1>
 
         <p className="text-text-secondary mb-8">
-          You now have full access to GlowBuddy.
+          You now have full access to Know Before You Glow.
           {user?.email && (
             <>
               <br />

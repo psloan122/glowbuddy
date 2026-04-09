@@ -101,7 +101,7 @@ serve(async (req: Request) => {
         'line_items[0][price_data][currency]': 'usd',
         'line_items[0][price_data][unit_amount]': String(totalCents),
         'line_items[0][price_data][product_data][name]': `${tierKey === 'featured' ? 'Featured' : 'Standard'} Placement — ${weekCount} week${weekCount > 1 ? 's' : ''}`,
-        'line_items[0][price_data][product_data][description]': placement.provider_specials?.headline || 'GlowBuddy Promoted Special',
+        'line_items[0][price_data][product_data][description]': placement.provider_specials?.headline || 'Know Before You Glow Promoted Special',
         'line_items[0][quantity]': '1',
         'success_url': successUrl,
         'cancel_url': cancelUrl,

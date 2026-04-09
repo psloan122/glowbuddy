@@ -7,7 +7,7 @@ import { getEntryBreakdown } from '../lib/points';
 import { PIONEER_TIERS, getPioneerToastMessage } from '../lib/pioneerLogic';
 import EmailConfirmation from './EmailConfirmation';
 
-const VERIFY_EMAIL = 'verify@glowbuddy.com';
+const VERIFY_EMAIL = 'verify@knowbeforeyouglow.com';
 
 export default function ThankYou({
   procedure,
@@ -204,12 +204,12 @@ export default function ThankYou({
         onClick={() => {
           if (navigator.share) {
             navigator.share({
-              title: 'I shared my price on GlowBuddy',
+              title: 'I shared my price on Know Before You Glow',
               text: `I just shared what I paid for ${procedure.procedure_type}${procedure.city ? ` in ${procedure.city}` : ''}. Check out real prices from real patients.`,
-              url: 'https://glowbuddy.com',
+              url: 'https://knowbeforeyouglow.com',
             }).catch(() => {});
           } else {
-            navigator.clipboard.writeText('https://glowbuddy.com');
+            navigator.clipboard.writeText('https://knowbeforeyouglow.com');
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }

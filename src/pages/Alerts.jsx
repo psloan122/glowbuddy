@@ -19,7 +19,7 @@ export default function Alerts() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    document.title = 'Price Alerts | GlowBuddy';
+    document.title = 'Price Alerts | Know Before You Glow';
   }, []);
 
   useEffect(() => {

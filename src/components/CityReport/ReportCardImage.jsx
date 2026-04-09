@@ -25,7 +25,7 @@ function drawCard(canvas, { city, state, topProcedure, avgPrice, submissions, mo
   ctx.fillStyle = '#C94F78';
   ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('\u2728 GlowBuddy', 60, 70);
+  ctx.fillText('\u2728 Know Before You Glow', 60, 70);
 
   // City title
   ctx.fillStyle = '#1A1A1A';
@@ -58,7 +58,7 @@ function drawCard(canvas, { city, state, topProcedure, avgPrice, submissions, mo
   // Footer
   ctx.fillStyle = '#9CA3AF';
   ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('Compare real cosmetic prices at glowbuddy.com', W / 2, 570);
+  ctx.fillText('Compare real cosmetic prices at knowbeforeyouglow.com', W / 2, 570);
 }
 
 function canvasToBlob(canvas) {
@@ -94,7 +94,7 @@ export default function ReportCardImage({ city, state, topProcedure, avgPrice, s
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
-          text: `Check out real cosmetic prices in ${city}, ${state} on GlowBuddy!`,
+          text: `Check out real cosmetic prices in ${city}, ${state} on Know Before You Glow!`,
           files: [file],
         });
         return;
