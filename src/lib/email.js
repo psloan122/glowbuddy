@@ -57,3 +57,7 @@ export function sendWrappedReady(email, data) {
 export function sendListingApproved(email, data) {
   invoke('provider_listing_approved', email, data);
 }
+
+export function sendUserSubmittedProviderApproved(email, data) {
+  invoke('user_submitted_provider_approved', email, data);
+}

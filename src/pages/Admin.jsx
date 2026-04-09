@@ -245,7 +245,7 @@ export default function Admin() {
           .from('providers')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', false)
-          .eq('verification_method', 'self_submitted'),
+          .in('verification_method', ['self_submitted', 'user_submitted']),
       ]);
     setCounts({
       pending: pending.count || 0,

@@ -967,6 +967,31 @@ function buildProviderListingApproved(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildUserSubmittedProviderApproved(data: {
+  providerName: string
+  slug: string
+}): { html: string; text: string } {
+  const listingUrl = `${BASE_URL}/provider/${data.slug}`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      ${data.providerName} is now on Know Before You Glow!
+    </h1>
+    <p style="margin:0 0 32px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Great news &mdash; <strong>${data.providerName}</strong> has been reviewed and added to Know Before You Glow.
+      Your price submission is now live and helping others research costs.
+    </p>
+
+    ${ctaButton('See the Listing', listingUrl)}
+
+    <p style="margin:24px 0 0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Thanks for contributing to price transparency!
+    </p>`
+
+  const html = emailWrapper(content, `${data.providerName} is now on Know Before You Glow`)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -1050,6 +1075,12 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
       return {
         ...buildProviderListingApproved(data as Parameters<typeof buildProviderListingApproved>[0]),
         subject: 'Your Know Before You Glow listing is live!',
+      }
+
+    case 'user_submitted_provider_approved':
+      return {
+        ...buildUserSubmittedProviderApproved(data as Parameters<typeof buildUserSubmittedProviderApproved>[0]),
+        subject: `${data.providerName} is now on Know Before You Glow!`,
       }
 
     default:

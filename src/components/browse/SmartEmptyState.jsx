@@ -19,9 +19,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import AddProviderModal from '../AddProviderModal';
 
 // Mirrors NEUROTOXIN_PER_UNIT_MAX in priceUtils.js. Real per-unit Botox /
 // Dysport / Xeomin / Jeuveau / Daxxify all sit well under $50/unit; any
@@ -53,8 +54,10 @@ export default function SmartEmptyState({
   city,
   state,
 }) {
+  const navigate = useNavigate();
   const [nearby, setNearby] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const headBrand = brand || procedureLabel || procedureType || 'this treatment';
   const cityLabel = city ? `${city}${state ? `, ${state}` : ''}` : '';
@@ -421,13 +424,40 @@ export default function SmartEmptyState({
         </Link>
       </div>
 
-      {/* Provider CTA */}
+      {/* Consumer CTA — add a provider */}
       <p
         style={{
           fontFamily: 'var(--font-body)',
           fontSize: 12,
           color: '#888',
           marginTop: 24,
+        }}
+      >
+        Don&rsquo;t see your provider?{' '}
+        <button
+          onClick={() => setShowAddModal(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: '#C94F78',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 'inherit',
+          }}
+        >
+          Add them so you can log your price &rarr;
+        </button>
+      </p>
+
+      {/* Provider CTA */}
+      <p
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 12,
+          color: '#888',
+          marginTop: 8,
         }}
       >
         Is this your business?{' '}
@@ -438,6 +468,17 @@ export default function SmartEmptyState({
           Get listed free &rarr;
         </Link>
       </p>
+
+      {/* Add Provider Modal */}
+      {showAddModal && (
+        <AddProviderModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={(provider) => {
+            setShowAddModal(false);
+            navigate(`/log?provider_id=${provider.id}&provider=${encodeURIComponent(provider.name)}&city=${encodeURIComponent(provider.city)}&state=${encodeURIComponent(provider.state)}`);
+          }}
+        />
+      )}
     </div>
   );
 }

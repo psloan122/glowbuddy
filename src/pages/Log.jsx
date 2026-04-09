@@ -63,6 +63,8 @@ const INITIAL_FORM_DATA = {
   injectorId: null,
   resultPhotoUrl: null,
   resultPhotoConsent: false,
+  // User-submitted provider (from inline add modal)
+  userSubmittedProviderId: null,
 };
 
 export default function Log() {
@@ -952,6 +954,8 @@ export default function Log() {
             hasReview={!!formData.reviewBody}
             hasResultPhoto={!!resultPhotoUrl}
             pioneerResult={pioneerResult}
+            isNewProvider={!!formData.userSubmittedProviderId}
+            providerName={formData.providerName}
           />
         )
       )}

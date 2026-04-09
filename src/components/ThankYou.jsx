@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Check, ArrowRight, Trophy, Mail, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -21,7 +21,8 @@ export default function ThankYou({
   hasResultPhoto = false,
   receiptVerified = false,
   pioneerResult = null,
-
+  isNewProvider = false,
+  providerName = '',
 }) {
   // True when anonymous submission is waiting on email verification.
   // These rows live in `procedures` with status = 'pending_confirmation'
@@ -108,6 +109,21 @@ export default function ThankYou({
           <p className="text-amber-800">
             Verify your email below to publish it. Until then it won&apos;t show
             up in search results.
+          </p>
+        </div>
+      )}
+
+      {/* New provider banner — provider needs admin review */}
+      {isNewProvider && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 mb-6 text-left">
+          <p className="font-medium mb-1">
+            Price saved! We&apos;ll review {providerName || 'this provider'} and add them to Know Before You Glow within 24 hours.
+          </p>
+          <p className="text-blue-700 text-xs mt-2">
+            Are you the owner?{' '}
+            <Link to="/business/claim" className="font-semibold text-rose-accent hover:text-rose-dark underline">
+              Claim this listing &rarr;
+            </Link>
           </p>
         </div>
       )}

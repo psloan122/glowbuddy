@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MapPin, X, CheckCircle, ExternalLink, Phone, Sparkles } from 'lucide-react';
+import { MapPin, X, CheckCircle, ExternalLink, Phone, Sparkles, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { extractPlaceData } from '../lib/places';
 import { supabase } from '../lib/supabase';
 import { loadGoogleMaps } from '../lib/loadGoogleMaps';
+import AddProviderModal from './AddProviderModal';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 pl-10 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -21,6 +22,9 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
   const [suggestions, setSuggestions] = useState([]);
   const [localResults, setLocalResults] = useState([]);
   const [existingProvider, setExistingProvider] = useState(null);
+  const [showNoResults, setShowNoResults] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const noResultsTimerRef = useRef(null);
 
   // Initialize AutocompleteService when Google Maps loads
   useEffect(() => {
@@ -88,6 +92,19 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
 
     checkExisting();
   }, [selectedPlace?.placeId]);
+
+  // Show "not found" CTA after searches settle with no results
+  useEffect(() => {
+    if (noResultsTimerRef.current) clearTimeout(noResultsTimerRef.current);
+
+    if (value.length < 3 || localResults.length > 0 || suggestions.length > 0) {
+      setShowNoResults(false);
+      return;
+    }
+
+    noResultsTimerRef.current = setTimeout(() => setShowNoResults(true), 600);
+    return () => { if (noResultsTimerRef.current) clearTimeout(noResultsTimerRef.current); };
+  }, [value, localResults, suggestions]);
 
   // Search Know Before You Glow's own providers table
   function searchLocalProviders(input) {
@@ -409,9 +426,52 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
         </ul>
       )}
 
+      {/* No results — offer to add provider */}
+      {showNoResults && !hasDropdown && (
+        <div className="mt-2 px-1">
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="w-full text-left text-sm text-text-secondary hover:text-rose-accent transition-colors"
+          >
+            We don&apos;t have <span className="font-medium text-text-primary">{value.trim()}</span> yet.{' '}
+            <span className="text-rose-accent font-medium inline-flex items-center gap-0.5">
+              Add it and log your price <Plus size={12} />
+            </span>
+          </button>
+        </div>
+      )}
+
       <p className="text-[10px] text-text-secondary/50 mt-1.5">
         Powered by Google
       </p>
+
+      {/* Add Provider Modal */}
+      {showAddModal && (
+        <AddProviderModal
+          initialName={value.trim()}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={(provider) => {
+            setShowAddModal(false);
+            setShowNoResults(false);
+            setValue(provider.name);
+            onSelect({
+              name: provider.name,
+              formattedAddress: [provider.city, provider.state].filter(Boolean).join(', '),
+              address: '',
+              city: provider.city,
+              state: provider.state,
+              zipCode: '',
+              phone: '',
+              website: '',
+              placeId: '',
+              lat: null,
+              lng: null,
+              _userSubmittedProviderId: provider.id,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

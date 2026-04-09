@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { buildBrowseUrl } from '../lib/urlParams';
 import {
   CheckCircle,
@@ -42,6 +42,7 @@ import CallNowButton from '../components/CallNowButton';
 import VagaroBookButton from '../components/VagaroBookButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
+import AddProviderModal from '../components/AddProviderModal';
 import { getGuideUrl } from '../lib/guideMapping';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import useSavedProviders from '../hooks/useSavedProviders';
@@ -54,8 +55,10 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export default function ProviderProfile() {
   const { slug } = useParams();
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [provider, setProvider] = useState(null);
+  const [showAddProviderModal, setShowAddProviderModal] = useState(false);
   const [communityData, setCommunityData] = useState([]);
   const [verifiedPricing, setVerifiedPricing] = useState([]);
   const [specials, setSpecials] = useState([]);
@@ -1043,23 +1046,55 @@ export default function ProviderProfile() {
       {/* 3. Empty State — no submissions yet (unclaimed) */}
       {communityData.length === 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
-          <p className="text-lg font-semibold text-text-primary mb-1">
-            0 prices shared at {providerName} yet.
-          </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Had a treatment here? You&apos;d be the first to share what you paid.
-          </p>
-          <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
-            First to share = Pioneer badge + bonus entries
-          </p>
-          <Link
-            to={`/log?provider_id=${provider?.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider?.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            <Plus size={18} />
-            + Share what I paid here
-          </Link>
+          {!provider ? (
+            <>
+              <p className="text-lg font-semibold text-text-primary mb-1">
+                This provider isn&apos;t listed yet.
+              </p>
+              <p className="text-sm text-text-secondary mb-4">
+                Know them? Add their listing so you and others can log prices.
+              </p>
+              <button
+                onClick={() => setShowAddProviderModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+              >
+                <Plus size={18} />
+                Add their listing
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-semibold text-text-primary mb-1">
+                0 prices shared at {providerName} yet.
+              </p>
+              <p className="text-sm text-text-secondary mb-4">
+                Had a treatment here? You&apos;d be the first to share what you paid.
+              </p>
+              <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
+                First to share = Pioneer badge + bonus entries
+              </p>
+              <Link
+                to={`/log?provider_id=${provider.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+              >
+                <Plus size={18} />
+                + Share what I paid here
+              </Link>
+            </>
+          )}
         </div>
+      )}
+
+      {/* Add Provider Modal (for non-existent providers) */}
+      {showAddProviderModal && (
+        <AddProviderModal
+          initialName={slugToDisplayName(slug)}
+          onClose={() => setShowAddProviderModal(false)}
+          onSuccess={(newProvider) => {
+            setShowAddProviderModal(false);
+            navigate(`/log?provider_id=${newProvider.id}&provider=${encodeURIComponent(newProvider.name)}&city=${encodeURIComponent(newProvider.city)}&state=${encodeURIComponent(newProvider.state)}`);
+          }}
+        />
       )}
 
       {/* 5. Competitor Ads — unclaimed, mid-page placement */}

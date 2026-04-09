@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Loader2, Building2, Star, Phone, Globe, MapPin } from 'lucide-react';
+import { Check, X, Loader2, Building2, Star, Phone, Globe, MapPin, User, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AdminPendingProviders() {
@@ -15,21 +15,28 @@ export default function AdminPendingProviders() {
     setLoading(true);
     const { data } = await supabase
       .from('providers')
-      .select('id, name, address, city, state, slug, phone, website, google_rating, google_review_count, owner_user_id, created_at')
+      .select('id, name, address, city, state, slug, phone, website, google_rating, google_review_count, owner_user_id, submitted_by_user, verification_method, created_at')
       .eq('is_active', false)
-      .eq('verification_method', 'self_submitted')
+      .in('verification_method', ['self_submitted', 'user_submitted'])
       .order('created_at', { ascending: false });
 
-    // Fetch owner emails
     const rows = data || [];
-    const ownerIds = [...new Set(rows.map((r) => r.owner_user_id).filter(Boolean))];
+
+    // Collect all user IDs (owners + submitters) for email lookup
+    const userIds = [
+      ...new Set(
+        rows
+          .flatMap((r) => [r.owner_user_id, r.submitted_by_user])
+          .filter(Boolean)
+      ),
+    ];
 
     let emailMap = {};
-    if (ownerIds.length > 0) {
+    if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, email')
-        .in('user_id', ownerIds);
+        .in('user_id', userIds);
 
       if (profiles) {
         for (const p of profiles) {
@@ -38,9 +45,25 @@ export default function AdminPendingProviders() {
       }
     }
 
-    setProviders(
-      rows.map((r) => ({ ...r, ownerEmail: emailMap[r.owner_user_id] || 'Unknown' })),
-    );
+    // Sort: owner-submitted first (priority), then by date
+    const enriched = rows
+      .map((r) => ({
+        ...r,
+        submitterEmail:
+          emailMap[r.owner_user_id] ||
+          emailMap[r.submitted_by_user] ||
+          'Unknown',
+        isOwnerSubmitted: r.verification_method === 'self_submitted',
+      }))
+      .sort((a, b) => {
+        // Owner-submitted first
+        if (a.isOwnerSubmitted && !b.isOwnerSubmitted) return -1;
+        if (!a.isOwnerSubmitted && b.isOwnerSubmitted) return 1;
+        // Then by date (newest first)
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+
+    setProviders(enriched);
     setLoading(false);
   }
 
@@ -58,10 +81,14 @@ export default function AdminPendingProviders() {
 
     // Send approval email
     try {
+      const template = provider.isOwnerSubmitted
+        ? 'provider_listing_approved'
+        : 'user_submitted_provider_approved';
+
       await supabase.functions.invoke('send-email', {
         body: {
-          template: 'provider_listing_approved',
-          to: provider.ownerEmail,
+          template,
+          to: provider.submitterEmail,
           data: {
             providerName: provider.name,
             slug: provider.slug,
@@ -115,6 +142,24 @@ export default function AdminPendingProviders() {
                 <span className="font-bold text-lg text-text-primary">
                   {provider.name}
                 </span>
+                {/* Source badge */}
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    provider.isOwnerSubmitted
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {provider.isOwnerSubmitted ? (
+                    <span className="flex items-center gap-1">
+                      <Store size={10} /> Owner
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <User size={10} /> Patient
+                    </span>
+                  )}
+                </span>
               </div>
               {provider.address && (
                 <p className="text-sm text-text-secondary flex items-center gap-1">
@@ -151,7 +196,8 @@ export default function AdminPendingProviders() {
                 )}
               </div>
               <p className="text-sm text-text-secondary mt-1">
-                Submitted by: {provider.ownerEmail}
+                {provider.isOwnerSubmitted ? 'Owner' : 'Submitted by'}:{' '}
+                {provider.submitterEmail}
               </p>
               <p className="text-xs text-text-secondary mt-1">
                 {new Date(provider.created_at).toLocaleDateString()}

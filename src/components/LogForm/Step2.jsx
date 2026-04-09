@@ -131,6 +131,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
       googlePlaceId: placeData.placeId || '',
       lat: placeData.lat,
       lng: placeData.lng,
+      userSubmittedProviderId: placeData._userSubmittedProviderId || null,
     }));
   }
 
@@ -148,6 +149,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
       googlePlaceId: '',
       lat: null,
       lng: null,
+      userSubmittedProviderId: null,
     }));
   }
 
