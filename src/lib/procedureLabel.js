@@ -34,6 +34,14 @@ export const PROCEDURE_DISPLAY_NAMES = {
   'Botox / Dysport / Xeomin': 'Botox',
 };
 
+// Neurotoxin brands — when brand matches one of these, return the brand
+// as-is without appending the procedure type. For non-neurotoxin brands
+// (e.g. "Juvederm" for "Lip Filler"), we append the procedure type for
+// specificity: "Juvederm Lip Filler".
+const NEUROTOXIN_BRANDS = new Set([
+  'botox', 'dysport', 'xeomin', 'jeuveau', 'daxxify',
+]);
+
 /**
  * Get the short display label for a price card.
  *
@@ -42,9 +50,22 @@ export const PROCEDURE_DISPLAY_NAMES = {
  * @returns {string} clean label, never the combined brand list
  */
 export function getProcedureLabel(procedureType, brand) {
+  const brandStr = brand && String(brand).trim();
+
   // Brand ALWAYS wins — most specific.
-  if (brand && String(brand).trim()) {
-    return String(brand).trim();
+  if (brandStr) {
+    // Neurotoxin brands stand alone: "Botox", "Dysport", etc.
+    if (NEUROTOXIN_BRANDS.has(brandStr.toLowerCase())) {
+      return brandStr;
+    }
+    // Non-neurotoxin brands get the procedure type appended for clarity.
+    // "Juvederm" + "Lip Filler" → "Juvederm Lip Filler"
+    // "Sculptra" + "Sculptra" → just "Sculptra" (avoid duplication)
+    if (procedureType && !procedureType.toLowerCase().includes(brandStr.toLowerCase())
+        && !brandStr.toLowerCase().includes(procedureType.toLowerCase())) {
+      return `${brandStr} ${procedureType}`;
+    }
+    return brandStr;
   }
 
   // Fall back to the cleaned-up display name when procedure_type is one
@@ -56,4 +77,18 @@ export function getProcedureLabel(procedureType, brand) {
   // Most procedure_type values are already clean (e.g. "Lip Filler",
   // "HydraFacial"); return them as-is.
   return procedureType || 'Treatment';
+}
+
+/**
+ * Get a detailed procedure label including treatment area when available.
+ * Used for secondary/subtitle display, not the main pink chip.
+ *
+ * @param {object} procedure - the procedure row
+ * @returns {string|null} detail string like "Full Face" or "Bikini Area", or null
+ */
+export function getProcedureDetail(procedure) {
+  if (!procedure) return null;
+  const area = procedure.treatment_area && String(procedure.treatment_area).trim();
+  if (area && area !== 'Other') return area;
+  return null;
 }

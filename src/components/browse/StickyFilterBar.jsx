@@ -3,6 +3,7 @@
  *
  * Contains:
  *   - Brand pills (only when the active category has multiple brands)
+ *   - Sub-type pills (drill into specific procedure types within a category)
  *   - Has prices toggle
  *   - Verified only toggle
  *   - Sort dropdown (Lowest Price / Highest Rated / Most Recent / Nearest)
@@ -20,6 +21,9 @@ export default function StickyFilterBar({
   brandPills = [],
   activeBrand,
   onBrandChange,
+  subTypePills = [],
+  activeSubType,
+  onSubTypeChange,
   sortBy,
   onSortChange,
   hasPricesOnly,
@@ -67,6 +71,8 @@ export default function StickyFilterBar({
     flexShrink: 0,
   });
 
+  const hasSecondaryPills = brandPills.length > 0 || subTypePills.length > 0;
+
   return (
     <>
       <style>{`
@@ -111,6 +117,35 @@ export default function StickyFilterBar({
                     style={brandPillStyle(isActive)}
                   >
                     {p.label}
+                  </button>
+                );
+              })}
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 1,
+                  height: 20,
+                  background: '#EDE8E3',
+                  flexShrink: 0,
+                  margin: '0 4px',
+                }}
+              />
+            </>
+          )}
+
+          {/* Sub-type pills (e.g. Lip | Cheek | Jawline for Fillers) */}
+          {subTypePills.length > 0 && brandPills.length === 0 && (
+            <>
+              {subTypePills.map((st) => {
+                const isActive = activeSubType === st.procedureType;
+                return (
+                  <button
+                    key={st.procedureType}
+                    type="button"
+                    onClick={() => onSubTypeChange?.(isActive ? null : st.procedureType)}
+                    style={brandPillStyle(isActive)}
+                  >
+                    {st.label}
                   </button>
                 );
               })}

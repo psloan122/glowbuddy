@@ -697,6 +697,83 @@ export const CATEGORY_LABELS = {
   dermaplaning: 'Dermaplaning',
 };
 
+// ── Sub-type pills for granular filtering ─────────────────────────────
+//
+// When a user selects a category pill (Fillers, Laser, etc.), these
+// sub-type pills appear in the StickyFilterBar so the user can drill
+// down to a specific procedure type. Each entry maps a pill slug to
+// its sub-type options.
+//
+// `label` — display text for the pill
+// `procedureType` — the canonical PROCEDURE_TYPES value to filter to
+//
+// Neurotoxins are excluded here because they already use brandPills
+// (Botox, Dysport, Xeomin, Jeuveau, Daxxify) with brand-based filtering.
+export const CATEGORY_SUB_TYPES = {
+  filler: [
+    { label: 'Lip', procedureType: 'Lip Filler' },
+    { label: 'Cheek', procedureType: 'Cheek Filler' },
+    { label: 'Jawline', procedureType: 'Jawline Filler' },
+    { label: 'Under Eye', procedureType: 'Under Eye Filler' },
+    { label: 'Nasolabial', procedureType: 'Nasolabial Filler' },
+    { label: 'Chin', procedureType: 'Chin Filler' },
+    { label: 'Nose', procedureType: 'Nose Filler' },
+    { label: 'Temple', procedureType: 'Temple Filler' },
+    { label: 'Hand', procedureType: 'Hand Filler' },
+  ],
+  laser: [
+    { label: 'Hair Removal', procedureType: 'Laser Hair Removal' },
+    { label: 'IPL / BBL', procedureType: 'IPL / Photofacial' },
+    { label: 'CO2 Laser', procedureType: 'Fractional CO2 Laser' },
+    { label: 'Clear+Brilliant', procedureType: 'Clear + Brilliant' },
+    { label: 'Halo', procedureType: 'Halo Laser' },
+    { label: 'PicoSure', procedureType: 'Picosure / Picoway' },
+    { label: 'Erbium', procedureType: 'Erbium Laser' },
+  ],
+  microneedling: [
+    { label: 'Standard', procedureType: 'Microneedling' },
+    { label: 'RF Microneedling', procedureType: 'RF Microneedling' },
+    { label: 'Morpheus8', procedureType: 'Morpheus8' },
+    { label: 'PRP', procedureType: 'PRP Microneedling' },
+    { label: 'Exosome', procedureType: 'Exosome Microneedling' },
+  ],
+  'weight-loss': [
+    { label: 'Ozempic / Wegovy', procedureType: 'Semaglutide (Ozempic / Wegovy)' },
+    { label: 'Mounjaro / Zepbound', procedureType: 'Tirzepatide (Mounjaro / Zepbound)' },
+    { label: 'Compounded Sema', procedureType: 'Compounded Semaglutide' },
+    { label: 'Compounded Tirz', procedureType: 'Compounded Tirzepatide' },
+    { label: 'Saxenda', procedureType: 'Liraglutide (Saxenda)' },
+    { label: 'B12', procedureType: 'B12 Injection' },
+  ],
+  'rf-tightening': [
+    { label: 'Thermage', procedureType: 'Thermage' },
+    { label: 'Ultherapy', procedureType: 'Ultherapy' },
+    { label: 'Sofwave', procedureType: 'Sofwave' },
+    { label: 'TempSure', procedureType: 'Tempsure' },
+    { label: 'Exilis', procedureType: 'Exilis' },
+  ],
+  'iv-wellness': [
+    { label: 'IV Therapy', procedureType: 'IV Therapy' },
+    { label: 'IV Vitamins', procedureType: 'IV Vitamin Therapy' },
+    { label: 'NAD+', procedureType: 'NAD+ Therapy' },
+    { label: 'Peptides', procedureType: 'Peptide Therapy' },
+  ],
+  body: [
+    { label: 'Kybella', procedureType: 'Kybella' },
+    { label: 'CoolSculpting', procedureType: 'CoolSculpting' },
+    { label: 'Emsculpt', procedureType: 'Emsculpt NEO' },
+    { label: 'truSculpt', procedureType: 'truSculpt' },
+    { label: 'SculpSure', procedureType: 'SculpSure' },
+  ],
+  skin: [
+    { label: 'HydraFacial', procedureType: 'HydraFacial' },
+    { label: 'Chemical Peel', procedureType: 'Chemical Peel' },
+    { label: 'Dermaplaning', procedureType: 'Dermaplaning' },
+    { label: 'Microderm', procedureType: 'Microdermabrasion' },
+    { label: 'LED', procedureType: 'LED Therapy' },
+  ],
+};
+
 // Resolve a slug + optional brand into a display label.
 // Brand always wins over the generic category name.
 export function getCategoryLabel(slug, brand = null) {

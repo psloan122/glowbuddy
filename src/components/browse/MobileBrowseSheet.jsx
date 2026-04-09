@@ -4,6 +4,7 @@ import MapProviderCard from '../MapProviderCard';
 const PEEK_Y = 45; // translateY(45%) — map visible in top ~55%
 const FULL_Y = 5;  // translateY(5%) — sheet covers ~95%
 const SNAP_THRESHOLD = 15; // percentage delta to trigger snap switch
+const DIRECTION_LOCK_PX = 8; // pixels of movement before we commit to drag vs scroll
 const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
 
 export default memo(function MobileBrowseSheet({
@@ -24,20 +25,23 @@ export default memo(function MobileBrowseSheet({
   const startYRef = useRef(null);
   const startSnapRef = useRef(null);
   const listRef = useRef(null);
+  const handleRef = useRef(null);
   const sheetRef = useRef(null);
-  const isDraggingSheet = useRef(false);
+
+  // Gesture state: 'idle' | 'pending' | 'dragging' | 'scrolling'
+  // - pending: touch started, waiting for DIRECTION_LOCK_PX to decide
+  // - dragging: committed to sheet drag (preventDefault active)
+  // - scrolling: committed to list scroll (browser handles it)
+  const gestureRef = useRef('idle');
 
   const currentTranslateY = snap === 'peek' ? PEEK_Y : FULL_Y;
 
   // Pin-tap reaction: when selectedProviderId changes, expand + scroll
   useEffect(() => {
     if (selectedProviderId == null) return;
-    // Wrap in rAF so the state update doesn't happen synchronously
-    // within the effect (satisfies react-hooks/set-state-in-effect).
     const raf = requestAnimationFrame(() => {
       setSnap('full');
     });
-    // Delay scroll to let the sheet animate open
     const timer = setTimeout(() => {
       const node = document.querySelector(
         `[data-provider-card="${selectedProviderId}"]`,
@@ -50,69 +54,161 @@ export default memo(function MobileBrowseSheet({
     };
   }, [selectedProviderId]);
 
-  // Touch handlers for drag handle area
-  const handleTouchStart = useCallback(
-    (e) => {
-      // Scroll-vs-drag disambiguation:
-      // When FULL and list has scrolled down, let browser handle scroll
-      if (snap === 'full' && listRef.current && listRef.current.scrollTop > 0) {
-        return; // don't intercept, let native scroll happen
-      }
+  // ── Drag handle: ALWAYS drags the sheet ──────────────────────────
+  // Registered as non-passive so preventDefault() works on iOS Safari.
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle) return;
+
+    function onStart(e) {
       startYRef.current = e.touches[0].clientY;
       startSnapRef.current = snap;
-      isDraggingSheet.current = true;
-    },
-    [snap],
-  );
+      gestureRef.current = 'dragging'; // handle always drags
+    }
 
-  const handleTouchMove = useCallback(
-    (e) => {
-      if (!isDraggingSheet.current || startYRef.current == null) return;
-
-      // If in FULL mode, check if user is scrolling the list
-      if (startSnapRef.current === 'full' && listRef.current) {
-        if (listRef.current.scrollTop > 0) {
-          // User has scrolled the list — release drag, let browser scroll
-          isDraggingSheet.current = false;
-          setDragY(null);
-          return;
-        }
-      }
+    function onMove(e) {
+      if (gestureRef.current !== 'dragging') return;
+      e.preventDefault(); // works because listener is { passive: false }
 
       const deltaPixels = e.touches[0].clientY - startYRef.current;
       const deltaPct = (deltaPixels / window.innerHeight) * 100;
       const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
       const newY = Math.max(FULL_Y, Math.min(PEEK_Y + 5, baseY + deltaPct));
       setDragY(newY);
+    }
 
-      // Prevent page scroll while dragging the sheet
-      e.preventDefault();
-    },
-    [],
-  );
+    function onEnd() {
+      finishDrag();
+    }
 
-  const handleTouchEnd = useCallback(() => {
-    if (!isDraggingSheet.current) return;
-    isDraggingSheet.current = false;
+    handle.addEventListener('touchstart', onStart, { passive: true });
+    handle.addEventListener('touchmove', onMove, { passive: false });
+    handle.addEventListener('touchend', onEnd, { passive: true });
+    handle.addEventListener('touchcancel', onEnd, { passive: true });
 
-    if (startYRef.current == null || dragY == null) {
+    return () => {
+      handle.removeEventListener('touchstart', onStart);
+      handle.removeEventListener('touchmove', onMove);
+      handle.removeEventListener('touchend', onEnd);
+      handle.removeEventListener('touchcancel', onEnd);
+    };
+  }, [snap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── List area: scroll vs drag disambiguation ─────────────────────
+  // Uses non-passive touchmove so we can preventDefault() when dragging.
+  //
+  // Rules:
+  //   PEEK mode → always drag (list shouldn't scroll when half-hidden)
+  //   FULL mode + scrollTop > 0 → always scroll
+  //   FULL mode + scrollTop === 0 + swipe DOWN → drag sheet closed
+  //   FULL mode + scrollTop === 0 + swipe UP → scroll list
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
+    function onStart(e) {
+      startYRef.current = e.touches[0].clientY;
+      startSnapRef.current = snap;
+
+      if (snap === 'peek') {
+        // In peek mode, the list shouldn't scroll — always drag
+        gestureRef.current = 'dragging';
+      } else if (list.scrollTop > 0) {
+        // Already scrolled down — let browser handle scroll
+        gestureRef.current = 'scrolling';
+      } else {
+        // At top of list — wait for direction
+        gestureRef.current = 'pending';
+      }
+    }
+
+    function onMove(e) {
+      const touchY = e.touches[0].clientY;
+      const deltaPixels = touchY - startYRef.current;
+
+      if (gestureRef.current === 'pending') {
+        // Haven't committed yet — check if enough movement to decide
+        if (Math.abs(deltaPixels) < DIRECTION_LOCK_PX) return;
+
+        if (deltaPixels > 0) {
+          // Swiping DOWN from top of list → drag sheet closed
+          gestureRef.current = 'dragging';
+        } else {
+          // Swiping UP from top of list → scroll the list
+          gestureRef.current = 'scrolling';
+          return; // let browser handle this move
+        }
+      }
+
+      if (gestureRef.current === 'dragging') {
+        e.preventDefault(); // works because { passive: false }
+
+        const deltaPct = (deltaPixels / window.innerHeight) * 100;
+        const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
+        const newY = Math.max(FULL_Y, Math.min(PEEK_Y + 5, baseY + deltaPct));
+        setDragY(newY);
+      }
+
+      // gestureRef === 'scrolling' → do nothing, browser scrolls natively
+    }
+
+    function onEnd() {
+      if (gestureRef.current === 'dragging') {
+        finishDrag();
+      } else {
+        gestureRef.current = 'idle';
+        startYRef.current = null;
+      }
+    }
+
+    list.addEventListener('touchstart', onStart, { passive: true });
+    list.addEventListener('touchmove', onMove, { passive: false });
+    list.addEventListener('touchend', onEnd, { passive: true });
+    list.addEventListener('touchcancel', onEnd, { passive: true });
+
+    return () => {
+      list.removeEventListener('touchstart', onStart);
+      list.removeEventListener('touchmove', onMove);
+      list.removeEventListener('touchend', onEnd);
+      list.removeEventListener('touchcancel', onEnd);
+    };
+  }, [snap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Shared drag finish logic ─────────────────────────────────────
+  // Using useCallback so the effect cleanups don't stale-close over it.
+  // The `dragY` ref trick avoids stale closure — we read it from a ref
+  // in finishDrag but setDragY for React re-renders.
+  const dragYRef = useRef(null);
+  useEffect(() => { dragYRef.current = dragY; }, [dragY]);
+
+  const finishDrag = useCallback(() => {
+    gestureRef.current = 'idle';
+    const currentDragY = dragYRef.current;
+
+    if (startYRef.current == null || currentDragY == null) {
       setDragY(null);
       startYRef.current = null;
       return;
     }
 
     const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
-    const deltaPct = dragY - baseY;
+    const deltaPct = currentDragY - baseY;
 
     if (Math.abs(deltaPct) > SNAP_THRESHOLD) {
-      // Crossed threshold — switch snap state
       setSnap(deltaPct > 0 ? 'peek' : 'full');
     }
-    // else snap back to current position
 
     setDragY(null);
     startYRef.current = null;
-  }, [dragY]);
+  }, []);
+
+  // When snap changes to peek, reset list scroll so next expansion
+  // starts fresh at the top.
+  useEffect(() => {
+    if (snap === 'peek' && listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
+  }, [snap]);
 
   const translateY = dragY != null ? dragY : currentTranslateY;
   const isTransitioning = dragY == null; // only animate when not actively dragging
@@ -136,18 +232,17 @@ export default memo(function MobileBrowseSheet({
         boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
         willChange: 'transform',
       }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      {/* Drag handle */}
+      {/* Drag handle — always controls sheet drag */}
       <div
+        ref={handleRef}
         style={{
           display: 'flex',
           justifyContent: 'center',
           paddingTop: 10,
           paddingBottom: 6,
           cursor: 'grab',
+          touchAction: 'none', // prevent browser scroll on the handle
         }}
       >
         <div
@@ -187,6 +282,7 @@ export default memo(function MobileBrowseSheet({
             padding: '0 16px 12px',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
+            touchAction: 'pan-x', // allow horizontal scroll, not vertical
           }}
         >
           {pills.map((pill) => (
@@ -216,11 +312,12 @@ export default memo(function MobileBrowseSheet({
         </div>
       )}
 
-      {/* Scrollable card list */}
+      {/* Scrollable card list — gesture disambiguation handled via
+          non-passive addEventListener in the effect above */}
       <div
         ref={listRef}
         style={{
-          overflowY: 'auto',
+          overflowY: snap === 'peek' ? 'hidden' : 'auto',
           height: 'calc(100% - 80px)',
           paddingLeft: 8,
           paddingRight: 8,

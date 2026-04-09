@@ -20,10 +20,10 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Heart, Star, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Heart, Star, ShieldCheck, ArrowRight, Info } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
-import { getProcedureLabel } from '../../lib/procedureLabel';
+import { getProcedureLabel, getProcedureDetail } from '../../lib/procedureLabel';
 import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils';
 import { haversineMiles, formatMiles } from '../../lib/distance';
 
@@ -93,7 +93,7 @@ function VsAverageBadge({ price, avg }) {
 
 // One price row inside the multi-price card. Brand label, big editorial
 // price, vs-avg badge, and an optional dysport equivalency note.
-function PriceRow({ procedure, cityAvg, isFirst }) {
+function PriceRow({ procedure, cityAvg, isFirst, onDetailClick }) {
   const displayPrice = procedure.normalized_display
     ? procedure.normalized_display
     : fmtPrice(procedure.price_paid);
@@ -116,6 +116,7 @@ function PriceRow({ procedure, cityAvg, isFirst }) {
   const label = brandInfo?.label || getProcedureLabel(procedure.procedure_type, procedure.brand);
   const isDysport = brandInfo?.isDysport || false;
   const unitsLine = formatUnitsIncluded(procedure.units_or_volume);
+  const treatmentArea = getProcedureDetail(procedure);
 
   return (
     <div
@@ -136,19 +137,35 @@ function PriceRow({ procedure, cityAvg, isFirst }) {
           flexWrap: 'wrap',
         }}
       >
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: '#E8347A',
-            minWidth: 80,
-          }}
-        >
-          {label}
-        </span>
+        <div style={{ minWidth: 80 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#E8347A',
+              display: 'block',
+            }}
+          >
+            {label}
+          </span>
+          {treatmentArea && (
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 10,
+                fontWeight: 400,
+                color: '#999',
+                display: 'block',
+                marginTop: 1,
+              }}
+            >
+              {treatmentArea}
+            </span>
+          )}
+        </div>
         <span
           style={{
             fontFamily: "'Playfair Display', Georgia, serif",
@@ -181,6 +198,33 @@ function PriceRow({ procedure, cityAvg, isFirst }) {
         <span style={{ flexShrink: 0 }}>
           <VsAverageBadge price={compareValue} avg={cityAvg} />
         </span>
+        {onDetailClick && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDetailClick(procedure);
+            }}
+            aria-label={`Details about ${label}`}
+            style={{
+              flexShrink: 0,
+              background: 'none',
+              border: '1px solid #EDE8E3',
+              borderRadius: 2,
+              width: 28,
+              height: 28,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#999',
+              padding: 0,
+            }}
+          >
+            <Info size={14} />
+          </button>
+        )}
       </div>
 
       {unitsLine && (
@@ -236,6 +280,7 @@ export default function PriceCard({
   // border ring when the user has tapped this provider's pin on the map.
   onHoverChange,
   selected = false,
+  onProcedureDetail,
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
   const rows = Array.isArray(procedures) ? procedures : [];
@@ -471,6 +516,7 @@ export default function PriceCard({
             procedure={proc}
             cityAvg={cityAvg}
             isFirst={i === 0}
+            onDetailClick={onProcedureDetail ? (p) => onProcedureDetail(p, primary) : undefined}
           />
         ))}
       </div>

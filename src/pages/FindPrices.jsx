@@ -41,6 +41,7 @@ import {
   PROCEDURE_TYPES,
   PROVIDER_TYPES,
   PROCEDURE_PILLS,
+  CATEGORY_SUB_TYPES,
   resolveProcedureFilter,
   makeProcedureFilterFromCanonical,
   makeProcedureFilterFromPill,
@@ -53,6 +54,8 @@ import { searchCitiesViaGoogle } from '../lib/places';
 import { lookupZip } from '../lib/zipLookup';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
+import ProcedureDetailSheet from '../components/ProcedureDetailSheet';
+import AddExperienceSheet from '../components/AddExperienceSheet';
 import { getUserActiveAlerts } from '../lib/priceAlerts';
 import { setPageMeta } from '../lib/seo';
 import { normalizePrice } from '../lib/priceUtils';
@@ -150,6 +153,17 @@ export default function FindPrices() {
     const persisted = readPersistedFilters();
     return persisted?.brand || null;
   });
+
+  // Sub-type filter for drilling into a specific procedure type within a
+  // category (e.g. "Lip Filler" within Fillers). Independent from brandFilter
+  // — neurotoxins use brand, other categories use subType.
+  const [subTypeFilter, setSubTypeFilter] = useState(() => {
+    const urlSubType = searchParams.get('subtype');
+    if (urlSubType) return urlSubType;
+    const persisted = readPersistedFilters();
+    return persisted?.subType || null;
+  });
+
   const procRef = useRef(null);
 
   // --- Location search ---
@@ -186,6 +200,8 @@ export default function FindPrices() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [detailSheet, setDetailSheet] = useState(null);
+  const [experienceSheet, setExperienceSheet] = useState(null);
   const [minRating, setMinRating] = useState('');
 
   // First-timer state
@@ -479,13 +495,14 @@ export default function FindPrices() {
     const canonicalParams = new URLSearchParams();
     if (procFilter?.slug) canonicalParams.set('procedure', procFilter.slug);
     if (brandFilter) canonicalParams.set('brand', brandFilter);
+    if (subTypeFilter) canonicalParams.set('subtype', subTypeFilter);
     if (selectedLoc?.city) canonicalParams.set('city', selectedLoc.city);
     if (selectedLoc?.state) canonicalParams.set('state', selectedLoc.state);
     const qs = canonicalParams.toString();
     const canonical = `https://knowbeforeyouglow.com/browse${qs ? `?${qs}` : ''}`;
 
     setPageMeta({ title, description: desc, canonical });
-  }, [procFilter, brandFilter, selectedLoc]);
+  }, [procFilter, brandFilter, subTypeFilter, selectedLoc]);
 
   // Sync filters to URL params (SEO-friendly) AND persist to sessionStorage
   // so the user can navigate to a provider profile and click "Find Prices"
@@ -494,6 +511,7 @@ export default function FindPrices() {
     const params = {};
     if (procFilter) params.procedure = procFilter.slug;
     if (brandFilter) params.brand = brandFilter;
+    if (subTypeFilter) params.subtype = subTypeFilter;
     if (selectedLoc?.city) params.city = selectedLoc.city;
     if (selectedLoc?.state) params.state = selectedLoc.state;
     if (sortBy !== 'most_verified') params.sort = sortBy;
@@ -504,13 +522,14 @@ export default function FindPrices() {
     writePersistedFilters({
       procedureSlug: procFilter?.slug || null,
       brand: brandFilter || null,
+      subType: subTypeFilter || null,
       city: selectedLoc?.city || null,
       state: selectedLoc?.state || null,
       sortBy,
       hasPricesOnly,
       verifiedOnly,
     });
-  }, [procFilter, brandFilter, selectedLoc, sortBy, hasPricesOnly, verifiedOnly]);
+  }, [procFilter, brandFilter, subTypeFilter, selectedLoc, sortBy, hasPricesOnly, verifiedOnly]);
 
   // Fetch user's active price alerts for match badges
   useEffect(() => {
@@ -539,6 +558,11 @@ export default function FindPrices() {
     }
     if (urlBrand !== currentBrand) {
       setBrandFilter(urlBrand || null);
+    }
+    const urlSubType = searchParams.get('subtype') || '';
+    const currentSubType = subTypeFilter || '';
+    if (urlSubType !== currentSubType) {
+      setSubTypeFilter(urlSubType || null);
     }
     if (urlCity !== currentCity || urlState !== currentState) {
       if (urlCity && urlState) {
@@ -577,6 +601,7 @@ export default function FindPrices() {
 
   function selectProcedure(proc) {
     setProcFilter(makeProcedureFilterFromCanonical(proc));
+    setSubTypeFilter(null);
     setProcQuery('');
     setProcOpen(false);
   }
@@ -587,6 +612,7 @@ export default function FindPrices() {
     // through the URL so the provider_pricing.brand filter activates.
     // Non-brand pills (Fillers, Laser, ...) clear any stale brand filter.
     setBrandFilter(pill?.brand || null);
+    setSubTypeFilter(null);
     setProcQuery('');
     setProcOpen(false);
   }
@@ -594,6 +620,7 @@ export default function FindPrices() {
   function clearProcedure() {
     setProcFilter(null);
     setBrandFilter(null);
+    setSubTypeFilter(null);
     setProcQuery('');
   }
 
@@ -720,7 +747,10 @@ export default function FindPrices() {
   }
 
   // ── Derive filter values ──
-  const filterProcedureTypes = procFilter?.procedureTypes || [];
+  // When a sub-type pill is active, narrow the procedure types to just that one.
+  const filterProcedureTypes = subTypeFilter
+    ? [subTypeFilter]
+    : (procFilter?.procedureTypes || []);
   // When a brand pill is active, the StickyFilterBar's onBrandChange only
   // updates `brandFilter` — `procFilter` keeps its stale fuzzy token from
   // the originally-selected pill (e.g. 'botox'). Without this override the
@@ -729,6 +759,7 @@ export default function FindPrices() {
   // same token the brand-specific pill uses (Xeomin → 'xeomin', etc), so
   // the query stays symmetric with the initial Botox view.
   const filterFuzzyToken =
+    (subTypeFilter && subTypeFilter.split(/[\s/]+/)[0]?.toLowerCase()) ||
     (brandFilter && brandFilter.toLowerCase()) || procFilter?.fuzzyToken || null;
   // Legacy single-procedure variable kept for places that need a single
   // canonical name (first-timer mode, guides, dosage calculator).
@@ -1207,6 +1238,7 @@ export default function FindPrices() {
   }, [
     procFilter,
     brandFilter,
+    subTypeFilter,
     filterState,
     filterCity,
     filterZip,
@@ -1581,10 +1613,10 @@ export default function FindPrices() {
   const dosageEstimatorAvailable =
     !!selectedProc && firstTimerActive && isFirstTimerFor(selectedProc);
 
-  // ── Browse rebuild: brand pills, filters, sorting, city average ──
-  // Brand pills only surface for the neurotoxin category right now (Botox,
-  // Dysport, Xeomin, Jeuveau, Daxxify). For other categories we pass an
-  // empty array so StickyFilterBar hides the pill row.
+  // ── Browse rebuild: brand pills, sub-type pills, sorting, city avg ──
+  // Brand pills surface for the neurotoxin category (Botox, Dysport, …).
+  // Sub-type pills surface for other multi-procedure categories (Fillers →
+  // Lip | Cheek | Jawline, etc.) so users can drill into a specific type.
   const brandPills = useMemo(() => {
     if (procFilter?.slug !== 'neurotoxin') return [];
     return [
@@ -1594,6 +1626,11 @@ export default function FindPrices() {
       { brand: 'Jeuveau', label: 'Jeuveau' },
       { brand: 'Daxxify', label: 'Daxxify' },
     ];
+  }, [procFilter?.slug]);
+
+  const subTypePills = useMemo(() => {
+    if (!procFilter?.slug) return [];
+    return CATEGORY_SUB_TYPES[procFilter.slug] || [];
   }, [procFilter?.slug]);
 
   // `procedures` already carries the active city/procedure set from the
@@ -1796,6 +1833,19 @@ export default function FindPrices() {
     },
     [user, isSaved, saveProvider, unsaveProvider],
   );
+
+  // ── Procedure detail sheet handler ──
+  const handleProcedureDetail = useCallback((procedure, provider) => {
+    setDetailSheet({
+      procedureName: procedure.procedure_type,
+      providerName: provider?.provider_name || procedure.provider_name || null,
+      providerSlug: provider?.provider_slug || procedure.provider_slug || null,
+      price: Number(procedure.price_paid) || null,
+      priceUnit: procedure.normalized_compare_unit
+        ? `/${procedure.normalized_compare_unit.replace('per ', '')}`
+        : null,
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-cream page-enter">
@@ -3097,6 +3147,9 @@ export default function FindPrices() {
             brandPills={brandPills}
             activeBrand={brandFilter}
             onBrandChange={(b) => setBrandFilter(b)}
+            subTypePills={subTypePills}
+            activeSubType={subTypeFilter}
+            onSubTypeChange={(st) => setSubTypeFilter(st)}
             sortBy={sortBy}
             onSortChange={setSortBy}
             hasPricesOnly={hasPricesOnly}
@@ -3261,6 +3314,7 @@ export default function FindPrices() {
                         comparingFull={comparing.length >= 3 && !isCompared}
                         onHoverChange={handleCardHover}
                         selected={selected}
+                        onProcedureDetail={handleProcedureDetail}
                       />
                     </div>
                   );
@@ -3337,6 +3391,33 @@ export default function FindPrices() {
             setFirstTimerActive(true);
             setShowGuideSheet(false);
           }}
+        />
+      )}
+
+      {/* ─── Procedure Intelligence Detail Sheet ─── */}
+      {detailSheet && (
+        <ProcedureDetailSheet
+          procedureName={detailSheet.procedureName}
+          providerName={detailSheet.providerName}
+          providerSlug={detailSheet.providerSlug}
+          price={detailSheet.price}
+          priceUnit={detailSheet.priceUnit}
+          onClose={() => setDetailSheet(null)}
+          onAddExperience={() => {
+            const name = detailSheet.procedureName;
+            setDetailSheet(null);
+            setExperienceSheet({ procedureName: name });
+          }}
+        />
+      )}
+
+      {/* ─── Add Experience Sheet ─── */}
+      {experienceSheet && (
+        <AddExperienceSheet
+          procedureName={experienceSheet.procedureName}
+          userId={user?.id || null}
+          onClose={() => setExperienceSheet(null)}
+          onSuccess={() => {}}
         />
       )}
     </div>
