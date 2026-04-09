@@ -9,7 +9,7 @@ import SpecialCard from '../components/SpecialCard';
 import SpecialOfferCard from '../components/SpecialOfferCard';
 import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
-import { buildBrowseUrl, parseSearchQuery } from '../lib/urlParams';
+import { buildBrowseUrl, parseSearchQuery, parseProcedureFromText } from '../lib/urlParams';
 import { getProcedureLabel } from '../lib/procedureLabel';
 
 // ── Placeholder testimonials ──
@@ -174,8 +174,9 @@ export default function Home() {
   const savedCity = getGatingCity();
   const savedState = getGatingState();
 
-  // Hero search bar query
-  const [searchQuery, setSearchQuery] = useState('');
+  // Hero search bar queries — split into location + treatment
+  const [locationQuery, setLocationQuery] = useState('');
+  const [treatmentQuery, setTreatmentQuery] = useState('');
 
   // "Find Prices" CTA banner (logged-in only, dismissable per session)
   const [findPricesDismissed, setFindPricesDismissed] = useState(
@@ -227,15 +228,26 @@ export default function Home() {
     localStorage.setItem('gb_home_alert_dismissed', String(Date.now()));
   }
 
-  // Parse the freeform search bar input ("Botox in Mandeville LA") into
-  // structured params and route to /browse. Falls back to the saved city
-  // when the input has no city/state of its own.
+  // Parse the two search inputs into structured /browse params.
+  // Location input → city/state, treatment input → procedure/brand.
+  // Falls back to saved city when location input is empty.
   function handleSearch(e) {
     if (e) e.preventDefault();
-    const text = (searchQuery || '').trim();
-    let { city, state, procedure, brand } = parseSearchQuery(text);
+    // Parse location
+    const locText = (locationQuery || '').trim();
+    let city = '', state = '';
+    if (locText) {
+      const parsed = parseSearchQuery(locText);
+      city = parsed.city;
+      state = parsed.state;
+    }
     if (!city && savedCity) city = savedCity;
     if (!state && savedState) state = savedState;
+    // Parse treatment
+    const treatText = (treatmentQuery || '').trim();
+    const match = treatText ? parseProcedureFromText(treatText) : null;
+    const procedure = match?.slug || null;
+    const brand = match?.brand || null;
     navigate(buildBrowseUrl({ city, state, procedure, brand }));
   }
 
@@ -464,30 +476,44 @@ export default function Home() {
             {user ? 'Welcome back — search what people in your city actually paid.' : 'Search what people in your city actually paid.'}
           </p>
 
-          {/* Search bar — left-aligned. Real input that parses
-              "Botox in Mandeville LA" into structured /browse params. */}
+          {/* Search bar — two distinct inputs: location + treatment */}
           <form
             onSubmit={handleSearch}
-            className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-[600px] mb-7"
+            className="flex flex-col gap-2 w-full sm:max-w-[600px] mb-7"
           >
-            <div
-              className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
-              style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
-            >
-              <Search size={15} className="shrink-0 text-text-secondary" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={
-                  savedCity
-                    ? `Try "Botox in ${savedCity}, ${savedState}"`
-                    : 'Try "Botox in Mandeville, LA"'
-                }
-                className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-              />
+            <div className="flex flex-col sm:flex-row gap-2">
+              {/* Location input */}
+              <div
+                className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
+                style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
+              >
+                <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
+                <input
+                  type="text"
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
+                  placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
+                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              {/* Treatment input */}
+              <div
+                className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
+                style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
+              >
+                <Search size={15} className="shrink-0 text-text-secondary" />
+                <input
+                  type="text"
+                  value={treatmentQuery}
+                  onChange={(e) => setTreatmentQuery(e.target.value)}
+                  placeholder="Botox, filler, laser..."
+                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
             </div>
-            <button type="submit" className="btn-editorial btn-editorial-primary">
+            <button type="submit" className="btn-editorial btn-editorial-primary w-full sm:w-auto sm:self-start">
               Find Prices
             </button>
           </form>

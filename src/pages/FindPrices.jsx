@@ -291,16 +291,20 @@ export default function FindPrices() {
     if (!isMobile && viewMode !== 'map') setSelectedProviderGroup(null);
   }, [viewMode, isMobile]);
 
-  // Body scroll lock: when mobile has a city selected, the map fills
-  // the viewport and the bottom sheet handles scrolling. Lock the body
-  // so the page behind doesn't scroll.
+  // Body scroll lock: when mobile has a city selected AND the map is
+  // actually rendering, the map fills the viewport and the bottom sheet
+  // handles scrolling. Lock the body so the page behind doesn't scroll.
+  // Skip when personalizedMode is active — no map/sheet renders, so the
+  // personalized feed must remain scrollable.
   useEffect(() => {
-    if (isMobile && selectedLoc) {
+    if (isMobile && selectedLoc && !personalizedMode) {
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = ''; };
     }
+    // Ensure body scroll is restored when conditions change
+    document.body.style.overflow = '';
     return undefined;
-  }, [isMobile, selectedLoc]);
+  }, [isMobile, selectedLoc, personalizedMode]);
 
   // Fetch every active provider in the city. Runs whenever there's a
   // city — including when a procedure/brand filter is active — so the

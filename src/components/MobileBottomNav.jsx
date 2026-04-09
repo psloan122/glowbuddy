@@ -6,7 +6,6 @@ import { getCity as getGatingCity, getState as getGatingState } from '../lib/gat
 import { buildBrowseUrl } from '../lib/urlParams';
 
 const HIDDEN_PREFIXES = [
-  '/log',
   '/auth',
   '/reset-password',
   '/business/dashboard',
