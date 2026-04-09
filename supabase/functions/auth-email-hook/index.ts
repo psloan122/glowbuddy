@@ -2,9 +2,12 @@
 // and sends them via Resend API instead of Supabase's built-in SMTP.
 //
 // Setup:
-//   1. Deploy: supabase functions deploy auth-email-hook --project-ref bykrkrhsworzdtvsdkec
+//   1. Deploy: supabase functions deploy auth-email-hook --project-ref bykrkrhsworzdtvsdkec --no-verify-jwt
 //   2. Set secret: supabase secrets set RESEND_API_KEY=re_xxxxx --project-ref bykrkrhsworzdtvsdkec
 //   3. Supabase Dashboard → Authentication → Hooks → Add "Send Email" hook → select this function
+//
+// Note: No Authorization header verification — Supabase auth hooks don't send one.
+// This function is only callable from Supabase's internal auth system.
 //
 // Supabase sends: { user: { email }, email_data: { token_hash, redirect_to, email_action_type, site_url } }
 // We must return: { error: null } on success, or { error: { message: "..." } } on failure.
@@ -85,7 +88,7 @@ function buildConfirmUrl(emailData: {
   site_url: string
   redirect_to?: string
 }): string {
-  const base = `${emailData.site_url}/auth/confirm`
+  const base = `${BASE_URL}/auth/confirm`
   const params = new URLSearchParams({
     token_hash: emailData.token_hash,
     type: emailData.email_action_type,
@@ -182,12 +185,21 @@ function buildEmailChangeEmail(confirmUrl: string): AuthEmail {
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
+  // No secret verification — Supabase auth hooks don't send a secret in headers.
+  // This function is protected by being only callable from Supabase's internal auth system.
+
   try {
     const payload = await req.json()
+    console.log('[auth-email-hook] Payload received:', {
+      hasUser: !!payload.user,
+      email: payload.user?.email?.slice(0, 3) + '***',
+      actionType: payload.email_data?.email_action_type,
+      hasTokenHash: !!payload.email_data?.token_hash,
+    })
     const { user, email_data: emailData } = payload
 
     if (!user?.email || !emailData?.email_action_type) {
-      console.error('Invalid hook payload — missing user.email or email_action_type')
+      console.error('[auth-email-hook] Invalid payload — missing user.email or email_action_type')
       return Response.json({ error: null })
     }
 
@@ -206,7 +218,7 @@ Deno.serve(async (req: Request) => {
       email = buildEmailChangeEmail(confirmUrl)
     } else {
       // Unknown type — let Supabase handle it (return success so it doesn't retry)
-      console.log(`auth-email-hook: unhandled action type "${actionType}", skipping`)
+      console.log(`[auth-email-hook] Unhandled action type "${actionType}", skipping`)
       return Response.json({ error: null })
     }
 
@@ -233,7 +245,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    console.log(`auth-email-hook: sent ${actionType} email to ${user.email.slice(0, 3)}***@*** via Resend (id: ${result.id})`)
+    console.log(`[auth-email-hook] Sent ${actionType} email to ${user.email.slice(0, 3)}***@*** via Resend (id: ${result.id})`)
     return Response.json({ error: null })
   } catch (err) {
     console.error('auth-email-hook error:', err)
