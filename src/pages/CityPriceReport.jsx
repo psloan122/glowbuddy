@@ -30,6 +30,25 @@ function formatYearMonth(ym) {
   return `${MONTH_NAMES[m - 1]} ${y}`;
 }
 
+/**
+ * Honest breakdown of where this city's prices came from. Falls back to a
+ * single sentence when one source is empty.
+ */
+function formatSourceBreakdown(menuCount = 0, patientCount = 0) {
+  const menu = `${menuCount} provider menu price${menuCount === 1 ? '' : 's'}`;
+  const patients = `${patientCount} patient report${patientCount === 1 ? '' : 's'}`;
+  if (menuCount > 0 && patientCount > 0) {
+    return `${menu} · ${patients}.`;
+  }
+  if (menuCount > 0) {
+    return `${menu} · no patient reports yet.`;
+  }
+  if (patientCount > 0) {
+    return `${patients} · no provider menu prices yet.`;
+  }
+  return 'No prices yet.';
+}
+
 function MetricCard({ label, value, sub, accent }) {
   return (
     <div className="p-4" style={{ borderRight: '1px solid #E8E8E8' }}>
@@ -254,7 +273,7 @@ export default function CityPriceReport() {
               {state}.
             </h1>
             <p className="editorial-deck max-w-2xl">
-              {report.totalSubmissions} submission{report.totalSubmissions !== 1 ? 's' : ''} from real patients and public provider menus.
+              {formatSourceBreakdown(report.menuCount, report.patientCount)}
               {report.usingAllTime && ' All-time data (limited recent activity).'}
             </p>
           </div>

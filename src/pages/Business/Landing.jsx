@@ -1,22 +1,80 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Search, FileText, Users, Sparkles } from 'lucide-react';
+import { Check, X, Search, FileText, Users, Sparkles } from 'lucide-react';
 
-const FREE_FEATURES = [
-  'Claim your listing',
-  'Upload your price menu',
-  'Verified badge on your profile',
-  'Flag inaccurate patient submissions',
-];
-
-const PRO_FEATURES = [
-  'Everything in Free',
-  'Post deals pushed to patients near you',
-  'Featured placement above organic results',
-  'Analytics: profile views, submission volume, and local price benchmarks',
-  'Priority dispute review — 24hr response',
-  'Priority email support',
-  'Monthly performance report — emailed to you',
+// Four tiers laid out left → right. Each entry carries:
+//   - included: feature lines rendered with a green check
+//   - excluded: lines rendered with a muted X (Free tier only — paid
+//     tiers stack on top of one another so a "missing" feature is
+//     never relevant once you're past Free)
+//   - cta: { label, to } — Free + Verified + Certified link directly
+//     to /business/claim, Enterprise to /business/contact
+//   - featured: true on Certified to drive the pink ring + badge
+const TIERS = [
+  {
+    name: 'Free',
+    price: '$0',
+    period: '/mo',
+    tagline: 'Claim and edit your listing.',
+    included: [
+      'Claim your listing',
+      'Add and edit prices',
+      'See monthly view count',
+      'Verified badge on listing',
+    ],
+    excluded: [
+      'Demand intelligence',
+      'Full analytics',
+      'Post specials to patients',
+      'Competitor comparison',
+    ],
+    cta: { label: 'Get Started Free', to: '/business/claim' },
+  },
+  {
+    name: 'Verified',
+    price: '$99',
+    period: '/mo',
+    tagline: 'Reach matched patients with full analytics.',
+    included: [
+      'Everything in Free',
+      'Full demand intelligence dashboard',
+      'Full analytics (30 day history)',
+      'Post specials + notify matched patients',
+      'Priority search placement',
+      'Patient inquiry alerts',
+    ],
+    cta: { label: 'Start for $99/mo', to: '/business/claim?plan=verified' },
+  },
+  {
+    name: 'Certified',
+    price: '$299',
+    period: '/mo',
+    tagline: 'Featured placement + competitor intel.',
+    included: [
+      'Everything in Verified',
+      'GlowBuddy Certified badge',
+      'Competitor price comparison',
+      'Featured on city price reports',
+      '90 day analytics history',
+      'Price alert targeting',
+    ],
+    cta: { label: 'Start for $299/mo', to: '/business/claim?plan=certified' },
+    featured: true,
+  },
+  {
+    name: 'Enterprise',
+    price: '$799',
+    period: '/mo',
+    tagline: 'Multi-location, white-label, API access.',
+    included: [
+      'Everything in Certified',
+      'Multi-location (up to 20)',
+      'White-label monthly reports',
+      'API access to price data',
+      'Dedicated account manager',
+    ],
+    cta: { label: 'Contact us', to: '/business/claim?plan=enterprise' },
+  },
 ];
 
 const STEPS = [

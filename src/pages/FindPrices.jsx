@@ -454,12 +454,21 @@ export default function FindPrices() {
     getUserActiveAlerts().then(setUserAlerts);
   }, []);
 
-  // Restore procFilter + brandFilter from URL on back/forward navigation
+  // Restore procFilter + brandFilter + selectedLoc from URL on back/forward
+  // navigation AND on in-app navigations that swap URL params via <Link>
+  // (e.g. SmartEmptyState's nearby-city rows). Without syncing city/state
+  // here, clicking a nearby city link only updates the URL — selectedLoc
+  // stays stale and the data fetch (which depends on filterCity/filterState)
+  // never re-fires.
   useEffect(() => {
     const urlSlug = searchParams.get('procedure') || '';
     const urlBrand = searchParams.get('brand') || '';
+    const urlCity = searchParams.get('city') || '';
+    const urlState = searchParams.get('state') || '';
     const currentSlug = procFilter?.slug || '';
     const currentBrand = brandFilter || '';
+    const currentCity = selectedLoc?.city || '';
+    const currentState = selectedLoc?.state || '';
     if (urlSlug !== currentSlug || urlBrand !== currentBrand) {
       // Pass the brand so neurotoxin&brand=Dysport resolves to the
       // Dysport pill rather than the default Botox one.
@@ -467,6 +476,15 @@ export default function FindPrices() {
     }
     if (urlBrand !== currentBrand) {
       setBrandFilter(urlBrand || null);
+    }
+    if (urlCity !== currentCity || urlState !== currentState) {
+      if (urlCity && urlState) {
+        setSelectedLoc({ city: urlCity, state: urlState });
+      } else if (!urlCity && !urlState && (currentCity || currentState)) {
+        // URL cleared city/state — only clear local state if both gone,
+        // so partial param edits don't drop the user's location.
+        setSelectedLoc(null);
+      }
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -640,7 +658,15 @@ export default function FindPrices() {
 
   // ── Derive filter values ──
   const filterProcedureTypes = procFilter?.procedureTypes || [];
-  const filterFuzzyToken = procFilter?.fuzzyToken || null;
+  // When a brand pill is active, the StickyFilterBar's onBrandChange only
+  // updates `brandFilter` — `procFilter` keeps its stale fuzzy token from
+  // the originally-selected pill (e.g. 'botox'). Without this override the
+  // provider_pricing query would be `procedure_type ILIKE '%botox%' AND
+  // brand='Xeomin'` and return nothing. Lowercasing the brand gives the
+  // same token the brand-specific pill uses (Xeomin → 'xeomin', etc), so
+  // the query stays symmetric with the initial Botox view.
+  const filterFuzzyToken =
+    (brandFilter && brandFilter.toLowerCase()) || procFilter?.fuzzyToken || null;
   // Legacy single-procedure variable kept for places that need a single
   // canonical name (first-timer mode, guides, dosage calculator).
   const filterProcedureType = selectedProc;
@@ -722,8 +748,18 @@ export default function FindPrices() {
         }
         return [];
       }
+      // The procedures table has no `brand` column — patient-reported rows
+      // come back with brand=undefined. When a brand filter is active we
+      // matched these rows via ilike on procedure_type, so we know the row
+      // belongs to the active brand. Inject `brand: brandFilter` so the
+      // price card's getProcedureLabel(procedure_type, brand) returns the
+      // correct chip ("XEOMIN", "DYSPORT", …) instead of falling back to
+      // PROCEDURE_DISPLAY_NAMES which collapses "Botox / Dysport / Xeomin"
+      // to "Botox" and produces a wrong "BOTOX" chip on every patient row
+      // in the brand-filtered view.
       const activeRows = (data || []).map((r) => ({
         ...r,
+        brand: r.brand || brandFilter || null,
         data_source: r.data_source || 'patient_reported',
       }));
 
@@ -761,6 +797,10 @@ export default function FindPrices() {
       }
       const pendingRows = (pendingData || []).map((r) => ({
         ...r,
+        // Same brand-injection as activeRows above so the user's own
+        // pending submission renders with the correct brand chip on the
+        // brand-filtered view.
+        brand: r.brand || brandFilter || null,
         data_source: r.data_source || 'patient_reported',
         _pending_self: true,
       }));
@@ -873,6 +913,11 @@ export default function FindPrices() {
           normalized_display: normalized.displayPrice,
           normalized_compare_value: normalized.comparableValue,
           normalized_compare_unit: normalized.compareUnit,
+          // Expose the category so the brand-filter view can drop
+          // flat_rate_area rows (e.g. a "$425/unit" Xeomin row that
+          // is actually a $425/forehead flat rate). See the filter
+          // applied in displayedProcedures.
+          normalized_category: normalized.category,
           // Internals used by the merge sort, prefixed _ so they're clearly
           // not part of the procedures schema.
           _verified: row.verified === true,
@@ -1483,6 +1528,16 @@ export default function FindPrices() {
         (p) => p._verified === true || p.receipt_verified === true,
       );
     }
+    // Brand-filter view = apples-to-apples per-unit comparison. Drop
+    // any neurotoxin row that priceUtils flagged as a flat-rate area
+    // price (a "$425/unit" Xeomin row that's actually $425/forehead).
+    // These can't be compared to a real $14/unit row without misleading
+    // the shopper, so they're hidden entirely from the brand view.
+    // The broader category view (no brandFilter) still shows them with
+    // the "/ area" suffix produced by normalizePrice.
+    if (brandFilter) {
+      rows = rows.filter((p) => p.normalized_category !== 'flat_rate_area');
+    }
     if (sortBy === 'nearest' && userLat != null && userLng != null) {
       rows = [...rows].sort((a, b) => {
         const da = haversineMiles(userLat, userLng, a.provider_lat, a.provider_lng);
@@ -1502,7 +1557,7 @@ export default function FindPrices() {
       rows = [...rows].sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     }
     return rows;
-  }, [procedures, verifiedOnly, sortBy, userLat, userLng]);
+  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter]);
 
   // City average — unit-normalized when possible so $14/unit and $700/20u
   // sit on the same scale. Used for the vs-average badges + savings callout.

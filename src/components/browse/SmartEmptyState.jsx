@@ -5,12 +5,44 @@
  * one active price, computes their average, and lets the user jump to
  * those cities. Falls back to the always-helpful "be the first to share"
  * + "set a price alert" CTAs.
+ *
+ * Pulls from BOTH `procedures` (patient submissions) and `provider_pricing`
+ * (provider menu prices) so the nearby summary reflects every city that
+ * actually has data — matching the same union the city report pages use.
+ *
+ * For neurotoxin queries we filter out flat-rate-area prices the same way
+ * the main brand-filter view does (price < $50 = real per-unit; anything
+ * higher is almost certainly a "$425 / forehead" row mislabeled as
+ * per_unit). Cities that ONLY have flat-rate prices are still surfaced,
+ * but the row labels them "per area" so shoppers don't think Botox costs
+ * $425/unit.
  */
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+
+// Mirrors NEUROTOXIN_PER_UNIT_MAX in priceUtils.js. Real per-unit Botox /
+// Dysport / Xeomin / Jeuveau / Daxxify all sit well under $50/unit; any
+// neurotoxin row above that is a flat-rate area price in disguise.
+const NEUROTOXIN_PER_UNIT_MAX = 50;
+
+function isNeurotoxinSlug(slug, type) {
+  const s = String(slug || '').toLowerCase();
+  const t = String(type || '').toLowerCase();
+  return (
+    s === 'neurotoxin' ||
+    t.includes('botox') ||
+    t.includes('dysport') ||
+    t.includes('xeomin') ||
+    t.includes('jeuveau') ||
+    t.includes('daxxify') ||
+    t.includes('neurotoxin') ||
+    t.includes('botulinum') ||
+    t.includes('neuromodulator')
+  );
+}
 
 export default function SmartEmptyState({
   procedureLabel,
@@ -48,42 +80,122 @@ export default function SmartEmptyState({
         return;
       }
 
-      let q = supabase
+      const isNeuro = isNeurotoxinSlug(procedureSlug, types[0]);
+
+      // ── Source 1: patient-submitted procedures ─────────────────────
+      let procQ = supabase
         .from('procedures')
         .select('city, state, price_paid')
         .eq('status', 'active');
+      if (types.length === 1) procQ = procQ.eq('procedure_type', types[0]);
+      else procQ = procQ.in('procedure_type', types);
+      if (state) procQ = procQ.eq('state', state);
+      if (city) procQ = procQ.not('city', 'ilike', city);
+      procQ = procQ.limit(200);
 
-      if (types.length === 1) q = q.eq('procedure_type', types[0]);
-      else q = q.in('procedure_type', types);
+      // ── Source 2: provider-menu pricing ───────────────────────────
+      // We always pull a generous slice and apply the per-unit / per-area
+      // sorting locally so we can label cities accurately. brand is
+      // applied at the DB layer when present so we don't pull every
+      // neurotoxin in the state just to filter to Botox.
+      let menuQ = supabase
+        .from('provider_pricing')
+        .select(
+          'price, price_label, procedure_type, providers!inner(city, state)',
+        )
+        .eq('display_suppressed', false)
+        .eq('is_active', true);
+      if (types.length === 1) menuQ = menuQ.eq('procedure_type', types[0]);
+      else menuQ = menuQ.in('procedure_type', types);
+      if (brand) menuQ = menuQ.eq('brand', brand);
+      if (state) menuQ = menuQ.eq('providers.state', state);
+      if (city) menuQ = menuQ.not('providers.city', 'ilike', city);
+      menuQ = menuQ.limit(400);
 
-      if (state) q = q.eq('state', state);
-      if (city) q = q.not('city', 'ilike', city);
-
-      q = q.limit(200);
-
-      const { data } = await q;
+      const [procRes, menuRes] = await Promise.all([procQ, menuQ]);
       if (cancelled) return;
 
+      // perUnit + perArea live in separate buckets so a city with only
+      // flat-rate prices can still surface (labeled "per area"), while
+      // cities with real per-unit prices show those preferentially.
       const byCity = new Map();
-      for (const row of data || []) {
-        if (!row.city || !row.state) continue;
-        const key = `${row.city}|${row.state}`;
+      function bucket(key, cityName, stateCode) {
         if (!byCity.has(key)) {
-          byCity.set(key, { city: row.city, state: row.state, prices: [] });
+          byCity.set(key, {
+            city: cityName,
+            state: stateCode,
+            perUnit: [],
+            perArea: [],
+          });
         }
+        return byCity.get(key);
+      }
+
+      // procedures table: patient-reported total they paid.
+      // For neurotoxin we only trust rows where price < per-unit ceiling;
+      // anything higher is a per-session/visit total that can't be
+      // averaged into a per-unit comparison without misleading shoppers.
+      for (const row of procRes.data || []) {
+        if (!row.city || !row.state) continue;
         const n = Number(row.price_paid);
-        if (Number.isFinite(n) && n > 0) byCity.get(key).prices.push(n);
+        if (!Number.isFinite(n) || n <= 0) continue;
+        const key = `${row.city}|${row.state}`;
+        const b = bucket(key, row.city, row.state);
+        if (isNeuro) {
+          if (n < NEUROTOXIN_PER_UNIT_MAX) b.perUnit.push(n);
+          else b.perArea.push(n);
+        } else {
+          b.perUnit.push(n);
+        }
+      }
+
+      // provider_pricing: explicit price_label tells us per_unit vs not.
+      // Mirror priceUtils.normalizePrice rules:
+      //   per_unit + neurotoxin + price > 50  → flat_rate_area
+      //   per_unit otherwise                  → per_unit
+      //   anything else                       → ignored (only the
+      //   four canonical labels round-trip as comparable values).
+      for (const row of menuRes.data || []) {
+        const provider = row.providers;
+        if (!provider?.city || !provider?.state) continue;
+        const n = Number(row.price);
+        if (!Number.isFinite(n) || n <= 0) continue;
+        const label = String(row.price_label || '').toLowerCase().trim();
+        if (label !== 'per_unit') continue;
+        const key = `${provider.city}|${provider.state}`;
+        const b = bucket(key, provider.city, provider.state);
+        if (isNeuro && n > NEUROTOXIN_PER_UNIT_MAX) {
+          b.perArea.push(n);
+        } else {
+          b.perUnit.push(n);
+        }
       }
 
       const list = [...byCity.values()]
-        .filter((c) => c.prices.length > 0)
-        .map((c) => ({
-          city: c.city,
-          state: c.state,
-          count: c.prices.length,
-          avg: Math.round(c.prices.reduce((a, b) => a + b, 0) / c.prices.length),
-        }))
-        .sort((a, b) => b.count - a.count)
+        .map((c) => {
+          // Prefer per-unit averages so nearby Coral Gables shows real
+          // $14/unit data instead of "$408" flat-rate noise. Only fall
+          // back to per-area when nothing else exists.
+          const usePerUnit = c.perUnit.length > 0;
+          const prices = usePerUnit ? c.perUnit : c.perArea;
+          if (prices.length === 0) return null;
+          const avg = Math.round(
+            prices.reduce((a, b) => a + b, 0) / prices.length,
+          );
+          return {
+            city: c.city,
+            state: c.state,
+            count: prices.length,
+            avg,
+            perArea: !usePerUnit,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          // Per-unit cities always rank above per-area-only cities.
+          if (a.perArea !== b.perArea) return a.perArea ? 1 : -1;
+          return b.count - a.count;
+        })
         .slice(0, 3);
 
       setNearby(list);
@@ -94,7 +206,7 @@ export default function SmartEmptyState({
     return () => {
       cancelled = true;
     };
-  }, [procedureType, city, state, brand, JSON.stringify(procedureTypes)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [procedureType, procedureSlug, city, state, brand, JSON.stringify(procedureTypes)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildBrowseUrl = (c) => {
     const params = new URLSearchParams();
@@ -231,6 +343,19 @@ export default function SmartEmptyState({
                   }}
                 >
                   ${c.avg.toLocaleString()}
+                  {c.perArea && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize: 11,
+                        color: '#888',
+                        marginLeft: 4,
+                      }}
+                    >
+                      / area
+                    </span>
+                  )}
                   <ArrowRight
                     size={12}
                     style={{ marginLeft: 6, verticalAlign: 'middle', color: '#888' }}

@@ -49,10 +49,11 @@ function drawCard(canvas, { city, state, topProcedure, avgPrice, submissions, mo
     ctx.fillText(`for ${topProcedure}`, W / 2, 385);
   }
 
-  // Submissions
+  // Submissions — covers both patient submissions and provider menu prices,
+  // so use a neutral label rather than implying everything is patient-reported.
   ctx.fillStyle = '#1A1A1A';
   ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(`${submissions} patient-reported prices`, W / 2, 470);
+  ctx.fillText(`${submissions} real prices tracked`, W / 2, 470);
 
   // Footer
   ctx.fillStyle = '#9CA3AF';

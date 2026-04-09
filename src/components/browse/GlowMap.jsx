@@ -47,6 +47,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
+import MapLoadingFallback from '../MapLoadingFallback';
 
 const PRICE_COLORS = {
   great: '#1D9E75',     // > 20% below avg — green
@@ -186,8 +187,17 @@ export default function GlowMap({
   const hasPrices = Array.isArray(procedures) && procedures.length > 0;
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState(null);
+  // Bumped by the fallback's "Try map again" button to re-run the init
+  // effect without unmounting the parent or doing a full page reload.
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // ── Init the map exactly once ───────────────────────────────────────
+  //
+  // The init runs on mount and re-runs after a remount (e.g. when the
+  // mobile list/map block unmounts during a brand-filter refetch and
+  // remounts when the new procedures arrive). loadGoogleMaps caches its
+  // module-level promise, so the second call resolves synchronously and
+  // we just have to handle the create-map step idempotently.
   useEffect(() => {
     if (!mapRef.current) return;
     let cancelled = false;
@@ -196,46 +206,58 @@ export default function GlowMap({
       .then(() => {
         if (cancelled || !mapRef.current || mapInstanceRef.current) return;
 
-        const map = new window.google.maps.Map(mapRef.current, {
-          zoom: 11,
-          center: { lat: 39.5, lng: -98.35 }, // US fallback
-          gestureHandling: 'greedy',
-          // Every chrome control is explicitly disabled. The defaults
-          // include a Street View pegman, a map-type toggle, and a
-          // rotate/tilt compass — any one of which can render as a
-          // small thumbnail-looking artifact in the corner of the
-          // canvas. We want a clean map with only the zoom buttons.
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-          rotateControl: false,
-          scaleControl: false,
-          panControl: false,
-          keyboardShortcuts: false,
-          clickableIcons: false,
-          draggableCursor: 'default',
-          zoomControlOptions: {
-            position: window.google.maps.ControlPosition.RIGHT_CENTER,
-          },
-          styles: [
-            { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-            { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-            { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-          ],
-        });
+        try {
+          const map = new window.google.maps.Map(mapRef.current, {
+            zoom: 11,
+            center: { lat: 39.5, lng: -98.35 }, // US fallback
+            gestureHandling: 'greedy',
+            // Every chrome control is explicitly disabled. The defaults
+            // include a Street View pegman, a map-type toggle, and a
+            // rotate/tilt compass — any one of which can render as a
+            // small thumbnail-looking artifact in the corner of the
+            // canvas. We want a clean map with only the zoom buttons.
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            rotateControl: false,
+            scaleControl: false,
+            panControl: false,
+            keyboardShortcuts: false,
+            clickableIcons: false,
+            draggableCursor: 'default',
+            zoomControlOptions: {
+              position: window.google.maps.ControlPosition.RIGHT_CENTER,
+            },
+            styles: [
+              { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+              { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+              { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+            ],
+          });
 
-        mapInstanceRef.current = map;
+          mapInstanceRef.current = map;
 
-        // Track manual interaction so the city-recenter effect can stay
-        // out of the user's way once they've started navigating.
-        map.addListener('dragstart', () => {
-          userInteracted.current = true;
-        });
-        map.addListener('zoom_changed', () => {
-          if (initialCenteredRef.current) userInteracted.current = true;
-        });
+          // Track manual interaction so the city-recenter effect can stay
+          // out of the user's way once they've started navigating.
+          map.addListener('dragstart', () => {
+            userInteracted.current = true;
+          });
+          map.addListener('zoom_changed', () => {
+            if (initialCenteredRef.current) userInteracted.current = true;
+          });
 
-        setReady(true);
+          // Clear any stale error from a previous mount that failed —
+          // a brand-filter remount of the mobile map block could leave
+          // mapError set from the prior cycle, which would otherwise
+          // permanently show the "Map could not load" overlay even
+          // though this new instance loaded fine.
+          setMapError(null);
+          setReady(true);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('[GlowMap] failed to construct Map', err);
+          setMapError(err?.message || 'Failed to initialize map');
+        }
       })
       .catch((err) => {
         // eslint-disable-next-line no-console
@@ -245,8 +267,19 @@ export default function GlowMap({
 
     return () => {
       cancelled = true;
+      // Detach all markers from this instance so a remount doesn't
+      // leave orphaned pins on a now-unmounted map.
+      try {
+        for (const m of markersRef.current) m.setMap(null);
+      } catch {
+        // ignore
+      }
+      markersRef.current = [];
+      mapInstanceRef.current = null;
     };
-  }, []);
+    // retryNonce is in the deps so the fallback's "Try map again" button
+    // can force a fresh init without remounting the component.
+  }, [retryNonce]);
 
   // ── Recenter on city change ─────────────────────────────────────────
   // Only fires when (city, state) actually changes. Resets the
@@ -322,6 +355,8 @@ export default function GlowMap({
   useEffect(() => {
     if (!ready || !mapInstanceRef.current || !window.google) return;
 
+    try {
+
     // Index allProviders by a `provider_name|city|state` composite
     // key so procedures rows that don't carry a `provider_id` (e.g.
     // raw patient submissions to the `procedures` table, which has
@@ -393,7 +428,12 @@ export default function GlowMap({
     const list = Array.isArray(allProviders) ? allProviders : [];
     const nextGroups = [];
     for (const p of list) {
-      if (p.lat == null || p.lng == null) continue;
+      // Coerce + validate so a string lat/lng or a null sneaking through
+      // never lands in `bounds.extend`, which throws on NaN and would
+      // otherwise crash the whole reconciliation pass.
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       const key = p.id || `${p.name || p.provider_name}|${p.city}|${p.state}`;
       const priced = (p.id && priceByProviderId.get(p.id)) || null;
       nextGroups.push({
@@ -403,8 +443,8 @@ export default function GlowMap({
         provider_name: p.name || p.provider_name || 'Unknown',
         city: p.city || '',
         state: p.state || '',
-        lat: Number(p.lat),
-        lng: Number(p.lng),
+        lat,
+        lng,
         rating: p.google_rating ?? p.rating ?? null,
         google_review_count: p.google_review_count ?? null,
         rows: priced?.rows || [],
@@ -421,7 +461,10 @@ export default function GlowMap({
     for (const [pid, entry] of priceByProviderId.entries()) {
       if (!pid || nextKeys.has(pid)) continue;
       const r = entry.bestRow || entry.rows[0];
-      if (!r || r.provider_lat == null || r.provider_lng == null) continue;
+      if (!r) continue;
+      const lat = Number(r.provider_lat);
+      const lng = Number(r.provider_lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       nextKeys.add(pid);
       nextGroups.push({
         key: pid,
@@ -430,8 +473,8 @@ export default function GlowMap({
         provider_name: r.provider_name || 'Unknown',
         city: r.city || '',
         state: r.state || '',
-        lat: Number(r.provider_lat),
-        lng: Number(r.provider_lng),
+        lat,
+        lng,
         rating: r.rating ?? null,
         google_review_count: null,
         rows: entry.rows,
@@ -553,6 +596,17 @@ export default function GlowMap({
       return () => window.google.maps.event.removeListener(listener);
     }
     return undefined;
+
+    } catch (err) {
+      // Defensive: never let an exception in marker reconciliation
+      // (a single bad lat/lng, an unexpected Maps API change) bubble
+      // up and crash the React render — it would unmount the parent
+      // and the user would see the global ErrorBoundary fallback.
+      // Log it and return so the next data update can retry cleanly.
+      // eslint-disable-next-line no-console
+      console.error('[GlowMap] markers reconciliation failed', err);
+      return undefined;
+    }
     // highlight is intentionally NOT in the dep array — it's handled
     // by the lightweight highlight effect below so a hover doesn't
     // re-run this expensive reconciliation pass.
@@ -614,24 +668,13 @@ export default function GlowMap({
         }}
       />
 
-      {mapError && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#FBF9F7',
-            color: '#888',
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            padding: 24,
-            textAlign: 'center',
+      {mapError && !ready && (
+        <MapLoadingFallback
+          onRetry={() => {
+            setMapError(null);
+            setRetryNonce((n) => n + 1);
           }}
-        >
-          Map could not load. The list view is still available.
-        </div>
+        />
       )}
 
       {/* Legend — bottom-left so it doesn't collide with the right-side

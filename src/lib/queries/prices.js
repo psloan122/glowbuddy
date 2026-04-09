@@ -378,36 +378,59 @@ export async function getNeighborhoodBreakdown(citySlug, procedureType) {
 /**
  * Lightweight summary for the CityPriceIndex hero. Single round trip,
  * head-counts only — no rows pulled.
+ *
+ * `totalCities` is the union of:
+ *   • cities with patient submissions (from procedure_price_averages)
+ *   • cities with non-suppressed provider menu prices (from
+ *     provider_pricing JOIN providers)
+ *
+ * Without that union we'd undercount drastically — there are far more cities
+ * with scraped menus than with patient submissions.
  */
 export async function getGlobalPricingSummary() {
-  const [verifiedRes, scrapedRes, totalRes, providerRes, mvRes] = await Promise.all([
-    supabase
-      .from('provider_pricing')
-      .select('id', { count: 'exact', head: true })
-      .eq('display_suppressed', false)
-      .eq('source', 'manual')
-      .eq('verified', true),
-    supabase
-      .from('provider_pricing')
-      .select('id', { count: 'exact', head: true })
-      .eq('display_suppressed', false)
-      .eq('source', 'scrape'),
-    supabase
-      .from('provider_pricing')
-      .select('id', { count: 'exact', head: true })
-      .eq('display_suppressed', false),
-    supabase
-      .from('providers')
-      .select('id', { count: 'exact', head: true }),
-    supabase
-      .from('procedure_price_averages')
-      .select('city, state'),
-  ]);
+  const [verifiedRes, scrapedRes, totalRes, providerRes, mvRes, menuCityRes] =
+    await Promise.all([
+      supabase
+        .from('provider_pricing')
+        .select('id', { count: 'exact', head: true })
+        .eq('display_suppressed', false)
+        .eq('source', 'manual')
+        .eq('verified', true),
+      supabase
+        .from('provider_pricing')
+        .select('id', { count: 'exact', head: true })
+        .eq('display_suppressed', false)
+        .eq('source', 'scrape'),
+      supabase
+        .from('provider_pricing')
+        .select('id', { count: 'exact', head: true })
+        .eq('display_suppressed', false),
+      supabase
+        .from('providers')
+        .select('id', { count: 'exact', head: true }),
+      supabase
+        .from('procedure_price_averages')
+        .select('city, state'),
+      supabase
+        .from('provider_pricing')
+        .select('providers!inner(city, state)')
+        .eq('display_suppressed', false)
+        .not('providers.city', 'is', null)
+        .not('providers.state', 'is', null),
+    ]);
 
   const cityKeys = new Set();
   if (mvRes.data) {
     for (const row of mvRes.data) {
-      cityKeys.add(`${row.city}|${row.state}`);
+      if (!row.city || !row.state) continue;
+      cityKeys.add(`${row.city.toLowerCase()}|${row.state.toUpperCase()}`);
+    }
+  }
+  if (menuCityRes.data) {
+    for (const row of menuCityRes.data) {
+      const p = row.providers;
+      if (!p?.city || !p?.state) continue;
+      cityKeys.add(`${p.city.toLowerCase()}|${p.state.toUpperCase()}`);
     }
   }
 

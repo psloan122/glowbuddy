@@ -32,7 +32,15 @@ export default function CityReportPreview({ report, city, state, loading }) {
 
   const topRows = report.priceTable.slice(0, 5);
   const providerCount = report.providers?.length || 0;
-  const totalSubmissions = report.totalSubmissions || 0;
+  const patientCount = report.patientCount || 0;
+  const menuCount = report.menuCount || 0;
+  const totalSubmissions = report.totalSubmissions || patientCount + menuCount;
+  const priceFootnote =
+    patientCount > 0 && menuCount > 0
+      ? `${totalSubmissions} prices (${patientCount} patient · ${menuCount} menu)`
+      : menuCount > 0
+        ? `${menuCount} provider menu price${menuCount === 1 ? '' : 's'}`
+        : `${patientCount} patient report${patientCount === 1 ? '' : 's'}`;
 
   return (
     <div className="glow-card p-5">
@@ -73,7 +81,7 @@ export default function CityReportPreview({ report, city, state, loading }) {
 
       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50 text-[11px] text-text-secondary">
         <span>{providerCount} provider{providerCount !== 1 ? 's' : ''} mapped</span>
-        <span>{totalSubmissions} patient report{totalSubmissions !== 1 ? 's' : ''}</span>
+        <span>{priceFootnote}</span>
       </div>
     </div>
   );

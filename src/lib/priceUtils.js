@@ -56,9 +56,18 @@ function fmtMoney(n) {
  * @typedef {Object} NormalizedPrice
  * @property {string} displayPrice       - what to show the user (e.g. "$12 / unit")
  * @property {number|null} comparableValue - sortable numeric value, null when unshowable
- * @property {string} compareUnit        - "per unit" | "per syringe" | "per session" | "per month" | ""
- * @property {('per_unit'|'per_syringe'|'per_session'|'per_month'|'hidden')} category
+ * @property {string} compareUnit        - "per unit" | "per syringe" | "per session" | "per month" | "per area" | ""
+ * @property {('per_unit'|'per_syringe'|'per_session'|'per_month'|'flat_rate_area'|'hidden')} category
  */
+
+// Real-world per-unit ceiling for every neurotoxin brand. Botox is
+// typically $12-15/unit, Dysport/Xeomin/Jeuveau/Daxxify all sit
+// $8-15/unit. Anything above this on a `per_unit` row is almost
+// certainly a flat-rate area price (e.g. "$425/forehead") that the
+// scraper or provider mislabeled as per_unit. We surface those rows
+// as "per area" instead so they don't dominate the per-unit comparison
+// and trick first-time shoppers into thinking Xeomin costs $425/unit.
+const NEUROTOXIN_PER_UNIT_MAX = 50;
 
 const HIDDEN = Object.freeze({
   displayPrice: '',
@@ -83,6 +92,26 @@ export function normalizePrice(listing) {
   const label = String(listing.price_label || '').toLowerCase().trim();
 
   if (label === 'per_unit') {
+    // Neurotoxin sanity check — see NEUROTOXIN_PER_UNIT_MAX above. A
+    // $425 "per_unit" Xeomin row is a flat-rate area price in disguise;
+    // reclassify it as flat_rate_area so the brand-filter view can hide
+    // it (apples-to-apples comparison) and the broader category view
+    // can render it as "$425 / area" rather than "$425 / unit".
+    if (
+      isNeurotoxin(listing.procedure_type) &&
+      price > NEUROTOXIN_PER_UNIT_MAX
+    ) {
+      return {
+        displayPrice: `${fmtMoney(price)} / area`,
+        // No comparable value — a flat area price can't be compared to
+        // a per-unit price without knowing the unit count. Returning
+        // null keeps these rows out of the city average and the
+        // best-deal callout.
+        comparableValue: null,
+        compareUnit: 'per area',
+        category: 'flat_rate_area',
+      };
+    }
     return {
       displayPrice: `${fmtMoney(price)} / unit`,
       comparableValue: price,

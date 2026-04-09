@@ -1,35 +1,87 @@
 import { supabase } from './supabase';
 import { citySlug } from './slugify';
 
-const MIN_SUBMISSIONS = 5;
+// Cities show up in the index if they have at least one price from any source
+// (patient submission OR provider menu). Tiny cities are still useful when the
+// only data we have is a single scraped menu.
+const MIN_TOTAL_PRICES = 1;
 
 /**
- * Fetch list of cities with enough data for a report page.
- * Returns [{ city, state, slug, count }] sorted by count desc.
+ * Fetch list of cities with at least one price (patient-reported OR
+ * provider-menu) for the report index.
+ *
+ * Returns:
+ *   [{
+ *     city, state, slug,
+ *     count,           // total prices across both sources
+ *     patientCount,    // rows from `procedures` (patient submissions)
+ *     menuCount,       // rows from `provider_pricing` (scraped/provider menus)
+ *   }]
+ *
+ * Sorted by total count desc.
  */
 export async function fetchCityList() {
-  const { data, error } = await supabase
-    .from('procedures')
-    .select('city, state')
-    .eq('status', 'active')
-    .not('city', 'is', null)
-    .not('state', 'is', null)
-    .limit(5000);
+  const [proceduresRes, providerPricingRes] = await Promise.all([
+    supabase
+      .from('procedures')
+      .select('city, state')
+      .eq('status', 'active')
+      .not('city', 'is', null)
+      .not('state', 'is', null)
+      .limit(5000),
+    supabase
+      .from('provider_pricing')
+      .select('providers!inner(city, state)')
+      .eq('display_suppressed', false)
+      .not('providers.city', 'is', null)
+      .not('providers.state', 'is', null)
+      .limit(10000),
+  ]);
 
-  if (error || !data) return [];
+  // Normalize to { displayCity, displayState, key } so the two sources fold
+  // together regardless of casing differences.
+  const cities = new Map(); // key -> { city, state, patientCount, menuCount }
 
-  const counts = {};
-  for (const row of data) {
-    const key = `${row.city}|${row.state}`;
-    counts[key] = (counts[key] || 0) + 1;
+  function bump(rawCity, rawState, source) {
+    if (!rawCity || !rawState) return;
+    const key = `${rawCity.toLowerCase()}|${rawState.toUpperCase()}`;
+    let entry = cities.get(key);
+    if (!entry) {
+      entry = {
+        city: rawCity,
+        state: rawState.toUpperCase(),
+        patientCount: 0,
+        menuCount: 0,
+      };
+      cities.set(key, entry);
+    }
+    if (source === 'patient') entry.patientCount += 1;
+    else if (source === 'menu') entry.menuCount += 1;
   }
 
-  return Object.entries(counts)
-    .filter(([, count]) => count >= MIN_SUBMISSIONS)
-    .map(([key, count]) => {
-      const [city, state] = key.split('|');
-      return { city, state, slug: citySlug(city, state), count };
-    })
+  if (proceduresRes.data) {
+    for (const row of proceduresRes.data) {
+      bump(row.city, row.state, 'patient');
+    }
+  }
+  if (providerPricingRes.data) {
+    for (const row of providerPricingRes.data) {
+      const provider = row.providers;
+      if (!provider) continue;
+      bump(provider.city, provider.state, 'menu');
+    }
+  }
+
+  return [...cities.values()]
+    .map((entry) => ({
+      city: entry.city,
+      state: entry.state,
+      slug: citySlug(entry.city, entry.state),
+      count: entry.patientCount + entry.menuCount,
+      patientCount: entry.patientCount,
+      menuCount: entry.menuCount,
+    }))
+    .filter((c) => c.count >= MIN_TOTAL_PRICES)
     .sort((a, b) => b.count - a.count);
 }
 
@@ -54,101 +106,163 @@ export function computeTrend(currentAvg, previousAvg) {
   return { direction: 'flat', pct: 0 };
 }
 
+// Procedures fall back to all-time when the current month has fewer than this
+// many patient submissions AND no explicit month is requested.
+const MIN_PATIENT_SUBMISSIONS = 5;
+
+const PROCEDURES_FIELDS =
+  'id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier';
+const PROVIDER_PRICING_FIELDS =
+  'id, procedure_type, price, units_or_volume, treatment_area, source, verified, scraped_at, created_at, providers!inner(id, name, slug, verified, city, state)';
+
 /**
- * Main report data for a single city.
- * If yearMonth (e.g. "2026-03") is provided, scopes data to that month.
- * Otherwise uses current month with fallback to all-time if too few rows.
+ * Main report data for a single city, sourced from BOTH:
+ *
+ *   • `procedures`        — patient-submitted prices (date-scoped)
+ *   • `provider_pricing`  — scraped + provider-submitted menu prices
+ *                            (ambient state, not month-scoped)
+ *
+ * If yearMonth (e.g. "2026-03") is provided, the *patient* slice is scoped to
+ * that month. Provider menu prices are always included as a snapshot.
+ *
+ * Returns:
+ *   {
+ *     priceTable, providers, affordable, recent, archiveMonths,
+ *     usingAllTime,
+ *     totalSubmissions, // patientCount + menuCount
+ *     patientCount,     // rows from `procedures`
+ *     menuCount,        // rows from `provider_pricing`
+ *   }
  */
 export async function fetchCityReport(city, state, yearMonth) {
-  // Determine date range
-  let dateFrom = null;
-  let dateTo = null;
-  let isMonthScoped = false;
-
+  // Date range only applies to the patient submissions slice. Provider menu
+  // prices are included unconditionally — they describe what providers are
+  // currently advertising, not events tied to a calendar month.
+  let dateFrom;
+  let dateTo;
   if (yearMonth) {
     const [y, m] = yearMonth.split('-').map(Number);
     dateFrom = new Date(y, m - 1, 1).toISOString();
     dateTo = new Date(y, m, 1).toISOString();
-    isMonthScoped = true;
   } else {
     const now = new Date();
     dateFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-    isMonthScoped = true;
   }
 
-  // Fetch scoped data
-  let query = supabase
-    .from('procedures')
-    .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier')
-    .eq('status', 'active')
-    .ilike('city', city)
-    .eq('state', state);
+  const [scopedProceduresRes, providerPricingRes, providersDirectoryRes, archiveRes] =
+    await Promise.all([
+      supabase
+        .from('procedures')
+        .select(PROCEDURES_FIELDS)
+        .eq('status', 'active')
+        .ilike('city', city)
+        .eq('state', state)
+        .gte('created_at', dateFrom)
+        .lt('created_at', dateTo),
+      supabase
+        .from('provider_pricing')
+        .select(PROVIDER_PRICING_FIELDS)
+        .eq('display_suppressed', false)
+        .ilike('providers.city', city)
+        .eq('providers.state', state),
+      supabase
+        .from('providers')
+        .select('name, slug, verified')
+        .ilike('city', city)
+        .eq('state', state),
+      supabase
+        .from('procedures')
+        .select('created_at')
+        .eq('status', 'active')
+        .ilike('city', city)
+        .eq('state', state)
+        .order('created_at', { ascending: false })
+        .limit(500),
+    ]);
 
-  if (isMonthScoped) {
-    query = query.gte('created_at', dateFrom).lt('created_at', dateTo);
-  }
+  let procedureRows = scopedProceduresRes.data || [];
+  const menuRows = providerPricingRes.data || [];
+  const providerDirectoryRows = providersDirectoryRes.data || [];
 
-  let { data: rows } = await query;
-  rows = rows || [];
-
-  // Fallback to all-time if current/specified month has too few
+  // Fall back to all-time procedures only when the default (current month)
+  // view has too few patient rows. Honor an explicit yearMonth as-is.
   let usingAllTime = false;
-  if (rows.length < MIN_SUBMISSIONS && !yearMonth) {
+  if (procedureRows.length < MIN_PATIENT_SUBMISSIONS && !yearMonth) {
     const { data: allRows } = await supabase
       .from('procedures')
-      .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier')
+      .select(PROCEDURES_FIELDS)
       .eq('status', 'active')
       .ilike('city', city)
       .eq('state', state);
-    rows = allRows || [];
+    procedureRows = allRows || [];
     usingAllTime = true;
   }
 
-  if (!rows.length) {
-    return { priceTable: [], providers: [], affordable: [], recent: [], archiveMonths: [], usingAllTime, totalSubmissions: 0 };
+  const patientCount = procedureRows.length;
+  const menuCount = menuRows.length;
+  const totalSubmissions = patientCount + menuCount;
+
+  if (!totalSubmissions) {
+    return {
+      priceTable: [],
+      providers: [],
+      affordable: [],
+      recent: [],
+      archiveMonths: [],
+      usingAllTime,
+      totalSubmissions: 0,
+      patientCount: 0,
+      menuCount: 0,
+    };
   }
 
-  // ── 1. Price table by procedure type ──
+  // ── 1. Price table by procedure type (UNION both sources) ──
   const byProcedure = {};
-  for (const r of rows) {
+  for (const r of procedureRows) {
     const pt = r.procedure_type;
-    if (!pt) continue;
-    if (!byProcedure[pt]) byProcedure[pt] = [];
     const price = Number(r.price_paid);
-    if (price > 0) byProcedure[pt].push(price);
+    if (!pt || !(price > 0)) continue;
+    if (!byProcedure[pt]) byProcedure[pt] = [];
+    byProcedure[pt].push(price);
+  }
+  for (const r of menuRows) {
+    const pt = r.procedure_type;
+    const price = Number(r.price);
+    if (!pt || !(price > 0)) continue;
+    if (!byProcedure[pt]) byProcedure[pt] = [];
+    byProcedure[pt].push(price);
   }
 
-  // Fetch prior month data for trend calculation
-  let priorAvgs = {};
-  if (isMonthScoped) {
-    const priorFrom = yearMonth
-      ? new Date(Number(yearMonth.split('-')[0]), Number(yearMonth.split('-')[1]) - 2, 1)
-      : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
-    const priorTo = yearMonth
-      ? new Date(Number(yearMonth.split('-')[0]), Number(yearMonth.split('-')[1]) - 1, 1)
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  // ── 2. Prior-month avgs for trend chips (procedures only — menus aren't
+  //       tied to a calendar month) ──
+  const priorAvgs = {};
+  const priorFrom = yearMonth
+    ? new Date(Number(yearMonth.split('-')[0]), Number(yearMonth.split('-')[1]) - 2, 1)
+    : new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+  const priorTo = yearMonth
+    ? new Date(Number(yearMonth.split('-')[0]), Number(yearMonth.split('-')[1]) - 1, 1)
+    : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-    const { data: priorRows } = await supabase
-      .from('procedures')
-      .select('procedure_type, price_paid')
-      .eq('status', 'active')
-      .ilike('city', city)
-      .eq('state', state)
-      .gte('created_at', priorFrom.toISOString())
-      .lt('created_at', priorTo.toISOString());
+  const { data: priorRows } = await supabase
+    .from('procedures')
+    .select('procedure_type, price_paid')
+    .eq('status', 'active')
+    .ilike('city', city)
+    .eq('state', state)
+    .gte('created_at', priorFrom.toISOString())
+    .lt('created_at', priorTo.toISOString());
 
-    if (priorRows) {
-      const grouped = {};
-      for (const r of priorRows) {
-        if (!r.procedure_type) continue;
-        if (!grouped[r.procedure_type]) grouped[r.procedure_type] = [];
-        const p = Number(r.price_paid);
-        if (p > 0) grouped[r.procedure_type].push(p);
-      }
-      for (const [pt, prices] of Object.entries(grouped)) {
-        priorAvgs[pt] = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-      }
+  if (priorRows) {
+    const grouped = {};
+    for (const r of priorRows) {
+      if (!r.procedure_type) continue;
+      if (!grouped[r.procedure_type]) grouped[r.procedure_type] = [];
+      const p = Number(r.price_paid);
+      if (p > 0) grouped[r.procedure_type].push(p);
+    }
+    for (const [pt, prices] of Object.entries(grouped)) {
+      priorAvgs[pt] = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
     }
   }
 
@@ -167,91 +281,93 @@ export async function fetchCityReport(city, state, yearMonth) {
     })
     .sort((a, b) => b.sampleSize - a.sampleSize);
 
-  // ── 2. Top providers (neighborhood breakdown) ──
-  const byProvider = {};
-  for (const r of rows) {
-    const name = r.provider_name || 'Unknown';
-    const price = Number(r.price_paid);
-    if (price <= 0) continue;
-    if (!byProvider[name]) byProvider[name] = [];
-    byProvider[name].push(price);
+  // ── 3. Providers (UNION both sources, keyed by lowercase name) ──
+  const byProvider = new Map(); // lowerName -> { displayName, prices, slug, verified }
+  function addToProvider(name, price, slug, verified) {
+    if (!name || !(price > 0)) return;
+    const key = name.toLowerCase();
+    let entry = byProvider.get(key);
+    if (!entry) {
+      entry = { displayName: name, prices: [], slug: slug || null, verified: !!verified };
+      byProvider.set(key, entry);
+    }
+    entry.prices.push(price);
+    if (slug && !entry.slug) entry.slug = slug;
+    if (verified) entry.verified = true;
+  }
+  for (const r of procedureRows) {
+    addToProvider(r.provider_name || 'Unknown', Number(r.price_paid));
+  }
+  for (const r of menuRows) {
+    const p = r.providers;
+    if (!p) continue;
+    addToProvider(p.name, Number(r.price), p.slug, p.verified);
   }
 
-  const providers = Object.entries(byProvider)
-    .filter(([, prices]) => prices.length >= 2)
-    .map(([name, prices]) => ({
-      name,
-      avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-      count: prices.length,
+  // Backfill slug + verified for providers we only know by name (i.e., the
+  // freeform `procedures.provider_name` text).
+  for (const dir of providerDirectoryRows) {
+    if (!dir?.name) continue;
+    const entry = byProvider.get(dir.name.toLowerCase());
+    if (!entry) continue;
+    if (!entry.slug && dir.slug) entry.slug = dir.slug;
+    if (dir.verified) entry.verified = true;
+  }
+
+  const providers = [...byProvider.values()]
+    .filter((p) => p.prices.length >= 2)
+    .map((p) => ({
+      name: p.displayName,
+      avgPrice: Math.round(p.prices.reduce((a, b) => a + b, 0) / p.prices.length),
+      count: p.prices.length,
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // ── 3-5. Parallel: providers, recent submissions, archive months ──
-  const [providerRes, recentRes, archiveRes] = await Promise.all([
-    supabase
-      .from('providers')
-      .select('name, slug, verified')
-      .ilike('city', city)
-      .eq('state', state),
-    supabase
-      .from('procedures')
-      .select('id, procedure_type, price_paid, units_or_volume, created_at, trust_tier')
-      .eq('status', 'active')
-      .ilike('city', city)
-      .eq('state', state)
-      .order('created_at', { ascending: false })
-      .limit(10),
-    supabase
-      .from('procedures')
-      .select('created_at')
-      .eq('status', 'active')
-      .ilike('city', city)
-      .eq('state', state)
-      .order('created_at', { ascending: false })
-      .limit(500),
-  ]);
-
-  // Most affordable providers
-  const providerRows = providerRes.data;
-  const verifiedMap = {};
-  if (providerRows) {
-    for (const p of providerRows) {
-      verifiedMap[p.name.toLowerCase()] = { verified: p.verified, slug: p.slug };
-    }
-  }
-
-  const affordable = Object.entries(byProvider)
-    .filter(([, prices]) => prices.length >= 2)
-    .map(([name, prices]) => {
-      const info = verifiedMap[name.toLowerCase()] || {};
-      return {
-        name,
-        avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-        count: prices.length,
-        verified: info.verified || false,
-        slug: info.slug || null,
-        city,
-        state,
-      };
-    })
+  const affordable = [...byProvider.values()]
+    .filter((p) => p.prices.length >= 2)
+    .map((p) => ({
+      name: p.displayName,
+      avgPrice: Math.round(p.prices.reduce((a, b) => a + b, 0) / p.prices.length),
+      count: p.prices.length,
+      verified: p.verified,
+      slug: p.slug,
+      city,
+      state,
+    }))
     .sort((a, b) => a.avgPrice - b.avgPrice)
     .slice(0, 5);
 
-  // Recent submissions
-  const recent = (recentRes.data || []).map((r) => ({
-    id: r.id,
-    procedure: r.procedure_type,
-    price: Number(r.price_paid),
-    units: r.units_or_volume,
-    date: r.created_at,
-    trustTier: r.trust_tier,
-  }));
+  // ── 4. Recent submissions (UNION; sorted by date desc) ──
+  const recent = [
+    ...procedureRows.map((r) => ({
+      id: `proc-${r.id}`,
+      procedure: r.procedure_type,
+      price: Number(r.price_paid),
+      units: r.units_or_volume,
+      date: r.created_at,
+      trustTier: r.trust_tier,
+      source: 'patient',
+    })),
+    ...menuRows.map((r) => ({
+      id: `menu-${r.id}`,
+      procedure: r.procedure_type,
+      price: Number(r.price),
+      units: r.units_or_volume || r.treatment_area,
+      date: r.scraped_at || r.created_at,
+      trustTier: r.verified === true && r.source === 'manual' ? 'verified' : null,
+      source: 'menu',
+    })),
+  ]
+    .filter((r) => r.procedure && r.price > 0)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
 
-  // Archive months
+  // ── 5. Archive months (procedures only — menus aren't archived) ──
   const monthSet = new Set();
   if (archiveRes.data) {
     for (const r of archiveRes.data) {
+      if (!r.created_at) continue;
       const d = new Date(r.created_at);
       monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
@@ -265,6 +381,8 @@ export async function fetchCityReport(city, state, yearMonth) {
     recent,
     archiveMonths,
     usingAllTime,
-    totalSubmissions: rows.length,
+    totalSubmissions,
+    patientCount,
+    menuCount,
   };
 }

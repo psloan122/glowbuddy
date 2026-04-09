@@ -16,6 +16,26 @@ function GlobalMetricCard({ icon, label, value }) {
   );
 }
 
+/**
+ * Card subtitle that accurately reflects where the prices came from:
+ *   - patients only        → "X patient-reported prices"
+ *   - provider menus only  → "X provider menu prices"
+ *   - mixed                → "X prices (patients + provider menus)"
+ */
+function cityCardLabel(c) {
+  const patient = c.patientCount || 0;
+  const menu = c.menuCount || 0;
+  const total = patient + menu || c.count || 0;
+  const plural = total === 1 ? '' : 's';
+  if (patient > 0 && menu > 0) {
+    return `${total} price${plural} (patients + provider menus)`;
+  }
+  if (menu > 0) {
+    return `${menu} provider menu price${menu === 1 ? '' : 's'}`;
+  }
+  return `${patient} patient-reported price${patient === 1 ? '' : 's'}`;
+}
+
 export default function CityPriceIndex() {
   const [cities, setCities] = useState([]);
   const [verifiedByCity, setVerifiedByCity] = useState({});
@@ -155,9 +175,7 @@ export default function CityPriceIndex() {
                     {c.count}
                   </span>
                 </div>
-                <p className="text-sm text-text-secondary mt-2">
-                  {c.count} patient-reported price{c.count !== 1 ? 's' : ''}
-                </p>
+                <p className="text-sm text-text-secondary mt-2">{cityCardLabel(c)}</p>
                 {verifiedCount > 0 && (
                   <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-verified bg-verified/10 px-2 py-0.5 rounded-full">
                     <ShieldCheck size={11} />
