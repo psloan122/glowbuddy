@@ -53,3 +53,7 @@ export function sendReferralWelcomeCredit(email, data) {
 export function sendWrappedReady(email, data) {
   invoke('wrapped_ready', email, data);
 }
+
+export function sendListingApproved(email, data) {
+  invoke('provider_listing_approved', email, data);
+}

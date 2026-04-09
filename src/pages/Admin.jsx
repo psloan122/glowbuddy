@@ -22,6 +22,7 @@ import {
   Users,
   Flag,
   Mail,
+  Building2,
 } from 'lucide-react';
 import { processReferralQualification } from '../lib/referral';
 import AdminPhoneNumbers from '../components/AdminPhoneNumbers';
@@ -29,6 +30,7 @@ import AdminFinancingReport from '../components/AdminFinancingReport';
 import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
 import AdminInjectorsTab from '../components/AdminInjectorsTab';
 import AdminOutreachTab from '../components/AdminOutreachTab';
+import AdminPendingProviders from '../components/AdminPendingProviders';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -47,6 +49,7 @@ const TABS = [
   { key: 'integrations', label: 'Integrations', icon: ExternalLink },
   { key: 'injectors', label: 'Injectors', icon: Users },
   { key: 'outreach', label: 'Outreach', icon: Mail },
+  { key: 'pendingProviders', label: 'Pending Providers', icon: Building2 },
 ];
 
 export default function Admin() {
@@ -682,6 +685,9 @@ export default function Admin() {
     }
     if (activeTab === 'outreach') {
       return <AdminOutreachTab />;
+    }
+    if (activeTab === 'pendingProviders') {
+      return <AdminPendingProviders />;
     }
 
     if (loading) {

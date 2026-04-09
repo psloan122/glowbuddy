@@ -31,6 +31,7 @@ const BusinessLanding = lazy(() => import('./pages/Business/Landing'));
 const BusinessClaim = lazy(() => import('./pages/Business/Claim'));
 const BusinessDashboard = lazy(() => import('./pages/Business/Dashboard'));
 const BusinessOnboarding = lazy(() => import('./pages/Business/Onboarding'));
+const BusinessAddBusiness = lazy(() => import('./pages/Business/AddBusiness'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Rewards = lazy(() => import('./pages/Rewards'));
 const FindPrices = lazy(() => import('./pages/FindPrices'));
@@ -290,6 +291,7 @@ function App() {
               <Route path="/business" element={<BusinessLanding />} />
               <Route path="/business/claim" element={<BusinessClaim />} />
               <Route path="/business/onboarding" element={<BusinessOnboarding />} />
+              <Route path="/business/add" element={<BusinessAddBusiness />} />
               <Route path="/business/dashboard" element={<BusinessDashboard />} />
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/verified" element={<Verified />} />

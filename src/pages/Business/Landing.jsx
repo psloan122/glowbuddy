@@ -160,6 +160,15 @@ export default function Landing() {
           <p className="text-xs text-text-secondary mt-3">
             No credit card required for the Free plan.
           </p>
+          <p className="text-sm text-text-secondary mt-4">
+            Don't see your business?{' '}
+            <Link
+              to="/business/add"
+              className="text-rose-accent font-medium hover:text-rose-dark transition"
+            >
+              Add it free &rarr;
+            </Link>
+          </p>
         </div>
       </section>
 

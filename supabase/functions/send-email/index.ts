@@ -931,6 +931,42 @@ function buildWrappedReady(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildProviderListingApproved(data: {
+  providerName: string
+  slug: string
+}): { html: string; text: string } {
+  const listingUrl = `${BASE_URL}/provider/${data.slug}`
+  const dashboardUrl = `${BASE_URL}/business/dashboard`
+
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Your listing is live!
+    </h1>
+    <p style="margin:0 0 32px;font-size:16px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Your listing for <strong>${data.providerName}</strong> is now live on GlowBuddy.
+      Add your prices to start getting discovered by patients.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;border-top:1px solid #E5E7EB;padding-top:16px;">
+      <tr>
+        <td style="font-family:${FONT};font-size:14px;color:${TEXT_SECONDARY};">Listing URL</td>
+        <td align="right" style="padding-top:0;">
+          <a href="${listingUrl}" style="font-family:${FONT};font-size:14px;color:${ACCENT};text-decoration:underline;">${listingUrl.replace('https://', '')}</a>
+        </td>
+      </tr>
+    </table>
+
+    ${ctaButton('View Your Listing', listingUrl)}
+
+    <p style="margin:24px 0 0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      Ready to add your price menu?
+      <a href="${dashboardUrl}" style="color:${ACCENT};text-decoration:underline;">Go to your dashboard</a>
+    </p>`
+
+  const html = emailWrapper(content, `Your listing for ${data.providerName} is now live on GlowBuddy`)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -1008,6 +1044,12 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
         subject: data.competitorCount && (data.competitorCount as number) > 0
           ? 'A competitor is advertising on your GlowBuddy page'
           : `${data.pageViews} people viewed ${data.providerName} on GlowBuddy this week`,
+      }
+
+    case 'provider_listing_approved':
+      return {
+        ...buildProviderListingApproved(data as Parameters<typeof buildProviderListingApproved>[0]),
+        subject: 'Your GlowBuddy listing is live!',
       }
 
     default:

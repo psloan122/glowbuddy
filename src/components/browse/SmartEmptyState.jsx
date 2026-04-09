@@ -420,6 +420,24 @@ export default function SmartEmptyState({
           <ArrowRight size={12} />
         </Link>
       </div>
+
+      {/* Provider CTA */}
+      <p
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 12,
+          color: '#888',
+          marginTop: 24,
+        }}
+      >
+        Is this your business?{' '}
+        <Link
+          to="/business/add"
+          style={{ color: '#C94F78', fontWeight: 600, textDecoration: 'none' }}
+        >
+          Get listed free &rarr;
+        </Link>
+      </p>
     </div>
   );
 }
