@@ -11,6 +11,7 @@ import SmartEmptyState from '../components/browse/SmartEmptyState';
 import ResultsCountBar from '../components/browse/ResultsCountBar';
 import GlowMap from '../components/browse/GlowMap';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
+import MobileBrowseSheet from '../components/browse/MobileBrowseSheet';
 import useSavedProviders from '../hooks/useSavedProviders';
 import AuthModal from '../components/AuthModal';
 import { providerSlugFromParts } from '../lib/slugify';
@@ -57,7 +58,7 @@ import { setPageMeta } from '../lib/seo';
 import { normalizePrice } from '../lib/priceUtils';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import { SkeletonGrid } from '../components/SkeletonCard';
-import { providerProfileUrl } from '../lib/slugify';
+// providerProfileUrl was used by the old mobile gate list; now handled by MapProviderCard.
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -241,7 +242,7 @@ export default function FindPrices() {
   // user mouses over a list card. selectedProviderGroup is set when the
   // user taps a pin on mobile (opens the bottom sheet) or desktop (it
   // just paints the matching list card with a black ring).
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode] = useState('list');
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 768 : false,
   );
@@ -277,8 +278,19 @@ export default function FindPrices() {
   // Switching from map → list (or unmounting the map for any reason)
   // should clear any open bottom sheet so it doesn't reopen on return.
   useEffect(() => {
-    if (viewMode !== 'map') setSelectedProviderGroup(null);
-  }, [viewMode]);
+    if (!isMobile && viewMode !== 'map') setSelectedProviderGroup(null);
+  }, [viewMode, isMobile]);
+
+  // Body scroll lock: when mobile has a city selected, the map fills
+  // the viewport and the bottom sheet handles scrolling. Lock the body
+  // so the page behind doesn't scroll.
+  useEffect(() => {
+    if (isMobile && selectedLoc) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+    return undefined;
+  }, [isMobile, selectedLoc]);
 
   // Fetch every active provider in the city. Runs whenever there's a
   // city — including when a procedure/brand filter is active — so the
@@ -1696,9 +1708,13 @@ export default function FindPrices() {
     <div className="min-h-screen bg-cream page-enter">
       {/* ─── Mobile sticky filter bar (< md) ─── */}
       <div
-        className="md:hidden sticky z-30 bg-white"
+        className="md:hidden bg-white"
         style={{
+          position: isMobile && selectedLoc ? 'fixed' : 'sticky',
           top: 52,
+          left: 0,
+          right: 0,
+          zIndex: 40,
           borderBottom: '1px solid #EDE8E3',
         }}
       >
@@ -1806,50 +1822,6 @@ export default function FindPrices() {
               Has prices
             </button>
 
-            {/* List ↔ Map toggle (mobile only — desktop is split view). */}
-            <div
-              className="ml-auto"
-              style={{
-                display: 'inline-flex',
-                gap: 2,
-                background: '#F5F0EC',
-                borderRadius: 4,
-                padding: 2,
-              }}
-              role="tablist"
-              aria-label="View mode"
-            >
-              {[
-                { mode: 'list', label: '\u2630 List' },
-                { mode: 'map', label: '\u229E Map' },
-              ].map(({ mode, label }) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={viewMode === mode}
-                  onClick={() => setViewMode(mode)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 3,
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 600,
-                    fontSize: 11,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    background: viewMode === mode ? 'white' : 'transparent',
-                    color: viewMode === mode ? '#111' : '#888',
-                    transition: 'all 150ms',
-                    boxShadow:
-                      viewMode === mode ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Inline dosage-estimator hint link — only shown when relevant */}
@@ -2843,250 +2815,44 @@ export default function FindPrices() {
         );
       })()}
 
-      {/* ─── Gate state — mobile only ───
-          Mobile: soft headline → horizontal pill strip → provider list.
-          The desktop gate state lives in the unified desktop split-view
-          block below so its <GlowMap> instance is the same one the
-          priced state uses (otherwise switching from gate → priced
-          unmounts the map and pins disappear during the transition). */}
+      {/* ─── Gate state — mobile: full-viewport map + bottom sheet ─── */}
       {!personalizedMode && !procFilter && !brandFilter && selectedLoc && isMobile && (
-        <div>
-          <div
-            className="mx-auto px-4"
-            style={{
-              maxWidth: 900,
-              paddingTop: 8,
-              paddingBottom:
-                'calc(100px + env(safe-area-inset-bottom, 0px))',
-            }}
-          >
-              {/* Soft headline — no gate box. */}
-              <div style={{ paddingTop: 18, paddingBottom: 10 }}>
-                <h1
-                  className="font-display text-ink"
-                  style={{
-                    fontWeight: 900,
-                    fontSize: 32,
-                    lineHeight: 1.04,
-                    letterSpacing: '-0.02em',
-                    marginBottom: 8,
-                  }}
-                >
-                  Treatment prices in
-                  <br />
-                  {selectedLoc.city}, {selectedLoc.state}.
-                </h1>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 300,
-                    fontSize: 13,
-                    color: '#888',
-                  }}
-                >
-                  What are you looking for?
-                </p>
-              </div>
-
-              {/* Horizontal pill strip — scrollable on narrow screens so
-                  the full list of categories stays reachable without
-                  collapsing into a "More" submenu on mobile. */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  paddingBottom: 18,
-                  marginLeft: -4,
-                  paddingLeft: 4,
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                }}
-              >
-                {PROCEDURE_PILLS.map((pill) => (
-                  <button
-                    key={`mobile-gate-${pill.slug}-${pill.brand || 'base'}`}
-                    type="button"
-                    onClick={() => selectPill(pill)}
-                    style={{
-                      flexShrink: 0,
-                      padding: '10px 16px',
-                      borderRadius: '2px',
-                      border: '1px solid #EDE8E3',
-                      background: 'white',
-                      color: '#555',
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500,
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Section header above the provider list. */}
-              <div
-                style={{
-                  borderTop: '1px solid #EDE8E3',
-                  paddingTop: 22,
-                  marginTop: 4,
-                  marginBottom: 14,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                }}
-              >
-                <p
-                  className="editorial-kicker"
-                  style={{ color: '#111' }}
-                >
-                  All providers in {selectedLoc.city}
-                </p>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 300,
-                    fontSize: 11,
-                    color: '#888',
-                  }}
-                >
-                  {gateProvidersLoading
-                    ? '…'
-                    : `${gateProviders.length} ${
-                        gateProviders.length === 1 ? 'spa' : 'spas'
-                      }`}
-                </span>
-              </div>
-
-              {gateProvidersLoading ? (
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 300,
-                    fontStyle: 'italic',
-                    fontSize: 13,
-                    color: '#888',
-                    padding: '24px 0',
-                  }}
-                >
-                  Finding med spas near you…
-                </p>
-              ) : gateProviders.length === 0 ? (
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 300,
-                    fontStyle: 'italic',
-                    fontSize: 13,
-                    color: '#888',
-                    padding: '24px 0',
-                  }}
-                >
-                  No med spas indexed in {selectedLoc.city} yet.
-                </p>
-              ) : (
-                <div>
-                  {gateProviders.map((p) => {
-                    const profileUrl = providerProfileUrl(
-                      p.slug,
-                      p.name,
-                      p.city,
-                      p.state,
-                    );
-                    return (
-                      <Link
-                        key={p.id}
-                        to={profileUrl || '#'}
-                        style={{
-                          display: 'block',
-                          padding: '16px 0',
-                          borderBottom: '1px solid #F0EBE6',
-                          textDecoration: 'none',
-                          color: 'inherit',
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontFamily: "'Playfair Display', Georgia, serif",
-                            fontWeight: 700,
-                            fontSize: 17,
-                            color: '#111',
-                            marginBottom: 4,
-                            lineHeight: 1.25,
-                          }}
-                        >
-                          {p.name}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: 'var(--font-body)',
-                            fontWeight: 300,
-                            fontSize: 12,
-                            color: '#888',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <span>
-                            {p.city}
-                            {p.state ? `, ${p.state}` : ''}
-                          </span>
-                          {p.google_rating != null && (
-                            <>
-                              <span style={{ color: '#D6CFC6' }}>·</span>
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 3,
-                                  color: '#111',
-                                  fontWeight: 600,
-                                }}
-                              >
-                                ★ {Number(p.google_rating).toFixed(1)}
-                              </span>
-                              {p.google_review_count != null && (
-                                <span
-                                  style={{
-                                    color: '#888',
-                                    fontWeight: 400,
-                                  }}
-                                >
-                                  (
-                                  {Number(p.google_review_count).toLocaleString()}
-                                  )
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: 'var(--font-body)',
-                            fontWeight: 500,
-                            fontSize: 11,
-                            color: '#E8347A',
-                            letterSpacing: '0.06em',
-                            textTransform: 'uppercase',
-                            marginTop: 6,
-                          }}
-                        >
-                          Select treatment to see prices &rarr;
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', zIndex: 1 }}>
+            <GlowMap
+              allProviders={gateProviders}
+              procedures={[]}
+              city={selectedLoc.city}
+              state={selectedLoc.state}
+              highlightedId={null}
+              selectedId={gateSelectedProviderGroup?.provider_id || null}
+              onPinClick={handleGatePinClick}
+              mobileLegendTop
+            />
           </div>
-        </div>
+          <MobileBrowseSheet
+            providers={gateProviders.map((p) => ({
+              key: p.id,
+              id: p.id,
+              provider_id: p.id,
+              provider_name: p.name || p.provider_name,
+              provider_slug: p.slug || p.provider_slug,
+              city: p.city,
+              state: p.state,
+              google_rating: p.google_rating,
+              google_review_count: p.google_review_count,
+              has_submissions: false,
+            }))}
+            mode="gate"
+            city={selectedLoc.city}
+            state={selectedLoc.state}
+            selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
+            providerCount={gateProviders.length}
+            loading={gateProvidersLoading}
+            onSelectPill={selectPill}
+            pills={PROCEDURE_PILLS}
+          />
+        </>
       )}
 
       {/* ─── Priced header chrome ───
@@ -3133,91 +2899,51 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* ─── Mobile priced split-view (list/map toggle) ───
-          Desktop priced state is rendered by the unified desktop
-          split-view block below. */}
+      {/* ─── Mobile priced view: full-viewport map + bottom sheet ─── */}
       {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
-        <div>
-          {viewMode === 'map' ? (
-            <div
-              style={{
-                position: 'relative',
-                height: 'calc(100vh - 220px)',
-                // Same bottom-padding logic as the list so the
-                // mobile bottom nav never overlaps the map.
-                marginBottom:
-                  'calc(80px + env(safe-area-inset-bottom, 0px))',
-              }}
-            >
-              <GlowMap
-                allProviders={gateProviders}
-                procedures={displayedProcedures}
-                cityAvg={cityAvgPrice}
-                city={selectedLoc?.city}
-                state={selectedLoc?.state}
-                highlightedId={hoveredProviderId}
-                selectedId={selectedProviderGroup?.provider_id || null}
-                onPinClick={handlePinClick}
-              />
-              {selectedProviderGroup && (
-                <ProviderBottomSheet
-                  group={selectedProviderGroup}
-                  onClose={() => setSelectedProviderGroup(null)}
-                />
-              )}
-            </div>
-          ) : (
-            <div
-              className="mx-auto px-4"
-              style={{
-                maxWidth: 900,
-                paddingTop: 8,
-                paddingBottom:
-                  'calc(100px + env(safe-area-inset-bottom, 0px))',
-              }}
-            >
-              {groupedProviders.map((group) => {
-                const primary = group.procedures[0];
-                const slug =
-                  primary.provider_slug ||
-                  providerSlugFromParts(
-                    primary.provider_name,
-                    primary.city,
-                    primary.state,
-                  );
-                const saved = slug ? isSaved(slug) : false;
-                // Compare state is per-procedure (the cheapest one
-                // is what gets toggled), so reflect that in the
-                // button state too.
-                const isCompared = comparing.some(
-                  (p) => p.id === primary.id,
-                );
-                const selected =
-                  selectedProviderGroup?.provider_id != null &&
-                  selectedProviderGroup.provider_id === group.provider_id;
-                return (
-                  <div
-                    key={group.key}
-                    data-provider-card={group.provider_id || ''}
-                  >
-                    <PriceCard
-                      procedures={group.procedures}
-                      cityAvg={cityAvgPrice}
-                      userLat={userLat}
-                      userLng={userLng}
-                      isCompared={isCompared}
-                      onCompareToggle={() => toggleCompare(primary)}
-                      isSaved={saved}
-                      onSaveToggle={() => handleSaveToggle(primary)}
-                      comparingFull={comparing.length >= 3 && !isCompared}
-                      selected={selected}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', zIndex: 1 }}>
+            <GlowMap
+              allProviders={gateProviders}
+              procedures={displayedProcedures}
+              cityAvg={cityAvgPrice}
+              city={selectedLoc?.city}
+              state={selectedLoc?.state}
+              highlightedId={hoveredProviderId}
+              selectedId={selectedProviderGroup?.provider_id || null}
+              onPinClick={handlePinClick}
+              mobileLegendTop
+            />
+          </div>
+          <MobileBrowseSheet
+            providers={groupedProviders.map((group) => {
+              const primary = group.procedures[0];
+              return {
+                key: group.key,
+                id: group.provider_id,
+                provider_id: group.provider_id,
+                provider_name: primary.provider_name,
+                provider_slug: primary.provider_slug,
+                city: primary.city,
+                state: primary.state,
+                avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
+                submission_count: group.procedures.length,
+                verified_count: group.procedures.filter((p) => p.receipt_verified).length,
+                has_submissions: true,
+                provider_type: primary.provider_type,
+                google_rating: primary.google_rating || primary.rating,
+                google_review_count: primary.google_review_count,
+                bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
+              };
+            })}
+            mode="priced"
+            city={selectedLoc?.city}
+            state={selectedLoc?.state}
+            cityAvg={cityAvgPrice}
+            selectedProviderId={selectedProviderGroup?.provider_id || null}
+            providerCount={groupedProviders.length}
+          />
+        </>
       )}
 
       {/* ─── Desktop unified split-view ───

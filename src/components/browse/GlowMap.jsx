@@ -167,6 +167,7 @@ export default function GlowMap({
   highlightedId,
   selectedId,
   onPinClick,
+  mobileLegendTop,
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -685,7 +686,7 @@ export default function GlowMap({
         <div
           style={{
             position: 'absolute',
-            bottom: 16,
+            ...(mobileLegendTop ? { top: 80 } : { bottom: 16 }),
             left: 12,
             background: 'rgba(255,255,255,0.96)',
             borderRadius: 4,
@@ -708,7 +709,7 @@ export default function GlowMap({
         <div
           style={{
             position: 'absolute',
-            bottom: 16,
+            ...(mobileLegendTop ? { top: 80 } : { bottom: 16 }),
             left: 12,
             background: 'rgba(255,255,255,0.96)',
             borderRadius: 4,
