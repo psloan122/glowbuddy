@@ -2,10 +2,10 @@
  * Centralized provider_pricing query layer.
  *
  * IMPORTANT RULE: Never aggregate across `price_label` groups.
- * `per_unit`, `per_area`, `per_syringe`, `per_session`, etc. measure totally
- * different things and must always stay in separate buckets. Every helper here
- * either filters to a single price_label or returns data already grouped by
- * price_label so callers can render each bucket on its own.
+ * Unit, area, syringe, session, etc. measure totally different things and
+ * must always stay in separate buckets. Every helper here either filters to
+ * a single price_label or returns data already grouped by price_label so
+ * callers can render each bucket on its own.
  *
  * Other rules enforced (or surfaced) by these helpers:
  *  - Every read path filters `display_suppressed = false` — suppressed rows
@@ -121,9 +121,9 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
   if (!rows.length) return [];
 
   // Normalize every row up front. After migration 053 only confirmed
-  // per_unit / per_syringe / per_session / per_month rows survive the
-  // display_suppressed filter, so every normalized value is a direct
-  // comparable — no more estimates.
+  // unit / syringe / session / month rows survive the display_suppressed
+  // filter, so every normalized value is a direct comparable — no more
+  // estimates.
   const normalizedRows = rows
     .map((row) => ({ row, normalized: normalizePrice(row) }))
     .filter(

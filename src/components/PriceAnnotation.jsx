@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { COL } from '../utils/formatPricingUnit';
 
 // In-memory cache for guide data
 const guideCache = new Map();
@@ -8,7 +9,7 @@ async function getGuide(treatmentName) {
   if (guideCache.has(treatmentName)) return guideCache.get(treatmentName);
   const { data } = await supabase
     .from('treatment_guides')
-    .select('typical_price_range_low, typical_price_range_high')
+    .select(`${COL.RANGE_LOW}, ${COL.RANGE_HIGH}`)
     .eq('treatment_name', treatmentName)
     .single();
   guideCache.set(treatmentName, data || null);
@@ -24,7 +25,8 @@ export default function PriceAnnotation({ price, treatmentName }) {
     getGuide(treatmentName).then((guide) => {
       if (cancelled || !guide) return;
       const numPrice = Number(price);
-      const { typical_price_range_low: low, typical_price_range_high: high } = guide;
+      const low = guide[COL.RANGE_LOW];
+      const high = guide[COL.RANGE_HIGH];
       if (numPrice <= high && numPrice >= low) {
         setAnnotation({
           label: 'Fair for first-timers',

@@ -6,23 +6,7 @@
  * this and supplies the savings/units/price/avg/city/unit props.
  */
 
-const UNIT_LABELS = {
-  per_unit: 'unit',
-  per_session: 'session',
-  per_area: 'area',
-  per_syringe: 'syringe',
-  per_vial: 'vial',
-  per_month: 'month',
-};
-
-function formatUnitSuffix(raw) {
-  if (!raw) return '/unit';
-  // Already formatted: "per unit" → "/unit"
-  if (raw.startsWith('per ')) return `/${raw.replace('per ', '')}`;
-  // Raw DB enum: "per_unit" → "/unit"
-  if (UNIT_LABELS[raw]) return `/${UNIT_LABELS[raw]}`;
-  return `/${raw}`;
-}
+import { formatUnitSuffix } from '../../utils/formatPricingUnit';
 
 export default function SavingsCallout({
   city,
@@ -42,7 +26,7 @@ export default function SavingsCallout({
 
   const suffix = formatUnitSuffix(unit);
 
-  // units_or_volume can be a number (20) or a raw DB label ("per_unit").
+  // units_or_volume can be a number (20) or a raw DB label.
   // Only show the unit count when it's actually numeric.
   const numericUnits = Number(units);
   const hasNumericUnits = Number.isFinite(numericUnits) && numericUnits > 0;

@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { UNIT, COL } from '../../utils/formatPricingUnit';
 import { AuthContext } from '../../App';
 import { calculateGlowBuddyScore } from '../../lib/glowbuddyScore';
 import { notifyPatientOfNewBid } from '../../lib/bidNotifications';
@@ -24,7 +25,7 @@ const ADD_ON_OPTIONS = [
 
 const CREDENTIALS = ['RN', 'NP', 'PA', 'MD', 'DO'];
 const PRICING_MODES = [
-  { key: 'per_unit', label: 'Per unit' },
+  { key: UNIT.PER_UNIT, label: 'Per unit' },
   { key: 'flat', label: 'Flat total' },
 ];
 
@@ -61,7 +62,7 @@ export default function SubmitBid() {
   const [error, setError] = useState('');
 
   // Form state
-  const [pricingMode, setPricingMode] = useState('per_unit');
+  const [pricingMode, setPricingMode] = useState(UNIT.PER_UNIT);
   const [pricePerUnit, setPricePerUnit] = useState('');
   const [totalPrice, setTotalPrice] = useState('');
   const [brandOffered, setBrandOffered] = useState('');
@@ -152,7 +153,7 @@ export default function SubmitBid() {
 
   // Auto-compute total when in per-unit mode
   const computedTotal = useMemo(() => {
-    if (pricingMode !== 'per_unit') return null;
+    if (pricingMode !== UNIT.PER_UNIT) return null;
     const ppu = Number(pricePerUnit);
     const units = Number(request?.units_needed);
     if (Number.isFinite(ppu) && Number.isFinite(units) && ppu > 0 && units > 0) {
@@ -179,7 +180,7 @@ export default function SubmitBid() {
 
     // Resolve effective total
     const total =
-      pricingMode === 'per_unit' ? computedTotal : Number(totalPrice);
+      pricingMode === UNIT.PER_UNIT ? computedTotal : Number(totalPrice);
     if (!Number.isFinite(total) || total <= 0) {
       setError('Please enter a valid price.');
       return;
@@ -212,8 +213,8 @@ export default function SubmitBid() {
       injector_name: injectorName.trim(),
       injector_credentials: credsString,
       brand_offered: brandOffered || null,
-      price_per_unit:
-        pricingMode === 'per_unit' && Number(pricePerUnit) > 0
+      [COL.PRICE_PER_UNIT]:
+        pricingMode === UNIT.PER_UNIT && Number(pricePerUnit) > 0
           ? Number(pricePerUnit)
           : null,
       total_price: total,
@@ -493,7 +494,7 @@ export default function SubmitBid() {
                 })}
               </div>
 
-              {pricingMode === 'per_unit' ? (
+              {pricingMode === UNIT.PER_UNIT ? (
                 <div className="flex items-center gap-3">
                   <div className="relative flex-1">
                     <span

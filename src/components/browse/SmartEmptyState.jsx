@@ -11,17 +11,17 @@
  * actually has data — matching the same union the city report pages use.
  *
  * For neurotoxin queries we filter out flat-rate-area prices the same way
- * the main brand-filter view does (price < $50 = real per-unit; anything
- * higher is almost certainly a "$425 / forehead" row mislabeled as
- * per_unit). Cities that ONLY have flat-rate prices are still surfaced,
- * but the row labels them "per area" so shoppers don't think Botox costs
- * $425/unit.
+ * the main brand-filter view does (price < $50 = real unit-priced; anything
+ * higher is almost certainly a "$425 / forehead" row that was mislabeled).
+ * Cities that ONLY have flat-rate prices are still surfaced, but the row
+ * labels them "per area" so shoppers don't think Botox costs $425/unit.
  */
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { UNIT } from '../../utils/formatPricingUnit';
 import AddProviderModal from '../AddProviderModal';
 
 // Mirrors NEUROTOXIN_PER_UNIT_MAX in priceUtils.js. Real per-unit Botox /
@@ -152,11 +152,11 @@ export default function SmartEmptyState({
         }
       }
 
-      // provider_pricing: explicit price_label tells us per_unit vs not.
+      // provider_pricing: explicit price_label distinguishes unit vs other.
       // Mirror priceUtils.normalizePrice rules:
-      //   per_unit + neurotoxin + price > 50  → flat_rate_area
-      //   per_unit otherwise                  → per_unit
-      //   anything else                       → ignored (only the
+      //   unit-priced + neurotoxin + price > 50  → flat rate area
+      //   unit-priced otherwise                  → unit
+      //   anything else                          → ignored (only the
       //   four canonical labels round-trip as comparable values).
       for (const row of menuRes.data || []) {
         const provider = row.providers;
@@ -164,7 +164,7 @@ export default function SmartEmptyState({
         const n = Number(row.price);
         if (!Number.isFinite(n) || n <= 0) continue;
         const label = String(row.price_label || '').toLowerCase().trim();
-        if (label !== 'per_unit') continue;
+        if (label !== UNIT.PER_UNIT) continue;
         const key = `${provider.city}|${provider.state}`;
         const b = bucket(key, provider.city, provider.state);
         if (isNeuro && n > NEUROTOXIN_PER_UNIT_MAX) {

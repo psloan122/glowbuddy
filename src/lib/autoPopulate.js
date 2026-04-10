@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { getCategoryTag } from './constants';
 import { bestPinListing } from './priceUtils';
+import { COL } from '../utils/formatPricingUnit';
 
 // Hard cap on what counts as a per-unit price for the map pin. Anything over
 // $500 is almost certainly a package or flat-rate price, not a single unit.
@@ -88,7 +89,7 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
 
   // 2b. Fetch provider_pricing rows in bounds. We only pull displayable rows
   // (display_suppressed=false, set by migration 053), which means only
-  // confirmed per_unit / per_syringe / per_session / per_month pricing.
+  // confirmed unit / syringe / session / month pricing.
   // normalizePrice() will return HIDDEN for anything that isn't one of those,
   // and the map pin logic below drops providers with no comparable value.
   let pricingQuery = supabase
@@ -165,8 +166,8 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
     // Patient submissions contribute when the freeform units_or_volume text
     // says "unit"/"syringe"/"session". Scraped provider_pricing rows are
     // normalized via normalizePrice — after migration 053 only confirmed
-    // per_unit / per_syringe / per_session / per_month rows survive, so
-    // there are no more estimates to merge in.
+    // unit / syringe / session / month rows survive, so there are no
+    // more estimates to merge in.
     const perUnitDirect = [];
     for (const s of submissions) {
       if (
@@ -203,8 +204,8 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       submission_count: submissionCount,
       verified_count: verifiedCount,
       avg_price: avgPrice,
-      per_unit_avg: perUnitAvg,
-      has_per_unit_price: perUnitAvg > 0 && perUnitAvg < PER_UNIT_PRICE_MAX,
+      [COL.PER_UNIT_AVG]: perUnitAvg,
+      [COL.HAS_PER_UNIT_PRICE]: perUnitAvg > 0 && perUnitAvg < PER_UNIT_PRICE_MAX,
       has_submissions: submissionCount > 0,
       source: 'provider',
     });
@@ -253,8 +254,8 @@ export async function fetchAllProvidersInBounds(bounds, procedureFilter) {
       submission_count: submissionCount,
       verified_count: verifiedCount,
       avg_price: avgPrice,
-      per_unit_avg: perUnitAvg,
-      has_per_unit_price: perUnitAvg > 0,
+      [COL.PER_UNIT_AVG]: perUnitAvg,
+      [COL.HAS_PER_UNIT_PRICE]: perUnitAvg > 0,
       has_submissions: true,
       source: 'procedures',
     });

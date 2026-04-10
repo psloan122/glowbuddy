@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Check, Clock, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { COL } from '../utils/formatPricingUnit';
 import { AuthContext } from '../App';
 import ProviderAvatar from '../components/ProviderAvatar';
 import { scoreBand } from '../lib/glowbuddyScore';
@@ -83,7 +84,7 @@ export default function ViewBids() {
       const { data: bidData } = await supabase
         .from('provider_bids')
         .select(
-          'id, request_id, provider_id, injector_name, injector_credentials, brand_offered, price_per_unit, total_price, available_slots, message_to_patient, add_ons, glowbuddy_score, status, created_at, providers(id, name, city, state, slug, google_rating, review_count, owner_user_id)',
+          `id, request_id, provider_id, injector_name, injector_credentials, brand_offered, ${COL.PRICE_PER_UNIT}, total_price, available_slots, message_to_patient, add_ons, glowbuddy_score, status, created_at, providers(id, name, city, state, slug, google_rating, review_count, owner_user_id)`,
         )
         .eq('request_id', requestId)
         .order('glowbuddy_score', { ascending: false });
@@ -426,12 +427,12 @@ function BidCard({ bid, rank, isTop, isAccepted, canAccept, onAccept }) {
           >
             ${Number(bid.total_price).toLocaleString()}
           </p>
-          {bid.price_per_unit && (
+          {bid[COL.PRICE_PER_UNIT] && (
             <p
               className="mt-1 text-[12px]"
               style={{ fontFamily: 'var(--font-body)', fontWeight: 300, color: '#888' }}
             >
-              ${Number(bid.price_per_unit).toFixed(2)} / unit
+              ${Number(bid[COL.PRICE_PER_UNIT]).toFixed(2)} / unit
             </p>
           )}
 

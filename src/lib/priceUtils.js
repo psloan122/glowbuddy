@@ -2,8 +2,8 @@
  * Price display for Know Before You Glow.
  *
  * Simplified for the initial seeded dataset: we only render prices we are
- * certain about. Anything other than a confirmed per_unit / per_syringe /
- * per_session / per_month row is suppressed — the DB layer hides these via
+ * certain about. Anything other than a confirmed unit / syringe / session /
+ * month row is suppressed — the DB layer hides these via
  * display_suppressed=true (migration 053) and this file returns null for
  * anything that sneaks through.
  *
@@ -14,12 +14,13 @@
  * `isEstimate` and area-lookup tables were deleted along with it.
  *
  * Schema columns used (from provider_pricing):
- *   price_label    — 'per_unit' | 'per_syringe' | 'per_session' | 'per_month' | …
- *   treatment_area — 'forehead', '11s', 'lip flip', … (only used as a display
- *                    label on per_unit rows, never for estimation)
+ *   price_label    — unit / syringe / session / month enum values
+ *   treatment_area — 'forehead', '11s', 'lip flip', … (display label only)
  *   units_or_volume — freeform "20 units", "2 syringes", …
  *   price          — integer dollars
  */
+
+import { UNIT } from '../utils/formatPricingUnit';
 
 // Procedures we recognize as neurotoxins. Kept so callers (e.g.
 // inferNeurotoxinBrand) can still identify the category from a freeform
@@ -49,7 +50,7 @@ function fmtMoney(n) {
  * @typedef {Object} ProviderPriceListing
  * @property {string} [procedure_type]
  * @property {number|string} price         - integer dollars
- * @property {string} [price_label]        - per_unit | per_syringe | per_session | per_month | …
+ * @property {string} [price_label]        - UNIT enum value (unit / syringe / session / month / …)
  * @property {string} [treatment_area]
  * @property {string} [units_or_volume]
  *
@@ -57,16 +58,15 @@ function fmtMoney(n) {
  * @property {string} displayPrice       - what to show the user (e.g. "$12 / unit")
  * @property {number|null} comparableValue - sortable numeric value, null when unshowable
  * @property {string} compareUnit        - "per unit" | "per syringe" | "per session" | "per month" | "per area" | ""
- * @property {('per_unit'|'per_syringe'|'per_session'|'per_month'|'flat_rate_area'|'hidden')} category
+ * @property {string} category - UNIT enum value or 'flat_rate_area' or 'hidden'
  */
 
 // Real-world per-unit ceiling for every neurotoxin brand. Botox is
 // typically $12-15/unit, Dysport/Xeomin/Jeuveau/Daxxify all sit
-// $8-15/unit. Anything above this on a `per_unit` row is almost
-// certainly a flat-rate area price (e.g. "$425/forehead") that the
-// scraper or provider mislabeled as per_unit. We surface those rows
-// as "per area" instead so they don't dominate the per-unit comparison
-// and trick first-time shoppers into thinking Xeomin costs $425/unit.
+// $8-15/unit. Anything above this on a unit-priced row is almost
+// certainly a flat-rate area price (e.g. "$425/forehead") mislabeled.
+// We surface those rows as "per area" instead so they don't dominate
+// the per-unit comparison.
 const NEUROTOXIN_PER_UNIT_MAX = 50;
 
 const HIDDEN = Object.freeze({
@@ -91,48 +91,44 @@ export function normalizePrice(listing) {
 
   const label = String(listing.price_label || '').toLowerCase().trim();
 
-  if (label === 'per_unit') {
+  if (label === UNIT.PER_UNIT) {
     // Neurotoxin sanity check — see NEUROTOXIN_PER_UNIT_MAX above. A
-    // $425 "per_unit" Xeomin row is a flat-rate area price in disguise;
-    // reclassify it as flat_rate_area so the brand-filter view can hide
-    // it (apples-to-apples comparison) and the broader category view
-    // can render it as "$425 / area" rather than "$425 / unit".
+    // mislabeled unit-priced row is a flat-rate area price in disguise;
+    // reclassify it so the brand-filter view can hide it (apples-to-
+    // apples comparison) and the broader category view renders it as
+    // "$425 / area" rather than "$425 / unit".
     if (
       isNeurotoxin(listing.procedure_type) &&
       price > NEUROTOXIN_PER_UNIT_MAX
     ) {
       return {
         displayPrice: `${fmtMoney(price)} / area`,
-        // No comparable value — a flat area price can't be compared to
-        // a per-unit price without knowing the unit count. Returning
-        // null keeps these rows out of the city average and the
-        // best-deal callout.
         comparableValue: null,
         compareUnit: 'per area',
-        category: 'flat_rate_area',
+        category: UNIT.FLAT_RATE_AREA,
       };
     }
     return {
       displayPrice: `${fmtMoney(price)} / unit`,
       comparableValue: price,
       compareUnit: 'per unit',
-      category: 'per_unit',
+      category: UNIT.PER_UNIT,
     };
   }
-  if (label === 'per_syringe') {
+  if (label === UNIT.PER_SYRINGE) {
     return {
       displayPrice: `${fmtMoney(price)} / syringe`,
       comparableValue: price,
       compareUnit: 'per syringe',
-      category: 'per_syringe',
+      category: UNIT.PER_SYRINGE,
     };
   }
-  if (label === 'per_session') {
+  if (label === UNIT.PER_SESSION) {
     return {
       displayPrice: `${fmtMoney(price)} / session`,
       comparableValue: price,
       compareUnit: 'per session',
-      category: 'per_session',
+      category: UNIT.PER_SESSION,
     };
   }
   if (label === 'per_month' || label === 'monthly') {
@@ -263,8 +259,8 @@ export function bestPinListing(listings) {
 /**
  * Group provider_pricing rows for display on a provider profile.
  * Suppressed rows (category === 'hidden') are dropped entirely — the
- * provider profile only ever renders confirmed per_unit / per_syringe /
- * per_session / per_month prices.
+ * provider profile only ever renders confirmed unit / syringe /
+ * session / month prices.
  *
  * Returns:
  *   {
@@ -291,10 +287,10 @@ export function groupForProviderDisplay(listings) {
  */
 export function tabulateCategories(listings) {
   const stats = {
-    per_unit: 0,
-    per_syringe: 0,
-    per_session: 0,
-    per_month: 0,
+    [UNIT.PER_UNIT]: 0,
+    [UNIT.PER_SYRINGE]: 0,
+    [UNIT.PER_SESSION]: 0,
+    [UNIT.PER_MONTH]: 0,
     hidden: 0,
   };
   for (const row of listings || []) {

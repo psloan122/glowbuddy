@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { COL } from '../utils/formatPricingUnit';
 import CopyableQuestion from '../components/CopyableQuestion';
 import DosageCalculator from '../components/DosageCalculator';
 import { procedureToSlug } from '../lib/constants';
@@ -28,7 +29,7 @@ export default function GuideDetail() {
     if (!guide) return;
     document.title = `First Time ${guide.treatment_name} Guide — What to Expect, Costs & Tips | Know Before You Glow`;
 
-    const desc = `Everything you need to know before your first ${guide.treatment_name} treatment. Fair price ranges ($${guide.typical_price_range_low}–$${guide.typical_price_range_high}), starter doses, questions to ask, and red flags.`;
+    const desc = `Everything you need to know before your first ${guide.treatment_name} treatment. Fair price ranges ($${guide[COL.RANGE_LOW]}–$${guide[COL.RANGE_HIGH]}), starter doses, questions to ask, and red flags.`;
     let meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute('content', desc);
@@ -134,17 +135,17 @@ export default function GuideDetail() {
       )}
 
       {/* Fair Price */}
-      {(guide.fair_price_context || guide.typical_price_range_low) && (
+      {(guide.fair_price_context || guide[COL.RANGE_LOW]) && (
         <section className="mb-8">
           <h2 className="font-display text-2xl font-semibold text-text-primary mb-4">Fair Price Range</h2>
           {guide.fair_price_context && (
             <p className="text-text-secondary leading-relaxed mb-4">{guide.fair_price_context}</p>
           )}
-          {guide.typical_price_range_low && guide.typical_price_range_high && (
+          {guide[COL.RANGE_LOW] && guide[COL.RANGE_HIGH] && (
             <div className="glow-card p-5">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold text-text-primary">
-                  ${guide.typical_price_range_low}&ndash;${guide.typical_price_range_high}
+                  ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
                 </span>
                 {guide.price_unit && (
                   <span className="text-text-secondary">{guide.price_unit}</span>

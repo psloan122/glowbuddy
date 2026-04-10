@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Clock, Check, ArrowRight, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { COL } from '../../utils/formatPricingUnit';
 import { AuthContext } from '../../App';
 
 // Provider's view of every bid they've submitted. Splits into pending,
@@ -72,7 +73,7 @@ export default function MyBids() {
       const { data } = await supabase
         .from('provider_bids')
         .select(
-          'id, status, total_price, price_per_unit, glowbuddy_score, lead_fee_charged, lead_fee_amount, brand_offered, created_at, request_id, ' +
+          `id, status, total_price, ${COL.PRICE_PER_UNIT}, glowbuddy_score, lead_fee_charged, lead_fee_amount, brand_offered, created_at, request_id, ` +
             'bid_requests:request_id (id, procedure_slug, units_needed, city, state, status, expires_at, budget_min, budget_max)',
         )
         .eq('provider_id', provider.id)

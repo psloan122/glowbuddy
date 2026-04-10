@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { COL } from '../utils/formatPricingUnit';
 import CopyableQuestion from './CopyableQuestion';
 import DosageCalculator from './DosageCalculator';
 import { procedureToSlug } from '../lib/constants';
@@ -101,10 +102,10 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
                   onToggle={() => toggle('price')}
                 >
                   <p className="text-sm text-text-secondary leading-relaxed">{guide.fair_price_context}</p>
-                  {guide.typical_price_range_low && guide.typical_price_range_high && (
+                  {guide[COL.RANGE_LOW] && guide[COL.RANGE_HIGH] && (
                     <div className="mt-3 rounded-lg bg-warm-gray p-3">
                       <p className="text-sm font-medium text-text-primary">
-                        Typical range: ${guide.typical_price_range_low}&ndash;${guide.typical_price_range_high}
+                        Typical range: ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
                         {guide.price_unit && <span className="text-text-secondary font-normal"> {guide.price_unit}</span>}
                       </p>
                     </div>
@@ -146,12 +147,12 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
               )}
 
               {/* Price range card */}
-              {guide.typical_price_range_low && guide.typical_price_range_high && (
+              {guide[COL.RANGE_LOW] && guide[COL.RANGE_HIGH] && (
                 <div className="glow-card p-4 border border-sky-200">
                   <p className="text-sm font-medium text-[#0369A1] mb-2">First-Timer Price Range</p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-2xl font-bold text-text-primary">
-                      ${guide.typical_price_range_low}&ndash;${guide.typical_price_range_high}
+                      ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
                     </span>
                     {guide.price_unit && (
                       <span className="text-sm text-text-secondary">{guide.price_unit}</span>
