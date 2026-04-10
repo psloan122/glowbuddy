@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@marsidev/react-turnstile": "^1.5.0",
     "@stripe/stripe-js": "^9.1.0",
     "@supabase/supabase-js": "^2.101.1",

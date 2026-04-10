@@ -17,10 +17,9 @@
  *      a programmatic recenter when the city/state filter actually
  *      changes — never on every re-render.
  *
- *   3. Pin density is capped at 40 (Airbnb discovery research: cards
- *      vs pins drops the user's decision quality once you exceed
- *      ~50 markers; 40 is the sweet spot for picking and shows the
- *      best-quality providers first).
+ *   3. Pin density is managed by @googlemaps/markerclusterer — at low
+ *      zoom levels overlapping pins are grouped into numbered clusters.
+ *      At neighborhood zoom (high zoom) all pins are visible individually.
  *
  *   4. Pins are price-colored (GasBuddy pattern):
  *        - green when this provider's lowest price is >= 20% below
@@ -46,8 +45,9 @@
  */
 
 import { useEffect, useRef, useState, memo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, LocateFixed } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import MapLoadingFallback from '../MapLoadingFallback';
 
 const PRICE_COLORS = {
@@ -133,30 +133,29 @@ function buildGatePinIcon({ initials, highlighted }) {
   };
 }
 
-// Mini-pin for overflow providers outside the top tier — small pink dot,
-// no price label, no initials. Keeps the map from getting overwhelming
-// in dense cities while still showing that more providers exist.
-const TOP_PROVIDER_COUNT = 30;
-
-function buildMiniDot({ highlighted }) {
-  const size = highlighted ? 14 : 8;
-  const fill = highlighted ? PRICE_COLORS.highlight : '#E8347A';
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 4}" height="${size + 4}" viewBox="0 0 ${size + 4} ${size + 4}">
-      <defs>
-        <filter id="shadow-mini" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" flood-color="#000" flood-opacity="0.2"/>
-        </filter>
-      </defs>
-      <circle cx="${(size + 4) / 2}" cy="${(size + 4) / 2}" r="${size / 2}" fill="${fill}" filter="url(#shadow-mini)"/>
-    </svg>
-  `;
-  return {
-    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    anchor: window.google?.maps ? new window.google.maps.Point((size + 4) / 2, (size + 4) / 2) : undefined,
-    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 4, size + 4) : undefined,
-  };
-}
+// Custom renderer for MarkerClusterer — renders cluster counts as a
+// pink pill with a white count label, matching the GlowBuddy brand.
+const clusterRenderer = {
+  render({ count, position }) {
+    const size = count >= 100 ? 48 : count >= 10 ? 40 : 34;
+    const fontSize = count >= 100 ? 13 : 12;
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="#E8347A" stroke="#fff" stroke-width="2"/>
+        <text x="${size / 2}" y="${size / 2 + fontSize / 2 - 1}" text-anchor="middle" fill="#fff" font-family="Outfit, Arial, sans-serif" font-weight="700" font-size="${fontSize}">${count}</text>
+      </svg>
+    `;
+    return new window.google.maps.Marker({
+      position,
+      icon: {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+        scaledSize: new window.google.maps.Size(size, size),
+        anchor: new window.google.maps.Point(size / 2, size / 2),
+      },
+      zIndex: 500 + count,
+    });
+  },
+};
 
 function providerInitials(name) {
   if (!name) return '';
@@ -205,6 +204,7 @@ export default memo(function GlowMap({
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
+  const clustererRef = useRef(null);
   const userInteracted = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef = useRef(null);
@@ -604,12 +604,6 @@ export default memo(function GlowMap({
       return (b.rating || 0) - (a.rating || 0);
     });
 
-    // Determine top-tier providers by rating — they get full price
-    // pill or initials pins. Everyone else gets a mini pink dot so
-    // dense cities stay readable.
-    const ratingRanked = [...nextGroups].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    const topKeys = new Set(ratingRanked.slice(0, TOP_PROVIDER_COUNT).map((g) => g.key));
-
     // Reconcile: drop markers no longer represented, update existing
     // ones in place, create markers for newly-introduced providers.
     const existingByKey = new Map();
@@ -638,38 +632,18 @@ export default memo(function GlowMap({
         (g.provider_id === highlightedId || g.provider_id === selectedId);
       const initials = providerInitials(g.provider_name);
       const label = isPriced ? fmtShortPrice(g.bestPrice) : null;
-      const isTop = topKeys.has(g.key);
 
-      // Top-tier: full price pill (priced) or initials circle (gate).
-      // Overflow: small pink mini-dot. Highlighted overflow expands
-      // to full pin so the user can still read price/name on hover.
-      let icon;
-      if (isTop) {
-        icon = isPriced
-          ? buildPinIcon({
-              color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
-              label,
-              highlighted: isHighlighted,
-            })
-          : buildGatePinIcon({
-              initials,
-              highlighted: isHighlighted,
-            });
-      } else if (isHighlighted) {
-        // Expand mini-dot to full pin on highlight
-        icon = isPriced
-          ? buildPinIcon({
-              color: PRICE_COLORS.highlight,
-              label,
-              highlighted: true,
-            })
-          : buildGatePinIcon({
-              initials,
-              highlighted: true,
-            });
-      } else {
-        icon = buildMiniDot({ highlighted: false });
-      }
+      // All providers get full pins — clustering handles density
+      const icon = isPriced
+        ? buildPinIcon({
+            color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
+            label,
+            highlighted: isHighlighted,
+          })
+        : buildGatePinIcon({
+            initials,
+            highlighted: isHighlighted,
+          });
 
       let marker = existingByKey.get(g.key);
       if (!marker) {
@@ -680,9 +654,6 @@ export default memo(function GlowMap({
           icon,
         });
         marker.__glowKey = g.key;
-        // Use the click ref so the listener always sees the newest
-        // handler without us having to re-create the marker on every
-        // parent re-render.
         marker.addListener('click', () => {
           onPinClickRef.current?.(marker.__glowGroup);
         });
@@ -699,11 +670,21 @@ export default memo(function GlowMap({
       marker.__glowLabel = label;
       marker.__glowInitials = initials;
       marker.__glowPriced = isPriced;
-      marker.__glowIsTop = isTop;
-      marker.setZIndex(isHighlighted ? 1000 : isTop ? (isPriced ? 100 : 50) : 10);
+      marker.setZIndex(isHighlighted ? 1000 : (isPriced ? 100 : 50));
 
       bounds.extend({ lat: g.lat, lng: g.lng });
       boundsHasPoints = true;
+    });
+
+    // Set up or update MarkerClusterer — groups overlapping pins at
+    // low zoom levels, fully expands at neighborhood zoom.
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+    }
+    clustererRef.current = new MarkerClusterer({
+      map: mapInstanceRef.current,
+      markers: markersRef.current,
+      renderer: clusterRenderer,
     });
 
     // Fit-to-bounds is only a fallback for the no-city case. When the
@@ -731,11 +712,6 @@ export default memo(function GlowMap({
     return undefined;
 
     } catch (err) {
-      // Defensive: never let an exception in marker reconciliation
-      // (a single bad lat/lng, an unexpected Maps API change) bubble
-      // up and crash the React render — it would unmount the parent
-      // and the user would see the global ErrorBoundary fallback.
-      // Log it and return so the next data update can retry cleanly.
       // eslint-disable-next-line no-console
       console.error('[GlowMap] markers reconciliation failed', err);
       return undefined;
@@ -759,46 +735,23 @@ export default memo(function GlowMap({
       const isHighlighted =
         g.provider_id != null && (g.provider_id === highlightedId || g.provider_id === selectedId);
 
-      if (marker.__glowIsTop) {
-        // Top-tier: full price pill or initials circle
-        if (marker.__glowPriced) {
-          marker.setIcon(
-            buildPinIcon({
-              color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
-              label: marker.__glowLabel,
-              highlighted: isHighlighted,
-            }),
-          );
-          marker.setZIndex(isHighlighted ? 1000 : 100);
-        } else {
-          marker.setIcon(
-            buildGatePinIcon({
-              initials: marker.__glowInitials,
-              highlighted: isHighlighted,
-            }),
-          );
-          marker.setZIndex(isHighlighted ? 1000 : 50);
-        }
+      if (marker.__glowPriced) {
+        marker.setIcon(
+          buildPinIcon({
+            color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
+            label: marker.__glowLabel,
+            highlighted: isHighlighted,
+          }),
+        );
+        marker.setZIndex(isHighlighted ? 1000 : 100);
       } else {
-        // Overflow tier: mini-dot, but expand to full pin on highlight
-        if (isHighlighted) {
-          marker.setIcon(
-            marker.__glowPriced
-              ? buildPinIcon({
-                  color: PRICE_COLORS.highlight,
-                  label: marker.__glowLabel,
-                  highlighted: true,
-                })
-              : buildGatePinIcon({
-                  initials: marker.__glowInitials,
-                  highlighted: true,
-                }),
-          );
-          marker.setZIndex(1000);
-        } else {
-          marker.setIcon(buildMiniDot({ highlighted: false }));
-          marker.setZIndex(10);
-        }
+        marker.setIcon(
+          buildGatePinIcon({
+            initials: marker.__glowInitials,
+            highlighted: isHighlighted,
+          }),
+        );
+        marker.setZIndex(isHighlighted ? 1000 : 50);
       }
     });
   }, [ready, highlightedId, selectedId]);
@@ -806,6 +759,10 @@ export default memo(function GlowMap({
   // ── Cleanup on unmount ──────────────────────────────────────────────
   useEffect(() => {
     return () => {
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers();
+        clustererRef.current = null;
+      }
       markersRef.current.forEach((m) => m.setMap(null));
       markersRef.current = [];
     };
@@ -882,6 +839,46 @@ export default memo(function GlowMap({
         >
           <Search size={14} strokeWidth={2.5} />
           Search this area
+        </button>
+      )}
+
+      {/* Locate me button */}
+      {ready && !mapError && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const map = mapInstanceRef.current;
+                if (!map) return;
+                map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                map.setZoom(13);
+                userInteracted.current = true;
+              },
+              () => {
+                // Permission denied or error — silently ignore
+              },
+            );
+          }}
+          aria-label="Center on my location"
+          style={{
+            position: 'absolute',
+            bottom: 80,
+            right: 12,
+            zIndex: 10,
+            background: 'white',
+            border: '1px solid #ddd',
+            borderRadius: 8,
+            padding: '8px 10px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <LocateFixed size={18} color="#555" />
         </button>
       )}
 
