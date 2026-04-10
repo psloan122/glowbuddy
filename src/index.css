@@ -50,14 +50,6 @@
   --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Playfair Display', Georgia, serif;
 
-  /* ── Spacing scale ── */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 40px;
-  --spacing-2xl: 64px;
-
   /* ── Border radius ── */
   --radius-sm: 2px;
   --radius-md: 8px;

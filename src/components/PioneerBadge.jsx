@@ -30,7 +30,7 @@ export default function PioneerBadge({ userId }) {
     >
       <Award size={12} />
       <span>
-        Pioneer{cityName ? ` \u00b7 ${cityName}` : ''} \u00b7 {stats.totalLocations} location{stats.totalLocations !== 1 ? 's' : ''}
+        Pioneer{cityName ? ` · ${cityName}` : ''} · {stats.totalLocations} location{stats.totalLocations !== 1 ? 's' : ''}
       </span>
     </div>
   );
