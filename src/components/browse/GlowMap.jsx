@@ -199,6 +199,7 @@ export default memo(function GlowMap({
   onSearchAreaClick,
   mobileLegendTop,
   bottomPadding = 0,
+  isMobile = false,
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -346,14 +347,14 @@ export default memo(function GlowMap({
   // network blip), show the fallback. The "Try map again" button in the
   // fallback bumps retryNonce which resets mapError and re-runs init.
   useEffect(() => {
-    if (ready || mapError) return;
+    if (!isMobile || ready || mapError) return;
     const timer = setTimeout(() => {
       // eslint-disable-next-line no-console
-      console.warn('[GlowMap] map load timed out after 8s — showing fallback');
+      console.warn('[GlowMap] map load timed out after 10s — showing fallback');
       setMapError('Map load timed out');
-    }, 8000);
+    }, 10_000);
     return () => clearTimeout(timer);
-  }, [ready, mapError]);
+  }, [isMobile, ready, mapError]);
 
   // ── Recenter on city change ─────────────────────────────────────────
   // Only fires when (city, state) actually changes. Resets the

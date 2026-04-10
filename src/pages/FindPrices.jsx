@@ -3004,8 +3004,8 @@ export default function FindPrices() {
           />
         )}
 
-        {/* First-Timer Onboarding Prompt */}
-        {selectedProc && !firstTimerActive && (
+        {/* First-Timer Onboarding Prompt — mobile only (desktop renders inside split-view left pane) */}
+        {isMobile && selectedProc && !firstTimerActive && (
           <FirstTimerOnboardingPrompt
             key={selectedProc}
             treatmentName={selectedProc}
@@ -3127,6 +3127,7 @@ export default function FindPrices() {
                 onSearchAreaClick={handleSearchAreaClick}
                 mobileLegendTop
                 bottomPadding={mapBottomPadding}
+                isMobile
               />
             </div>
 
@@ -3370,6 +3371,23 @@ export default function FindPrices() {
                 <div style={{ padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
                   {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'} in this area
                 </div>
+                {/* First-Timer Onboarding Prompt — desktop */}
+                {selectedProc && !firstTimerActive && (
+                  <div style={{ padding: '0 8px' }}>
+                    <FirstTimerOnboardingPrompt
+                      key={selectedProc}
+                      treatmentName={selectedProc}
+                      onActivated={() => {
+                        addFirstTimerTreatment(selectedProc);
+                        persistFirstTimerMode(true);
+                        setFirstTimerActive(true);
+                        setGuideSheetTreatment(selectedProc);
+                        setShowGuideSheet(true);
+                      }}
+                      onDismissed={() => {}}
+                    />
+                  </div>
+                )}
                 {groupedProviders.map((group) => {
                   const primary = group.procedures[0];
                   const slug =

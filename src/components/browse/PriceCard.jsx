@@ -450,7 +450,7 @@ export default function PriceCard({
         borderTop: `3px solid ${isPendingSelf ? '#B45309' : '#E8347A'}`,
         borderRadius: 8,
         marginBottom: 12,
-        padding: '20px 24px',
+        padding: '24px 28px',
         maxWidth: 860,
         marginLeft: 'auto',
         marginRight: 'auto',
@@ -516,7 +516,7 @@ export default function PriceCard({
             flex: 1,
           }}
         >
-          <ProviderAvatar name={primary.provider_name} size={44} />
+          <ProviderAvatar name={primary.provider_name} size={52} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <p
               style={{
