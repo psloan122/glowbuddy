@@ -2199,10 +2199,32 @@ export default function FindPrices() {
         <button
           type="button"
           onClick={() => {
+            // 1. If the user typed a treatment query, resolve it now
+            //    (whether or not a pill is already active — the new
+            //    query overrides the previous selection).
             if (procQuery.trim()) {
               const next = resolveProcedureFromQuery(procQuery);
-              if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
+              if (next) {
+                setProcFilter(next);
+                setBrandFilter(null);
+                setProcQuery('');
+              }
             }
+
+            // 2. If the user typed a city but hasn't selected one yet,
+            //    resolve it now — pick the first autocomplete result.
+            if (locQuery.trim() && !selectedLoc) {
+              if (locResults.length > 0 && !locResults[0].kind) {
+                selectLocation(locResults[0]);
+              } else {
+                // Results haven't arrived yet — trigger search immediately
+                searchCities(locQuery.trim());
+              }
+            }
+
+            // 3. Close all dropdowns
+            setProcOpen(false);
+            setLocOpen(false);
           }}
           className="btn-editorial btn-editorial-primary w-full"
           style={{ height: 44, fontSize: 13, letterSpacing: '0.10em', fontWeight: 700 }}
