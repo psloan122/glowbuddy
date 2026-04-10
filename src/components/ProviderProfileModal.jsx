@@ -13,9 +13,9 @@
 
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, X, ArrowRight, Heart } from 'lucide-react';
+import { Star, X, ArrowRight, Heart, ChevronRight } from 'lucide-react';
 import { providerProfileUrl } from '../lib/slugify';
-import { getProcedureLabel } from '../lib/procedureLabel';
+import { getProcedureLabel, getProcedureDetail } from '../lib/procedureLabel';
 import { normalizePrice } from '../lib/priceUtils';
 
 function fmtPrice(n) {
@@ -64,6 +64,7 @@ export default function ProviderProfileModal({
   cityAvg,
   isSaved,
   onToggleSave,
+  onDosingClick,
 }) {
   // Esc to close
   useEffect(() => {
@@ -74,17 +75,40 @@ export default function ProviderProfileModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Top price rows, sorted lowest first, max 5
+  // Top price rows, sorted lowest first, max 6. Each row is enriched
+  // with a clean label and optional treatment area subtitle so duplicate
+  // treatment names are distinguishable.
   const topRows = useMemo(() => {
-    return (group?.rows || [])
+    const rows = (group?.rows || [])
       .slice()
       .sort((a, b) => {
         const av = Number(a.normalized_compare_value ?? a.price_paid) || 0;
         const bv = Number(b.normalized_compare_value ?? b.price_paid) || 0;
         return av - bv;
       })
-      .slice(0, 5);
+      .slice(0, 6);
+    // Enrich each row with display-safe fields
+    return rows.map((row) => {
+      const label = getProcedureLabel(row.procedure_type, row.brand);
+      const area = getProcedureDetail(row);
+      const normalized = normalizePrice(row);
+      const display = normalized.displayPrice || row.normalized_display || fmtPrice(row.price_paid);
+      const compareValue = normalized.comparableValue ?? Number(row.normalized_compare_value);
+      const priceLabel = (row.price_label || row.normalized_compare_unit || '').toLowerCase();
+      const isUnitPriced = priceLabel.includes('unit') || priceLabel.includes('syringe') || priceLabel.includes('vial');
+      return { ...row, _label: label, _area: area, _display: display, _compareValue: compareValue, _isUnitPriced: isUnitPriced };
+    });
   }, [group]);
+
+  // Detect if the same treatment label appears multiple times — if so
+  // we'll show a small helper note and use treatment area to distinguish.
+  const hasMultipleSameLabel = useMemo(() => {
+    const counts = {};
+    for (const r of topRows) {
+      counts[r._label] = (counts[r._label] || 0) + 1;
+    }
+    return Object.values(counts).some((c) => c > 1);
+  }, [topRows]);
 
   if (!group) return null;
 
@@ -276,26 +300,39 @@ export default function ProviderProfileModal({
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 color: '#B8A89A',
-                marginBottom: 10,
+                marginBottom: hasMultipleSameLabel ? 4 : 10,
               }}
             >
               Prices
             </div>
-            {topRows.map((row, i) => {
-              const label = getProcedureLabel(row.procedure_type, row.brand);
-              const normalized = normalizePrice(row);
-              const display = normalized.displayPrice || row.normalized_display || fmtPrice(row.price_paid);
-              const compareValue = normalized.comparableValue ?? Number(row.normalized_compare_value);
-              return (
+            {hasMultipleSameLabel && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 300,
+                  fontStyle: 'italic',
+                  fontSize: 11,
+                  color: '#B8A89A',
+                  marginBottom: 10,
+                }}
+              >
+                Different areas, session types, or package sizes.
+              </div>
+            )}
+            {topRows.map((row, i) => (
+              <div
+                key={row.id || `${row.procedure_type}-${i}`}
+                style={{
+                  paddingBottom: 8,
+                  marginBottom: i < topRows.length - 1 ? 8 : 0,
+                  borderBottom: i < topRows.length - 1 ? '1px solid #F5F0EC' : 'none',
+                }}
+              >
                 <div
-                  key={row.id || `${row.procedure_type}-${i}`}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    paddingBottom: 8,
-                    marginBottom: i < topRows.length - 1 ? 8 : 0,
-                    borderBottom: i < topRows.length - 1 ? '1px solid #F5F0EC' : 'none',
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -309,11 +346,26 @@ export default function ProviderProfileModal({
                         color: '#E8347A',
                       }}
                     >
-                      {label}
+                      {row._label}
                     </span>
+                    {row._area && (
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 400,
+                          fontSize: 10,
+                          color: '#888',
+                          marginLeft: 6,
+                          textTransform: 'none',
+                          letterSpacing: 0,
+                        }}
+                      >
+                        — {row._area}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <VsAvgBadge price={compareValue} avg={cityAvg} />
+                    <VsAvgBadge price={row._compareValue} avg={cityAvg} />
                     <span
                       style={{
                         fontFamily: "'Playfair Display', Georgia, serif",
@@ -322,12 +374,37 @@ export default function ProviderProfileModal({
                         color: '#111',
                       }}
                     >
-                      {display}
+                      {row._display}
                     </span>
                   </div>
                 </div>
-              );
-            })}
+                {row._isUnitPriced && onDosingClick && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDosingClick(row);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      marginTop: 4,
+                      padding: 0,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#E8347A',
+                    }}
+                  >
+                    How much will I need? <ChevronRight size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
           <div

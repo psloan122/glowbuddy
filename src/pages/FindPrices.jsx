@@ -3246,6 +3246,19 @@ export default function FindPrices() {
                 onClose={() => setSelectedProviderGroup(null)}
                 isMobile
                 cityAvg={cityAvgPrice}
+                onDosingClick={(row) => {
+                  const compareVal = row.normalized_compare_value && Number.isFinite(Number(row.normalized_compare_value))
+                    ? Number(row.normalized_compare_value) : Number(row.price_paid) || 0;
+                  setDosingSheet({
+                    procedureType: row.procedure_type,
+                    brand: row.brand || null,
+                    unitPrice: compareVal,
+                    providerName: selectedProviderGroup.provider_name || null,
+                    treatmentArea: row.treatment_area || null,
+                    dosingType: 'neurotoxin',
+                    dosingKey: (row.brand || 'botox').toLowerCase(),
+                  });
+                }}
               />
             )}
 
@@ -3549,6 +3562,19 @@ export default function FindPrices() {
                   group={selectedProviderGroup}
                   onClose={() => setSelectedProviderGroup(null)}
                   cityAvg={cityAvgPrice}
+                  onDosingClick={(row) => {
+                    const compareVal = row.normalized_compare_value && Number.isFinite(Number(row.normalized_compare_value))
+                      ? Number(row.normalized_compare_value) : Number(row.price_paid) || 0;
+                    setDosingSheet({
+                      procedureType: row.procedure_type,
+                      brand: row.brand || null,
+                      unitPrice: compareVal,
+                      providerName: selectedProviderGroup.provider_name || null,
+                      treatmentArea: row.treatment_area || null,
+                      dosingType: 'neurotoxin',
+                      dosingKey: (row.brand || 'botox').toLowerCase(),
+                    });
+                  }}
                 />
               )}
             </div>
