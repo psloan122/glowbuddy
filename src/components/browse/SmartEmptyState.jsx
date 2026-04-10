@@ -273,9 +273,9 @@ export default function SmartEmptyState({
           margin: '0 auto 24px auto',
         }}
       >
-        {brand
-          ? `${brand} is newer — fewer providers list prices publicly yet.`
-          : `Be the first to share what people actually pay near you.`}
+        {cityLabel
+          ? `No providers in ${cityLabel} have shared ${headBrand} prices yet.`
+          : `No ${headBrand} prices yet — be the first to share what you paid.`}
       </p>
 
       {loading ? (
