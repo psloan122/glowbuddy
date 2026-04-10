@@ -21,13 +21,14 @@
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Star, ShieldCheck, ArrowRight, Info, ChevronRight } from 'lucide-react';
+import { Heart, Star, ShieldCheck, ArrowRight, Info, ChevronRight, Calculator } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel, getProcedureDetail } from '../../lib/procedureLabel';
 import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils';
 import { haversineMiles, formatMiles } from '../../lib/distance';
 import { resolveDosingKey, getQuickEstimates } from '../../data/dosingGuidance';
+import useDosingStore from '../../stores/dosingStore';
 
 function fmtPrice(n) {
   const v = Number(n) || 0;
@@ -132,6 +133,22 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
     if (estimates.length === 0) return null;
     return { ...resolved, estimates };
   }, [procedure.procedure_type, procedure.brand, procedure.normalized_compare_unit, compareValue]);
+
+  // Zustand dosing store — personalized estimate based on selected areas
+  const selectedAreas = useDosingStore((s) => s.selectedAreas);
+  const estimateCost = useDosingStore((s) => s.estimateCost);
+  const estimateUnits = useDosingStore((s) => s.estimateUnits);
+
+  const personalEstimate = useMemo(() => {
+    if (selectedAreas.length === 0) return null;
+    if (!dosingInfo || dosingInfo.type !== 'neurotoxin') return null;
+    if (compareValue <= 0) return null;
+    const brandKey = dosingInfo.key;
+    const units = estimateUnits(brandKey);
+    const cost = estimateCost(brandKey, compareValue);
+    if (!units || !cost) return null;
+    return { units, cost, brandKey };
+  }, [selectedAreas, dosingInfo, compareValue, estimateUnits, estimateCost]);
 
   return (
     <div
@@ -360,6 +377,47 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
           >
             Estimates based on typical clinical dosing ranges.
           </p>
+        </div>
+      )}
+
+      {/* Personalized estimate from Zustand dosing calculator */}
+      {personalEstimate && (
+        <div
+          style={{
+            margin: '8px 0 0 0',
+            padding: '10px 14px',
+            background: '#FDF2F7',
+            borderRadius: 6,
+            border: '1px solid #F5D0E0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <Calculator size={13} color="#E8347A" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#111',
+              }}
+            >
+              Your estimate: ~${personalEstimate.cost.toLocaleString()}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 300,
+                color: '#888',
+                marginLeft: 6,
+              }}
+            >
+              {personalEstimate.units} units &times; {fmtPrice(compareValue)}/unit
+            </span>
+          </div>
         </div>
       )}
     </div>

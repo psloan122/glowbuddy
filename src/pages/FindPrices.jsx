@@ -33,6 +33,7 @@ import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
 import FirstTimerOnboardingPrompt from '../components/FirstTimerOnboardingPrompt';
 import FirstTimerGuideSheet from '../components/FirstTimerGuideSheet';
 import DosageCalculator from '../components/DosageCalculator';
+import DosingCalculator from '../components/DosingCalculator';
 import {
   isFirstTimerMode, setFirstTimerMode as persistFirstTimerMode,
   addFirstTimerTreatment, getFirstTimerTreatments,
@@ -2765,8 +2766,8 @@ export default function FindPrices() {
 
               {renderFilterControls()}
 
-              {/* Collapsible dosage estimator — only for first-timer eligible treatments */}
-              {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
+              {/* Dosing calculator — shows for neurotoxin procedures */}
+              {procFilter?.slug === 'neurotoxin' && (
                 <div
                   className="mt-5"
                   style={{
@@ -2774,7 +2775,7 @@ export default function FindPrices() {
                     paddingTop: 16,
                   }}
                 >
-                  <DosageCalculator treatmentName={selectedProc} />
+                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
                 </div>
               )}
             </div>
@@ -3066,10 +3067,10 @@ export default function FindPrices() {
           />
         )}
 
-        {/* Dosage Calculator — hidden on mobile (moved to filters drawer) */}
-        {firstTimerActive && selectedProc && isFirstTimerFor(selectedProc) && (
+        {/* Dosing Calculator — desktop only, shows for neurotoxin procedures */}
+        {procFilter?.slug === 'neurotoxin' && (
           <div className="hidden md:block">
-            <DosageCalculator treatmentName={selectedProc} />
+            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
           </div>
         )}
 
