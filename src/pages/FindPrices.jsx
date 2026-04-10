@@ -222,6 +222,9 @@ export default function FindPrices() {
   // the session hasn't dismissed it.
   const { procedureSlugs, brands: userBrands, loading: prefsLoading } = useUserPreferences();
   const [personalDismissed, setPersonalDismissed] = useState(false);
+  const [prefsBannerDismissed, setPrefsBannerDismissed] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('glow_prefs_banner_dismissed') === '1',
+  );
   const hasSavedPrefs = procedureSlugs.length > 0 || userBrands.length > 0;
   const personalizedMode =
     !!user && hasSavedPrefs && !procFilter && !brandFilter && !personalDismissed;
@@ -2130,7 +2133,7 @@ export default function FindPrices() {
 
       {/* Sticky search header (desktop only) */}
       <div className="hidden md:block sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex flex-col md:flex-row gap-2">
             {/* Procedure search */}
             <div ref={procRef} className="relative md:flex-1">
@@ -2826,79 +2829,11 @@ export default function FindPrices() {
         </div>
       )}
 
-      {/* Editorial cream hero header — shown when a procedure or brand is
-          selected. The bare "location-only" case used to render this too,
-          but the gate state now owns the split-view layout (including its
-          own big Playfair headline in GateLeftPanel) so we skip this hero
-          entirely when only a city is set. Otherwise we'd stack two
-          competing headlines. */}
-      {!personalizedMode && (procFilter || brandFilter) && (
-        <div className="hidden md:block bg-cream" style={{ borderBottom: '1px solid #EDE8E3' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-            <p className="editorial-kicker mb-3">
-              {hasPricesOnly ? 'Verified providers' : 'Real prices · No consultations'}
-            </p>
-            <h1
-              className="font-display text-ink"
-              style={{ fontWeight: 900, fontSize: 'clamp(32px, 6vw, 56px)', lineHeight: 1, letterSpacing: '-0.02em' }}
-            >
-              {(() => {
-                // Brand wins over the category label when set. When the
-                // user picks "Botox / Dysport / Xeomin" from the dropdown
-                // (no brand), getProcedureLabel collapses that combined
-                // string to "Neurotoxin" — we never want the raw combined
-                // string in the page headline.
-                const label = getProcedureLabel(procFilter?.label, brandFilter) || 'Treatment';
-                const loc = selectedLoc
-                  ? `${selectedLoc.city}, ${selectedLoc.state}`
-                  : null;
-                return loc
-                  ? `${label} prices in ${loc}.`
-                  : `${label} prices.`;
-              })()}
-            </h1>
-            {/* Neurotoxin subhead — shown only when on the generic category
-                (no brand selected) to make the multi-brand nature explicit. */}
-            {!brandFilter && procFilter?.slug === 'neurotoxin' && (
-              <p
-                className="italic text-text-secondary mt-2"
-                style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px' }}
-              >
-                Comparing Botox, Dysport, Xeomin, Jeuveau, and Daxxify.
-              </p>
-            )}
-            {/* Active brand chip — removable */}
-            {brandFilter && (
-              <div className="mt-4 flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setBrandFilter(null)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white"
-                  style={{
-                    letterSpacing: '0.08em',
-                    borderRadius: '4px',
-                    background: '#E8347A',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                  title={`Remove ${brandFilter} filter`}
-                >
-                  {brandFilter}
-                  <X size={12} strokeWidth={3} />
-                </button>
-              </div>
-            )}
-            {!loadingProcedures && (procFilter || brandFilter) && (
-              <p className="font-body font-light text-text-secondary mt-4 text-[15px]">
-                {procedures.length}
-                {brandFilter ? ` ${brandFilter}` : ''}
-                {hasPricesOnly ? ' provider' : ' price'}{procedures.length !== 1 ? 's' : ''}
-                {hasPricesOnly ? ' with verified prices' : ''}
-                {totalCount > 0 && !hasActiveFilters && !brandFilter && ` · of ${totalCount.toLocaleString()} total`}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Editorial cream hero header — REMOVED from desktop to eliminate
+          the ~200px gap between the search bar and the split-view map.
+          Treatment name + provider count are already visible in the search
+          bar pill and the left-pane count bar. The GateLeftPanel still has
+          its own Playfair headline for the no-treatment state. */}
 
       {/* Pre-results area — banners, gates, fallback note. The actual
           results (header chrome + cards + map) live in their own
@@ -2918,7 +2853,7 @@ export default function FindPrices() {
         className="mx-auto px-4"
         style={{
           maxWidth: 900,
-          paddingTop: hasResults ? 12 : 24,
+          paddingTop: hasResults ? 0 : 24,
           // Clear the fixed mobile bottom nav (56px) + safe-area so the
           // last card is never hidden behind it and its tap zone can't
           // be accidentally contested. The split layout below handles
@@ -2931,15 +2866,15 @@ export default function FindPrices() {
         }}
       >
         {/* "Save your preferences" banner — logged-in users with no saved
-            preferences yet. Shown alongside the gate, not replacing it. */}
-        {user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && (
+            preferences yet. Dismissible with X, remembered in localStorage. */}
+        {user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && !prefsBannerDismissed && (
           <div
-            className="mb-6 flex items-center justify-between gap-3"
+            className="mb-4 flex items-center justify-between gap-3"
             style={{
               background: '#FBF9F7',
               borderLeft: '3px solid #E8347A',
               borderRadius: 0,
-              padding: '12px 18px',
+              padding: '10px 14px',
             }}
           >
             <p
@@ -2948,18 +2883,39 @@ export default function FindPrices() {
             >
               Save your treatment preferences to skip this step next time.
             </p>
-            <Link
-              to="/settings#treatment-preferences"
-              className="shrink-0 text-[10px] font-semibold uppercase transition-opacity hover:opacity-80"
-              style={{
-                color: '#E8347A',
-                letterSpacing: '0.10em',
-                borderBottom: '1px solid #E8347A',
-                fontFamily: 'var(--font-body)',
-              }}
-            >
-              Set preferences &rarr;
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to="/settings#treatment-preferences"
+                className="text-[10px] font-semibold uppercase transition-opacity hover:opacity-80"
+                style={{
+                  color: '#E8347A',
+                  letterSpacing: '0.10em',
+                  borderBottom: '1px solid #E8347A',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                Set preferences
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrefsBannerDismissed(true);
+                  try { localStorage.setItem('glow_prefs_banner_dismissed', '1'); } catch {}
+                }}
+                aria-label="Dismiss"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 4,
+                  color: '#999',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -3322,9 +3278,9 @@ export default function FindPrices() {
               display: 'flex',
               gap: 0,
               height: hasResults
-                ? 'calc(100vh - 260px)'
-                : 'calc(100vh - 200px)',
-              minHeight: hasResults ? 520 : 560,
+                ? 'calc(100vh - 130px)'
+                : 'calc(100vh - 140px)',
+              minHeight: 520,
               overflow: 'hidden',
               paddingLeft: 16,
               paddingRight: 16,
