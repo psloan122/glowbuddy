@@ -121,6 +121,7 @@ export default function FindPrices() {
   const [loadingProcedures, setLoadingProcedures] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [feedError, setFeedError] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   // --- Procedure search ---
   const [procQuery, setProcQuery] = useState('');
@@ -1306,6 +1307,7 @@ export default function FindPrices() {
     minRating,
     user?.id,
     searchAreaBounds,
+    retryKey,
   ]);
 
   // ── Personalized fetch: multi-procedure grouped-by-provider ──
@@ -3079,27 +3081,24 @@ export default function FindPrices() {
         {feedError && (
           <div
             style={{
-              background: '#FEF2F2',
-              border: '1px solid #FECACA',
+              background: '#fff5f5',
+              border: '1px solid #fed7d7',
               borderRadius: 8,
               padding: '12px 16px',
+              color: '#c53030',
+              fontSize: 14,
               marginBottom: 16,
               display: 'flex',
-              alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 12,
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              color: '#991B1B',
+              alignItems: 'center',
             }}
           >
-            <span>{feedError}</span>
+            {feedError}
             <button
-              type="button"
-              onClick={() => setFeedError(null)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991B1B', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}
+              onClick={() => { setFeedError(null); setRetryKey((k) => k + 1); }}
+              style={{ fontSize: 12, color: '#c53030', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              Dismiss
+              Try again
             </button>
           </div>
         )}
