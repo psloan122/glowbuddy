@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef, createContext, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, createContext, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded, syncProcedureTagsToSupabase } from './lib/gating';
 import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission } from './lib/auth';
@@ -249,14 +249,16 @@ function App() {
     );
   }
 
+  const authValue = useMemo(() => ({
+    session,
+    user: session?.user || null,
+    openAuthModal,
+    closeAuthModal,
+    showToast,
+  }), [session, openAuthModal, closeAuthModal, showToast]);
+
   return (
-    <AuthContext.Provider value={{
-      session,
-      user: session?.user || null,
-      openAuthModal,
-      closeAuthModal,
-      showToast,
-    }}>
+    <AuthContext.Provider value={authValue}>
       <div className="min-h-screen bg-warm-white">
         <ScrollToTop />
         <Navbar />

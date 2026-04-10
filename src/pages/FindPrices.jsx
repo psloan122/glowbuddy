@@ -113,11 +113,6 @@ const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
 const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
 
 export default function FindPrices() {
-  // DEBUG: render counter — remove once loop is ruled out
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  console.log('[FindPrices] render #', renderCount.current);
-
   const { user } = useContext(AuthContext);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1210,7 +1205,7 @@ export default function FindPrices() {
 
       // Total count = procedures + provider_pricing (both narrowed by
       // procedure_type when set, so the "of N total" copy is meaningful).
-      Promise.all([
+      await Promise.all([
         (() => {
           let q = supabase
             .from('procedures')
