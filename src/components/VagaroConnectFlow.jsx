@@ -137,7 +137,7 @@ export default function VagaroConnectFlow({ providerId }) {
       {step === 1 && (
         <div className="glow-card p-6 max-w-xl">
           <div className="flex items-center gap-3 mb-4">
-            <img src="/logos/vagaro.svg" alt="Vagaro" className="h-6" loading="lazy" onError={(e) => e.target.style.display = 'none'} />
+            <img src="/logos/vagaro.svg" alt="Vagaro" className="h-6" loading="lazy" width={72} height={24} onError={(e) => e.target.style.display = 'none'} />
             <h2 className="text-lg font-bold text-text-primary">Connect Vagaro</h2>
           </div>
           <p className="text-sm text-text-secondary mb-6">
@@ -264,7 +264,7 @@ export default function VagaroConnectFlow({ providerId }) {
         <div className="glow-card p-6 max-w-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <img src="/logos/vagaro.svg" alt="Vagaro" className="h-5" loading="lazy" onError={(e) => e.target.style.display = 'none'} />
+              <img src="/logos/vagaro.svg" alt="Vagaro" className="h-5" loading="lazy" width={60} height={20} onError={(e) => e.target.style.display = 'none'} />
               <h2 className="text-lg font-bold text-text-primary">Vagaro</h2>
             </div>
             <ConnectionStatusBadge status={integration.connection_status} />

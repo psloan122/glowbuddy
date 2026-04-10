@@ -98,7 +98,7 @@ export default function InjectorProfile() {
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
         {injector.profile_photo_url ? (
-          <img src={injector.profile_photo_url} alt={displayName} className="w-20 h-20 rounded-full object-cover" loading="lazy" />
+          <img src={injector.profile_photo_url} alt={displayName} className="w-20 h-20 rounded-full object-cover" loading="lazy" width={80} height={80} />
         ) : (
           <div className="w-20 h-20 rounded-full bg-sky-100 text-[#0369A1] flex items-center justify-center text-2xl font-semibold">
             {initials}

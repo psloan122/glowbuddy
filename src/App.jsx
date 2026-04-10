@@ -16,6 +16,7 @@ import BusinessContextBar from './components/BusinessContextBar';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 import RouteErrorFallback from './components/RouteErrorFallback';
 import { syncToSupabase, loadFromSupabase } from './lib/firstTimerMode';
 import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
@@ -299,7 +300,7 @@ function App() {
               <Route path="/business/claim" element={<BusinessClaim />} />
               <Route path="/business/onboarding" element={<BusinessOnboarding />} />
               <Route path="/business/add" element={<BusinessAddBusiness />} />
-              <Route path="/business/dashboard" element={<BusinessDashboard />} />
+              <Route path="/business/dashboard" element={<ProtectedRoute><BusinessDashboard /></ProtectedRoute>} />
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/verified" element={<Verified />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
@@ -335,9 +336,9 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/admin/pending-charges" element={<AdminPendingCharges />} />
-              <Route path="/admin/waitlist" element={<AdminWaitlist />} />
+              <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
+              <Route path="/admin/pending-charges" element={<ProtectedRoute adminOnly><AdminPendingCharges /></ProtectedRoute>} />
+              <Route path="/admin/waitlist" element={<ProtectedRoute adminOnly><AdminWaitlist /></ProtectedRoute>} />
               <Route path="/audit" element={<Audit />} />
               <Route path="/request-bid" element={<RequestBid />} />
               <Route path="/my-requests" element={<MyBidRequests />} />
