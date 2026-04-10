@@ -11,6 +11,7 @@ import SmartEmptyState from '../components/browse/SmartEmptyState';
 import ResultsCountBar from '../components/browse/ResultsCountBar';
 import GlowMap from '../components/browse/GlowMap';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
+import ProviderProfileModal from '../components/ProviderProfileModal';
 import MobileBrowseSheet from '../components/browse/MobileBrowseSheet';
 import useSavedProviders from '../hooks/useSavedProviders';
 import AuthModal from '../components/AuthModal';
@@ -481,6 +482,12 @@ export default function FindPrices() {
     },
     [isMobile],
   );
+
+  // Clicking empty map space dismisses the provider profile modal.
+  const handleMapClick = useCallback(() => {
+    setSelectedProviderGroup(null);
+    setGateSelectedProviderGroup(null);
+  }, []);
 
   const handleCardHover = useCallback((procedure, isEntering) => {
     setHoveredProviderId(isEntering ? procedure.provider_id || null : null);
@@ -3160,6 +3167,7 @@ export default function FindPrices() {
                   ? (selectedProviderGroup?.provider_id || null)
                   : (gateSelectedProviderGroup?.provider_id || null)}
                 onPinClick={hasPricedResults ? handlePinClick : handleGatePinClick}
+                onMapClick={handleMapClick}
                 onBoundsChange={handleBoundsChange}
                 onUserMovedMap={handleUserMovedMap}
                 showSearchArea={showSearchArea}
@@ -3228,6 +3236,16 @@ export default function FindPrices() {
                 providerCount={groupedProviders.length}
                 listingCount={displayedProcedures.length}
                 onSnapChange={setMobileSheetSnap}
+              />
+            )}
+
+            {/* Provider profile card — mobile pin click */}
+            {hasPricedResults && selectedProviderGroup && (
+              <ProviderProfileModal
+                group={selectedProviderGroup}
+                onClose={() => setSelectedProviderGroup(null)}
+                isMobile
+                cityAvg={cityAvgPrice}
               />
             )}
 
@@ -3512,6 +3530,7 @@ export default function FindPrices() {
                     : gateSelectedProviderGroup?.provider_id || null
                 }
                 onPinClick={procFilter ? handlePinClick : handleGatePinClick}
+                onMapClick={handleMapClick}
                 onBoundsChange={handleBoundsChange}
                 onUserMovedMap={handleUserMovedMap}
                 showSearchArea={showSearchArea}
@@ -3523,6 +3542,13 @@ export default function FindPrices() {
                   gateMode
                   onSelectPill={handleGatePillSelect}
                   onClose={() => setGateSelectedProviderGroup(null)}
+                />
+              )}
+              {procFilter && selectedProviderGroup && (
+                <ProviderProfileModal
+                  group={selectedProviderGroup}
+                  onClose={() => setSelectedProviderGroup(null)}
+                  cityAvg={cityAvgPrice}
                 />
               )}
             </div>

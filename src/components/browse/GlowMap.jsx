@@ -193,6 +193,7 @@ export default memo(function GlowMap({
   highlightedId,
   selectedId,
   onPinClick,
+  onMapClick,
   onBoundsChange,
   onUserMovedMap,
   showSearchArea,
@@ -222,6 +223,10 @@ export default memo(function GlowMap({
   useEffect(() => {
     onUserMovedMapRef.current = onUserMovedMap;
   }, [onUserMovedMap]);
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
   // Has any priced data ever been rendered on the current map? Used
   // to decide whether to show the legend (priced) or the gate hint
   // (no prices yet).
@@ -292,6 +297,13 @@ export default memo(function GlowMap({
           });
           map.addListener('zoom_changed', () => {
             if (initialCenteredRef.current) userInteracted.current = true;
+          });
+
+          // Clicking empty map space (not a pin) dismisses any open
+          // provider profile card. Marker clicks do NOT bubble to the
+          // map, so this only fires on background taps.
+          map.addListener('click', () => {
+            onMapClickRef.current?.();
           });
 
           // Report viewport bounds on every idle (map fully settled).
