@@ -26,12 +26,15 @@ function formatRowLabel(row) {
   return getProcedureLabel(row.procedure_type, row.brand).toUpperCase();
 }
 
+const INTERNAL_LABELS = new Set(['range_low', 'range_high', 'hidden']);
+
 function formatPriceLabel(row) {
   const unitLabel = row.price_label || null;
   if (!unitLabel) return null;
-  // Normalize obvious variants so the card reads "per unit" / "per syringe"
-  // rather than "per Unit" / "Per Syringe".
-  return unitLabel.toLowerCase();
+  const lower = unitLabel.toLowerCase();
+  // Suppress internal-only labels that should never reach the UI.
+  if (INTERNAL_LABELS.has(lower)) return null;
+  return lower;
 }
 
 function formatPriceDisplay(row) {
@@ -41,7 +44,13 @@ function formatPriceDisplay(row) {
 }
 
 export default function MultiProcedureProviderCard({ entry, targetCount, userLat, userLng }) {
-  const { provider, prices, matchCount } = entry;
+  const { provider, prices: rawPrices, matchCount } = entry;
+  // Filter out internal-only rows that bypassed normalizePrice().
+  const prices = rawPrices.filter((p) => {
+    const label = (p.price_label || '').toLowerCase();
+    if (INTERNAL_LABELS.has(label)) return false;
+    return Number.isFinite(Number(p.price)) && Number(p.price) > 0;
+  });
 
   const badgeLabel = (() => {
     if (!targetCount || targetCount < 2) return null;

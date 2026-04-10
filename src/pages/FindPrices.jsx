@@ -1377,6 +1377,12 @@ export default function FindPrices() {
       for (const row of data || []) {
         const provider = row.providers;
         if (!provider) continue;
+        // Skip internal-only price_label rows (range_low, range_high)
+        // and rows with no displayable price. These rows bypass
+        // normalizePrice() in this path, so we filter by price_label.
+        const label = (row.price_label || '').toLowerCase();
+        if (label === 'range_low' || label === 'range_high') continue;
+        if (!Number.isFinite(Number(row.price)) || Number(row.price) <= 0) continue;
         const pid = provider.id;
         if (!byProvider.has(pid)) {
           byProvider.set(pid, { provider, prices: [] });

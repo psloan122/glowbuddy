@@ -58,9 +58,14 @@ function compareValue(row) {
 export function groupBrandRows(procedures) {
   if (!Array.isArray(procedures) || procedures.length === 0) return [];
 
-  // Filter out hidden rows (range_low, range_high, unknown price_label
-  // values) BEFORE grouping so they never influence group composition.
-  const cleaned = procedures.filter((p) => p.normalized_category !== 'hidden');
+  // Filter out hidden rows BEFORE grouping so they never influence group
+  // composition. Check both normalized_category (set by normalizePrice)
+  // and raw price_label (for rows that bypassed normalization).
+  const cleaned = procedures.filter((p) => {
+    if (p.normalized_category === 'hidden') return false;
+    const label = (p.price_label || '').toLowerCase();
+    return label !== 'range_low' && label !== 'range_high';
+  });
   if (cleaned.length === 0) return [];
 
   const groups = new Map();

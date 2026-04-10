@@ -80,7 +80,13 @@ export default function ProviderProfileModal({
   // treatment names are distinguishable.
   const topRows = useMemo(() => {
     const rows = (group?.rows || [])
-      .slice()
+      .filter((r) => {
+        // Drop rows flagged as hidden by normalizePrice or carrying
+        // internal-only price_label values (range_low, range_high).
+        if (r.normalized_category === 'hidden') return false;
+        const label = (r.price_label || '').toLowerCase();
+        return label !== 'range_low' && label !== 'range_high';
+      })
       .sort((a, b) => {
         const av = Number(a.normalized_compare_value ?? a.price_paid) || 0;
         const bv = Number(b.normalized_compare_value ?? b.price_paid) || 0;
@@ -92,12 +98,13 @@ export default function ProviderProfileModal({
       const label = getProcedureLabel(row.procedure_type, row.brand);
       const area = getProcedureDetail(row);
       const normalized = normalizePrice(row);
+      if (normalized.category === 'hidden') return null;
       const display = normalized.displayPrice || row.normalized_display || fmtPrice(row.price_paid);
       const compareValue = normalized.comparableValue ?? Number(row.normalized_compare_value);
       const priceLabel = (row.price_label || row.normalized_compare_unit || '').toLowerCase();
       const isUnitPriced = priceLabel.includes('unit') || priceLabel.includes('syringe') || priceLabel.includes('vial');
       return { ...row, _label: label, _area: area, _display: display, _compareValue: compareValue, _isUnitPriced: isUnitPriced };
-    });
+    }).filter(Boolean);
   }, [group]);
 
   // Detect if the same treatment label appears multiple times — if so

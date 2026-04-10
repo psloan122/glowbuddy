@@ -53,9 +53,15 @@ export default function ProviderBottomSheet({
   }, [onClose]);
 
   // Top 3 price rows for this provider, sorted lowest first.
+  // Filter out internal-only rows (range_low, range_high) that should
+  // never reach the UI.
   const topRows = useMemo(() => {
     const rows = (group?.rows || [])
-      .slice()
+      .filter((r) => {
+        if (r.normalized_category === 'hidden') return false;
+        const label = (r.price_label || '').toLowerCase();
+        return label !== 'range_low' && label !== 'range_high';
+      })
       .sort((a, b) => {
         const av = Number(a.price_paid) || 0;
         const bv = Number(b.price_paid) || 0;

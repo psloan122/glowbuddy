@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import { formatPricingUnit } from '../../utils/formatPricingUnit';
 import { AuthContext } from '../../App';
 import { extractPlaceData } from '../../lib/places';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
@@ -942,9 +943,9 @@ export default function Dashboard() {
                         <span className="text-lg font-bold text-text-primary">
                           ${item.price}
                         </span>
-                        {item.price_label && (
+                        {item.price_label && formatPricingUnit(item.price_label) && (
                           <span className="text-sm text-text-secondary">
-                            {item.price_label}
+                            {formatPricingUnit(item.price_label)}
                           </span>
                         )}
                         {item.units_or_volume && (

@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { formatPricingUnit } from '../../utils/formatPricingUnit';
 import { Loader2, Lock, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -348,8 +349,8 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
               <p style={{ margin: 0, fontWeight: 700, color: '#111' }}>
                 {currentPrice !== null
                   ? `$${currentPrice.toFixed(0)}${
-                      row.current_price_label
-                        ? ` ${row.current_price_label}`
+                      row.current_price_label && formatPricingUnit(row.current_price_label)
+                        ? ` ${formatPricingUnit(row.current_price_label)}`
                         : ''
                     }`
                   : '—'}

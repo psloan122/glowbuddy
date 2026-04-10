@@ -7,6 +7,7 @@ import ProcedureCard from '../components/ProcedureCard';
 import PriceAlertButton from '../components/PriceAlertButton';
 import PairsWellWith from '../components/PairsWellWith';
 import StackCaution from '../components/StackCaution';
+import { formatPricingUnit } from '../utils/formatPricingUnit';
 
 export default function ProcedureDetail() {
   const { slug } = useParams();
@@ -136,7 +137,11 @@ export default function ProcedureDetail() {
   }
 
   function getFilteredVerified() {
-    let filtered = verifiedData;
+    // Filter out internal-only price_label rows (range_low, range_high)
+    let filtered = verifiedData.filter((p) => {
+      const label = (p.price_label || '').toLowerCase();
+      return label !== 'range_low' && label !== 'range_high';
+    });
     if (stateFilter) {
       filtered = filtered.filter(
         (p) => p.providers?.state === stateFilter
@@ -374,9 +379,9 @@ export default function ProcedureDetail() {
                 ${Number(item.price).toLocaleString()}
               </div>
 
-              {item.price_label && (
+              {item.price_label && formatPricingUnit(item.price_label) && (
                 <p className="text-sm text-text-secondary mb-1">
-                  {item.price_label}
+                  {formatPricingUnit(item.price_label)}
                 </p>
               )}
 
