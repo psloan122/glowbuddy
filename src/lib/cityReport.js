@@ -159,13 +159,15 @@ export async function fetchCityReport(city, state, yearMonth) {
         .ilike('city', city)
         .eq('state', state)
         .gte('created_at', dateFrom)
-        .lt('created_at', dateTo),
+        .lt('created_at', dateTo)
+        .limit(50000),
       supabase
         .from('provider_pricing')
         .select(PROVIDER_PRICING_FIELDS)
         .eq('display_suppressed', false)
         .ilike('providers.city', city)
-        .eq('providers.state', state),
+        .eq('providers.state', state)
+        .limit(50000),
       supabase
         .from('providers')
         .select('name, slug, verified')
@@ -194,7 +196,8 @@ export async function fetchCityReport(city, state, yearMonth) {
       .select(PROCEDURES_FIELDS)
       .eq('status', 'active')
       .ilike('city', city)
-      .eq('state', state);
+      .eq('state', state)
+      .limit(50000);
     procedureRows = allRows || [];
     usingAllTime = true;
   }

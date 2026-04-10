@@ -28,6 +28,7 @@ export default function Step3({
 }) {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoDragOver, setPhotoDragOver] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const photoInputRef = useRef(null);
 
   // Injector search state
@@ -116,9 +117,16 @@ export default function Step3({
 
   async function handlePhotoFile(f) {
     if (!f) return;
+    setPhotoError('');
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(f.type)) return;
-    if (f.size > 15 * 1024 * 1024) return;
+    if (!allowed.includes(f.type)) {
+      setPhotoError('Please upload a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (f.size > 15 * 1024 * 1024) {
+      setPhotoError('File must be under 15 MB.');
+      return;
+    }
 
     if (!formData.resultPhotoConsent) return;
 
@@ -472,6 +480,9 @@ export default function Step3({
             }}
             className="hidden"
           />
+          {photoError && (
+            <p className="text-xs text-red-500 mt-1">{photoError}</p>
+          )}
         </div>
 
         {/* Anonymous toggle */}

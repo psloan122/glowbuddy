@@ -78,6 +78,8 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
     >
       <button
         onClick={() => setOpenKey(isOpen ? null : dropdown.key)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
         className={`flex items-center gap-1 text-[12px] font-medium uppercase transition-colors ${
           isActive ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
         }`}
@@ -92,7 +94,7 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
 
       {isOpen && (
         <div className="absolute top-full left-0 pt-2 z-50">
-          <div className="min-w-[260px] bg-white border border-rule rounded-none py-3" style={{ borderTop: '2px solid #111' }}>
+          <div className="min-w-[260px] bg-white border border-rule rounded-none py-3" style={{ borderTop: '2px solid #111' }} role="menu">
             <p
               className="px-4 pb-2 text-[10px] font-semibold text-hot-pink uppercase"
               style={{ letterSpacing: '0.12em' }}
@@ -104,6 +106,7 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
                 key={link.to}
                 to={link.to}
                 onClick={() => setOpenKey(null)}
+                role="menuitem"
                 className="block px-4 py-2.5 hover:bg-cream transition-colors group"
               >
                 <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
@@ -340,6 +343,8 @@ export default function Navbar() {
                 <div ref={avatarRef} className="relative">
                   <button
                     onClick={() => setAvatarOpen(!avatarOpen)}
+                    aria-expanded={avatarOpen}
+                    aria-haspopup="true"
                     className="flex items-center gap-1.5"
                   >
                     <div className="w-8 h-8 flex items-center justify-center text-[11px] font-semibold text-white bg-hot-pink rounded-none">
@@ -352,10 +357,12 @@ export default function Navbar() {
                     <div
                       className="absolute right-0 mt-2 w-52 bg-white border border-rule rounded-none py-2 z-50"
                       style={{ borderTop: '2px solid #111' }}
+                      role="menu"
                     >
                       <Link
                         to="/account"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         Account
@@ -363,6 +370,7 @@ export default function Navbar() {
                       <Link
                         to="/my-treatments"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         My Treatments
@@ -370,6 +378,7 @@ export default function Navbar() {
                       <Link
                         to="/my-stack"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         My Stack
@@ -377,6 +386,7 @@ export default function Navbar() {
                       <Link
                         to="/budget"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         Budget
@@ -384,6 +394,7 @@ export default function Navbar() {
                       <Link
                         to="/rewards"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
                       >
                         My Rewards
@@ -391,12 +402,14 @@ export default function Navbar() {
                       <Link
                         to="/refer"
                         onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
                         className="block px-4 py-2.5 text-[13px] font-medium text-hot-pink hover:bg-cream transition-colors"
                       >
                         Refer &amp; Earn $10
                       </Link>
                       <button
                         onClick={handleSignOut}
+                        role="menuitem"
                         className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors"
                       >
                         Sign Out

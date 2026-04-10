@@ -414,6 +414,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                 if (touched.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
               }}
               onBlur={() => handleBlur('email')}
+              aria-describedby={touched.email && fieldErrors.email ? 'auth-email-error' : undefined}
               className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 transition ${
                 touched.email && fieldErrors.email
                   ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
@@ -423,7 +424,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
               autoFocus={mode === 'signin'}
             />
             {touched.email && fieldErrors.email && (
-              <p className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.email}</p>
+              <p id="auth-email-error" role="alert" className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.email}</p>
             )}
           </div>
 
@@ -441,6 +442,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                     if (touched.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
                   }}
                   onBlur={() => handleBlur('password')}
+                  aria-describedby={touched.password && fieldErrors.password ? 'auth-password-error' : undefined}
                   className={`w-full px-4 py-3 pr-11 border rounded-xl text-sm focus:outline-none focus:ring-2 transition ${
                     touched.password && fieldErrors.password
                       ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
@@ -459,7 +461,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                 </button>
               </div>
               {touched.password && fieldErrors.password && (
-                <p className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.password}</p>
+                <p id="auth-password-error" role="alert" className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.password}</p>
               )}
 
               {/* Password strength indicator (signup only) */}
@@ -496,6 +498,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                   if (touched.confirm) setFieldErrors((prev) => ({ ...prev, confirm: '' }));
                 }}
                 onBlur={() => handleBlur('confirm')}
+                aria-describedby={touched.confirm && fieldErrors.confirm ? 'auth-confirm-error' : undefined}
                 className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 transition ${
                   touched.confirm && fieldErrors.confirm
                     ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
@@ -504,7 +507,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
                 required
               />
               {touched.confirm && fieldErrors.confirm && (
-                <p className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.confirm}</p>
+                <p id="auth-confirm-error" role="alert" className="text-xs text-red-500 mt-1 ml-1">{fieldErrors.confirm}</p>
               )}
             </div>
           )}
