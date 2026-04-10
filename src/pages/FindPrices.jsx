@@ -299,6 +299,18 @@ export default function FindPrices() {
   const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
   const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
 
+  // ── Mobile sheet ↔ map padding sync ──
+  // Track the sheet's snap position so we can tell the map which part
+  // of the viewport is covered and shouldn't hold centered pins.
+  const [mobileSheetSnap, setMobileSheetSnap] = useState('half');
+  const mapBottomPadding = useMemo(() => {
+    if (!isMobile || !selectedLoc) return 0;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    if (mobileSheetSnap === 'full_map') return 0;
+    if (mobileSheetSnap === 'full_list') return Math.round(h * 0.05);
+    return Math.round(h * 0.45); // half (default)
+  }, [isMobile, selectedLoc, mobileSheetSnap]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     function handleResize() {
@@ -1655,11 +1667,9 @@ export default function FindPrices() {
     if (brandFilter) {
       rows = rows.filter((p) => p.normalized_category !== 'flat_rate_area');
     }
-    // Desktop only: filter to providers visible in the current map
-    // viewport so the list stays in sync with what's on screen.
-    // On mobile the list lives in a separate tab/sheet — viewport
-    // filtering would hide providers the user just scrolled through.
-    if (mapBounds && !isMobile) {
+    // Filter to providers visible in the current map viewport so the
+    // list stays in sync with what's on screen.
+    if (mapBounds) {
       rows = rows.filter((p) => {
         const lat = Number(p.provider_lat);
         const lng = Number(p.provider_lng);
@@ -1687,7 +1697,7 @@ export default function FindPrices() {
       rows = [...rows].sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     }
     return rows;
-  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds, isMobile]);
+  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds]);
 
   // City average — unit-normalized when possible so $14/unit and $700/20u
   // sit on the same scale. Used for the vs-average badges + savings callout.
@@ -1791,11 +1801,11 @@ export default function FindPrices() {
     return groups;
   }, [displayedProcedures]);
 
-  // Viewport-filtered gate-mode provider count. On desktop, only counts
-  // providers visible in the current map viewport so the "X providers in
-  // this area" label stays in sync with the map.
+  // Viewport-filtered gate-mode provider count — only counts providers
+  // visible in the current map viewport so the "X providers in this
+  // area" label stays in sync with the map.
   const viewportProviderCount = useMemo(() => {
-    if (!mapBounds || isMobile) return gateProviders.length;
+    if (!mapBounds) return gateProviders.length;
     return gateProviders.filter((p) => {
       const lat = Number(p.lat);
       const lng = Number(p.lng);
@@ -1803,7 +1813,7 @@ export default function FindPrices() {
       return lat >= mapBounds.south && lat <= mapBounds.north &&
              lng >= mapBounds.west  && lng <= mapBounds.east;
     }).length;
-  }, [gateProviders, mapBounds, isMobile]);
+  }, [gateProviders, mapBounds]);
 
   // ── Compare tray handlers ──
   const toggleCompare = useCallback((procedure) => {
@@ -1868,263 +1878,255 @@ export default function FindPrices() {
     });
   }, []);
 
+  // ── Mobile compact header content (shared between sticky & full-screen modes) ──
+  const renderCompactHeader = () => (
+    <>
+      <div className="px-3 pt-1.5 pb-0.5">
+        <h1
+          className="font-display text-ink"
+          style={{
+            fontWeight: 900, fontSize: 15, lineHeight: 1.2,
+            letterSpacing: '-0.02em', textTransform: 'uppercase', margin: 0,
+            maxHeight: 32,
+          }}
+        >
+          KNOW BEFORE YOU{' '}
+          <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
+        </h1>
+      </div>
+      <div className="px-3 pt-1.5 pb-2 space-y-1.5">
+        {/* Row 1 — Treatment + Location inputs (side by side) */}
+        <div className="flex gap-1.5">
+        <div ref={procRef} className="relative" style={{ flex: 1.2 }}>
+          {procFilter ? (
+            <div
+              className="flex items-center gap-2 bg-white px-2"
+              style={{ height: 36, borderRadius: 2, border: '1px solid #EDE8E3' }}
+            >
+              <Search size={14} className="text-text-secondary shrink-0" />
+              <span
+                className="flex-1 text-[13px] text-ink truncate"
+                style={{ fontFamily: 'var(--font-body)' }}
+              >
+                {brandFilter || procFilter.label || procFilter.primary}
+              </span>
+              <button
+                onClick={clearProcedure}
+                className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                aria-label="Clear treatment"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-2 bg-white px-2"
+              style={{ height: 36, borderRadius: 2, border: '1px solid #EDE8E3' }}
+            >
+              <Search size={14} className="text-text-secondary shrink-0" />
+              <input
+                type="text"
+                value={procQuery}
+                onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
+                onFocus={() => procQuery.trim() && setProcOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const next = resolveProcedureFromQuery(procQuery);
+                    if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
+                  }
+                  if (e.key === 'Escape') setProcOpen(false);
+                }}
+                placeholder="Botox, filler, laser..."
+                className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
+              />
+            </div>
+          )}
+          {/* Treatment dropdown */}
+          {procOpen && procQuery.trim() && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
+              style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
+            >
+              {(() => {
+                const matchedPill = findPillByLabel(procQuery);
+                return (
+                  <>
+                    {matchedPill && (
+                      <button
+                        key={`pill-${matchedPill.slug}`}
+                        onClick={() => selectPill(matchedPill)}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                        style={{ borderBottom: '1px solid #F0F0F0' }}
+                      >
+                        {matchedPill.label}
+                      </button>
+                    )}
+                    {procMatches.slice(0, 6).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => selectProcedure(p)}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    {!matchedPill && procMatches.length === 0 && (
+                      <div className="px-4 py-3 text-sm text-text-secondary">No matches</div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Location input (side by side with treatment) */}
+        <div ref={locRef} className="relative" style={{ flex: 1 }}>
+          <div
+            className="flex items-center gap-2 bg-white px-2"
+            style={{ height: 36, borderRadius: 2, border: '1px solid #EDE8E3' }}
+          >
+            <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
+            <input
+              type="text"
+              value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
+              onChange={(e) => handleLocInput(e.target.value)}
+              onFocus={() => {
+                if (selectedLoc && !locQuery) {
+                  setLocQuery(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
+                }
+                if (locQuery.trim()) setLocOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
+                  selectLocation(locResults[0]);
+                }
+                if (e.key === 'Escape') setLocOpen(false);
+              }}
+              placeholder="City or zip code..."
+              className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+              style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
+            />
+            {selectedLoc && (
+              <button
+                onClick={clearLocation}
+                className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                aria-label="Clear location"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {/* Location dropdown */}
+          {locOpen && locQuery.trim() && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
+              style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
+            >
+              {locLoading ? (
+                <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
+              ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
+                <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
+                  <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>Looks like a phone area code.</p>
+                  <p>Try a city name or 5-digit zip.</p>
+                </div>
+              ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
+                <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>Keep typing — US zip codes are 5 digits.</div>
+              ) : locResults.length > 0 ? (
+                locResults.map((loc, i) => (
+                  <button
+                    key={`${loc.city}-${loc.state}-${i}`}
+                    onClick={() => selectLocation(loc)}
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
+                  >
+                    <MapPin size={14} className="text-text-secondary shrink-0" />
+                    {loc.city}{loc.state ? `, ${loc.state}` : ''}
+                    {loc.zip ? ` (${loc.zip})` : ''}
+                  </button>
+                ))
+              ) : locQuery.trim().length >= 2 ? (
+                <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
+              ) : null}
+            </div>
+          )}
+        </div>
+        </div>{/* end flex row for inputs */}
+
+        {/* Row 3 — Injectable chips (horizontal scroll) */}
+        <div
+          className="flex items-center overflow-x-auto -mx-1 px-1"
+          style={{ gap: 8, scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+        >
+          {PROCEDURE_PILLS.filter((p) =>
+            ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify', 'Fillers'].includes(p.label)
+          ).map((pill, i, arr) => {
+            const isActive = procFilter?.slug === pill.slug && (
+              !pill.brand || brandFilter === pill.brand
+            );
+            const isLast = i === arr.length - 1;
+            return (
+              <button
+                key={`mpill-${pill.slug}-${pill.brand || 'base'}`}
+                type="button"
+                onClick={() => {
+                  if (isActive) { clearProcedure(); } else { selectPill(pill); }
+                }}
+                className="shrink-0"
+                style={{
+                  height: 36,
+                  padding: '0 14px',
+                  borderRadius: 18,
+                  border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
+                  background: isActive ? '#E8347A' : 'white',
+                  color: isActive ? '#fff' : '#555',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  letterSpacing: '0.06em',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {pill.label === 'Fillers' ? 'Filler' : pill.label}{isLast ? ' →' : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Row 4 — Find Prices CTA */}
+        <button
+          type="button"
+          onClick={() => {
+            if (procQuery.trim()) {
+              const next = resolveProcedureFromQuery(procQuery);
+              if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
+            }
+          }}
+          className="btn-editorial btn-editorial-primary w-full"
+          style={{ height: 44, fontSize: 13, letterSpacing: '0.10em', fontWeight: 700 }}
+        >
+          FIND PRICES
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-cream page-enter">
-      {/* ─── Mobile search + filter bar (< md) ─── */}
+      {/* ─── Mobile search + filter bar (< md) — pre-city sticky mode only ─── */}
+      {!(isMobile && selectedLoc) && (
       <div
         className="md:hidden bg-white"
         style={{
-          position: isMobile && selectedLoc ? 'fixed' : 'sticky',
+          position: 'sticky',
           top: 52,
-          left: 0,
-          right: 0,
           zIndex: 40,
           borderBottom: '1px solid #EDE8E3',
         }}
       >
-        <div className="px-3 pt-2 pb-1">
-          <h1
-            className="font-display text-ink"
-            style={{
-              fontWeight: 900, fontSize: 20, lineHeight: 1,
-              letterSpacing: '-0.02em', textTransform: 'uppercase', margin: 0,
-            }}
-          >
-            KNOW BEFORE YOU{' '}
-            <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
-          </h1>
-        </div>
-        <div className="px-3 pt-1.5 pb-2 space-y-1.5">
-          {/* Row 1 — Treatment input (top) */}
-          <div ref={procRef} className="relative">
-            {procFilter ? (
-              <div
-                className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
-              >
-                <Search size={14} className="text-text-secondary shrink-0" />
-                <span
-                  className="flex-1 text-[13px] text-ink truncate"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                >
-                  {brandFilter || procFilter.label || procFilter.primary}
-                </span>
-                <button
-                  onClick={clearProcedure}
-                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
-                  aria-label="Clear treatment"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-2 bg-white px-3"
-                style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
-              >
-                <Search size={14} className="text-text-secondary shrink-0" />
-                <input
-                  type="text"
-                  value={procQuery}
-                  onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
-                  onFocus={() => procQuery.trim() && setProcOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const next = resolveProcedureFromQuery(procQuery);
-                      if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
-                    }
-                    if (e.key === 'Escape') setProcOpen(false);
-                  }}
-                  placeholder="Botox, filler, laser..."
-                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-                  style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
-                />
-              </div>
-            )}
-            {/* Treatment dropdown */}
-            {procOpen && procQuery.trim() && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
-                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
-              >
-                {(() => {
-                  const matchedPill = findPillByLabel(procQuery);
-                  return (
-                    <>
-                      {matchedPill && (
-                        <button
-                          key={`pill-${matchedPill.slug}`}
-                          onClick={() => selectPill(matchedPill)}
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
-                          style={{ borderBottom: '1px solid #F0F0F0' }}
-                        >
-                          {matchedPill.label}
-                        </button>
-                      )}
-                      {procMatches.slice(0, 6).map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => selectProcedure(p)}
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
-                        >
-                          {p}
-                        </button>
-                      ))}
-                      {!matchedPill && procMatches.length === 0 && (
-                        <div className="px-4 py-3 text-sm text-text-secondary">No matches</div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Row 2 — Location input (bottom) */}
-          <div ref={locRef} className="relative">
-            <div
-              className="flex items-center gap-2 bg-white px-3"
-              style={{ height: 38, borderRadius: 2, border: '1px solid #EDE8E3' }}
-            >
-              <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
-              <input
-                type="text"
-                value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
-                onChange={(e) => handleLocInput(e.target.value)}
-                onFocus={() => {
-                  if (selectedLoc && !locQuery) {
-                    setLocQuery(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
-                  }
-                  if (locQuery.trim()) setLocOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
-                    selectLocation(locResults[0]);
-                  }
-                  if (e.key === 'Escape') setLocOpen(false);
-                }}
-                placeholder="City or zip code..."
-                className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-                style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
-              />
-              {selectedLoc && (
-                <button
-                  onClick={clearLocation}
-                  className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
-                  aria-label="Clear location"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {/* Location dropdown */}
-            {locOpen && locQuery.trim() && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 bg-white z-50 overflow-hidden"
-                style={{ borderRadius: 2, border: '1px solid #E8E8E8' }}
-              >
-                {locLoading ? (
-                  <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
-                ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
-                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
-                    <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>Looks like a phone area code.</p>
-                    <p>Try a city name or 5-digit zip.</p>
-                  </div>
-                ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
-                  <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>Keep typing — US zip codes are 5 digits.</div>
-                ) : locResults.length > 0 ? (
-                  locResults.map((loc, i) => (
-                    <button
-                      key={`${loc.city}-${loc.state}-${i}`}
-                      onClick={() => selectLocation(loc)}
-                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors flex items-center gap-2 text-ink"
-                    >
-                      <MapPin size={14} className="text-text-secondary shrink-0" />
-                      {loc.city}{loc.state ? `, ${loc.state}` : ''}
-                      {loc.zip ? ` (${loc.zip})` : ''}
-                    </button>
-                  ))
-                ) : locQuery.trim().length >= 2 ? (
-                  <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          {/* Row 3 — Filter pills */}
-          <div
-            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-          >
-            {PROCEDURE_PILLS.filter((p) => p.isPrimary).slice(0, 8).map((pill) => {
-              const isActive = procFilter?.slug === pill.slug && (
-                !pill.brand || brandFilter === pill.brand
-              );
-              return (
-                <button
-                  key={`mpill-${pill.slug}-${pill.brand || 'base'}`}
-                  type="button"
-                  onClick={() => {
-                    if (isActive) { clearProcedure(); } else { selectPill(pill); }
-                  }}
-                  className="shrink-0"
-                  style={{
-                    height: 28,
-                    padding: '0 10px',
-                    borderRadius: 2,
-                    border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
-                    background: isActive ? '#E8347A' : 'white',
-                    color: isActive ? '#fff' : '#555',
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize: 11,
-                    letterSpacing: '0.06em',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {pill.label}
-                </button>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className="inline-flex items-center gap-1 shrink-0"
-              style={{
-                height: 28,
-                padding: '0 10px',
-                border: '1px solid #DDD',
-                borderRadius: 2,
-                background: 'white',
-                color: '#111',
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: '0.06em',
-              }}
-            >
-              <SlidersHorizontal size={12} />
-              Filters
-            </button>
-          </div>
-
-          {/* Row 4 — Find Prices CTA */}
-          <button
-            type="button"
-            onClick={() => {
-              if (procQuery.trim()) {
-                const next = resolveProcedureFromQuery(procQuery);
-                if (next) { setProcFilter(next); setProcQuery(''); setProcOpen(false); }
-              }
-            }}
-            className="btn-editorial btn-editorial-primary w-full"
-            style={{ height: 40, fontSize: 13, letterSpacing: '0.08em', fontWeight: 600 }}
-          >
-            FIND PRICES
-          </button>
-        </div>
+        {renderCompactHeader()}
       </div>
+      )}
 
       {/* Sticky search header (desktop only) */}
       <div className="hidden md:block sticky top-16 z-30 bg-white" style={{ borderBottom: '1px solid #E8E8E8' }}>
@@ -3098,57 +3100,111 @@ export default function FindPrices() {
         );
       })()}
 
-      {/* ─── Mobile unified map — single instance across gate → loading → priced ─── */}
+      {/* ─── Mobile full-screen map container ───
+          Single fixed container holding map + sheet + header as siblings.
+          z-55 covers the global Navbar (z-50); MobileBottomNav (z-100) still above. */}
       {isMobile && selectedLoc && (() => {
         const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
         return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: SUPPORTS_DVH ? '55dvh' : '55vh', zIndex: 1 }}>
-            <GlowMap
-              allProviders={gateProviders}
-              procedures={hasPricedResults ? displayedProcedures : []}
-              cityAvg={hasPricedResults ? cityAvgPrice : undefined}
-              city={selectedLoc.city}
-              state={selectedLoc.state}
-              highlightedId={hasPricedResults ? hoveredProviderId : null}
-              selectedId={hasPricedResults
-                ? (selectedProviderGroup?.provider_id || null)
-                : (gateSelectedProviderGroup?.provider_id || null)}
-              onPinClick={hasPricedResults ? handlePinClick : handleGatePinClick}
-              onBoundsChange={handleBoundsChange}
-              onUserMovedMap={handleUserMovedMap}
-              showSearchArea={showSearchArea}
-              onSearchAreaClick={handleSearchAreaClick}
-              mobileLegendTop
-            />
+          <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
+
+            {/* Layer 1: Map — fills full screen behind everything */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+              <GlowMap
+                allProviders={gateProviders}
+                procedures={hasPricedResults ? displayedProcedures : []}
+                cityAvg={hasPricedResults ? cityAvgPrice : undefined}
+                city={selectedLoc.city}
+                state={selectedLoc.state}
+                highlightedId={hasPricedResults ? hoveredProviderId : null}
+                selectedId={hasPricedResults
+                  ? (selectedProviderGroup?.provider_id || null)
+                  : (gateSelectedProviderGroup?.provider_id || null)}
+                onPinClick={hasPricedResults ? handlePinClick : handleGatePinClick}
+                onBoundsChange={handleBoundsChange}
+                onUserMovedMap={handleUserMovedMap}
+                showSearchArea={showSearchArea}
+                onSearchAreaClick={handleSearchAreaClick}
+                mobileLegendTop
+                bottomPadding={mapBottomPadding}
+              />
+            </div>
+
+            {/* Layer 2: Bottom sheet — rendered BEFORE header so header's
+                z-index wins and autocomplete dropdowns appear above the sheet */}
+            {!procFilter && !brandFilter && (
+              <MobileBrowseSheet
+                providers={gateProviders.map((p) => ({
+                  key: p.id,
+                  id: p.id,
+                  provider_id: p.id,
+                  provider_name: p.name || p.provider_name,
+                  provider_slug: p.slug || p.provider_slug,
+                  city: p.city,
+                  state: p.state,
+                  google_rating: p.google_rating,
+                  google_review_count: p.google_review_count,
+                  has_submissions: false,
+                }))}
+                mode="gate"
+                city={selectedLoc.city}
+                state={selectedLoc.state}
+                selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
+                providerCount={gateProviders.length}
+                loading={gateProvidersLoading}
+                onSelectPill={selectPill}
+                pills={PROCEDURE_PILLS}
+                onSnapChange={setMobileSheetSnap}
+              />
+            )}
+            {hasPricedResults && (
+              <MobileBrowseSheet
+                providers={groupedProviders.map((group) => {
+                  const primary = group.procedures[0];
+                  return {
+                    key: group.key,
+                    id: group.provider_id,
+                    provider_id: group.provider_id,
+                    provider_name: primary.provider_name,
+                    provider_slug: primary.provider_slug,
+                    city: primary.city,
+                    state: primary.state,
+                    avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
+                    submission_count: group.procedures.length,
+                    verified_count: group.procedures.filter((p) => p.receipt_verified).length,
+                    has_submissions: true,
+                    provider_type: primary.provider_type,
+                    google_rating: primary.google_rating || primary.rating,
+                    google_review_count: primary.google_review_count,
+                    bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
+                  };
+                })}
+                mode="priced"
+                city={selectedLoc?.city}
+                state={selectedLoc?.state}
+                cityAvg={cityAvgPrice}
+                selectedProviderId={selectedProviderGroup?.provider_id || null}
+                providerCount={groupedProviders.length}
+                onSnapChange={setMobileSheetSnap}
+              />
+            )}
+
+            {/* Layer 3: Compact header — LAST so its stacking context (z-40)
+                keeps autocomplete dropdowns (z-50 inside) above the sheet (z-35) */}
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0,
+              zIndex: 40,
+              background: 'white',
+              borderBottom: '1px solid #EDE8E3',
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+            }}>
+              {renderCompactHeader()}
+            </div>
+
           </div>
         );
       })()}
-
-      {/* ─── Gate state — mobile bottom sheet (map rendered above) ─── */}
-      {!procFilter && !brandFilter && selectedLoc && isMobile && (
-        <MobileBrowseSheet
-          providers={gateProviders.map((p) => ({
-            key: p.id,
-            id: p.id,
-            provider_id: p.id,
-            provider_name: p.name || p.provider_name,
-            provider_slug: p.slug || p.provider_slug,
-            city: p.city,
-            state: p.state,
-            google_rating: p.google_rating,
-            google_review_count: p.google_review_count,
-            has_submissions: false,
-          }))}
-          mode="gate"
-          city={selectedLoc.city}
-          state={selectedLoc.state}
-          selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
-          providerCount={gateProviders.length}
-          loading={gateProvidersLoading}
-          onSelectPill={selectPill}
-          pills={PROCEDURE_PILLS}
-        />
-      )}
 
       {/* ─── Priced header chrome ───
           Renders for both mobile and desktop when there are priced
@@ -3196,38 +3252,6 @@ export default function FindPrices() {
             />
           )}
         </div>
-      )}
-
-      {/* ─── Mobile priced view: bottom sheet (map rendered in unified block above) ─── */}
-      {procFilter && !loadingProcedures && displayedProcedures.length > 0 && isMobile && (
-        <MobileBrowseSheet
-          providers={groupedProviders.map((group) => {
-            const primary = group.procedures[0];
-            return {
-              key: group.key,
-              id: group.provider_id,
-              provider_id: group.provider_id,
-              provider_name: primary.provider_name,
-              provider_slug: primary.provider_slug,
-              city: primary.city,
-              state: primary.state,
-              avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
-              submission_count: group.procedures.length,
-              verified_count: group.procedures.filter((p) => p.receipt_verified).length,
-              has_submissions: true,
-              provider_type: primary.provider_type,
-              google_rating: primary.google_rating || primary.rating,
-              google_review_count: primary.google_review_count,
-              bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
-            };
-          })}
-          mode="priced"
-          city={selectedLoc?.city}
-          state={selectedLoc?.state}
-          cityAvg={cityAvgPrice}
-          selectedProviderId={selectedProviderGroup?.provider_id || null}
-          providerCount={groupedProviders.length}
-        />
       )}
 
       {/* ─── Desktop cards without map (no city selected) ─── */}

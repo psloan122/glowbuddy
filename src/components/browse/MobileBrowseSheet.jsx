@@ -1,11 +1,29 @@
-import { useRef, useState, useEffect, useCallback, memo } from 'react';
+import { useRef, useState, useEffect, useCallback, memo, useMemo } from 'react';
 import MapProviderCard from '../MapProviderCard';
 
-const PEEK_Y = 45; // translateY(45%) — map visible in top ~55%
-const FULL_Y = 5;  // translateY(5%) — sheet covers ~95%
-const SNAP_THRESHOLD = 15; // percentage delta to trigger snap switch
+// Snap positions — dvh from top (used as translateY %).
+// Sheet is 100dvh tall, anchored at bottom:0.
+const SNAP_FULL_MAP  = 88; // sheet barely visible — just handle + toggle showing
+const SNAP_HALF      = 50; // half map, half list
+const SNAP_FULL_LIST = 8;  // full list, map almost hidden
+
 const DIRECTION_LOCK_PX = 8; // pixels of movement before we commit to drag vs scroll
 const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
+
+const SNAP_POINTS = [
+  { name: 'full_list', y: SNAP_FULL_LIST },
+  { name: 'half',      y: SNAP_HALF },
+  { name: 'full_map',  y: SNAP_FULL_MAP },
+];
+const SNAP_Y = { full_list: SNAP_FULL_LIST, half: SNAP_HALF, full_map: SNAP_FULL_MAP };
+
+function nearestSnap(y) {
+  let best = SNAP_POINTS[0];
+  for (const sp of SNAP_POINTS) {
+    if (Math.abs(sp.y - y) < Math.abs(best.y - y)) best = sp;
+  }
+  return best.name;
+}
 
 export default memo(function MobileBrowseSheet({
   providers,
@@ -19,8 +37,9 @@ export default memo(function MobileBrowseSheet({
   onSelectPill,
   pills,
   onProviderSelect,
+  onSnapChange,
 }) {
-  const [snap, setSnap] = useState('peek'); // 'peek' | 'full'
+  const [snap, setSnap] = useState('half'); // 'full_map' | 'half' | 'full_list'
   const [dragY, setDragY] = useState(null); // live translateY during drag
   const startYRef = useRef(null);
   const startSnapRef = useRef(null);
@@ -34,13 +53,18 @@ export default memo(function MobileBrowseSheet({
   // - scrolling: committed to list scroll (browser handles it)
   const gestureRef = useRef('idle');
 
-  const currentTranslateY = snap === 'peek' ? PEEK_Y : FULL_Y;
+  const currentTranslateY = SNAP_Y[snap];
 
-  // Pin-tap reaction: when selectedProviderId changes, expand + scroll
+  // Notify parent of snap changes so it can adjust map padding
+  useEffect(() => {
+    onSnapChange?.(snap);
+  }, [snap, onSnapChange]);
+
+  // Pin-tap reaction: when selectedProviderId changes, expand to full list + scroll
   useEffect(() => {
     if (selectedProviderId == null) return;
     const raf = requestAnimationFrame(() => {
-      setSnap('full');
+      setSnap('full_list');
     });
     const timer = setTimeout(() => {
       const node = document.querySelector(
@@ -72,8 +96,8 @@ export default memo(function MobileBrowseSheet({
 
       const deltaPixels = e.touches[0].clientY - startYRef.current;
       const deltaPct = (deltaPixels / window.innerHeight) * 100;
-      const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
-      const newY = Math.max(FULL_Y, Math.min(PEEK_Y + 5, baseY + deltaPct));
+      const baseY = SNAP_Y[startSnapRef.current];
+      const newY = Math.max(SNAP_FULL_LIST - 2, Math.min(SNAP_FULL_MAP + 3, baseY + deltaPct));
       setDragY(newY);
     }
 
@@ -98,10 +122,10 @@ export default memo(function MobileBrowseSheet({
   // Uses non-passive touchmove so we can preventDefault() when dragging.
   //
   // Rules:
-  //   PEEK mode → always drag (list shouldn't scroll when half-hidden)
-  //   FULL mode + scrollTop > 0 → always scroll
-  //   FULL mode + scrollTop === 0 + swipe DOWN → drag sheet closed
-  //   FULL mode + scrollTop === 0 + swipe UP → scroll list
+  //   FULL_MAP or HALF → always drag (list shouldn't scroll when partially hidden)
+  //   FULL_LIST + scrollTop > 0 → always scroll
+  //   FULL_LIST + scrollTop === 0 + swipe DOWN → drag sheet down
+  //   FULL_LIST + scrollTop === 0 + swipe UP → scroll list
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -110,8 +134,8 @@ export default memo(function MobileBrowseSheet({
       startYRef.current = e.touches[0].clientY;
       startSnapRef.current = snap;
 
-      if (snap === 'peek') {
-        // In peek mode, the list shouldn't scroll — always drag
+      if (snap !== 'full_list') {
+        // In full_map or half mode, the list shouldn't scroll — always drag
         gestureRef.current = 'dragging';
       } else if (list.scrollTop > 0) {
         // Already scrolled down — let browser handle scroll
@@ -131,7 +155,7 @@ export default memo(function MobileBrowseSheet({
         if (Math.abs(deltaPixels) < DIRECTION_LOCK_PX) return;
 
         if (deltaPixels > 0) {
-          // Swiping DOWN from top of list → drag sheet closed
+          // Swiping DOWN from top of list → drag sheet down
           gestureRef.current = 'dragging';
         } else {
           // Swiping UP from top of list → scroll the list
@@ -144,8 +168,8 @@ export default memo(function MobileBrowseSheet({
         e.preventDefault(); // works because { passive: false }
 
         const deltaPct = (deltaPixels / window.innerHeight) * 100;
-        const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
-        const newY = Math.max(FULL_Y, Math.min(PEEK_Y + 5, baseY + deltaPct));
+        const baseY = SNAP_Y[startSnapRef.current];
+        const newY = Math.max(SNAP_FULL_LIST - 2, Math.min(SNAP_FULL_MAP + 3, baseY + deltaPct));
         setDragY(newY);
       }
 
@@ -175,7 +199,6 @@ export default memo(function MobileBrowseSheet({
   }, [snap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Shared drag finish logic ─────────────────────────────────────
-  // Using useCallback so the effect cleanups don't stale-close over it.
   // The `dragY` ref trick avoids stale closure — we read it from a ref
   // in finishDrag but setDragY for React re-renders.
   const dragYRef = useRef(null);
@@ -191,27 +214,23 @@ export default memo(function MobileBrowseSheet({
       return;
     }
 
-    const baseY = startSnapRef.current === 'peek' ? PEEK_Y : FULL_Y;
-    const deltaPct = currentDragY - baseY;
-
-    if (Math.abs(deltaPct) > SNAP_THRESHOLD) {
-      setSnap(deltaPct > 0 ? 'peek' : 'full');
-    }
-
+    // Snap to nearest of the 3 positions
+    setSnap(nearestSnap(currentDragY));
     setDragY(null);
     startYRef.current = null;
   }, []);
 
-  // When snap changes to peek, reset list scroll so next expansion
-  // starts fresh at the top.
+  // When snap moves away from full_list, reset list scroll so next
+  // expansion starts fresh at the top.
   useEffect(() => {
-    if (snap === 'peek' && listRef.current) {
+    if (snap !== 'full_list' && listRef.current) {
       listRef.current.scrollTop = 0;
     }
   }, [snap]);
 
   const translateY = dragY != null ? dragY : currentTranslateY;
   const isTransitioning = dragY == null; // only animate when not actively dragging
+  const allowScroll = snap === 'full_list';
 
   const count = providerCount ?? providers.length;
 
@@ -233,13 +252,51 @@ export default memo(function MobileBrowseSheet({
         willChange: 'transform',
       }}
     >
+      {/* Snap toggle buttons */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 12,
+          paddingTop: 8,
+          paddingBottom: 4,
+        }}
+      >
+        {[
+          { label: '\uD83D\uDDFA Map', target: 'full_map' },
+          { label: '\u25A0\u25A0 Split', target: 'half' },
+          { label: '\u2630 List', target: 'full_list' },
+        ].map(({ label, target }) => (
+          <button
+            key={target}
+            type="button"
+            onClick={() => setSnap(target)}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 14,
+              border: `1px solid ${snap === target ? '#E8347A' : '#EDE8E3'}`,
+              background: snap === target ? '#E8347A' : 'white',
+              color: snap === target ? '#fff' : '#666',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 600,
+              fontSize: 11,
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Drag handle — always controls sheet drag */}
       <div
         ref={handleRef}
         style={{
           display: 'flex',
           justifyContent: 'center',
-          paddingTop: 10,
+          paddingTop: 6,
           paddingBottom: 6,
           cursor: 'grab',
           touchAction: 'none', // prevent browser scroll on the handle
@@ -247,7 +304,7 @@ export default memo(function MobileBrowseSheet({
       >
         <div
           style={{
-            width: 40,
+            width: 36,
             height: 4,
             borderRadius: 2,
             background: '#D1D5DB',
@@ -267,7 +324,7 @@ export default memo(function MobileBrowseSheet({
           }}
         >
           {loading
-            ? 'Finding providers…'
+            ? 'Finding providers\u2026'
             : `${count} provider${count !== 1 ? 's' : ''} in ${city || ''}${state ? `, ${state}` : ''}`}
         </p>
       </div>
@@ -317,7 +374,7 @@ export default memo(function MobileBrowseSheet({
       <div
         ref={listRef}
         style={{
-          overflowY: snap === 'peek' ? 'hidden' : 'auto',
+          overflowY: allowScroll ? 'auto' : 'hidden',
           height: 'calc(100% - 80px)',
           paddingLeft: 8,
           paddingRight: 8,
@@ -337,7 +394,7 @@ export default memo(function MobileBrowseSheet({
               textAlign: 'center',
             }}
           >
-            Finding med spas near you…
+            Finding med spas near you\u2026
           </p>
         ) : providers.length === 0 ? (
           <p

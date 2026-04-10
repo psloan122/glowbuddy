@@ -133,6 +133,31 @@ function buildGatePinIcon({ initials, highlighted }) {
   };
 }
 
+// Mini-pin for overflow providers outside the top tier — small pink dot,
+// no price label, no initials. Keeps the map from getting overwhelming
+// in dense cities while still showing that more providers exist.
+const TOP_PROVIDER_COUNT = 30;
+
+function buildMiniDot({ highlighted }) {
+  const size = highlighted ? 14 : 8;
+  const fill = highlighted ? PRICE_COLORS.highlight : '#E8347A';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 4}" height="${size + 4}" viewBox="0 0 ${size + 4} ${size + 4}">
+      <defs>
+        <filter id="shadow-mini" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" flood-color="#000" flood-opacity="0.2"/>
+        </filter>
+      </defs>
+      <circle cx="${(size + 4) / 2}" cy="${(size + 4) / 2}" r="${size / 2}" fill="${fill}" filter="url(#shadow-mini)"/>
+    </svg>
+  `;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: window.google?.maps ? new window.google.maps.Point((size + 4) / 2, (size + 4) / 2) : undefined,
+    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 4, size + 4) : undefined,
+  };
+}
+
 function providerInitials(name) {
   if (!name) return '';
   const cleaned = String(name).replace(/[^A-Za-z0-9 &]/g, ' ').trim();
@@ -173,6 +198,7 @@ export default memo(function GlowMap({
   showSearchArea,
   onSearchAreaClick,
   mobileLegendTop,
+  bottomPadding = 0,
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -388,6 +414,22 @@ export default memo(function GlowMap({
     };
   }, [ready, city, state]);
 
+  // ── Sync map padding with mobile sheet position ───────────────────
+  // When the bottom sheet covers part of the map, we tell Google Maps
+  // to treat that area as off-limits for centering, fitBounds, etc.
+  // so pins behind the sheet are pushed up into the visible viewport.
+  // After updating padding, re-center so the visible area adjusts
+  // smoothly rather than leaving pins stranded behind the sheet.
+  useEffect(() => {
+    if (!ready || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    map.setOptions({
+      padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 },
+    });
+    const center = map.getCenter();
+    if (center) map.panTo(center);
+  }, [ready, bottomPadding]);
+
   // ── Render pins ─────────────────────────────────────────────────────
   //
   // Single source of truth: `allProviders`. We build one marker per
@@ -547,6 +589,12 @@ export default memo(function GlowMap({
       return (b.rating || 0) - (a.rating || 0);
     });
 
+    // Determine top-tier providers by rating — they get full price
+    // pill or initials pins. Everyone else gets a mini pink dot so
+    // dense cities stay readable.
+    const ratingRanked = [...nextGroups].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    const topKeys = new Set(ratingRanked.slice(0, TOP_PROVIDER_COUNT).map((g) => g.key));
+
     // Reconcile: drop markers no longer represented, update existing
     // ones in place, create markers for newly-introduced providers.
     const existingByKey = new Map();
@@ -575,17 +623,38 @@ export default memo(function GlowMap({
         (g.provider_id === highlightedId || g.provider_id === selectedId);
       const initials = providerInitials(g.provider_name);
       const label = isPriced ? fmtShortPrice(g.bestPrice) : null;
+      const isTop = topKeys.has(g.key);
 
-      const icon = isPriced
-        ? buildPinIcon({
-            color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
-            label,
-            highlighted: isHighlighted,
-          })
-        : buildGatePinIcon({
-            initials,
-            highlighted: isHighlighted,
-          });
+      // Top-tier: full price pill (priced) or initials circle (gate).
+      // Overflow: small pink mini-dot. Highlighted overflow expands
+      // to full pin so the user can still read price/name on hover.
+      let icon;
+      if (isTop) {
+        icon = isPriced
+          ? buildPinIcon({
+              color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
+              label,
+              highlighted: isHighlighted,
+            })
+          : buildGatePinIcon({
+              initials,
+              highlighted: isHighlighted,
+            });
+      } else if (isHighlighted) {
+        // Expand mini-dot to full pin on highlight
+        icon = isPriced
+          ? buildPinIcon({
+              color: PRICE_COLORS.highlight,
+              label,
+              highlighted: true,
+            })
+          : buildGatePinIcon({
+              initials,
+              highlighted: true,
+            });
+      } else {
+        icon = buildMiniDot({ highlighted: false });
+      }
 
       let marker = existingByKey.get(g.key);
       if (!marker) {
@@ -615,7 +684,8 @@ export default memo(function GlowMap({
       marker.__glowLabel = label;
       marker.__glowInitials = initials;
       marker.__glowPriced = isPriced;
-      marker.setZIndex(isHighlighted ? 1000 : isPriced ? 100 : 50);
+      marker.__glowIsTop = isTop;
+      marker.setZIndex(isHighlighted ? 1000 : isTop ? (isPriced ? 100 : 50) : 10);
 
       bounds.extend({ lat: g.lat, lng: g.lng });
       boundsHasPoints = true;
@@ -673,23 +743,47 @@ export default memo(function GlowMap({
       if (!g) return;
       const isHighlighted =
         g.provider_id != null && (g.provider_id === highlightedId || g.provider_id === selectedId);
-      if (marker.__glowPriced) {
-        marker.setIcon(
-          buildPinIcon({
-            color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
-            label: marker.__glowLabel,
-            highlighted: isHighlighted,
-          }),
-        );
-        marker.setZIndex(isHighlighted ? 1000 : 100);
+
+      if (marker.__glowIsTop) {
+        // Top-tier: full price pill or initials circle
+        if (marker.__glowPriced) {
+          marker.setIcon(
+            buildPinIcon({
+              color: isHighlighted ? PRICE_COLORS.highlight : marker.__glowColor,
+              label: marker.__glowLabel,
+              highlighted: isHighlighted,
+            }),
+          );
+          marker.setZIndex(isHighlighted ? 1000 : 100);
+        } else {
+          marker.setIcon(
+            buildGatePinIcon({
+              initials: marker.__glowInitials,
+              highlighted: isHighlighted,
+            }),
+          );
+          marker.setZIndex(isHighlighted ? 1000 : 50);
+        }
       } else {
-        marker.setIcon(
-          buildGatePinIcon({
-            initials: marker.__glowInitials,
-            highlighted: isHighlighted,
-          }),
-        );
-        marker.setZIndex(isHighlighted ? 1000 : 50);
+        // Overflow tier: mini-dot, but expand to full pin on highlight
+        if (isHighlighted) {
+          marker.setIcon(
+            marker.__glowPriced
+              ? buildPinIcon({
+                  color: PRICE_COLORS.highlight,
+                  label: marker.__glowLabel,
+                  highlighted: true,
+                })
+              : buildGatePinIcon({
+                  initials: marker.__glowInitials,
+                  highlighted: true,
+                }),
+          );
+          marker.setZIndex(1000);
+        } else {
+          marker.setIcon(buildMiniDot({ highlighted: false }));
+          marker.setZIndex(10);
+        }
       }
     });
   }, [ready, highlightedId, selectedId]);
