@@ -1782,20 +1782,18 @@ export default function FindPrices() {
     });
   }, [displayedProcedures, gateProviders]);
 
-  // City average — unit-normalized when possible so $14/unit and $700/20u
-  // sit on the same scale. Used for the vs-average badges + savings callout.
+  // City average — only uses rows with normalized_compare_value so we
+  // compare per-unit prices to per-unit prices (apples to apples).
+  // Used for the vs-average badges + savings callout.
   const cityAvgPrice = useMemo(() => {
     const vals = (displayedProcedures || [])
       .filter((p) => !p.discount_type) // exclude discounted prices from avg
-      .map((p) => {
-        const n = Number(
-          p.normalized_compare_value != null && Number.isFinite(Number(p.normalized_compare_value))
-            ? p.normalized_compare_value
-            : p.price_paid,
-        );
-        return Number.isFinite(n) && n > 0 ? n : null;
-      })
-      .filter((n) => n != null);
+      .filter((p) =>
+        p.normalized_compare_value != null &&
+        Number.isFinite(Number(p.normalized_compare_value)) &&
+        Number(p.normalized_compare_value) > 0,
+      )
+      .map((p) => Number(p.normalized_compare_value));
     if (vals.length === 0) return null;
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }, [displayedProcedures]);
@@ -1974,15 +1972,9 @@ export default function FindPrices() {
 
   // ── Dosing calculator sheet handler ──
   const handleDosingClick = useCallback((procedure, provider, dosingInfo) => {
-    const compareVal =
-      procedure.normalized_compare_value &&
-      Number.isFinite(Number(procedure.normalized_compare_value))
-        ? Number(procedure.normalized_compare_value)
-        : Number(procedure.price_paid) || 0;
     setDosingSheet({
       procedureType: procedure.procedure_type,
       brand: procedure.brand || null,
-      unitPrice: compareVal,
       providerName: provider?.provider_name || procedure.provider_name || null,
       treatmentArea: procedure.treatment_area || null,
       dosingType: dosingInfo.type,
@@ -2796,7 +2788,7 @@ export default function FindPrices() {
                     paddingTop: 16,
                   }}
                 >
-                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
+                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} />
                 </div>
               )}
             </div>
@@ -3091,7 +3083,7 @@ export default function FindPrices() {
         {/* Dosing Calculator — desktop only, shows for neurotoxin procedures */}
         {procFilter?.slug === 'neurotoxin' && (
           <div className="hidden md:block">
-            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
+            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} />
           </div>
         )}
 
@@ -3295,12 +3287,9 @@ export default function FindPrices() {
                 isMobile
                 cityAvg={cityAvgPrice}
                 onDosingClick={(row) => {
-                  const compareVal = row.normalized_compare_value && Number.isFinite(Number(row.normalized_compare_value))
-                    ? Number(row.normalized_compare_value) : Number(row.price_paid) || 0;
                   setDosingSheet({
                     procedureType: row.procedure_type,
                     brand: row.brand || null,
-                    unitPrice: compareVal,
                     providerName: selectedProviderGroup.provider_name || null,
                     treatmentArea: row.treatment_area || null,
                     dosingType: 'neurotoxin',
@@ -3611,12 +3600,9 @@ export default function FindPrices() {
                   onClose={() => setSelectedProviderGroup(null)}
                   cityAvg={cityAvgPrice}
                   onDosingClick={(row) => {
-                    const compareVal = row.normalized_compare_value && Number.isFinite(Number(row.normalized_compare_value))
-                      ? Number(row.normalized_compare_value) : Number(row.price_paid) || 0;
                     setDosingSheet({
                       procedureType: row.procedure_type,
                       brand: row.brand || null,
-                      unitPrice: compareVal,
                       providerName: selectedProviderGroup.provider_name || null,
                       treatmentArea: row.treatment_area || null,
                       dosingType: 'neurotoxin',
@@ -3690,7 +3676,6 @@ export default function FindPrices() {
         <DosingCalculatorSheet
           procedureType={dosingSheet.procedureType}
           brand={dosingSheet.brand}
-          unitPrice={dosingSheet.unitPrice}
           providerName={dosingSheet.providerName}
           treatmentArea={dosingSheet.treatmentArea}
           dosingType={dosingSheet.dosingType}

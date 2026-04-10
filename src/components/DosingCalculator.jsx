@@ -1,15 +1,18 @@
 /**
- * DosingCalculator — inline area-picker + live cost estimator powered by
+ * DosingCalculator — inline area-picker + live unit estimator powered by
  * the Zustand dosing store.
  *
  * Designed to sit inside the search header (FindPrices) and share selected-
  * area state with price cards. The old DosageCalculator.jsx is still used
  * by the guide pages; this component supersedes it for the browse flow.
  *
+ * Shows UNITS ONLY — no dollar amounts. Each PriceCard computes its own
+ * cost estimate using the provider's actual per-unit price × the unit
+ * range from this calculator.
+ *
  * Props:
- *   brand        — 'botox' | 'dysport' | 'xeomin' | 'jeuveau' (default 'botox')
- *   pricePerUnit — number, provider- or avg-level $/unit for cost estimates
- *   compact      — if true, collapses into a single summary line
+ *   brand   — 'botox' | 'dysport' | 'xeomin' | 'jeuveau' (default 'botox')
+ *   compact — if true, collapses into a single summary line
  */
 
 import { useMemo } from 'react';
@@ -17,16 +20,11 @@ import { Calculator, X } from 'lucide-react';
 import { NEUROTOXIN_DOSING } from '../data/dosingGuidance';
 import useDosingStore from '../stores/dosingStore';
 
-function fmtDollars(n) {
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
-export default function DosingCalculator({ brand = 'botox', pricePerUnit, compact = false }) {
+export default function DosingCalculator({ brand = 'botox', compact = false }) {
   const selectedAreas = useDosingStore((s) => s.selectedAreas);
   const toggleArea = useDosingStore((s) => s.toggleArea);
   const clearAreas = useDosingStore((s) => s.clearAreas);
-  const estimateUnits = useDosingStore((s) => s.estimateUnits);
-  const estimateCost = useDosingStore((s) => s.estimateCost);
+  const estimateUnitRange = useDosingStore((s) => s.estimateUnitRange);
   const estimateUnitsCrossCalc = useDosingStore((s) => s.estimateUnitsCrossCalc);
 
   const brandData = NEUROTOXIN_DOSING[brand];
@@ -34,8 +32,7 @@ export default function DosingCalculator({ brand = 'botox', pricePerUnit, compac
 
   const areaEntries = useMemo(() => Object.entries(brandData.areas), [brandData.areas]);
 
-  const totalUnits = estimateUnits(brand);
-  const totalCost = estimateCost(brand, pricePerUnit);
+  const range = estimateUnitRange(brand);
 
   // Cross-brand: show Dysport equivalent when viewing Botox, and vice versa
   const crossBrand = brand === 'botox' ? 'dysport' : brand === 'dysport' ? 'botox' : null;
@@ -67,8 +64,11 @@ export default function DosingCalculator({ brand = 'botox', pricePerUnit, compac
             color: '#333',
           }}
         >
-          ~{totalUnits} units
-          {totalCost != null && <> &middot; {fmtDollars(totalCost)} est.</>}
+          {range
+            ? range.min === range.max
+              ? `${range.min} units`
+              : `${range.min}\u2013${range.max} units`
+            : `${selectedAreas.length} area${selectedAreas.length !== 1 ? 's' : ''}`}
           {crossUnits != null && (
             <span style={{ color: '#888', fontWeight: 400 }}>
               {' '}({crossLabel}: ~{crossUnits}u)
@@ -201,14 +201,14 @@ export default function DosingCalculator({ brand = 'botox', pricePerUnit, compac
         })}
       </div>
 
-      {/* Summary line */}
-      {selectedAreas.length > 0 && (
+      {/* Units summary — units only, no dollar amounts */}
+      {selectedAreas.length > 0 && range && (
         <div
           style={{
-            background: '#111',
+            background: '#FDF2F7',
+            border: '1px solid #F5D0E0',
             borderRadius: 6,
             padding: '14px 16px',
-            color: '#fff',
           }}
         >
           <div
@@ -225,22 +225,23 @@ export default function DosingCalculator({ brand = 'botox', pricePerUnit, compac
                 fontWeight: 900,
                 fontSize: 24,
                 lineHeight: 1,
+                color: '#111',
               }}
             >
-              {totalCost != null ? fmtDollars(totalCost) : `~${totalUnits} units`}
+              {range.min === range.max
+                ? `${range.min} units`
+                : `${range.min}\u2013${range.max} units`}
             </span>
-            {totalCost != null && (
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 11,
-                  fontWeight: 300,
-                  color: '#AAA',
-                }}
-              >
-                ~{totalUnits} units &middot; {fmtDollars(pricePerUnit)}/unit
-              </span>
-            )}
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 300,
+                color: '#888',
+              }}
+            >
+              {selectedAreas.length} area{selectedAreas.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
           {/* Cross-brand note */}

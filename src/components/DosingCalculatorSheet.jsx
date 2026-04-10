@@ -35,10 +35,6 @@ function ensureKeyframes() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-function fmtDollars(n) {
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
 function mapTreatmentAreaToId(treatmentArea) {
   if (!treatmentArea) return null;
   const lower = treatmentArea.toLowerCase();
@@ -79,7 +75,7 @@ function getCrossBrandKeys(currentKey) {
 }
 
 // ─── Neurotoxin Mode ──────────────────────────────────────────────────
-function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName }) {
+function NeurotoxinCalculator({ brandKey, treatmentArea, providerName }) {
   const brand = NEUROTOXIN_DOSING[brandKey];
   const areasObj = brand.areas;
   const areaEntries = useMemo(() => Object.entries(areasObj), [areasObj]);
@@ -115,13 +111,8 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
         maxUnits += a.max;
       }
     }
-    return {
-      minUnits,
-      maxUnits,
-      minCost: Math.round(minUnits * unitPrice),
-      maxCost: Math.round(maxUnits * unitPrice),
-    };
-  }, [selectedAreas, unitPrice, firstTimer]);
+    return { minUnits, maxUnits };
+  }, [selectedAreas, firstTimer]);
 
   // Cross-brand equivalents
   const crossBrands = useMemo(() => {
@@ -257,14 +248,6 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                 {area.typical && !firstTimer && area.typical !== area.min && (
                   <span style={{ color: '#999' }}>{` (typical ${area.typical})`}</span>
                 )}
-                {checked[id] && unitPrice > 0 && (
-                  <span style={{ color: '#666', fontWeight: 500 }}>
-                    {' \u00b7 '}
-                    {firstTimer
-                      ? fmtDollars(area.firstTimer * unitPrice)
-                      : `${fmtDollars(area.min * unitPrice)}\u2013${fmtDollars(area.max * unitPrice)}`}
-                  </span>
-                )}
               </span>
               {area.note && checked[id] && (
                 <span style={{
@@ -297,35 +280,33 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
         </div>
       )}
 
-      {/* Live total */}
+      {/* Live unit total — units only, no dollar amounts */}
       {selectedAreas.length > 0 && (
         <div style={{
-          background: '#111', borderRadius: 8, padding: '20px 24px',
-          marginBottom: 20, color: 'white',
+          background: '#FDF2F7', border: '1px solid #F5D0E0', borderRadius: 8,
+          padding: '20px 24px', marginBottom: 20,
         }}>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.12em', textTransform: 'uppercase', color: '#888',
+            letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E8347A',
             margin: '0 0 8px 0',
           }}>
-            Estimated total{providerName ? ` at ${providerName}` : ''}
+            Estimated units
           </p>
           <p style={{
             fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900,
-            fontSize: 32, margin: '0 0 4px 0', lineHeight: 1,
-          }}>
-            {totals.minCost === totals.maxCost
-              ? fmtDollars(totals.minCost)
-              : `${fmtDollars(totals.minCost)}–${fmtDollars(totals.maxCost)}`}
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
-            color: '#AAA', margin: 0,
+            fontSize: 32, margin: '0 0 4px 0', lineHeight: 1, color: '#111',
           }}>
             {totals.minUnits === totals.maxUnits
               ? `${totals.minUnits} units`
-              : `${totals.minUnits}–${totals.maxUnits} units`}
-            {' · '}{fmtDollars(unitPrice)}/unit
+              : `${totals.minUnits}\u2013${totals.maxUnits} units`}
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
+            color: '#888', margin: 0,
+          }}>
+            {selectedAreas.length} area{selectedAreas.length !== 1 ? 's' : ''} selected
+            {firstTimer ? ' · First-timer dosing' : ''}
           </p>
         </div>
       )}
@@ -385,13 +366,12 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
 }
 
 // ─── Filler Mode ──────────────────────────────────────────────────────
-function FillerCalculator({ fillerKey, unitPrice, providerName }) {
+function FillerCalculator({ fillerKey, providerName }) {
   const filler = FILLER_DOSING[fillerKey];
   const levels = filler.levels;
   const [selected, setSelected] = useState(levels.length > 1 ? 1 : 0); // default to middle
 
   const level = levels[selected];
-  const cost = Math.round(level.amount * unitPrice);
 
   return (
     <>
@@ -440,27 +420,26 @@ function FillerCalculator({ fillerKey, unitPrice, providerName }) {
           color: '#888', margin: 0,
         }}>
           {level.amount} {filler.unit}{level.amount !== 1 ? 's' : ''}
-          {' · '}{fmtDollars(unitPrice)}/{filler.unit}
         </p>
       </div>
 
-      {/* Cost */}
+      {/* Volume summary — units only */}
       <div style={{
-        background: '#111', borderRadius: 8, padding: '20px 24px',
-        marginBottom: 20, color: 'white',
+        background: '#FDF2F7', border: '1px solid #F5D0E0', borderRadius: 8,
+        padding: '20px 24px', marginBottom: 20,
       }}>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.12em', textTransform: 'uppercase', color: '#888',
+          letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E8347A',
           margin: '0 0 8px 0',
         }}>
-          Estimated cost{providerName ? ` at ${providerName}` : ''}
+          Estimated volume
         </p>
         <p style={{
           fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900,
-          fontSize: 32, margin: 0, lineHeight: 1,
+          fontSize: 32, margin: 0, lineHeight: 1, color: '#111',
         }}>
-          {fmtDollars(cost)}
+          {level.amount} {filler.unit}{level.amount !== 1 ? 's' : ''}
         </p>
       </div>
 
@@ -487,7 +466,6 @@ function FillerCalculator({ fillerKey, unitPrice, providerName }) {
 const DosingCalculatorSheet = memo(function DosingCalculatorSheet({
   procedureType,
   brand,
-  unitPrice,
   providerName,
   treatmentArea,
   dosingType,
@@ -585,14 +563,12 @@ const DosingCalculatorSheet = memo(function DosingCalculatorSheet({
           {isNeuro ? (
             <NeurotoxinCalculator
               brandKey={dosingKey}
-              unitPrice={unitPrice}
               treatmentArea={treatmentArea}
               providerName={providerName}
             />
           ) : (
             <FillerCalculator
               fillerKey={dosingKey}
-              unitPrice={unitPrice}
               providerName={providerName}
             />
           )}

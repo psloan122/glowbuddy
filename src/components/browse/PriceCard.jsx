@@ -436,19 +436,23 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
 
   // Zustand dosing store — personalized estimate based on selected areas
   const selectedAreas = useDosingStore((s) => s.selectedAreas);
-  const estimateCost = useDosingStore((s) => s.estimateCost);
-  const estimateUnits = useDosingStore((s) => s.estimateUnits);
+  const estimateUnitRange = useDosingStore((s) => s.estimateUnitRange);
 
   const personalEstimate = useMemo(() => {
     if (selectedAreas.length === 0) return null;
     if (!dosingInfo || dosingInfo.type !== 'neurotoxin') return null;
     if (compareValue <= 0) return null;
     const brandKey = dosingInfo.key;
-    const units = estimateUnits(brandKey);
-    const cost = estimateCost(brandKey, compareValue);
-    if (!units || !cost) return null;
-    return { units, cost, brandKey };
-  }, [selectedAreas, dosingInfo, compareValue, estimateUnits, estimateCost]);
+    const range = estimateUnitRange(brandKey);
+    if (!range || range.typical === 0) return null;
+    return {
+      minUnits: range.min,
+      maxUnits: range.max,
+      minCost: Math.round(range.min * compareValue),
+      maxCost: Math.round(range.max * compareValue),
+      brandKey,
+    };
+  }, [selectedAreas, dosingInfo, compareValue, estimateUnitRange]);
 
   return (
     <div style={isFirst ? S.priceRowFirst : S.priceRowDivider}>
@@ -478,7 +482,15 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
           </span>
         )}
         <span style={S.flexShrink0}>
-          <VsAverageBadge price={compareValue} avg={cityAvg} />
+          <VsAverageBadge
+            price={
+              procedure.normalized_compare_value != null &&
+              Number.isFinite(Number(procedure.normalized_compare_value))
+                ? Number(procedure.normalized_compare_value)
+                : null
+            }
+            avg={cityAvg}
+          />
         </span>
         {onDetailClick && (
           <button
@@ -571,10 +583,16 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
           <Calculator size={13} color="#E8347A" style={S.flexShrink0} />
           <div style={S.personalInner}>
             <span style={S.personalCost}>
-              Your estimate: ~${personalEstimate.cost.toLocaleString()}
+              Your estimate:{' '}
+              {personalEstimate.minUnits === personalEstimate.maxUnits
+                ? `${personalEstimate.minUnits} units \u2192 ${fmtPrice(personalEstimate.minCost)}`
+                : `${personalEstimate.minUnits}\u2013${personalEstimate.maxUnits} units \u2192 ${fmtPrice(personalEstimate.minCost)}\u2013${fmtPrice(personalEstimate.maxCost)}`}
             </span>
             <span style={S.personalUnits}>
-              {personalEstimate.units} units &times; {fmtPrice(compareValue)}/unit
+              {personalEstimate.minUnits === personalEstimate.maxUnits
+                ? `${personalEstimate.minUnits} units`
+                : `${personalEstimate.minUnits}\u2013${personalEstimate.maxUnits} units`}
+              {' \u00d7 '}{fmtPrice(compareValue)}/unit
             </span>
           </div>
         </div>

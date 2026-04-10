@@ -52,6 +52,26 @@ const useDosingStore = create(
       },
 
       /**
+       * Sum the min / max / typical units for every selected area.
+       * Returns null when no areas are selected or the brand is unknown.
+       */
+      estimateUnitRange: (brand = 'botox') => {
+        const { selectedAreas } = get();
+        const brandData = NEUROTOXIN_DOSING[brand];
+        if (!brandData || selectedAreas.length === 0) return null;
+        let min = 0, max = 0, typical = 0;
+        for (const areaId of selectedAreas) {
+          const area = brandData.areas[areaId];
+          if (area) {
+            min += area.min;
+            max += area.max;
+            typical += area.typical ?? 0;
+          }
+        }
+        return { min, max, typical };
+      },
+
+      /**
        * estimateUnits × pricePerUnit.  Returns null when the estimate would
        * be meaningless (no areas selected, no price, etc.).
        */
