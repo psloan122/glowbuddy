@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, SlidersHorizontal, TrendingDown } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PriceContextBar from '../components/browse/PriceContextBar';
 import StickyFilterBar from '../components/browse/StickyFilterBar';
@@ -22,18 +22,13 @@ import {
   getState as getGatingState, setState as persistState,
   setZip as persistZip,
 } from '../lib/gating';
-import ProcedureCard from '../components/ProcedureCard';
-import BrandGroupCard from '../components/BrandGroupCard';
 import MultiProcedureProviderCard from '../components/MultiProcedureProviderCard';
-import { groupBrandRows } from '../lib/groupBrandRows';
 import useUserPreferences from '../hooks/useUserPreferences';
 import useUserLocation from '../hooks/useUserLocation';
 import FirstTimerBadge from '../components/FirstTimerBadge';
 import FirstTimerModeBanner from '../components/FirstTimerModeBanner';
 import FirstTimerOnboardingPrompt from '../components/FirstTimerOnboardingPrompt';
 import FirstTimerGuideSheet from '../components/FirstTimerGuideSheet';
-import DosageCalculator from '../components/DosageCalculator';
-import DosingCalculator from '../components/DosingCalculator';
 import {
   isFirstTimerMode, setFirstTimerMode as persistFirstTimerMode,
   addFirstTimerTreatment, getFirstTimerTreatments,
@@ -50,7 +45,6 @@ import {
   findPillByLabel,
   findPillBySlug,
 } from '../lib/constants';
-import ProcedureGate from '../components/ProcedureGate';
 import GateLeftPanel from '../components/browse/GateLeftPanel';
 import { searchCitiesViaGoogle } from '../lib/places';
 import { lookupZip } from '../lib/zipLookup';
@@ -59,13 +53,10 @@ import { AuthContext } from '../App';
 import ProcedureDetailSheet from '../components/ProcedureDetailSheet';
 import DosingCalculatorSheet from '../components/DosingCalculatorSheet';
 import AddExperienceSheet from '../components/AddExperienceSheet';
-import { getUserActiveAlerts } from '../lib/priceAlerts';
 import { setPageMeta } from '../lib/seo';
 import { normalizePrice } from '../lib/priceUtils';
-import { getProcedureLabel } from '../lib/procedureLabel';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
-// providerProfileUrl was used by the old mobile gate list; now handled by MapProviderCard.
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -110,7 +101,6 @@ function computeTrustWeight(procedure) {
 }
 
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
-const SUPPORTS_DVH = typeof CSS !== 'undefined' && CSS.supports?.('height', '1dvh');
 
 export default function FindPrices() {
   const { user } = useContext(AuthContext);
@@ -119,7 +109,6 @@ export default function FindPrices() {
   // Procedures / feed
   const [procedures, setProcedures] = useState([]);
   const [loadingProcedures, setLoadingProcedures] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
   const [feedError, setFeedError] = useState(null);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -211,9 +200,6 @@ export default function FindPrices() {
   const [showGuideSheet, setShowGuideSheet] = useState(false);
   const [guideSheetTreatment, setGuideSheetTreatment] = useState('');
 
-  // User's active price alerts (for AlertMatchBadge)
-  const [userAlerts, setUserAlerts] = useState([]);
-
   // --- Personalized browse (PROMPT 8) ---
   // Logged-in users with saved procedure_slugs / brands in user_preferences
   // bypass the ProcedureGate on /browse and see a personalized feed grouped
@@ -239,7 +225,6 @@ export default function FindPrices() {
   // Fair price averages: { [procedure_type]: { avg, scope } }
   const [fairPriceAvgs, setFairPriceAvgs] = useState({});
 
-  const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [hasPricesOnly, setHasPricesOnly] = useState(() => {
     if (searchParams.get('has_prices') === '1') return true;
     const persisted = readPersistedFilters();
@@ -273,13 +258,10 @@ export default function FindPrices() {
   const [searchAreaBounds, setSearchAreaBounds] = useState(null);
 
   // ── Map view state ──
-  // Mobile: list is the default; user toggles to map.
-  // Desktop: split view is always on, viewMode is ignored.
   // hoveredProviderId paints a highlight ring on the map pin when the
   // user mouses over a list card. selectedProviderGroup is set when the
   // user taps a pin on mobile (opens the bottom sheet) or desktop (it
   // just paints the matching list card with a black ring).
-  const [viewMode] = useState('list');
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 768 : false,
   );
@@ -332,8 +314,8 @@ export default function FindPrices() {
   // Switching from map → list (or unmounting the map for any reason)
   // should clear any open bottom sheet so it doesn't reopen on return.
   useEffect(() => {
-    if (!isMobile && viewMode !== 'map') setSelectedProviderGroup(null);
-  }, [viewMode, isMobile]);
+    if (!isMobile) setSelectedProviderGroup(null);
+  }, [isMobile]);
 
   // Body scroll lock: when mobile has a city selected, the map fills the
   // viewport and the bottom sheet handles scrolling. Lock the body so the
@@ -583,11 +565,6 @@ export default function FindPrices() {
       verifiedOnly,
     });
   }, [procFilter, brandFilter, subTypeFilter, selectedLoc, sortBy, hasPricesOnly, verifiedOnly]);
-
-  // Fetch user's active price alerts for match badges
-  useEffect(() => {
-    getUserActiveAlerts().then(setUserAlerts);
-  }, []);
 
   // Restore procFilter + brandFilter + selectedLoc from URL on back/forward
   // navigation AND on in-app navigations that swap URL params via <Link>
@@ -1211,36 +1188,6 @@ export default function FindPrices() {
       // is stuck staring at shimmer cards forever.
       try {
 
-      // Total count = procedures + provider_pricing (both narrowed by
-      // procedure_type when set, so the "of N total" copy is meaningful).
-      await Promise.all([
-        (() => {
-          let q = supabase
-            .from('procedures')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'active');
-          if (filterProcedureTypes.length === 1) {
-            q = q.eq('procedure_type', filterProcedureTypes[0]);
-          } else if (filterProcedureTypes.length > 1) {
-            q = q.in('procedure_type', filterProcedureTypes);
-          }
-          return q;
-        })(),
-        (() => {
-          let q = supabase
-            .from('provider_pricing')
-            .select('id', { count: 'exact', head: true })
-            .eq('is_active', true)
-            .eq('display_suppressed', false);
-          if (filterFuzzyToken) {
-            q = q.ilike('procedure_type', `%${filterFuzzyToken}%`);
-          }
-          return q;
-        })(),
-      ]).then(([procCnt, provCnt]) =>
-        setTotalCount((procCnt.count || 0) + (provCnt.count || 0))
-      );
-
       // City + state — strict match only. No state-level or national
       // fallback: silently substituting prices from other cities under
       // a "{city} prices" headline misleads users into thinking those
@@ -1680,9 +1627,7 @@ export default function FindPrices() {
     });
   }
 
-  // Whether to show the dosage estimator section in the mobile drawer.
-  const dosageEstimatorAvailable =
-    !!selectedProc && firstTimerActive && isFirstTimerFor(selectedProc);
+
 
   // ── Browse rebuild: brand pills, sub-type pills, sorting, city avg ──
   // Brand pills surface for the neurotoxin category (Botox, Dysport, …).
@@ -2536,187 +2481,6 @@ export default function FindPrices() {
           )}
         </div>
       </div>
-
-      {/* Mobile search sheet (expands from collapsed pill) — editorial flat */}
-      {showSearchSheet && (
-        <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-[#1C1410]/45" onClick={() => setShowSearchSheet(false)} />
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white max-h-[85vh] overflow-y-auto animate-slide-up"
-            style={{ borderTop: '2px solid #E8347A' }}
-          >
-            <div className="sticky top-0 bg-white border-b border-rule px-5 py-3 flex items-center justify-between">
-              <h3 className="editorial-kicker">Search</h3>
-              <button onClick={() => setShowSearchSheet(false)} className="text-text-secondary hover:text-ink">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              {/* Procedure search */}
-              <div ref={procRef}>
-                <label
-                  className="block text-[10px] font-semibold uppercase text-text-secondary mb-1.5"
-                  style={{ letterSpacing: '0.10em' }}
-                >
-                  Treatment
-                </label>
-                {selectedProc ? (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                    style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
-                  >
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
-                      style={{
-                        background: '#E8347A',
-                        borderRadius: '2px',
-                        letterSpacing: '0.10em',
-                      }}
-                    >
-                      {selectedProc}
-                      <button onClick={clearProcedure} className="text-white"><X size={14} /></button>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-                    <input
-                      type="text"
-                      placeholder="Search treatments..."
-                      value={procQuery}
-                      onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
-                      style={{
-                        borderRadius: '2px',
-                        border: '1px solid #EDE8E3',
-                        fontFamily: 'var(--font-body)',
-                      }}
-                    />
-                    {procOpen && procQuery.trim() && procMatches.length > 0 && (
-                      <div
-                        className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
-                        style={{
-                          borderRadius: '0 0 2px 2px',
-                          border: '1px solid #E8E8E8',
-                          borderTop: 'none',
-                          boxShadow: 'none',
-                        }}
-                      >
-                        {procMatches.map((p) => (
-                          <button
-                            key={p}
-                            onClick={() => selectProcedure(p)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cream transition-colors"
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Location search */}
-              <div ref={locRef}>
-                <label
-                  className="block text-[10px] font-semibold uppercase text-text-secondary mb-1.5"
-                  style={{ letterSpacing: '0.10em' }}
-                >
-                  Location
-                </label>
-                {selectedLoc ? (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2.5 bg-white"
-                    style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
-                  >
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase text-white"
-                      style={{
-                        background: '#E8347A',
-                        borderRadius: '2px',
-                        letterSpacing: '0.08em',
-                      }}
-                    >
-                      <MapPin size={12} />
-                      {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
-                      <button onClick={clearLocation} className="text-white"><X size={14} /></button>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-                    <input
-                      type="text"
-                      placeholder="City or zip code (e.g. Miami FL)"
-                      value={locQuery}
-                      onChange={(e) => handleLocInput(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-white outline-none transition-colors focus:border-hot-pink"
-                      style={{
-                        borderRadius: '2px',
-                        border: '1px solid #EDE8E3',
-                        fontFamily: 'var(--font-body)',
-                      }}
-                    />
-                    {locOpen && locQuery.trim() && (
-                      <div
-                        className="absolute top-full left-0 right-0 mt-1 bg-white z-30 overflow-hidden"
-                        style={{
-                          borderRadius: '0 0 2px 2px',
-                          border: '1px solid #E8E8E8',
-                          borderTop: 'none',
-                          boxShadow: 'none',
-                        }}
-                      >
-                        {locLoading ? (
-                          <div className="px-4 py-3 text-sm text-text-secondary animate-pulse">Searching...</div>
-                        ) : locResults.length > 0 && locResults[0].kind === 'areaCodeHint' ? (
-                          <div className="px-4 py-3 text-sm" style={{ color: '#888', lineHeight: 1.5 }}>
-                            <p style={{ color: '#111', fontWeight: 500, marginBottom: 4 }}>
-                              Looks like a phone area code.
-                            </p>
-                            <p>
-                              Try typing your city name instead — e.g.{' '}
-                              <span style={{ color: '#E8347A', fontWeight: 500 }}>Miami FL</span>,{' '}
-                              <span style={{ color: '#E8347A', fontWeight: 500 }}>Mandeville LA</span>,{' '}
-                              or a full 5-digit zip code.
-                            </p>
-                          </div>
-                        ) : locResults.length > 0 && locResults[0].kind === 'partialZipHint' ? (
-                          <div className="px-4 py-3 text-sm" style={{ color: '#888' }}>
-                            Keep typing &mdash; US zip codes are 5 digits.
-                          </div>
-                        ) : locResults.length > 0 ? (
-                          locResults.map((loc, i) => (
-                            <button
-                              key={`${loc.city}-${loc.state}-${i}`}
-                              onClick={() => selectLocation(loc)}
-                              className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-cream transition-colors flex items-center gap-2"
-                            >
-                              <MapPin size={14} className="text-text-secondary shrink-0" />
-                              {loc.city}{loc.state ? `, ${loc.state}` : ''}{loc.zip ? ` (${loc.zip})` : ''}
-                            </button>
-                          ))
-                        ) : locQuery.trim().length >= 2 ? (
-                          <div className="px-4 py-3 text-sm text-text-secondary">No locations found</div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-white border-t border-rule p-4">
-              <button
-                onClick={() => setShowSearchSheet(false)}
-                className="btn-editorial btn-editorial-primary w-full"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Mobile filter bottom sheet */}
       {showFilters && (
