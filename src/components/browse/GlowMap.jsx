@@ -243,12 +243,13 @@ export default memo(function GlowMap({
     if (!mapRef.current) return;
     let cancelled = false;
 
-    // Defer map construction off the main thread so it doesn't block
-    // INP during the initial render. requestIdleCallback lets the
-    // browser finish layout/paint first; setTimeout(0) is the fallback
-    // for Safari which doesn't support rIC.
-    const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 0));
-    const idleId = schedule(() => {
+    // Defer map construction one tick so it doesn't block INP during the
+    // initial synchronous render. We used to use requestIdleCallback here,
+    // but rIC without a `timeout` can be starved indefinitely on busy
+    // pages (FindPrices fires dozens of effects on mount) — the callback
+    // never ran and the map sat on "Loading map" forever. setTimeout(0)
+    // defers off the current task but is guaranteed to fire.
+    const timerId = setTimeout(() => {
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !mapRef.current || mapInstanceRef.current) return;
@@ -322,12 +323,11 @@ export default memo(function GlowMap({
         console.error('[GlowMap] failed to load Google Maps', err);
         setMapError(err?.message || 'Failed to load map');
       });
-    }); // end schedule
+    }); // end setTimeout
 
     return () => {
       cancelled = true;
-      const cancel = window.cancelIdleCallback || clearTimeout;
-      cancel(idleId);
+      clearTimeout(timerId);
       // Detach all markers from this instance so a remount doesn't
       // leave orphaned pins on a now-unmounted map.
       try {

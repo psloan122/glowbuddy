@@ -75,5 +75,14 @@ export function loadGoogleMaps() {
     document.head.appendChild(script);
   });
 
+  // Reset the singleton on rejection so the "Try again" button in GlowMap
+  // (which bumps retryNonce) can create a fresh promise + script tag
+  // instead of returning the same rejected promise forever. The early
+  // `window.google?.maps` check above means a slow-but-successful first
+  // load won't cause a duplicate script injection on retry.
+  loadPromise.catch(() => {
+    loadPromise = null;
+  });
+
   return loadPromise;
 }
