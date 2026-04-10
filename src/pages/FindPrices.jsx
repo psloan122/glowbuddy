@@ -2848,17 +2848,20 @@ export default function FindPrices() {
           procFilter &&
           !loadingProcedures &&
           displayedProcedures.length > 0;
+        // On desktop with a city selected, the split-view owns the layout —
+        // collapse this container so it doesn't create a gap above the map.
+        const desktopSplitActive = !isMobile && selectedLoc;
         return (
       <div
         className="mx-auto px-4"
         style={{
           maxWidth: 900,
-          paddingTop: hasResults ? 0 : 24,
+          paddingTop: (hasResults || desktopSplitActive) ? 0 : 24,
           // Clear the fixed mobile bottom nav (56px) + safe-area so the
           // last card is never hidden behind it and its tap zone can't
           // be accidentally contested. The split layout below handles
           // its own bottom padding when results are showing.
-          paddingBottom: hasResults
+          paddingBottom: (hasResults || desktopSplitActive)
             ? 0
             : IS_MOBILE
             ? 'calc(100px + env(safe-area-inset-bottom, 0px))'

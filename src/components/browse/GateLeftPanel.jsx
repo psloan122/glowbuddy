@@ -38,32 +38,7 @@ export default function GateLeftPanel({
     : `${providerCount} ${providerCount === 1 ? 'provider' : 'providers'}`;
 
   return (
-    <div style={{ padding: '32px 8px 40px 8px' }}>
-      <p
-        className="editorial-kicker"
-        style={{
-          color: '#E8347A',
-          marginBottom: 16,
-        }}
-      >
-        Real prices · No consultations
-      </p>
-
-      <h1
-        className="font-display text-ink"
-        style={{
-          fontWeight: 900,
-          fontSize: 'clamp(28px, 3.4vw, 40px)',
-          lineHeight: 1.04,
-          letterSpacing: '-0.02em',
-          marginBottom: 14,
-        }}
-      >
-        Treatment prices in
-        <br />
-        {locationStr || 'your area'}.
-      </h1>
-
+    <div style={{ padding: '16px 8px 40px 8px' }}>
       <p
         style={{
           fontFamily: 'var(--font-body)',
