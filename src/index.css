@@ -50,6 +50,27 @@
   --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-display: 'Playfair Display', Georgia, serif;
 
+  /* ── Spacing scale ── */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  --spacing-2xl: 64px;
+
+  /* ── Border radius ── */
+  --radius-sm: 2px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 20px;
+
+  /* ── Semantic colors ── */
+  --color-taupe: #B8A89A;
+  --color-warning-bg: #FFF7ED;
+  --color-warning-border: #F0D8B8;
+  --color-warning-text: #B45309;
+  --color-success-bg: #E1F5EE;
+
   /* ── Editorial spacing tokens ── */
   --tracking-editorial: 0.12em;
   --tracking-wide-xl: 0.2em;
@@ -229,6 +250,13 @@ h1, h2, h3, h4 {
   background: var(--color-glow-red);
   color: white;
   border-color: var(--color-glow-red);
+}
+
+.btn-editorial:disabled,
+.btn-editorial[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ── EDITORIAL EYEBROW STRIP ──

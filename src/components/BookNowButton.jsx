@@ -81,7 +81,7 @@ export default function BookNowButton({
     return (
       <button
         onClick={handleClick}
-        className="inline-flex items-center justify-center gap-2 w-full py-3 bg-rose-accent text-white font-semibold rounded-xl hover:bg-rose-dark transition"
+        className="btn-editorial btn-editorial-primary w-full"
       >
         Book on {label}
         <ExternalLink size={14} />

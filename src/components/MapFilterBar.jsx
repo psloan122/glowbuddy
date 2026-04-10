@@ -21,7 +21,7 @@ export default function MapFilterBar({
       <select
         value={filters.procedureType}
         onChange={(e) => onFilterChange({ procedureType: e.target.value })}
-        className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-accent/30 min-w-0"
+        className="text-sm border border-gray-200 rounded-sm px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-accent/30 min-w-0"
       >
         <option value="">All Procedures</option>
         {Object.entries(PROCEDURE_CATEGORIES).map(([category, procedures]) => (
@@ -41,7 +41,7 @@ export default function MapFilterBar({
           placeholder="City, town, or zip"
           value={filters.cityOrZip}
           onChange={(e) => onFilterChange({ cityOrZip: e.target.value })}
-          className="w-full text-sm border border-gray-200 rounded-lg pl-8 pr-3 py-2 bg-white text-text-primary placeholder:text-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-rose-accent/30"
+          className="w-full text-sm border border-gray-200 rounded-sm pl-8 pr-3 py-2 bg-white text-text-primary placeholder:text-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-rose-accent/30"
         />
       </div>
 
@@ -50,7 +50,7 @@ export default function MapFilterBar({
         <select
           value={filters.distance}
           onChange={(e) => onFilterChange({ distance: Number(e.target.value) })}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-accent/30"
+          className="text-sm border border-gray-200 rounded-sm px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-accent/30"
         >
           {DISTANCES.map((d) => (
             <option key={d.value} value={d.value}>{d.label}</option>
@@ -63,7 +63,7 @@ export default function MapFilterBar({
         <button
           onClick={onLocateMe}
           disabled={locating}
-          className="flex items-center gap-1.5 text-sm font-medium text-rose-accent border border-rose-accent/30 rounded-lg px-3 py-2 hover:bg-rose-light/50 transition disabled:opacity-50"
+          className="flex items-center gap-1.5 text-sm font-medium text-rose-accent border border-rose-accent/30 rounded-sm px-3 py-2 hover:bg-rose-light/50 transition disabled:opacity-50"
         >
           <LocateFixed size={14} className={locating ? 'animate-pulse' : ''} />
           {locating ? 'Locating...' : 'Near me'}

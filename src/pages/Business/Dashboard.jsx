@@ -1274,9 +1274,9 @@ export default function Dashboard() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => setDisputeAction('resolved')}
-                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
+                                  className={`text-xs px-3 py-1 rounded-sm font-medium transition ${
                                     disputeAction === 'resolved'
-                                      ? 'bg-green-100 text-green-700'
+                                      ? 'bg-rose-light text-rose-accent'
                                       : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                                   }`}
                                 >
@@ -1329,7 +1329,7 @@ export default function Dashboard() {
                                   setDisputeAction('resolved');
                                   setDisputeNote('');
                                 }}
-                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-green-50 text-green-700 hover:bg-green-100 transition"
+                                className="text-xs px-3 py-1.5 rounded-sm font-medium bg-rose-light text-rose-accent hover:bg-rose-accent hover:text-white transition"
                               >
                                 Resolve
                               </button>

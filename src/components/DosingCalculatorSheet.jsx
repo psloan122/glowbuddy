@@ -167,7 +167,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
           onClick={() => setFirstTimer((v) => !v)}
           style={{
             width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-            background: firstTimer ? '#E8347A' : '#D6CFC6',
+            background: firstTimer ? '#E8347A' : 'var(--color-taupe)',
             position: 'relative', transition: 'background 150ms',
           }}
         >
@@ -183,7 +183,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
       <div style={{ marginBottom: 24 }}>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999',
+          letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-taupe)',
           margin: '0 0 12px 0',
         }}>
           Select treatment areas
@@ -194,7 +194,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '10px 12px', marginBottom: 4, borderRadius: 6, cursor: 'pointer',
-              background: checked[id] ? '#FDF2F7' : 'transparent',
+              background: checked[id] ? 'var(--color-cream)' : 'transparent',
               border: `1px solid ${checked[id] ? '#E8347A' : '#EDE8E3'}`,
               transition: 'background 100ms, border-color 100ms',
             }}
@@ -214,7 +214,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                 {area.popular && (
                   <span style={{
                     fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                    textTransform: 'uppercase', color: '#E8347A', background: '#FDF2F7',
+                    textTransform: 'uppercase', color: '#E8347A', background: 'var(--color-cream)',
                     padding: '2px 5px', borderRadius: 2,
                   }}>
                     Popular
@@ -232,7 +232,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                 {area.offLabel && (
                   <span style={{
                     fontSize: 9, fontWeight: 600, letterSpacing: '0.06em',
-                    textTransform: 'uppercase', color: '#999', background: '#F5F3F0',
+                    textTransform: 'uppercase', color: 'var(--color-taupe)', background: '#F5F3F0',
                     padding: '2px 5px', borderRadius: 2,
                   }}>
                     Off-label
@@ -241,7 +241,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                 {area.specialist && (
                   <span style={{
                     fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                    textTransform: 'uppercase', color: '#B45309', background: '#FFF7ED',
+                    textTransform: 'uppercase', color: 'var(--color-warning-text)', background: 'var(--color-warning-bg)',
                     padding: '2px 5px', borderRadius: 2,
                   }}>
                     Specialist
@@ -284,9 +284,9 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
       {selectedAreas.some((a) => a.specialist) && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px',
-          background: '#FFF7ED', border: '1px solid #F0D8B8', borderRadius: 6, marginBottom: 20,
+          background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-border)', borderRadius: 6, marginBottom: 20,
         }}>
-          <AlertTriangle size={14} style={{ color: '#B45309', flexShrink: 0, marginTop: 2 }} />
+          <AlertTriangle size={14} style={{ color: 'var(--color-warning-text)', flexShrink: 0, marginTop: 2 }} />
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
             color: '#92400E', margin: 0, lineHeight: 1.5,
@@ -335,7 +335,7 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
         <div style={{ marginBottom: 20 }}>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999',
+            letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-taupe)',
             margin: '0 0 10px 0',
           }}>
             Same areas in other brands
@@ -399,7 +399,7 @@ function FillerCalculator({ fillerKey, unitPrice, providerName }) {
       <div style={{ marginBottom: 24 }}>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.12em', textTransform: 'uppercase', color: '#999',
+          letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-taupe)',
           margin: '0 0 12px 0',
         }}>
           How much volume?
@@ -413,7 +413,7 @@ function FillerCalculator({ fillerKey, unitPrice, providerName }) {
               style={{
                 padding: '10px 18px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${i === selected ? '#E8347A' : '#EDE8E3'}`,
-                background: i === selected ? '#FDF2F7' : 'white',
+                background: i === selected ? 'var(--color-cream)' : 'white',
                 color: i === selected ? '#E8347A' : '#111',
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
                 transition: 'all 100ms',
@@ -468,9 +468,9 @@ function FillerCalculator({ fillerKey, unitPrice, providerName }) {
       {filler.headsUp && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px',
-          background: '#FFF7ED', border: '1px solid #F0D8B8', borderRadius: 6, marginBottom: 20,
+          background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-border)', borderRadius: 6, marginBottom: 20,
         }}>
-          <AlertTriangle size={14} style={{ color: '#B45309', flexShrink: 0, marginTop: 2 }} />
+          <AlertTriangle size={14} style={{ color: 'var(--color-warning-text)', flexShrink: 0, marginTop: 2 }} />
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
             color: '#92400E', margin: 0, lineHeight: 1.5,

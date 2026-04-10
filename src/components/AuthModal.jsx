@@ -191,7 +191,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     if (!hasSession) {
       return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl text-center">
+          <div className="bg-white rounded-xl p-8 max-w-[440px] w-full shadow-xl text-center">
             <div className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E1F5EE' }}>
               <CheckCircle size={32} style={{ color: '#0F6E56' }} />
             </div>
@@ -220,7 +220,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     // Session exists — auto-confirm is on, onAuthStateChange should redirect soon
     return (
       <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-        <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl text-center">
+        <div className="bg-white rounded-xl p-8 max-w-[440px] w-full shadow-xl text-center">
           <div className="flex items-center justify-center w-16 h-16 rounded-full mx-auto mb-5" style={{ backgroundColor: '#E1F5EE' }}>
             <CheckCircle size={32} style={{ color: '#0F6E56' }} />
           </div>
@@ -248,7 +248,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
   if (forgotSent) {
     return (
       <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-        <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl relative">
+        <div className="bg-white rounded-xl p-8 max-w-[440px] w-full shadow-xl relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-text-secondary hover:text-text-primary transition"
@@ -284,7 +284,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-2xl p-8 max-w-[440px] w-full shadow-xl relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl p-8 max-w-[440px] w-full shadow-xl relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-text-secondary hover:text-text-primary transition"
