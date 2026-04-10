@@ -302,6 +302,10 @@ export default function FindPrices() {
   const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
   const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
 
+  // Per-pill provider counts — how many providers in this city offer each treatment.
+  // Computed from a lightweight provider_pricing query keyed off gateProviders.
+  const [pillCounts, setPillCounts] = useState({});
+
   // ── Mobile sheet ↔ map padding sync ──
   // Track the sheet's snap position so we can tell the map which part
   // of the viewport is covered and shouldn't hold centered pins.
@@ -410,6 +414,47 @@ export default function FindPrices() {
       cancelled = true;
     };
   }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, searchAreaBounds]);
+
+  // ── Pill provider counts ──
+  // Lightweight query: how many providers in this city offer each treatment?
+  // Runs once per city change, keyed off gateProviders.
+  useEffect(() => {
+    if (!gateProviders?.length) {
+      setPillCounts({});
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      const ids = gateProviders.map((p) => p.id);
+      const { data, error } = await supabase
+        .from('provider_pricing')
+        .select('provider_id, procedure_type, brand')
+        .in('provider_id', ids)
+        .eq('display_suppressed', false);
+      if (cancelled || error || !data) return;
+      const counts = {};
+      for (const pill of PROCEDURE_PILLS) {
+        const providers = new Set();
+        for (const row of data) {
+          if (pill.brand) {
+            // Brand-specific pill (neurotoxins): match on brand column
+            if (row.brand && row.brand.toLowerCase() === pill.brand.toLowerCase()) {
+              providers.add(row.provider_id);
+            }
+          } else {
+            // Category pill: match on procedure_type fuzzyToken
+            const pt = (row.procedure_type || '').toLowerCase();
+            if (pt.includes(pill.fuzzyToken)) {
+              providers.add(row.provider_id);
+            }
+          }
+        }
+        if (providers.size > 0) counts[pill.label] = providers.size;
+      }
+      if (!cancelled) setPillCounts(counts);
+    })();
+    return () => { cancelled = true; };
+  }, [gateProviders]);
 
   // Clear the gate-mode bottom sheet whenever the underlying gate
   // conditions change, so a stale provider can't stay selected after
@@ -3135,6 +3180,7 @@ export default function FindPrices() {
                 loading={gateProvidersLoading}
                 onSelectPill={selectPill}
                 pills={PROCEDURE_PILLS}
+                pillCounts={pillCounts}
                 onSnapChange={setMobileSheetSnap}
               />
             )}
@@ -3166,6 +3212,7 @@ export default function FindPrices() {
                 cityAvg={cityAvgPrice}
                 selectedProviderId={selectedProviderGroup?.provider_id || null}
                 providerCount={groupedProviders.length}
+                listingCount={displayedProcedures.length}
                 onSnapChange={setMobileSheetSnap}
               />
             )}
@@ -3330,6 +3377,7 @@ export default function FindPrices() {
                   providerCount={viewportProviderCount}
                   loading={gateProvidersLoading}
                   onSelectPill={selectPill}
+                  pillCounts={pillCounts}
                 />
               ) : loadingProcedures ? (
                 <div style={{ padding: '24px 8px 40px 8px' }}>

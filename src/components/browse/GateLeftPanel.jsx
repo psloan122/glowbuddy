@@ -26,6 +26,7 @@ export default function GateLeftPanel({
   providerCount,
   loading,
   onSelectPill,
+  pillCounts = {},
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -75,6 +76,7 @@ export default function GateLeftPanel({
             <GatePillButton
               key={`${pill.slug}-${pill.brand || 'base'}`}
               pill={pill}
+              count={pillCounts[pill.label]}
               onSelect={onSelectPill}
             />
           ))}
@@ -127,6 +129,7 @@ export default function GateLeftPanel({
               <GatePillButton
                 key={`${pill.slug}-${pill.brand || 'base'}-more`}
                 pill={pill}
+                count={pillCounts[pill.label]}
                 onSelect={onSelectPill}
               />
             ))}
@@ -162,13 +165,16 @@ export default function GateLeftPanel({
   );
 }
 
-function GatePillButton({ pill, onSelect }) {
+function GatePillButton({ pill, count, onSelect }) {
+  const hasCount = count != null && count > 0;
   return (
     <button
       type="button"
       onClick={() => onSelect?.(pill)}
       style={{
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
         padding: '8px 14px',
         borderRadius: '2px',
         border: '1px solid #EDE8E3',
@@ -182,6 +188,7 @@ function GatePillButton({ pill, onSelect }) {
         cursor: 'pointer',
         margin: '0 4px 6px 0',
         transition: 'all .15s',
+        opacity: hasCount ? 1 : 0.45,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = '#E8347A';
@@ -193,6 +200,11 @@ function GatePillButton({ pill, onSelect }) {
       }}
     >
       {pill.label}
+      {hasCount && (
+        <span style={{ fontWeight: 400, fontSize: 10, color: '#B8A89A', letterSpacing: 0 }}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }

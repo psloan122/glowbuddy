@@ -36,6 +36,7 @@ export default memo(function MobileBrowseSheet({
   loading,
   onSelectPill,
   pills,
+  pillCounts = {},
   onProviderSelect,
   onSnapChange,
   listingCount,
@@ -347,30 +348,43 @@ export default memo(function MobileBrowseSheet({
             touchAction: 'pan-x', // allow horizontal scroll, not vertical
           }}
         >
-          {pills.map((pill) => (
-            <button
-              key={`sheet-pill-${pill.slug}-${pill.brand || 'base'}`}
-              type="button"
-              onClick={() => onSelectPill?.(pill)}
-              style={{
-                flexShrink: 0,
-                padding: '8px 14px',
-                borderRadius: 2,
-                border: '1px solid #EDE8E3',
-                background: 'white',
-                color: '#555',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 11,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {pill.label}
-            </button>
-          ))}
+          {pills.map((pill) => {
+            const ct = pillCounts[pill.label];
+            const hasCount = ct != null && ct > 0;
+            return (
+              <button
+                key={`sheet-pill-${pill.slug}-${pill.brand || 'base'}`}
+                type="button"
+                onClick={() => onSelectPill?.(pill)}
+                style={{
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '8px 14px',
+                  borderRadius: 2,
+                  border: '1px solid #EDE8E3',
+                  background: 'white',
+                  color: '#555',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize: 11,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  opacity: hasCount ? 1 : 0.45,
+                }}
+              >
+                {pill.label}
+                {hasCount && (
+                  <span style={{ fontWeight: 400, fontSize: 9, color: '#B8A89A', letterSpacing: 0, textTransform: 'none' }}>
+                    {ct}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 

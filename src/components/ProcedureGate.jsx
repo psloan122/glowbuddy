@@ -14,7 +14,7 @@ import SuggestTreatmentBlock from './SuggestTreatmentBlock';
  * Calls onSelect(pill) when a pill is clicked. The parent is expected to
  * push the selection into URL state and trigger price fetching.
  */
-export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }) {
+export default function ProcedureGate({ variant = 'block', onSelect, cityLabel, pillCounts = {} }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const primary = PROCEDURE_PILLS.filter((p) => p.isPrimary);
@@ -56,6 +56,7 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
             moreOpen={moreOpen}
             onToggleMore={() => setMoreOpen((v) => !v)}
             onSelect={onSelect}
+            pillCounts={pillCounts}
             compact
           />
           <div className="text-center">
@@ -80,18 +81,19 @@ export default function ProcedureGate({ variant = 'block', onSelect, cityLabel }
         moreOpen={moreOpen}
         onToggleMore={() => setMoreOpen((v) => !v)}
         onSelect={onSelect}
+        pillCounts={pillCounts}
       />
       <SuggestTreatmentBlock source="procedure_gate_block" />
     </div>
   );
 }
 
-function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, compact }) {
+function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, pillCounts = {}, compact }) {
   return (
     <>
       <div className={`flex flex-wrap justify-center gap-2 ${compact ? '' : 'mb-2'}`}>
         {primary.map((pill) => (
-          <PillButton key={pill.slug} pill={pill} onSelect={onSelect} compact={compact} />
+          <PillButton key={pill.slug} pill={pill} count={pillCounts[pill.label]} onSelect={onSelect} compact={compact} />
         ))}
         <button
           type="button"
@@ -126,7 +128,7 @@ function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, compact }) 
       {moreOpen && (
         <div className={`flex flex-wrap justify-center gap-2 ${compact ? 'mt-2' : 'mt-3'}`}>
           {more.map((pill) => (
-            <PillButton key={pill.slug} pill={pill} onSelect={onSelect} compact={compact} />
+            <PillButton key={pill.slug} pill={pill} count={pillCounts[pill.label]} onSelect={onSelect} compact={compact} />
           ))}
         </div>
       )}
@@ -134,13 +136,15 @@ function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, compact }) 
   );
 }
 
-function PillButton({ pill, onSelect, compact }) {
+function PillButton({ pill, count, onSelect, compact }) {
+  const hasCount = count != null && count > 0;
   return (
     <button
       type="button"
       onClick={() => onSelect(pill)}
       className="inline-flex items-center transition-colors"
       style={{
+        gap: 5,
         padding: compact ? '6px 14px' : '8px 18px',
         borderRadius: '2px',
         border: '1px solid #DDD',
@@ -150,6 +154,7 @@ function PillButton({ pill, onSelect, compact }) {
         fontWeight: 500,
         fontSize: compact ? '11px' : '12px',
         letterSpacing: '0.06em',
+        opacity: hasCount ? 1 : 0.45,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = '#E8347A';
@@ -161,6 +166,11 @@ function PillButton({ pill, onSelect, compact }) {
       }}
     >
       {pill.label}
+      {hasCount && (
+        <span style={{ fontWeight: 400, fontSize: compact ? 9 : 10, color: '#B8A89A', letterSpacing: 0 }}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }
