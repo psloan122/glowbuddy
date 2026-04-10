@@ -1,166 +1,258 @@
 /**
- * DosingCalculator — inline area-picker + live unit estimator powered by
- * the Zustand dosing store.
+ * DosingCalculator — compact inline area-picker + live unit estimator
+ * powered by the Zustand dosing store.
  *
- * Designed to sit inside the search header (FindPrices) and share selected-
- * area state with price cards. The old DosageCalculator.jsx is still used
- * by the guide pages; this component supersedes it for the browse flow.
+ * Collapsed (default): single 44px row showing selected area chips + unit count.
+ * Expanded (on click): horizontal-scrolling area chips + unit summary.
  *
  * Shows UNITS ONLY — no dollar amounts. Each PriceCard computes its own
  * cost estimate using the provider's actual per-unit price × the unit
  * range from this calculator.
  *
  * Props:
- *   brand   — 'botox' | 'dysport' | 'xeomin' | 'jeuveau' (default 'botox')
- *   compact — if true, collapses into a single summary line
+ *   brand — 'botox' | 'dysport' | 'xeomin' | 'jeuveau' (default 'botox')
  */
 
-import { useMemo } from 'react';
-import { Calculator, X } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Syringe, X } from 'lucide-react';
 import { NEUROTOXIN_DOSING } from '../data/dosingGuidance';
 import useDosingStore from '../stores/dosingStore';
 
-export default function DosingCalculator({ brand = 'botox', compact = false }) {
+// Hide scrollbar across browsers
+const SCROLL_HIDE_ID = 'dosing-calc-scrollbar-hide';
+function ensureScrollbarCSS() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(SCROLL_HIDE_ID)) return;
+  const s = document.createElement('style');
+  s.id = SCROLL_HIDE_ID;
+  s.textContent = `.dosing-chip-scroll::-webkit-scrollbar { display: none; }`;
+  document.head.appendChild(s);
+}
+
+export default function DosingCalculator({ brand = 'botox' }) {
   const selectedAreas = useDosingStore((s) => s.selectedAreas);
   const toggleArea = useDosingStore((s) => s.toggleArea);
   const clearAreas = useDosingStore((s) => s.clearAreas);
   const estimateUnitRange = useDosingStore((s) => s.estimateUnitRange);
   const estimateUnitsCrossCalc = useDosingStore((s) => s.estimateUnitsCrossCalc);
 
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => { ensureScrollbarCSS(); }, []);
+
   const brandData = NEUROTOXIN_DOSING[brand];
   if (!brandData) return null;
 
   const areaEntries = useMemo(() => Object.entries(brandData.areas), [brandData.areas]);
-
   const range = estimateUnitRange(brand);
 
-  // Cross-brand: show Dysport equivalent when viewing Botox, and vice versa
+  // Cross-brand
   const crossBrand = brand === 'botox' ? 'dysport' : brand === 'dysport' ? 'botox' : null;
   const crossUnits = crossBrand ? estimateUnitsCrossCalc(brand, crossBrand) : null;
-  const crossLabel = crossBrand
-    ? NEUROTOXIN_DOSING[crossBrand]?.brandName
+  const crossLabel = crossBrand ? NEUROTOXIN_DOSING[crossBrand]?.brandName : null;
+
+  const unitText = range
+    ? range.min === range.max
+      ? `${range.min} units`
+      : `${range.min}\u2013${range.max} units`
     : null;
 
-  if (compact) {
-    if (selectedAreas.length === 0) return null;
+  const hasSelection = selectedAreas.length > 0;
+
+  function handleClear(e) {
+    e.stopPropagation();
+    clearAreas();
+  }
+
+  // ─── Collapsed state ────────────────────────────────────────────
+  if (!expanded) {
     return (
-      <div
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '8px 14px',
-          background: '#FDF2F7',
-          border: '1px solid #F5D0E0',
+          width: '100%',
+          height: 44,
+          padding: '0 14px',
+          background: hasSelection ? '#FDF2F7' : '#F9F7F5',
+          border: `1px solid ${hasSelection ? '#F5D0E0' : '#EDE8E3'}`,
           borderRadius: 6,
+          cursor: 'pointer',
+          fontFamily: 'var(--font-body)',
+          overflow: 'hidden',
         }}
       >
-        <Calculator size={13} color="#E8347A" style={{ flexShrink: 0 }} />
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 12,
-            fontWeight: 500,
-            color: '#333',
-          }}
-        >
-          {range
-            ? range.min === range.max
-              ? `${range.min} units`
-              : `${range.min}\u2013${range.max} units`
-            : `${selectedAreas.length} area${selectedAreas.length !== 1 ? 's' : ''}`}
-          {crossUnits != null && (
-            <span style={{ color: '#888', fontWeight: 400 }}>
-              {' '}({crossLabel}: ~{crossUnits}u)
+        <Syringe size={13} color="#E8347A" style={{ flexShrink: 0 }} />
+
+        {hasSelection ? (
+          <>
+            {/* Selected area chips inline */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+              }}
+            >
+              {selectedAreas.map((id) => {
+                const area = brandData.areas[id];
+                if (!area) return null;
+                return (
+                  <span
+                    key={id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      padding: '2px 8px',
+                      background: '#fff',
+                      border: '1px solid #F5D0E0',
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: '#E8347A',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {area.label}
+                    <X
+                      size={10}
+                      color="#E8347A"
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); toggleArea(id); }}
+                    />
+                  </span>
+                );
+              })}
+              {unitText && (
+                <>
+                  <span style={{ color: '#D6CFC6', flexShrink: 0 }}>&middot;</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#555',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {unitText}
+                  </span>
+                </>
+              )}
+            </div>
+            <span
+              onClick={handleClear}
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: '#999',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              Clear
             </span>
-          )}
-        </span>
-        <button
-          type="button"
-          onClick={clearAreas}
-          aria-label="Clear areas"
-          style={{
-            marginLeft: 'auto',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 2,
-            lineHeight: 0,
-          }}
-        >
-          <X size={13} color="#999" />
-        </button>
-      </div>
+          </>
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 400, color: '#888' }}>
+            Estimate your units &mdash; tap to select areas
+          </span>
+        )}
+      </button>
     );
   }
 
+  // ─── Expanded state ─────────────────────────────────────────────
   return (
     <div
       style={{
         background: '#fff',
         border: '1px solid #EDE8E3',
-        borderRadius: 8,
-        padding: '16px 18px',
+        borderRadius: 6,
+        padding: '10px 14px 12px',
       }}
     >
-      {/* Header */}
+      {/* Header row */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 14,
+          marginBottom: 10,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Calculator size={14} color="#E8347A" />
+          <Syringe size={13} color="#E8347A" />
           <span
             style={{
               fontFamily: 'var(--font-body)',
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
               color: '#111',
             }}
           >
             Dosing Estimator
           </span>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: '#999',
-              background: '#F5F2EE',
-              padding: '2px 5px',
-              borderRadius: 2,
-            }}
-          >
-            Estimate
-          </span>
         </div>
-        {selectedAreas.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {hasSelection && (
+            <button
+              type="button"
+              onClick={handleClear}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 500,
+                color: '#999',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              Clear
+            </button>
+          )}
           <button
             type="button"
-            onClick={clearAreas}
+            onClick={() => setExpanded(false)}
+            aria-label="Collapse estimator"
             style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 11,
-              fontWeight: 500,
-              color: '#999',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              lineHeight: 0,
             }}
           >
-            Clear
+            <X size={14} color="#999" />
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Area pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+      {/* Horizontal scrollable area chips */}
+      <div
+        ref={scrollRef}
+        className="dosing-chip-scroll"
+        style={{
+          display: 'flex',
+          gap: 6,
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch',
+          flexWrap: 'nowrap',
+          paddingBottom: 2,
+        }}
+      >
         {areaEntries.map(([id, area]) => {
           const active = selectedAreas.includes(id);
           return (
@@ -169,113 +261,52 @@ export default function DosingCalculator({ brand = 'botox', compact = false }) {
               type="button"
               onClick={() => toggleArea(id)}
               style={{
-                padding: '6px 12px',
-                borderRadius: 20,
+                padding: '5px 10px',
+                borderRadius: 14,
                 border: `1px solid ${active ? '#E8347A' : '#EDE8E3'}`,
                 background: active ? '#FDF2F7' : '#fff',
                 color: active ? '#E8347A' : '#555',
                 fontFamily: 'var(--font-body)',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: active ? 600 : 400,
                 cursor: 'pointer',
-                transition: 'all 100ms',
-                lineHeight: 1.2,
+                transition: 'all 80ms',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                lineHeight: 1.3,
               }}
             >
               {area.label}
-              {area.popular && (
-                <span
-                  style={{
-                    marginLeft: 4,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    color: '#E8347A',
-                    verticalAlign: 'super',
-                  }}
-                >
-                  ★
-                </span>
+              {active && (
+                <span style={{ marginLeft: 4 }}>&times;</span>
               )}
             </button>
           );
         })}
       </div>
 
-      {/* Units summary — units only, no dollar amounts */}
-      {selectedAreas.length > 0 && range && (
-        <div
+      {/* Estimate summary — plain text, no box */}
+      {hasSelection && unitText && (
+        <p
           style={{
-            background: '#FDF2F7',
-            border: '1px solid #F5D0E0',
-            borderRadius: 6,
-            padding: '14px 16px',
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            fontWeight: 400,
+            color: '#666',
+            margin: '8px 0 0 0',
+            lineHeight: 1.4,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontWeight: 900,
-                fontSize: 24,
-                lineHeight: 1,
-                color: '#111',
-              }}
-            >
-              {range.min === range.max
-                ? `${range.min} units`
-                : `${range.min}\u2013${range.max} units`}
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                fontWeight: 300,
-                color: '#888',
-              }}
-            >
-              {selectedAreas.length} area{selectedAreas.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {/* Cross-brand note */}
+          <span style={{ fontWeight: 600, color: '#333' }}>Your estimate:</span>{' '}
+          {unitText}
           {crossUnits != null && (
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                fontWeight: 300,
-                color: '#888',
-                margin: '8px 0 0 0',
-              }}
-            >
-              {crossLabel} equivalent: ~{crossUnits} units
-              {brand === 'botox' && ' (2.5:1 conversion)'}
-              {brand === 'dysport' && ' (1:2.5 conversion)'}
-            </p>
+            <span style={{ color: '#999' }}>
+              {'  \u00b7  '}{crossLabel}: ~{crossUnits} units
+              {brand === 'botox' ? ' (2.5:1)' : brand === 'dysport' ? ' (1:2.5)' : ''}
+            </span>
           )}
-        </div>
+        </p>
       )}
-
-      {/* Disclaimer */}
-      <p
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 10,
-          fontWeight: 300,
-          color: '#BBB',
-          margin: '10px 0 0 0',
-          lineHeight: 1.5,
-        }}
-      >
-        Based on typical clinical dosing. Actual units determined by your provider.
-      </p>
     </div>
   );
 }
