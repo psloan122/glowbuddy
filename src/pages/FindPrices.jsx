@@ -2778,18 +2778,7 @@ export default function FindPrices() {
 
               {renderFilterControls()}
 
-              {/* Dosing calculator — shows for neurotoxin procedures */}
-              {procFilter?.slug === 'neurotoxin' && (
-                <div
-                  className="mt-5"
-                  style={{
-                    borderTop: '1px solid #EDE8E3',
-                    paddingTop: 16,
-                  }}
-                >
-                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
-                </div>
-              )}
+              {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
             </div>
             <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3' }}>
               <button
@@ -3079,12 +3068,7 @@ export default function FindPrices() {
           />
         )}
 
-        {/* Dosing Calculator — desktop only, shows for neurotoxin procedures */}
-        {procFilter?.slug === 'neurotoxin' && (
-          <div className="hidden md:block">
-            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
-          </div>
-        )}
+        {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
 
         {/* Feed error banner */}
         {feedError && (
@@ -3343,6 +3327,8 @@ export default function FindPrices() {
             verifiedOnly={verifiedOnly}
             onVerifiedToggle={() => setVerifiedOnly((v) => !v)}
             userHasLocation={userLat != null && userLng != null}
+            isNeurotoxin={procFilter?.slug === 'neurotoxin'}
+            brand={(brandFilter || 'botox').toLowerCase()}
           />
           <ResultsCountBar
             count={displayedProcedures.length}
