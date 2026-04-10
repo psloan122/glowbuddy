@@ -23,6 +23,10 @@ export function matchesTreatment(row, pill) {
   if (pill.brand) {
     return !!(row.brand && row.brand.toLowerCase() === pill.brand.toLowerCase());
   }
+  if (pill.procedureTypes?.length) {
+    const pt = (row.procedure_type || '').toLowerCase();
+    return pill.procedureTypes.some(t => t.toLowerCase() === pt);
+  }
   const pt = (row.procedure_type || '').toLowerCase();
   return pt.includes(pill.fuzzyToken);
 }

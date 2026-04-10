@@ -2,8 +2,6 @@
  * StickyFilterBar — sticks at top below the navbar.
  *
  * Contains:
- *   - Brand pills (only when the active category has multiple brands)
- *   - Sub-type pills (drill into specific procedure types within a category)
  *   - Has prices toggle
  *   - Verified only toggle
  *   - Estimate pill (neurotoxin only — opens dosing calculator dropdown)
@@ -22,12 +20,6 @@ import { NEUROTOXIN_DOSING } from '../../data/dosingGuidance';
 import useDosingStore from '../../stores/dosingStore';
 
 export default function StickyFilterBar({
-  brandPills = [],
-  activeBrand,
-  onBrandChange,
-  subTypePills = [],
-  activeSubType,
-  onSubTypeChange,
   sortBy,
   onSortChange,
   hasPricesOnly,
@@ -104,23 +96,6 @@ export default function StickyFilterBar({
     flexShrink: 0,
   });
 
-  const brandPillStyle = (active) => ({
-    height: 32,
-    padding: '0 14px',
-    border: `1px solid ${active ? '#E8347A' : '#EDE8E3'}`,
-    background: active ? '#E8347A' : 'white',
-    color: active ? 'white' : '#666',
-    borderRadius: 2,
-    fontFamily: 'var(--font-body)',
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    whiteSpace: 'nowrap',
-    cursor: 'pointer',
-    flexShrink: 0,
-  });
-
   return (
     <>
       <style>{`
@@ -154,64 +129,6 @@ export default function StickyFilterBar({
             msOverflowStyle: 'none',
           }}
         >
-          {/* Brand pills (e.g. Botox / Dysport / Xeomin) */}
-          {brandPills.length > 0 && (
-            <>
-              {brandPills.map((p) => {
-                const isActive = activeBrand === p.brand;
-                return (
-                  <button
-                    key={p.brand || p.label}
-                    type="button"
-                    onClick={() => onBrandChange?.(isActive ? null : p.brand)}
-                    style={brandPillStyle(isActive)}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 1,
-                  height: 20,
-                  background: '#EDE8E3',
-                  flexShrink: 0,
-                  margin: '0 4px',
-                }}
-              />
-            </>
-          )}
-
-          {/* Sub-type pills (e.g. Lip | Cheek | Jawline for Fillers) */}
-          {subTypePills.length > 0 && brandPills.length === 0 && (
-            <>
-              {subTypePills.map((st) => {
-                const isActive = activeSubType === st.procedureType;
-                return (
-                  <button
-                    key={st.procedureType}
-                    type="button"
-                    onClick={() => onSubTypeChange?.(isActive ? null : st.procedureType)}
-                    style={brandPillStyle(isActive)}
-                  >
-                    {st.label}
-                  </button>
-                );
-              })}
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 1,
-                  height: 20,
-                  background: '#EDE8E3',
-                  flexShrink: 0,
-                  margin: '0 4px',
-                }}
-              />
-            </>
-          )}
-
           {/* Has prices toggle */}
           <button
             type="button"

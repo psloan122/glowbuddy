@@ -38,7 +38,7 @@ import {
   PROCEDURE_TYPES,
   PROVIDER_TYPES,
   PROCEDURE_PILLS,
-  CATEGORY_SUB_TYPES,
+  CATEGORY_PILLS,
   resolveProcedureFilter,
   makeProcedureFilterFromCanonical,
   makeProcedureFilterFromPill,
@@ -290,6 +290,8 @@ export default function FindPrices() {
   // Per-pill provider counts + raw pricing rows for filtering.
   // Computed from a lightweight provider_pricing query keyed off gateProviders.
   const [pillCounts, setPillCounts] = useState({});
+  const [categoryCounts, setCategoryCounts] = useState({});
+  const [treatmentSearch, setTreatmentSearch] = useState('');
   const [cityPricingRows, setCityPricingRows] = useState([]);
 
   // ── Mobile sheet ↔ map padding sync ──
@@ -408,6 +410,7 @@ export default function FindPrices() {
   useEffect(() => {
     if (!gateProviders?.length) {
       setPillCounts({});
+      setCategoryCounts({});
       setCityPricingRows([]);
       return undefined;
     }
@@ -422,6 +425,7 @@ export default function FindPrices() {
       if (cancelled || error || !data) return;
       setCityPricingRows(data);
       setPillCounts(countProvidersByTreatment(data, PROCEDURE_PILLS));
+      setCategoryCounts(countProvidersByTreatment(data, CATEGORY_PILLS));
     })();
     return () => { cancelled = true; };
   }, [gateProviders]);
@@ -503,6 +507,7 @@ export default function FindPrices() {
     setSearchAreaBounds(null);
     setCityPricingRows([]);
     setPillCounts({});
+    setCategoryCounts({});
   }, [selectedLoc]);
 
   // ── SEO meta tags — dynamic per spec ──
@@ -654,6 +659,7 @@ export default function FindPrices() {
     // Non-brand pills (Fillers, Laser, ...) clear any stale brand filter.
     setBrandFilter(pill?.brand || null);
     setSubTypeFilter(null);
+    setTreatmentSearch('');
     setProcQuery('');
     setProcOpen(false);
   }
@@ -663,6 +669,24 @@ export default function FindPrices() {
     setBrandFilter(null);
     setSubTypeFilter(null);
     setProcQuery('');
+    setTreatmentSearch('');
+  }
+
+  function handleTreatmentSearch(query) {
+    setTreatmentSearch(query);
+    if (!query) {
+      // Clearing search — reset filters
+      setProcFilter(null);
+      setBrandFilter(null);
+      return;
+    }
+    // Try to resolve to a known pill/procedure for server-side fetch
+    const resolved = resolveProcedureFromQuery(query);
+    if (resolved) {
+      setProcFilter(resolved);
+      setBrandFilter(null);
+      setSubTypeFilter(null);
+    }
   }
 
   // If the user types "botox" / "fillers" / "laser" into the search input,
@@ -1661,25 +1685,7 @@ export default function FindPrices() {
 
 
 
-  // ── Browse rebuild: brand pills, sub-type pills, sorting, city avg ──
-  // Brand pills surface for the neurotoxin category (Botox, Dysport, …).
-  // Sub-type pills surface for other multi-procedure categories (Fillers →
-  // Lip | Cheek | Jawline, etc.) so users can drill into a specific type.
-  const brandPills = useMemo(() => {
-    if (procFilter?.slug !== 'neurotoxin') return [];
-    return [
-      { brand: 'Botox', label: 'Botox' },
-      { brand: 'Dysport', label: 'Dysport' },
-      { brand: 'Xeomin', label: 'Xeomin' },
-      { brand: 'Jeuveau', label: 'Jeuveau' },
-      { brand: 'Daxxify', label: 'Daxxify' },
-    ];
-  }, [procFilter?.slug]);
-
-  const subTypePills = useMemo(() => {
-    if (!procFilter?.slug) return [];
-    return CATEGORY_SUB_TYPES[procFilter.slug] || [];
-  }, [procFilter?.slug]);
+  // ── Browse rebuild: sorting, city avg ──
 
   // `procedures` already carries the active city/procedure set from the
   // main fetch effect. We layer the verified-only filter and nearest sort
@@ -1705,6 +1711,17 @@ export default function FindPrices() {
     // the "/ area" suffix produced by normalizePrice.
     if (brandFilter) {
       rows = rows.filter((p) => p.normalized_category !== 'flat_rate_area');
+    }
+    // Client-side treatment search — filters by matching the query
+    // against procedure_type, brand, normalized_category, or area_label.
+    if (treatmentSearch) {
+      const q = treatmentSearch.toLowerCase();
+      rows = rows.filter(p =>
+        p.procedure_type?.toLowerCase().includes(q) ||
+        p.brand?.toLowerCase().includes(q) ||
+        p.normalized_category?.toLowerCase().includes(q) ||
+        p.area_label?.toLowerCase().includes(q)
+      );
     }
     // Filter to providers visible in the current map viewport so the
     // list stays in sync with what's on screen.
@@ -1736,7 +1753,7 @@ export default function FindPrices() {
       rows = [...rows].sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     }
     return rows;
-  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds]);
+  }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds, treatmentSearch]);
 
   // Enrich procedures with provider_id resolved from gateProviders so the
   // GlowMap price index can match patient-submitted rows (which come from
@@ -2148,16 +2165,11 @@ export default function FindPrices() {
           className="flex items-center overflow-x-auto -mx-1 px-1"
           style={{ gap: 8, scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
-          {PROCEDURE_PILLS.filter((p) =>
-            ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify', 'Fillers'].includes(p.label)
-          ).map((pill, i, arr) => {
-            const isActive = procFilter?.slug === pill.slug && (
-              !pill.brand || brandFilter === pill.brand
-            );
-            const isLast = i === arr.length - 1;
+          {CATEGORY_PILLS.map((pill) => {
+            const isActive = procFilter?.slug === pill.slug && !brandFilter;
             return (
               <button
-                key={`mpill-${pill.slug}-${pill.brand || 'base'}`}
+                key={`mpill-${pill.slug}`}
                 type="button"
                 onClick={() => {
                   if (isActive) { clearProcedure(); } else { selectPill(pill); }
@@ -2177,7 +2189,7 @@ export default function FindPrices() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {pill.label === 'Fillers' ? 'Filler' : pill.label}{isLast ? ' →' : ''}
+                <span style={{ marginRight: 4 }}>{pill.emoji}</span>{pill.label}
               </button>
             );
           })}
@@ -3014,9 +3026,9 @@ export default function FindPrices() {
                 selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
                 providerCount={gateProviders.length}
                 loading={gateProvidersLoading}
-                onSelectPill={selectPill}
-                pills={PROCEDURE_PILLS}
-                pillCounts={pillCounts}
+                onSelectCategory={selectPill}
+                activeCategorySlug={procFilter?.slug}
+                categoryCounts={categoryCounts}
                 onSnapChange={setMobileSheetSnap}
               />
             )}
@@ -3161,12 +3173,6 @@ export default function FindPrices() {
             state={selectedLoc?.state}
           />
           <StickyFilterBar
-            brandPills={brandPills}
-            activeBrand={brandFilter}
-            onBrandChange={(b) => setBrandFilter(b)}
-            subTypePills={subTypePills}
-            activeSubType={subTypeFilter}
-            onSubTypeChange={(st) => setSubTypeFilter(st)}
             sortBy={sortBy}
             onSortChange={setSortBy}
             hasPricesOnly={hasPricesOnly}
@@ -3281,7 +3287,10 @@ export default function FindPrices() {
                   providerCount={viewportProviderCount}
                   loading={gateProvidersLoading}
                   onSelectPill={selectPill}
-                  pillCounts={pillCounts}
+                  pillCounts={categoryCounts}
+                  onSearch={handleTreatmentSearch}
+                  treatmentSearch={treatmentSearch}
+                  activeCategorySlug={procFilter?.slug}
                 />
               ) : loadingProcedures ? (
                 <div style={{ padding: '24px 8px 40px 8px' }}>
@@ -3305,7 +3314,10 @@ export default function FindPrices() {
                   <span>
                     <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
                     {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
-                    {brandFilter || procFilter?.label || 'treatments'}
+                    {treatmentSearch
+                      ? `'${treatmentSearch}'`
+                      : CATEGORY_PILLS.find(p => p.slug === procFilter?.slug)?.description
+                        || brandFilter || procFilter?.label || 'treatments'}
                     {displayedProcedures.length !== groupedProviders.length && (
                       <span style={{ color: '#B8A89A' }}>
                         {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}

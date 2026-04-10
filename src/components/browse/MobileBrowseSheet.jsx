@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback, memo, useMemo } from 'react';
 import MapProviderCard from '../MapProviderCard';
+import { CATEGORY_PILLS } from '../../lib/constants';
 
 // Snap positions — dvh from top (used as translateY %).
 // Sheet is 100dvh tall, anchored at bottom:0.
@@ -34,9 +35,9 @@ export default memo(function MobileBrowseSheet({
   selectedProviderId,
   providerCount,
   loading,
-  onSelectPill,
-  pills,
-  pillCounts = {},
+  onSelectCategory,
+  activeCategorySlug,
+  categoryCounts = {},
   onProviderSelect,
   onSnapChange,
   listingCount,
@@ -270,8 +271,8 @@ export default memo(function MobileBrowseSheet({
         </p>
       </div>
 
-      {/* Procedure pills strip */}
-      {pills && pills.length > 0 && (
+      {/* Category pills strip */}
+      {CATEGORY_PILLS.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -280,40 +281,43 @@ export default memo(function MobileBrowseSheet({
             padding: '0 16px 12px',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            touchAction: 'pan-x', // allow horizontal scroll, not vertical
+            touchAction: 'pan-x',
           }}
         >
-          {pills.map((pill) => {
-            const ct = pillCounts[pill.label];
+          {CATEGORY_PILLS.map((pill) => {
+            const ct = categoryCounts[pill.label];
             const hasCount = ct != null && ct > 0;
+            const isActive = activeCategorySlug === pill.slug;
             return (
               <button
-                key={`sheet-pill-${pill.slug}-${pill.brand || 'base'}`}
+                key={`sheet-cat-${pill.slug}`}
                 type="button"
-                onClick={() => onSelectPill?.(pill)}
+                onClick={() => onSelectCategory?.(pill)}
                 style={{
                   flexShrink: 0,
-                  display: 'inline-flex',
+                  display: 'flex',
                   alignItems: 'center',
                   gap: 5,
-                  padding: '8px 14px',
-                  borderRadius: 2,
-                  border: '1px solid #EDE8E3',
-                  background: 'white',
-                  color: '#555',
+                  padding: '7px 14px',
+                  borderRadius: 20,
+                  border: isActive
+                    ? '2px solid #E8347A'
+                    : '1.5px solid #e0e0e0',
+                  background: isActive ? '#fdf0f5' : 'white',
+                  color: isActive ? '#E8347A' : '#555',
                   fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 11,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                  fontSize: 13,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
+                  transition: 'all 0.15s',
                   opacity: hasCount ? 1 : 0.45,
                 }}
               >
-                {pill.label}
+                <span>{pill.emoji}</span>
+                <span>{pill.label}</span>
                 {hasCount && (
-                  <span style={{ fontWeight: 400, fontSize: 9, color: '#B8A89A', letterSpacing: 0, textTransform: 'none' }}>
+                  <span style={{ fontWeight: 400, fontSize: 10, color: '#B8A89A' }}>
                     {ct}
                   </span>
                 )}

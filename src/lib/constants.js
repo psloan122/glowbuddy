@@ -663,6 +663,48 @@ export const PROCEDURE_PILLS = [
   },
 ];
 
+// ── 5 broad category pills for the browse gate ───────────────────────
+// These replace the 13+ per-brand/per-treatment pills with 5 high-level
+// categories. Each pill maps to the union of all procedure types in its
+// category so a single tap loads all related prices.
+export const CATEGORY_PILLS = [
+  {
+    label: 'Botox', emoji: '💉', slug: 'neurotoxin',
+    primary: 'Botox',
+    procedureTypes: PROCEDURE_CATEGORIES.Neurotoxins,
+    categoryTag: 'neurotoxin', fuzzyToken: 'botox',
+    description: 'Botox & neurotoxins',
+  },
+  {
+    label: 'Filler', emoji: '✨', slug: 'filler',
+    primary: 'Lip Filler',
+    procedureTypes: PROCEDURE_CATEGORIES.Fillers,
+    categoryTag: 'filler', fuzzyToken: 'filler',
+    description: 'Lip, cheek & facial filler',
+  },
+  {
+    label: 'Laser', emoji: '⚡', slug: 'laser',
+    primary: 'Laser Hair Removal',
+    procedureTypes: PROCEDURE_CATEGORIES.Laser,
+    categoryTag: 'laser', fuzzyToken: 'laser',
+    description: 'Laser resurfacing & IPL',
+  },
+  {
+    label: 'Body', emoji: '🏃', slug: 'body',
+    primary: 'CoolSculpting',
+    procedureTypes: [...PROCEDURE_CATEGORIES.Body, ...PROCEDURE_CATEGORIES['Weight Loss / GLP-1']],
+    categoryTag: 'body', fuzzyToken: 'body',
+    description: 'Body contouring & GLP-1',
+  },
+  {
+    label: 'Skin', emoji: '🌿', slug: 'skin',
+    primary: 'HydraFacial',
+    procedureTypes: [...PROCEDURE_CATEGORIES.Skin, ...PROCEDURE_CATEGORIES.Microneedling],
+    categoryTag: 'skin', fuzzyToken: 'skin',
+    description: 'Facials, peels & microneedling',
+  },
+];
+
 // Generic category labels used when the URL has a procedure slug but no
 // brand. These produce the chip / headline / first-timer banner copy
 // ("Botox & more" instead of "Botox / Dysport / Xeomin"). When a brand

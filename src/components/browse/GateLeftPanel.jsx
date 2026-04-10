@@ -2,22 +2,13 @@
  * GateLeftPanel — inline editorial gate shown in the left half of the
  * split-view when the user has a city but hasn't picked a treatment yet.
  *
- * Replaces the old centered "What treatment are you pricing out?" modal
- * box, which hid the map and made the page feel like a form. The new
- * gate is a secondary refinement affordance — the primary experience
- * is the map on the right, which shows every active provider in the
- * city as gray pins immediately. Picking a treatment colors the pins
- * with prices (GasBuddy pattern).
- *
- * Headline uses Playfair 900 (editorial display), body uses Outfit.
- * Pills match ProcedureGate's editorial square style (2px radius,
- * 11px uppercase Outfit 500, border #EDE8E3) so they sit in the same
- * visual family as the rest of the /browse chrome.
+ * Shows a search bar + 5 broad category pills (Botox, Filler, Laser,
+ * Body, Skin) instead of 13+ individual treatment pills.
  */
 
-import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { PROCEDURE_PILLS } from '../../lib/constants';
+import { useState, useRef, useEffect } from 'react';
+import { Search } from 'lucide-react';
+import { CATEGORY_PILLS } from '../../lib/constants';
 import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
 export default function GateLeftPanel({
@@ -27,15 +18,35 @@ export default function GateLeftPanel({
   loading,
   onSelectPill,
   pillCounts = {},
+  onSearch,
+  treatmentSearch = '',
+  activeCategorySlug,
 }) {
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [localQuery, setLocalQuery] = useState(treatmentSearch);
+  const debounceRef = useRef(null);
 
-  const primary = PROCEDURE_PILLS.filter((p) => p.isPrimary);
-  const more = PROCEDURE_PILLS.filter((p) => !p.isPrimary);
+  useEffect(() => {
+    setLocalQuery(treatmentSearch);
+  }, [treatmentSearch]);
 
-  const locationStr = city && state ? `${city}, ${state}` : city || '';
+  function handleInputChange(e) {
+    const val = e.target.value;
+    setLocalQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (val.trim()) {
+      debounceRef.current = setTimeout(() => onSearch?.(val.trim()), 300);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && localQuery.trim()) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      onSearch?.(localQuery.trim());
+    }
+  }
+
   const countStr = loading
-    ? '…'
+    ? '\u2026'
     : `${providerCount} ${providerCount === 1 ? 'provider' : 'providers'}`;
 
   return (
@@ -61,80 +72,133 @@ export default function GateLeftPanel({
           marginBottom: 20,
         }}
       >
-        Select a treatment to compare prices.
+        Select a category or search for a treatment.
       </p>
 
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: 18 }}>
+        <Search
+          size={14}
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#B8A89A',
+            pointerEvents: 'none',
+          }}
+        />
+        <input
+          type="text"
+          value={localQuery}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Search any treatment\u2026"
+          style={{
+            width: '100%',
+            height: 40,
+            padding: '0 36px 0 34px',
+            borderRadius: 20,
+            border: '1.5px solid #e0e0e0',
+            background: '#FAFAFA',
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 400,
+            color: '#333',
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = '#E8347A'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = '#e0e0e0'; }}
+        />
+        {localQuery && (
+          <button
+            type="button"
+            onClick={() => {
+              setLocalQuery('');
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              onSearch?.('');
+            }}
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 16,
+              color: '#aaa',
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            &times;
+          </button>
+        )}
+      </div>
+
+      {/* Category pills */}
       <div
         style={{
-          borderTop: '1px solid #EDE8E3',
-          paddingTop: 22,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
           marginBottom: 22,
         }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
-          {primary.map((pill) => (
-            <GatePillButton
-              key={`${pill.slug}-${pill.brand || 'base'}`}
-              pill={pill}
-              count={pillCounts[pill.label]}
-              onSelect={onSelectPill}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => setMoreOpen((v) => !v)}
-            aria-expanded={moreOpen}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '8px 14px',
-              borderRadius: '2px',
-              border: '1px solid #EDE8E3',
-              background: 'white',
-              color: '#555',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 11,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              margin: '0 4px 6px 0',
-              transition: 'all .15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#E8347A';
-              e.currentTarget.style.color = '#E8347A';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#EDE8E3';
-              e.currentTarget.style.color = '#555';
-            }}
-          >
-            More
-            {moreOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-        </div>
-
-        {moreOpen && (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 0,
-              marginTop: 4,
-            }}
-          >
-            {more.map((pill) => (
-              <GatePillButton
-                key={`${pill.slug}-${pill.brand || 'base'}-more`}
-                pill={pill}
-                count={pillCounts[pill.label]}
-                onSelect={onSelectPill}
-              />
-            ))}
-          </div>
-        )}
+        {CATEGORY_PILLS.map((pill) => {
+          const count = pillCounts[pill.label];
+          const hasCount = count != null && count > 0;
+          const isActive = activeCategorySlug === pill.slug;
+          return (
+            <button
+              key={pill.slug}
+              type="button"
+              onClick={() => onSelectPill?.(pill)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '7px 14px',
+                borderRadius: 20,
+                border: isActive
+                  ? '2px solid #E8347A'
+                  : '1.5px solid #e0e0e0',
+                background: isActive ? '#fdf0f5' : 'white',
+                color: isActive ? '#E8347A' : '#555',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+                transition: 'all .15s',
+                whiteSpace: 'nowrap',
+                opacity: hasCount ? 1 : 0.45,
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = '#E8347A';
+                  e.currentTarget.style.color = '#E8347A';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.borderColor = '#e0e0e0';
+                  e.currentTarget.style.color = '#555';
+                }
+              }}
+            >
+              <span>{pill.emoji}</span>
+              <span>{pill.label}</span>
+              {hasCount && (
+                <span style={{ fontWeight: 400, fontSize: 10, color: '#B8A89A' }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div
@@ -162,49 +226,5 @@ export default function GateLeftPanel({
         />
       </div>
     </div>
-  );
-}
-
-function GatePillButton({ pill, count, onSelect }) {
-  const hasCount = count != null && count > 0;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect?.(pill)}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '8px 14px',
-        borderRadius: '2px',
-        border: '1px solid #EDE8E3',
-        background: 'white',
-        color: '#555',
-        fontFamily: 'var(--font-body)',
-        fontWeight: 500,
-        fontSize: 11,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        cursor: 'pointer',
-        margin: '0 4px 6px 0',
-        transition: 'all .15s',
-        opacity: hasCount ? 1 : 0.45,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = '#E8347A';
-        e.currentTarget.style.color = '#E8347A';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#EDE8E3';
-        e.currentTarget.style.color = '#555';
-      }}
-    >
-      {pill.label}
-      {hasCount && (
-        <span style={{ fontWeight: 400, fontSize: 10, color: '#B8A89A', letterSpacing: 0 }}>
-          {count}
-        </span>
-      )}
-    </button>
   );
 }
