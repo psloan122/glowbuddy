@@ -17,6 +17,7 @@ export default function Alerts() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     document.title = 'Price Alerts | Know Before You Glow';
@@ -32,6 +33,7 @@ export default function Alerts() {
 
     async function loadAlerts() {
       setLoading(true);
+      setError(null);
       try {
         const alertList = await getUserAlerts();
         if (cancelled) return;
@@ -73,8 +75,9 @@ export default function Alerts() {
           if (cancelled) return;
           setCurrentAvgs(avgs);
         }
-      } catch {
-        // Silent fail
+      } catch (err) {
+        console.error('[Alerts] loadAlerts failed:', err);
+        if (!cancelled) setError('Something went wrong loading your alerts. Please try again.');
       }
       if (!cancelled) setLoading(false);
     }
@@ -88,8 +91,9 @@ export default function Alerts() {
     try {
       await deleteAlert(alertId);
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-    } catch {
-      // Silent fail
+    } catch (err) {
+      console.error('[Alerts] handleDelete failed:', err);
+      setError('Failed to delete alert. Please try again.');
     }
   }
 
@@ -101,8 +105,9 @@ export default function Alerts() {
           a.id === alertId ? { ...a, is_active: !currentState } : a
         )
       );
-    } catch {
-      // Silent fail
+    } catch (err) {
+      console.error('[Alerts] handleToggle failed:', err);
+      setError('Failed to update alert. Please try again.');
     }
   }
 
@@ -110,8 +115,9 @@ export default function Alerts() {
     try {
       const newAlert = await createAlert({ procedureType });
       setAlerts((prev) => [newAlert, ...prev]);
-    } catch {
-      // Silent fail
+    } catch (err) {
+      console.error('[Alerts] handleQuickCreateAlert failed:', err);
+      setError('Failed to create alert. Please try again.');
     }
   }
 
@@ -162,6 +168,15 @@ export default function Alerts() {
           New Alert
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-800 font-semibold text-sm shrink-0 hover:opacity-70">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {alerts.length === 0 ? (
         <div className="glow-card p-8 text-center">

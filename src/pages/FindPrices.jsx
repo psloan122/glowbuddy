@@ -120,6 +120,7 @@ export default function FindPrices() {
   const [procedures, setProcedures] = useState([]);
   const [loadingProcedures, setLoadingProcedures] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [feedError, setFeedError] = useState(null);
 
   // --- Procedure search ---
   const [procQuery, setProcQuery] = useState('');
@@ -891,6 +892,7 @@ export default function FindPrices() {
         } catch {
           // submission_errors may not exist on older deploys — ignore
         }
+        setFeedError('Something went wrong loading prices. Please try again.');
         return [];
       }
       // The procedures table has no `brand` column — patient-reported rows
@@ -1014,6 +1016,7 @@ export default function FindPrices() {
         } catch {
           // submission_errors may not exist on older deploys — ignore
         }
+        setFeedError('Something went wrong loading prices. Please try again.');
         return [];
       }
 
@@ -1196,6 +1199,7 @@ export default function FindPrices() {
       }
 
       setLoadingProcedures(true);
+      setFeedError(null);
 
       // Safety net: if any of the awaits below throw (network blip,
       // unexpected schema mismatch, attachProviderSpecials failure), the
@@ -1270,7 +1274,9 @@ export default function FindPrices() {
         // Fall back to the unannotated results so we still render something.
       }
       setProcedures(resultsWithSpecials);
-      } catch {
+      } catch (err) {
+        console.error('[FindPrices] feed fetch failed:', err);
+        setFeedError('Something went wrong loading prices. Please try again.');
         setProcedures([]);
       } finally {
         setLoadingProcedures(false);
@@ -3066,6 +3072,35 @@ export default function FindPrices() {
         {procFilter?.slug === 'neurotoxin' && (
           <div className="hidden md:block">
             <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
+          </div>
+        )}
+
+        {/* Feed error banner */}
+        {feedError && (
+          <div
+            style={{
+              background: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: 8,
+              padding: '12px 16px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              color: '#991B1B',
+            }}
+          >
+            <span>{feedError}</span>
+            <button
+              type="button"
+              onClick={() => setFeedError(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991B1B', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}
+            >
+              Dismiss
+            </button>
           </div>
         )}
 

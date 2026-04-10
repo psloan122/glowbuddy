@@ -41,6 +41,9 @@ export default function LoggedInHome() {
   const [activityLoading, setActivityLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(true);
 
+  // Error state
+  const [loadError, setLoadError] = useState(null);
+
   // UI state
   const [showCreateAlert, setShowCreateAlert] = useState(false);
   const [triggersDismissed, setTriggersDismissed] = useState(false);
@@ -73,8 +76,8 @@ export default function LoggedInHome() {
         .eq('id', userId)
         .single();
       setProfile(data);
-    } catch {
-      // profile not found — use email fallback
+    } catch (err) {
+      console.error('[LoggedInHome] fetchProfile failed:', err);
     } finally {
       setProfileLoading(false);
     }
@@ -84,8 +87,9 @@ export default function LoggedInHome() {
     try {
       const data = await getUserAlerts();
       setAlerts(data);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchAlerts failed:', err);
+      setLoadError('Some dashboard data failed to load.');
     } finally {
       setAlertsLoading(false);
     }
@@ -109,8 +113,8 @@ export default function LoggedInHome() {
         triggered_price: t.triggered_price || t.price_alerts?.max_price,
       }));
       setTriggers(mapped);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchTriggers failed:', err);
     }
   }
 
@@ -130,8 +134,9 @@ export default function LoggedInHome() {
         .order('created_at', { ascending: false })
         .limit(4);
       setNearbyPrices(data || []);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchNearby failed:', err);
+      setLoadError('Some dashboard data failed to load.');
     } finally {
       setNearbyLoading(false);
     }
@@ -145,8 +150,8 @@ export default function LoggedInHome() {
         .eq('user_id', userId)
         .limit(10);
       setFollows(data || []);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchFollowing failed:', err);
     } finally {
       setFollowsLoading(false);
     }
@@ -180,8 +185,8 @@ export default function LoggedInHome() {
         isPioneer: (pioneerRes.count || 0) > 0,
         recentSubmissions: recentRes.data || [],
       });
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchActivityData failed:', err);
     } finally {
       setActivityLoading(false);
     }
@@ -196,8 +201,8 @@ export default function LoggedInHome() {
       }
       const report = await fetchCityReport(city, state);
       setCityReport(report);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[LoggedInHome] fetchReport failed:', err);
     } finally {
       setReportLoading(false);
     }
@@ -212,6 +217,16 @@ export default function LoggedInHome() {
         city={city}
         state={state}
       />
+
+      {/* Load error banner */}
+      {loadError && (
+        <div className="mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 flex items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <button onClick={() => setLoadError(null)} className="text-red-800 font-semibold text-sm shrink-0 hover:opacity-70">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Alert strip */}
       {!triggersDismissed && triggers.length > 0 && (

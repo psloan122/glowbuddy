@@ -36,6 +36,7 @@ import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import BookingPlatformConnect from '../../components/BookingPlatformConnect';
 import IntegrationStats from '../../components/IntegrationStats';
 import useTier from '../../hooks/useTier';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import FeatureGate from '../../components/FeatureGate';
 import { createSubscriptionCheckout } from '../../lib/stripe';
 import { TIER_BADGE_STYLE, TIER_BADGE_LABEL } from '../../lib/tierBadge';
@@ -53,6 +54,23 @@ function getGreeting() {
   return 'Good evening';
 }
 
+
+function TabErrorFallback({ reset }) {
+  return (
+    <div className="glow-card p-8 text-center">
+      <AlertTriangle size={32} className="text-rose-accent mx-auto mb-3" />
+      <p className="text-text-primary font-medium mb-1">This section ran into a problem.</p>
+      <p className="text-sm text-text-secondary mb-4">Try refreshing, or switch to another tab.</p>
+      <button
+        onClick={reset}
+        className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-accent text-white text-sm font-medium rounded-xl hover:bg-rose-dark transition-colors"
+      >
+        <RefreshCw size={14} />
+        Try Again
+      </button>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { session, user } = useContext(AuthContext);
@@ -967,25 +985,31 @@ export default function Dashboard() {
 
       {/* ===== DEMAND INTEL TAB ===== */}
       {activeTab === 'Demand Intel' && (
-        <DemandIntelTab
-          provider={provider}
-          tierHelpers={tierHelpers}
-          onPostSpecial={handlePostSpecialFromDemand}
-        />
+        <ErrorBoundary label="Demand Intel" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <DemandIntelTab
+            provider={provider}
+            tierHelpers={tierHelpers}
+            onPostSpecial={handlePostSpecialFromDemand}
+          />
+        </ErrorBoundary>
       )}
 
       {/* ===== PROMOTED SPECIALS TAB ===== */}
       {activeTab === 'Promoted Specials' && (
-        <FeatureGate feature="promoted_specials" tierHelpers={tierHelpers}>
-          <SpecialsManager provider={provider} prefill={specialsPrefill} />
-        </FeatureGate>
+        <ErrorBoundary label="Promoted Specials" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <FeatureGate feature="promoted_specials" tierHelpers={tierHelpers}>
+            <SpecialsManager provider={provider} prefill={specialsPrefill} />
+          </FeatureGate>
+        </ErrorBoundary>
       )}
 
       {/* ===== CALL ANALYTICS TAB ===== */}
       {activeTab === 'Call Analytics' && (
-        <FeatureGate feature="call_analytics" tierHelpers={tierHelpers}>
-          <CallAnalyticsTab providerId={provider?.id} />
-        </FeatureGate>
+        <ErrorBoundary label="Call Analytics" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <FeatureGate feature="call_analytics" tierHelpers={tierHelpers}>
+            <CallAnalyticsTab providerId={provider?.id} />
+          </FeatureGate>
+        </ErrorBoundary>
       )}
 
       {/* ===== INTEGRATIONS TAB ===== */}
@@ -1074,35 +1098,43 @@ export default function Dashboard() {
 
       {/* ===== INJECTORS TAB ===== */}
       {activeTab === 'Injectors' && (
-        <InjectorsTab
-          provider={provider}
-          injectors={dashInjectors}
-          onRefresh={fetchInjectors}
-        />
+        <ErrorBoundary label="Injectors" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <InjectorsTab
+            provider={provider}
+            injectors={dashInjectors}
+            onRefresh={fetchInjectors}
+          />
+        </ErrorBoundary>
       )}
 
       {/* ===== BEFORE & AFTERS TAB ===== */}
       {activeTab === 'Before & Afters' && (
-        <DashboardBeforeAfterTab
-          provider={provider}
-          photos={dashBAPhotos}
-          injectors={dashInjectors}
-          onRefresh={fetchBAPhotos}
-        />
+        <ErrorBoundary label="Before & Afters" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <DashboardBeforeAfterTab
+            provider={provider}
+            photos={dashBAPhotos}
+            injectors={dashInjectors}
+            onRefresh={fetchBAPhotos}
+          />
+        </ErrorBoundary>
       )}
 
       {/* ===== REVIEWS TAB ===== */}
       {activeTab === 'Reviews' && (
-        <DashboardReviewsTab
-          reviews={dashReviews}
-          provider={provider}
-          onRefresh={fetchDashReviews}
-        />
+        <ErrorBoundary label="Reviews" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <DashboardReviewsTab
+            reviews={dashReviews}
+            provider={provider}
+            onRefresh={fetchDashReviews}
+          />
+        </ErrorBoundary>
       )}
 
       {/* ===== SUBMISSIONS TAB ===== */}
       {activeTab === 'Submissions' && (
-        <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} providerId={provider?.id} onRefresh={fetchCommunityProcedures} />
+        <ErrorBoundary label="Submissions" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          <SubmissionsTab communityProcedures={communityProcedures} pricing={pricing} providerId={provider?.id} onRefresh={fetchCommunityProcedures} />
+        </ErrorBoundary>
       )}
 
       {/* ===== DISPUTES TAB ===== */}
