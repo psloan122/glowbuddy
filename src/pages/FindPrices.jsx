@@ -62,6 +62,7 @@ import { setPageMeta } from '../lib/seo';
 import { normalizePrice } from '../lib/priceUtils';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import { SkeletonGrid } from '../components/SkeletonCard';
+import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
 // providerProfileUrl was used by the old mobile gate list; now handled by MapProviderCard.
 
 function capitalize(s) {
@@ -302,9 +303,10 @@ export default function FindPrices() {
   const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
   const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
 
-  // Per-pill provider counts — how many providers in this city offer each treatment.
+  // Per-pill provider counts + raw pricing rows for filtering.
   // Computed from a lightweight provider_pricing query keyed off gateProviders.
   const [pillCounts, setPillCounts] = useState({});
+  const [cityPricingRows, setCityPricingRows] = useState([]);
 
   // ── Mobile sheet ↔ map padding sync ──
   // Track the sheet's snap position so we can tell the map which part
@@ -415,12 +417,14 @@ export default function FindPrices() {
     };
   }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, searchAreaBounds]);
 
-  // ── Pill provider counts ──
-  // Lightweight query: how many providers in this city offer each treatment?
-  // Runs once per city change, keyed off gateProviders.
+  // ── Pill provider counts + city pricing rows ──
+  // Lightweight query: fetch procedure_type + brand for all providers in
+  // the city. Used for (a) pill badge counts and (b) filtering allProviders
+  // down to only those offering the selected treatment on the map.
   useEffect(() => {
     if (!gateProviders?.length) {
       setPillCounts({});
+      setCityPricingRows([]);
       return undefined;
     }
     let cancelled = false;
@@ -432,26 +436,8 @@ export default function FindPrices() {
         .in('provider_id', ids)
         .eq('display_suppressed', false);
       if (cancelled || error || !data) return;
-      const counts = {};
-      for (const pill of PROCEDURE_PILLS) {
-        const providers = new Set();
-        for (const row of data) {
-          if (pill.brand) {
-            // Brand-specific pill (neurotoxins): match on brand column
-            if (row.brand && row.brand.toLowerCase() === pill.brand.toLowerCase()) {
-              providers.add(row.provider_id);
-            }
-          } else {
-            // Category pill: match on procedure_type fuzzyToken
-            const pt = (row.procedure_type || '').toLowerCase();
-            if (pt.includes(pill.fuzzyToken)) {
-              providers.add(row.provider_id);
-            }
-          }
-        }
-        if (providers.size > 0) counts[pill.label] = providers.size;
-      }
-      if (!cancelled) setPillCounts(counts);
+      setCityPricingRows(data);
+      setPillCounts(countProvidersByTreatment(data, PROCEDURE_PILLS));
     })();
     return () => { cancelled = true; };
   }, [gateProviders]);
@@ -1884,6 +1870,34 @@ export default function FindPrices() {
     }).length;
   }, [gateProviders, mapBounds]);
 
+  // When a treatment is selected, filter gateProviders to only those
+  // that have at least one matching pricing row. This way the map only
+  // shows pins for providers that actually offer the selected treatment
+  // instead of showing every provider in the city as gray dots.
+  const filteredGateProviders = useMemo(() => {
+    if (!procFilter && !brandFilter) return gateProviders;
+    // Find the active pill — brandFilter pills have an explicit brand,
+    // otherwise fall back to the procFilter pill object.
+    const activePill = brandFilter
+      ? PROCEDURE_PILLS.find((p) => p.brand && p.brand.toLowerCase() === brandFilter.toLowerCase()) || procFilter
+      : procFilter;
+    return filterProvidersByTreatment(gateProviders, cityPricingRows, activePill);
+  }, [gateProviders, cityPricingRows, procFilter, brandFilter]);
+
+  // Filtered count for the map — when a treatment is selected, counts
+  // only providers offering that treatment visible in the viewport.
+  const filteredViewportCount = useMemo(() => {
+    if (!procFilter && !brandFilter) return viewportProviderCount;
+    if (!mapBounds) return filteredGateProviders.length;
+    return filteredGateProviders.filter((p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true;
+      return lat >= mapBounds.south && lat <= mapBounds.north &&
+             lng >= mapBounds.west  && lng <= mapBounds.east;
+    }).length;
+  }, [filteredGateProviders, mapBounds, procFilter, brandFilter, viewportProviderCount]);
+
   // ── Compare tray handlers ──
   const toggleCompare = useCallback((procedure) => {
     setComparing((prev) => {
@@ -3136,7 +3150,7 @@ export default function FindPrices() {
             {/* Layer 1: Map — fills full screen behind everything */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <GlowMap
-                allProviders={gateProviders}
+                allProviders={filteredGateProviders}
                 procedures={hasPricedResults ? proceduresForMap : []}
                 cityAvg={hasPricedResults ? cityAvgPrice : undefined}
                 city={selectedLoc.city}
@@ -3398,7 +3412,15 @@ export default function FindPrices() {
               ) : (
                 <>
                 <div style={{ padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
-                  {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'} in this area
+                  <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
+                  {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
+                  {brandFilter || procFilter?.label || 'treatments'}
+                  {selectedLoc?.city ? ` in ${selectedLoc.city}` : ''}
+                  {displayedProcedures.length !== groupedProviders.length && (
+                    <span style={{ color: '#B8A89A' }}>
+                      {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}
+                    </span>
+                  )}
                   {searchAreaBounds && (
                     <span style={{ display: 'block', fontSize: 11, color: '#B8A89A', fontStyle: 'italic', marginTop: 2 }}>
                       Viewing results in map area — drag to explore
@@ -3478,7 +3500,7 @@ export default function FindPrices() {
               }}
             >
               <GlowMap
-                allProviders={gateProviders}
+                allProviders={filteredGateProviders}
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
                 city={selectedLoc.city}
