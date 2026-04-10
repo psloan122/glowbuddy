@@ -242,14 +242,6 @@ function App() {
     setAuthModal({ open: false, mode: 'signup' });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse text-rose-accent text-lg">Loading...</div>
-      </div>
-    );
-  }
-
   const authValue = useMemo(() => ({
     session,
     user: session?.user || null,
@@ -257,6 +249,14 @@ function App() {
     closeAuthModal,
     showToast,
   }), [session, openAuthModal, closeAuthModal, showToast]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-rose-accent text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={authValue}>
