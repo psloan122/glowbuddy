@@ -3,7 +3,7 @@ import MapProviderCard from '../MapProviderCard';
 
 // Snap positions — dvh from top (used as translateY %).
 // Sheet is 100dvh tall, anchored at bottom:0.
-const SNAP_FULL_MAP  = 88; // sheet barely visible — just handle + toggle showing
+const SNAP_FULL_MAP  = 84; // sheet barely visible — handle + summary line showing
 const SNAP_HALF      = 50; // half map, half list
 const SNAP_FULL_LIST = 8;  // full list, map almost hidden
 
@@ -256,87 +256,22 @@ export default memo(function MobileBrowseSheet({
         willChange: 'transform',
       }}
     >
-      {/* Snap toggle buttons */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 12,
-          paddingTop: 8,
-          paddingBottom: 4,
-        }}
-      >
-        {[
-          { label: '\uD83D\uDDFA Map', target: 'full_map' },
-          { label: '\u25A0\u25A0 Split', target: 'half' },
-          { label: '\u2630 List', target: 'full_list' },
-        ].map(({ label, target }) => (
-          <button
-            key={target}
-            type="button"
-            onClick={() => setSnap(target)}
-            style={{
-              padding: '4px 12px',
-              borderRadius: 14,
-              border: `1px solid ${snap === target ? '#E8347A' : '#EDE8E3'}`,
-              background: snap === target ? '#E8347A' : 'white',
-              color: snap === target ? '#fff' : '#666',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 600,
-              fontSize: 11,
-              letterSpacing: '0.04em',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Drag handle — always controls sheet drag */}
-      <div
-        ref={handleRef}
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          paddingTop: 6,
-          paddingBottom: 6,
-          cursor: 'grab',
-          touchAction: 'none', // prevent browser scroll on the handle
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: 2,
-            background: '#D1D5DB',
-          }}
-        />
-      </div>
-
-      {/* Header */}
-      <div style={{ padding: '0 16px 8px' }}>
-        <p
-          style={{
-            fontFamily: 'Outfit, sans-serif',
-            fontWeight: 300,
-            fontSize: 13,
-            color: '#888',
-            margin: 0,
-          }}
-        >
-          {loading
-            ? 'Finding providers\u2026'
-            : showListings
-              ? `${count} ${count === 1 ? 'med spa' : 'med spas'}  \u00b7  ${listings} ${listings === 1 ? 'price' : 'prices'} in ${city || ''}${state ? `, ${state}` : ''}`
-              : `${count} provider${count !== 1 ? 's' : ''} in ${city || ''}${state ? `, ${state}` : ''}`}
+      {/* Drag handle + summary line */}
+      <div ref={handleRef} style={{ touchAction: 'none', paddingTop: 10, paddingBottom: 4, cursor: 'grab' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#D1D5DB' }} />
+        </div>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
+          margin: 0, padding: '0 16px', textAlign: 'center',
+        }}>
+          {loading ? 'Finding providers\u2026' : `${count} provider${count !== 1 ? 's' : ''}`}
+          {!loading && city && <span style={{ fontWeight: 400, color: '#888' }}>{' \u00b7 '}{city}{state ? `, ${state}` : ''}</span>}
         </p>
       </div>
 
-      {/* Procedure pills strip (gate mode only) */}
-      {mode === 'gate' && pills && pills.length > 0 && (
+      {/* Procedure pills strip */}
+      {pills && pills.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -397,7 +332,7 @@ export default memo(function MobileBrowseSheet({
           height: 'calc(100% - 80px)',
           paddingLeft: 8,
           paddingRight: 8,
-          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
           WebkitOverflowScrolling: 'touch',
         }}
       >

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Link2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PriceContextBar from '../components/browse/PriceContextBar';
 import StickyFilterBar from '../components/browse/StickyFilterBar';
@@ -13,6 +13,7 @@ import GlowMap from '../components/browse/GlowMap';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
 import ProviderProfileModal from '../components/ProviderProfileModal';
 import MobileBrowseSheet from '../components/browse/MobileBrowseSheet';
+import MobileMapSearchOverlay from '../components/browse/MobileMapSearchOverlay';
 import useSavedProviders from '../hooks/useSavedProviders';
 import AuthModal from '../components/AuthModal';
 import { providerSlugFromParts } from '../lib/slugify';
@@ -67,6 +68,8 @@ function capitalize(s) {
 // they navigated away to a provider profile and clicked "Find Prices"
 // in the navbar). URL params always win when present.
 const BROWSE_FILTERS_KEY = 'glowbuddy.browseFilters.v1';
+const BROWSE_RESULTS_KEY = 'glowbuddy.browseResults.v1';
+const RESULTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function readPersistedFilters() {
   if (typeof window === 'undefined') return null;
@@ -190,6 +193,7 @@ export default function FindPrices() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [detailSheet, setDetailSheet] = useState(null);
   const [experienceSheet, setExperienceSheet] = useState(null);
   const [dosingSheet, setDosingSheet] = useState(null);
@@ -296,7 +300,7 @@ export default function FindPrices() {
   const mapBottomPadding = useMemo(() => {
     if (!isMobile || !selectedLoc) return 0;
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
-    if (mobileSheetSnap === 'full_map') return 0;
+    if (mobileSheetSnap === 'full_map') return Math.round(h * 0.12);
     if (mobileSheetSnap === 'full_list') return Math.round(h * 0.05);
     return Math.round(h * 0.45); // half (default)
   }, [isMobile, selectedLoc, mobileSheetSnap]);
@@ -1181,6 +1185,14 @@ export default function FindPrices() {
       });
     }
 
+    // Build a cache key from the current filter combination
+    const cacheKey = JSON.stringify({
+      proc: procFilter?.slug, brand: brandFilter, sub: subTypeFilter,
+      city: filterCity, state: filterState, zip: filterZip,
+      pt: filterProviderType, sort: sortBy, pMin: priceMin, pMax: priceMax,
+      mr: minRating, sab: searchAreaBounds,
+    });
+
     async function fetchProcedures() {
       // Gate: if no procedure has been picked yet, don't fetch anything —
       // the UI shows the ProcedureGate prompt instead. This avoids
@@ -1190,6 +1202,19 @@ export default function FindPrices() {
         setLoadingProcedures(false);
         return;
       }
+
+      // Try sessionStorage cache first (instant back-nav restoration)
+      try {
+        const cached = sessionStorage.getItem(BROWSE_RESULTS_KEY);
+        if (cached) {
+          const { key, data, ts } = JSON.parse(cached);
+          if (key === cacheKey && Date.now() - ts < RESULTS_CACHE_TTL) {
+            setProcedures(data);
+            setLoadingProcedures(false);
+            return;
+          }
+        }
+      } catch { /* corrupted cache — ignore */ }
 
       setLoadingProcedures(true);
       setFeedError(null);
@@ -1238,6 +1263,12 @@ export default function FindPrices() {
       }
       if (cancelled) return;
       setProcedures(resultsWithSpecials);
+      // Cache results for instant back-nav restoration
+      try {
+        sessionStorage.setItem(BROWSE_RESULTS_KEY, JSON.stringify({
+          key: cacheKey, data: resultsWithSpecials, ts: Date.now(),
+        }));
+      } catch { /* storage full — ignore */ }
       } catch (err) {
         if (cancelled) return;
         console.error('[FindPrices] feed fetch failed:', err);
@@ -1527,24 +1558,6 @@ export default function FindPrices() {
     };
     return (
       <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label style={editorialLabel}>Sort by</label>
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={editorialSelect}
-            >
-              <option value="most_verified">Most Verified</option>
-              <option value="most_recent">Most Recent</option>
-              <option value="lowest_price">Lowest Price</option>
-              <option value="highest_price">Highest Price</option>
-              <option value="highest_rated">Highest Rated</option>
-            </select>
-            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#666' }} />
-          </div>
-        </div>
-
         <div>
           <label style={editorialLabel}>Min Rating</label>
           <div className="relative">
@@ -1919,6 +1932,16 @@ export default function FindPrices() {
     },
     [user, isSaved, saveProvider, unsaveProvider],
   );
+
+  // ── Share results (copy URL to clipboard) ──
+  const [shareCopied, setShareCopied] = useState(false);
+  const handleShareResults = useCallback(() => {
+    try {
+      navigator.clipboard?.writeText(window.location.href);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch { /* noop */ }
+  }, []);
 
   // ── Procedure detail sheet handler ──
   const handleProcedureDetail = useCallback((procedure, provider) => {
@@ -2454,21 +2477,6 @@ export default function FindPrices() {
                 <span className="hidden sm:inline">Filters</span>
               </button>
 
-              <button
-                onClick={() => setHasPricesOnly((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase whitespace-nowrap transition-colors cursor-pointer"
-                style={{
-                  letterSpacing: '0.08em',
-                  borderRadius: '4px',
-                  background: hasPricesOnly ? '#E8347A' : 'white',
-                  border: `1px solid ${hasPricesOnly ? '#E8347A' : '#E8E8E8'}`,
-                  color: hasPricesOnly ? 'white' : '#666',
-                }}
-              >
-                {hasPricesOnly && <span style={{ fontSize: '10px' }}>&#10003;</span>}
-                Has prices
-              </button>
-
               {selectedLoc && (
                 <a
                   href={`https://www.google.com/maps/search/med+spa+near+${encodeURIComponent(`${selectedLoc.city}, ${selectedLoc.state}`)}`}
@@ -2854,7 +2862,7 @@ export default function FindPrices() {
         {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
 
         {/* Feed error banner */}
-        {feedError && (
+        {feedError && !loadingProcedures && (
           <div
             style={{
               background: '#fff5f5',
@@ -3065,18 +3073,74 @@ export default function FindPrices() {
               />
             )}
 
-            {/* Layer 3: Compact header — LAST so its stacking context (z-40)
-                keeps autocomplete dropdowns (z-50 inside) above the sheet (z-35) */}
+            {/* Layer 3: Floating search pill */}
             <div style={{
               position: 'absolute',
               top: 0, left: 0, right: 0,
               zIndex: 40,
-              background: 'white',
-              borderBottom: '1px solid #EDE8E3',
-              paddingTop: 'env(safe-area-inset-top, 0px)',
+              padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 12px 0',
+              pointerEvents: 'none',
             }}>
-              {renderCompactHeader()}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+                {/* Search pill */}
+                <button onClick={() => setMobileSearchOpen(true)} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 10,
+                  height: 48, padding: '0 16px', borderRadius: 24,
+                  background: 'white', border: 'none',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                }}>
+                  <Search size={16} style={{ color: '#E8347A', flexShrink: 0 }} />
+                  <div style={{ flex: 1, textAlign: 'left', overflow: 'hidden' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {brandFilter || procFilter?.label || 'All treatments'}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 400, color: '#888', fontFamily: 'var(--font-body)' }}>
+                      {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
+                    </div>
+                  </div>
+                </button>
+                {/* Filter circle */}
+                <button onClick={() => setShowFilters(true)} style={{
+                  width: 44, height: 44, borderRadius: 22,
+                  background: 'white', border: 'none',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0,
+                  pointerEvents: 'auto',
+                }}>
+                  <SlidersHorizontal size={18} style={{ color: '#555' }} />
+                </button>
+              </div>
             </div>
+
+            {/* Search overlay */}
+            <MobileMapSearchOverlay
+              open={mobileSearchOpen}
+              onClose={() => setMobileSearchOpen(false)}
+              procRef={procRef}
+              procFilter={procFilter}
+              brandFilter={brandFilter}
+              procQuery={procQuery}
+              setProcQuery={setProcQuery}
+              procOpen={procOpen}
+              setProcOpen={setProcOpen}
+              procMatches={procMatches}
+              selectProcedure={selectProcedure}
+              selectPill={selectPill}
+              clearProcedure={clearProcedure}
+              resolveProcedureFromQuery={resolveProcedureFromQuery}
+              locRef={locRef}
+              locQuery={locQuery}
+              handleLocInput={handleLocInput}
+              locOpen={locOpen}
+              setLocOpen={setLocOpen}
+              locResults={locResults}
+              locLoading={locLoading}
+              selectLocation={selectLocation}
+              clearLocation={clearLocation}
+              selectedLoc={selectedLoc}
+            />
 
           </div>
         );
@@ -3088,7 +3152,7 @@ export default function FindPrices() {
           list/map toggle, desktop uses the unified split-view block
           which keeps the GlowMap mounted across the entire gate →
           priced transition. */}
-      {!personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
+      {!isMobile && !personalizedMode && procFilter && !loadingProcedures && displayedProcedures.length > 0 && (
         <div className="mx-auto px-4" style={{ maxWidth: 1400 }}>
           <PriceContextBar
             prices={displayedProcedures}
@@ -3113,13 +3177,6 @@ export default function FindPrices() {
             isNeurotoxin={procFilter?.slug === 'neurotoxin'}
             brand={(brandFilter || 'botox').toLowerCase()}
           />
-          <ResultsCountBar
-            count={displayedProcedures.length}
-            providerCount={groupedProviders.length}
-            brandLabel={brandFilter || procFilter?.label}
-            city={selectedLoc?.city}
-            state={selectedLoc?.state}
-          />
           {bestDealInfo && (
             <SavingsCallout
               city={selectedLoc?.city}
@@ -3139,8 +3196,12 @@ export default function FindPrices() {
           className="mx-auto px-4"
           style={{ maxWidth: 860, paddingBottom: 40 }}
         >
-          <div style={{ padding: '8px 0', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
-            {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
+            <span>{groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'}</span>
+            <button type="button" onClick={handleShareResults} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: shareCopied ? '#1A7A3A' : 'transparent', color: shareCopied ? 'white' : '#888', border: `1px solid ${shareCopied ? '#1A7A3A' : '#DDD'}`, borderRadius: 2, fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 150ms, color 150ms' }}>
+              <Link2 size={11} />
+              {shareCopied ? 'Copied!' : 'Share'}
+            </button>
           </div>
           {groupedProviders.map((group) => {
             const primary = group.procedures[0];
@@ -3247,21 +3308,27 @@ export default function FindPrices() {
                 </div>
               ) : (
                 <>
-                <div style={{ padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
-                  <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
-                  {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
-                  {brandFilter || procFilter?.label || 'treatments'}
-                  {selectedLoc?.city ? ` in ${selectedLoc.city}` : ''}
-                  {displayedProcedures.length !== groupedProviders.length && (
-                    <span style={{ color: '#B8A89A' }}>
-                      {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}
-                    </span>
-                  )}
-                  {searchAreaBounds && (
-                    <span style={{ display: 'block', fontSize: 11, color: '#B8A89A', fontStyle: 'italic', marginTop: 2 }}>
-                      Viewing results in map area — drag to explore
-                    </span>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
+                  <span>
+                    <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
+                    {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
+                    {brandFilter || procFilter?.label || 'treatments'}
+                    {selectedLoc?.city ? ` in ${selectedLoc.city}` : ''}
+                    {displayedProcedures.length !== groupedProviders.length && (
+                      <span style={{ color: '#B8A89A' }}>
+                        {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}
+                      </span>
+                    )}
+                    {searchAreaBounds && (
+                      <span style={{ display: 'block', fontSize: 11, color: '#B8A89A', fontStyle: 'italic', marginTop: 2 }}>
+                        Viewing results in map area — drag to explore
+                      </span>
+                    )}
+                  </span>
+                  <button type="button" onClick={handleShareResults} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: shareCopied ? '#1A7A3A' : 'transparent', color: shareCopied ? 'white' : '#888', border: `1px solid ${shareCopied ? '#1A7A3A' : '#DDD'}`, borderRadius: 2, fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 150ms, color 150ms', flexShrink: 0 }}>
+                    <Link2 size={11} />
+                    {shareCopied ? 'Copied!' : 'Share'}
+                  </button>
                 </div>
                 {/* First-Timer Onboarding Prompt — desktop */}
                 {selectedProc && !firstTimerActive && (

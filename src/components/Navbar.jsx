@@ -237,6 +237,12 @@ export default function Navbar() {
     navigate('/');
   }
 
+  // Hide on mobile map view — floating search pill replaces navbar
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    const sp = new URLSearchParams(location.search);
+    if (location.pathname === '/browse' && sp.has('city')) return null;
+  }
+
   return (
     <>
       <nav
