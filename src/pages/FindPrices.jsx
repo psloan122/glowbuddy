@@ -1782,13 +1782,14 @@ export default function FindPrices() {
     });
   }, [displayedProcedures, gateProviders]);
 
-  // City average — only uses rows with normalized_compare_value so we
-  // compare per-unit prices to per-unit prices (apples to apples).
-  // Used for the vs-average badges + savings callout.
+  // City average — ONLY per-unit prices. Per-session ($300), per-syringe,
+  // and flat packages must be excluded or they inflate the average by 10-20x
+  // (e.g. $211/unit instead of ~$15/unit for Botox in NYC).
   const cityAvgPrice = useMemo(() => {
     const vals = (displayedProcedures || [])
-      .filter((p) => !p.discount_type) // exclude discounted prices from avg
+      .filter((p) => !p.discount_type)
       .filter((p) =>
+        p.normalized_compare_unit === 'per unit' &&
         p.normalized_compare_value != null &&
         Number.isFinite(Number(p.normalized_compare_value)) &&
         Number(p.normalized_compare_value) > 0,
@@ -1798,19 +1799,17 @@ export default function FindPrices() {
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }, [displayedProcedures]);
 
-  // Best deal = lowest normalized price in the current result set. We
+  // Best deal = lowest per-unit price in the current result set. We
   // only surface the SavingsCallout when that deal is 20%+ below the
-  // city average.
+  // per-unit city average. Must be scoped to per-unit rows so a
+  // $300/session price doesn't compare against a $15/unit average.
   const bestDealInfo = useMemo(() => {
     if (!cityAvgPrice || !displayedProcedures?.length) return null;
     let best = null;
     let bestVal = Infinity;
     for (const p of displayedProcedures) {
-      const v = Number(
-        p.normalized_compare_value != null && Number.isFinite(Number(p.normalized_compare_value))
-          ? p.normalized_compare_value
-          : p.price_paid,
-      );
+      if (p.normalized_compare_unit !== 'per unit') continue;
+      const v = Number(p.normalized_compare_value);
       if (Number.isFinite(v) && v > 0 && v < bestVal) {
         bestVal = v;
         best = p;
@@ -2788,7 +2787,7 @@ export default function FindPrices() {
                     paddingTop: 16,
                   }}
                 >
-                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} />
+                  <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
                 </div>
               )}
             </div>
@@ -3083,7 +3082,7 @@ export default function FindPrices() {
         {/* Dosing Calculator — desktop only, shows for neurotoxin procedures */}
         {procFilter?.slug === 'neurotoxin' && (
           <div className="hidden md:block">
-            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} />
+            <DosingCalculator brand={(brandFilter || 'botox').toLowerCase()} pricePerUnit={cityAvgPrice} />
           </div>
         )}
 

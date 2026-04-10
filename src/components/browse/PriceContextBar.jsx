@@ -21,13 +21,13 @@ export default function PriceContextBar({
 }) {
   if (!prices || prices.length === 0) return null;
 
+  // Only per-unit prices participate in the min/max/avg stats.
+  // Including per-session ($300) or flat packages inflates the average
+  // by 10-20x (e.g. "$211/unit" instead of ~$15/unit for Botox).
   const numericPrices = prices
+    .filter((p) => p.normalized_compare_unit === 'per unit')
     .map((p) => {
-      const n = Number(
-        p.normalized_compare_value != null && Number.isFinite(Number(p.normalized_compare_value))
-          ? p.normalized_compare_value
-          : p.price_paid,
-      );
+      const n = Number(p.normalized_compare_value);
       return Number.isFinite(n) && n > 0 ? n : null;
     })
     .filter((n) => n != null);
@@ -48,13 +48,8 @@ export default function PriceContextBar({
     ? Math.round(numericPrices.reduce((sum, p) => sum + p, 0) / numericPrices.length)
     : null;
 
-  // Use the comparable unit from the first row that has one — most rows
-  // in a single result set share the same unit (per unit / per syringe /
-  // per session). Falls back to "/unit" because that's the most common.
-  const sampleUnit =
-    prices.find((p) => p.normalized_compare_unit)?.normalized_compare_unit ||
-    'per unit';
-  const unitSuffix = sampleUnit === 'per unit' ? '/unit' : ` ${sampleUnit}`;
+  // Stats are per-unit only, so the suffix is always /unit.
+  const unitSuffix = '/unit';
 
   const locationStr = city && state ? `${city}, ${state}` : city || '';
   const headLabel = brandLabel || 'Treatments';

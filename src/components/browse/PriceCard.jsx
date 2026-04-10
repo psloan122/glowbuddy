@@ -481,17 +481,21 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
             {isMilitary ? '🎖️ MIL' : '🏷️ PROMO'}
           </span>
         )}
-        <span style={S.flexShrink0}>
-          <VsAverageBadge
-            price={
-              procedure.normalized_compare_value != null &&
-              Number.isFinite(Number(procedure.normalized_compare_value))
-                ? Number(procedure.normalized_compare_value)
-                : null
-            }
-            avg={cityAvg}
-          />
-        </span>
+        {/* Only compare per-unit prices against the per-unit average.
+            A $300/session row compared to a $15/unit avg is meaningless. */}
+        {procedure.normalized_compare_unit === 'per unit' && (
+          <span style={S.flexShrink0}>
+            <VsAverageBadge
+              price={
+                procedure.normalized_compare_value != null &&
+                Number.isFinite(Number(procedure.normalized_compare_value))
+                  ? Number(procedure.normalized_compare_value)
+                  : null
+              }
+              avg={cityAvg}
+            />
+          </span>
+        )}
         {onDetailClick && (
           <button
             type="button"
