@@ -3427,6 +3427,9 @@ export default function FindPrices() {
                         Viewing results in map area — drag to explore
                       </span>
                     )}
+                    <span style={{ display: 'block', fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                      Prices are user-reported and may vary. GlowBuddy is independent — no paid placements.
+                    </span>
                   </span>
                   <button type="button" onClick={handleShareResults} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: shareCopied ? '#1A7A3A' : 'transparent', color: shareCopied ? 'white' : '#888', border: `1px solid ${shareCopied ? '#1A7A3A' : '#DDD'}`, borderRadius: 2, fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 150ms, color 150ms', flexShrink: 0 }}>
                     <Link2 size={11} />

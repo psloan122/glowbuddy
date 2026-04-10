@@ -98,6 +98,15 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  to="/data-policy"
+                  className="text-[13px] font-light hover:text-hot-pink transition-colors"
+                  style={{ color: '#bbb' }}
+                >
+                  Our Data Policy
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/privacy#ccpa"
                   className="text-[13px] font-light hover:text-hot-pink transition-colors"
                   style={{ color: '#bbb' }}

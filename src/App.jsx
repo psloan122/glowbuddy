@@ -66,6 +66,7 @@ const ReferralRedirect = lazy(() => import('./pages/ReferralRedirect'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const About = lazy(() => import('./pages/About'));
+const Independence = lazy(() => import('./pages/Independence'));
 const Audit = lazy(() => import('./pages/Audit'));
 const RequestBid = lazy(() => import('./pages/RequestBid'));
 const MyBidRequests = lazy(() => import('./pages/MyBidRequests'));
@@ -334,6 +335,7 @@ function App() {
               <Route path="/prices/:citySlug" element={<CityPriceReport />} />
               <Route path="/prices/:citySlug/:yearMonth" element={<CityPriceReport />} />
               <Route path="/about" element={<About />} />
+              <Route path="/data-policy" element={<Independence />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
