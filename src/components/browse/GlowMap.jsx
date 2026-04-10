@@ -315,6 +315,20 @@ export default memo(function GlowMap({
     // can force a fresh init without remounting the component.
   }, [retryNonce]);
 
+  // ── 8s UI timeout — never leave users on an infinite spinner ────────
+  // If the map hasn't loaded within 8 seconds (CDN hang, ad-blocker,
+  // network blip), show the fallback. The "Try map again" button in the
+  // fallback bumps retryNonce which resets mapError and re-runs init.
+  useEffect(() => {
+    if (ready || mapError) return;
+    const timer = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn('[GlowMap] map load timed out after 8s — showing fallback');
+      setMapError('Map load timed out');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [ready, mapError]);
+
   // ── Recenter on city change ─────────────────────────────────────────
   // Only fires when (city, state) actually changes. Resets the
   // interaction flag so a brand-new search re-establishes context.

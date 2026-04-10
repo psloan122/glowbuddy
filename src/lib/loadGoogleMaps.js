@@ -43,16 +43,31 @@ export function loadGoogleMaps() {
       key.length,
     );
 
+    // 10s timeout — if the CDN hangs or the script never loads, reject
+    // so GlowMap can show the fallback instead of spinning forever.
+    const timeout = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.error('[loadGoogleMaps] script load timed out after 10s');
+      reject(new Error('Google Maps script load timed out'));
+    }, 10000);
+
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async`;
+    // NOTE: Do NOT add `loading=async` here. With that parameter,
+    // `onload` fires when the bootstrap is ready but the Map constructor
+    // may not be available yet (requires importLibrary('maps')). Without
+    // it, `onload` fires after all requested libraries are fully loaded,
+    // which is what our code expects.
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
+      clearTimeout(timeout);
       // eslint-disable-next-line no-console
       console.info('[loadGoogleMaps] script onload fired. window.google.maps =', !!window.google?.maps);
       resolve();
     };
     script.onerror = (e) => {
+      clearTimeout(timeout);
       // eslint-disable-next-line no-console
       console.error('[loadGoogleMaps] script onerror — network or CSP failure', e);
       reject(new Error('Google Maps script failed to load (network/CSP)'));
