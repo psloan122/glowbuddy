@@ -179,7 +179,9 @@ export default function FindPrices() {
   });
   const locRef = useRef(null);
   const locInputRef = useRef(null);
+  const mobileLocInputRef = useRef(null);
   const locDebounce = useRef(null);
+  const [cityHighlight, setCityHighlight] = useState(false);
 
   // Sort & extra filters
   const [sortBy, setSortBy] = useState(() => {
@@ -801,6 +803,7 @@ export default function FindPrices() {
     setSelectedLoc(loc);
     setLocQuery('');
     setLocOpen(false);
+    setCityHighlight(false);
     if (loc.city) persistCity(loc.city);
     if (loc.state) persistState(loc.state);
     if (loc.zip) persistZip(loc.zip);
@@ -2092,14 +2095,21 @@ export default function FindPrices() {
         <div ref={locRef} className="relative" style={{ flex: 1 }}>
           <div
             className="flex items-center gap-2 bg-white px-2"
-            style={{ height: 36, borderRadius: 2, border: '1px solid #EDE8E3' }}
+            style={{
+              height: 36,
+              borderRadius: 2,
+              border: cityHighlight ? '2px solid #E8347A' : '1px solid #EDE8E3',
+              transition: 'border-color 0.3s',
+            }}
           >
             <span style={{ fontSize: 14 }} aria-hidden="true">&#x1F4CD;</span>
             <input
+              ref={mobileLocInputRef}
               type="text"
               value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
-              onChange={(e) => handleLocInput(e.target.value)}
+              onChange={(e) => { setCityHighlight(false); handleLocInput(e.target.value); }}
               onFocus={() => {
+                setCityHighlight(false);
                 if (selectedLoc && !locQuery) {
                   setLocQuery(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
                 }
@@ -2211,7 +2221,15 @@ export default function FindPrices() {
               }
             }
 
-            // 2. If the user typed a city but hasn't selected one yet,
+            // 2. If no city is entered, highlight and focus the city input
+            if (!selectedLoc && !locQuery.trim()) {
+              setCityHighlight(true);
+              mobileLocInputRef.current?.focus();
+              mobileLocInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              return;
+            }
+
+            // 3. If the user typed a city but hasn't selected one yet,
             //    resolve it now — pick the first autocomplete result.
             if (locQuery.trim() && !selectedLoc) {
               if (locResults.length > 0 && !locResults[0].kind) {
@@ -2222,7 +2240,7 @@ export default function FindPrices() {
               }
             }
 
-            // 3. Close all dropdowns
+            // 4. Close all dropdowns
             setProcOpen(false);
             setLocOpen(false);
           }}
@@ -2877,20 +2895,33 @@ export default function FindPrices() {
           />
         )}
 
-        {/* First-Timer Onboarding Prompt — mobile only (desktop renders inside split-view left pane) */}
+        {/* First-Timer Onboarding Prompt — mobile only (desktop renders inside split-view left pane).
+            Fixed to the bottom of the viewport on mobile so it isn't clipped
+            behind the sticky compact header. */}
         {isMobile && selectedProc && !firstTimerActive && (
-          <FirstTimerOnboardingPrompt
-            key={selectedProc}
-            treatmentName={selectedProc}
-            onActivated={() => {
-              addFirstTimerTreatment(selectedProc);
-              persistFirstTimerMode(true);
-              setFirstTimerActive(true);
-              setGuideSheetTreatment(selectedProc);
-              setShowGuideSheet(true);
-            }}
-            onDismissed={() => {}}
-          />
+          <div style={{
+            position: 'fixed',
+            bottom: 80,
+            left: 16,
+            right: 16,
+            zIndex: 40,
+            borderRadius: 16,
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+            overflow: 'hidden',
+          }}>
+            <FirstTimerOnboardingPrompt
+              key={selectedProc}
+              treatmentName={selectedProc}
+              onActivated={() => {
+                addFirstTimerTreatment(selectedProc);
+                persistFirstTimerMode(true);
+                setFirstTimerActive(true);
+                setGuideSheetTreatment(selectedProc);
+                setShowGuideSheet(true);
+              }}
+              onDismissed={() => {}}
+            />
+          </div>
         )}
 
         {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
@@ -2968,6 +2999,52 @@ export default function FindPrices() {
           // the map can fill the full viewport width. Nothing to render
           // here, but keep the branch so downstream cases stay correct.
           null
+        ) : isMobile && !selectedLoc ? (
+          // Treatment selected but no city — prompt the user to enter a
+          // location instead of showing random results from other cities.
+          <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>📍</div>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 18,
+              fontWeight: 700,
+              color: '#111',
+              marginBottom: 8,
+            }}>
+              Where are you looking?
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 14,
+              color: '#888',
+              fontWeight: 400,
+              marginBottom: 20,
+            }}>
+              Enter a city or zip code to see {procFilter?.description || procFilter?.label || 'treatment'} prices near you.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setCityHighlight(true);
+                mobileLocInputRef.current?.focus();
+                mobileLocInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }}
+              style={{
+                padding: '10px 24px',
+                borderRadius: 20,
+                border: '2px solid #E8347A',
+                background: 'white',
+                color: '#E8347A',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                fontSize: 13,
+                letterSpacing: '0.06em',
+                cursor: 'pointer',
+              }}
+            >
+              Enter your city
+            </button>
+          </div>
         ) : loadingProcedures ? (
           // Loading state is owned by the desktop unified split-view
           // on desktop (so the map stays mounted with gray gate pins
