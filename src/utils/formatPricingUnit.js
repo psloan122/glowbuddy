@@ -45,6 +45,12 @@ const DISPLAY_MAP = {
   [UNIT.FLAT_PACKAGE]: 'flat rate',
   [UNIT.FLAT_RATE_AREA]: 'per area',
   [UNIT.PER_MONTH]:    'per month',
+  // Simplified specials/guide values (stored without the "per_" prefix)
+  'unit':     'per unit',
+  'syringe':  'per syringe',
+  'area':     'per area',
+  'session':  'per session',
+  'vial':     'per vial',
 };
 
 // Internal-only labels — suppress from UI display.
@@ -54,6 +60,12 @@ export function formatPricingUnit(unit) {
   if (!unit) return '';
   if (SUPPRESS.has(unit)) return '';
   return DISPLAY_MAP[unit] ?? unit;
+}
+
+/** Returns true when the pricing_unit / price_unit value is internal-only
+ *  and should never reach rendered JSX. */
+export function isInternalField(unit) {
+  return SUPPRESS.has(unit);
 }
 
 export function formatIncludes(unit, quantity) {
@@ -86,6 +98,12 @@ const SUFFIX_MAP = {
   [UNIT.PER_MONTH]:    '/mo',
   [UNIT.FLAT_PACKAGE]: '',
   [UNIT.FLAT_RATE_AREA]: '/area',
+  // Simplified specials/guide values
+  'unit':     '/unit',
+  'syringe':  '/syringe',
+  'area':     '/area',
+  'session':  '/session',
+  'vial':     '/vial',
 };
 
 export function formatUnitSuffix(unit) {

@@ -31,6 +31,7 @@ import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
 import AdminInjectorsTab from '../components/AdminInjectorsTab';
 import AdminOutreachTab from '../components/AdminOutreachTab';
 import AdminPendingProviders from '../components/AdminPendingProviders';
+import { formatUnitSuffix } from '../utils/formatPricingUnit';
 
 const TABS = [
   { key: 'pending', label: 'Pending Review', icon: AlertTriangle },
@@ -1294,7 +1295,7 @@ export default function Admin() {
                         </span>
                       </div>
                       <p className="text-sm text-text-secondary">
-                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)}/{special.price_unit}
+                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)} {formatUnitSuffix(special.price_unit)}
                       </p>
                       <p className="text-sm text-text-secondary mt-1">
                         Provider: {special.providers?.name || 'Unknown'}

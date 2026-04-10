@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatUnitSuffix } from '../utils/formatPricingUnit';
 import SpecialCountdownBadge from './SpecialCountdownBadge';
 import ProviderAvatar from './ProviderAvatar';
 import FinancingWidget from './FinancingWidget';
@@ -43,10 +44,7 @@ export default function SpecialOfferCard({ special, provider, onBook }) {
     }
   }
 
-  const unitLabel = special.price_unit === 'unit' ? '/unit'
-    : special.price_unit === 'syringe' ? '/syringe'
-    : special.price_unit === 'area' ? '/area'
-    : '/session';
+  const unitLabel = formatUnitSuffix(special.price_unit) || '/session';
 
   return (
     <div

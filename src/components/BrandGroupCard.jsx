@@ -69,7 +69,14 @@ function leadPriceDisplay(row) {
 }
 
 export default function BrandGroupCard({ group, userLat, userLng }) {
-  const { rows, lead } = group;
+  // Filter out internal range_low/range_high rows at the data level.
+  const filteredRows = (group.rows || []).filter((p) =>
+    p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
+    p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
+    p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+  );
+  const rows = filteredRows.length > 0 ? filteredRows : group.rows;
+  const lead = rows[0] || group.lead;
 
   // Distance badge — rendered next to the city/state line when we know
   // both the user's coordinates and the lead row's provider coordinates.

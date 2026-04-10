@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { COL } from '../utils/formatPricingUnit';
+import { COL, formatPricingUnit } from '../utils/formatPricingUnit';
 import CopyableQuestion from './CopyableQuestion';
 import DosageCalculator from './DosageCalculator';
 import { procedureToSlug } from '../lib/constants';
@@ -106,7 +106,7 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
                     <div className="mt-3 rounded-lg bg-warm-gray p-3">
                       <p className="text-sm font-medium text-text-primary">
                         Typical range: ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
-                        {guide.price_unit && <span className="text-text-secondary font-normal"> {guide.price_unit}</span>}
+                        {guide.price_unit && <span className="text-text-secondary font-normal"> {formatPricingUnit(guide.price_unit)}</span>}
                       </p>
                     </div>
                   )}
@@ -155,7 +155,7 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
                       ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
                     </span>
                     {guide.price_unit && (
-                      <span className="text-sm text-text-secondary">{guide.price_unit}</span>
+                      <span className="text-sm text-text-secondary">{formatPricingUnit(guide.price_unit)}</span>
                     )}
                   </div>
                   {guide.duration_of_results && (

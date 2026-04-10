@@ -92,7 +92,10 @@ export default function Community() {
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10);
-      setRecentSubmissions(recent || []);
+      setRecentSubmissions((recent || []).filter((p) =>
+        p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
+        p.price_unit !== 'range_low' && p.price_unit !== 'range_high'
+      ));
 
       // Fetch all user_badges for badge counts
       const { data: badges } = await supabase

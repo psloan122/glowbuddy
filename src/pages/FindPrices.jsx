@@ -1696,7 +1696,11 @@ export default function FindPrices() {
   // main fetch effect. We layer the verified-only filter and nearest sort
   // on top locally without re-querying Supabase.
   const displayedProcedures = useMemo(() => {
-    let rows = procedures || [];
+    let rows = (procedures || []).filter((p) =>
+      p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
+      p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
+      p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+    );
     if (verifiedOnly) {
       rows = rows.filter(
         (p) => p._verified === true || p.receipt_verified === true,

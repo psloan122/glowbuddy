@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { COL } from '../utils/formatPricingUnit';
+import { COL, formatPricingUnit } from '../utils/formatPricingUnit';
 import CopyableQuestion from '../components/CopyableQuestion';
 import DosageCalculator from '../components/DosageCalculator';
 import { procedureToSlug } from '../lib/constants';
@@ -148,7 +148,7 @@ export default function GuideDetail() {
                   ${guide[COL.RANGE_LOW]}&ndash;${guide[COL.RANGE_HIGH]}
                 </span>
                 {guide.price_unit && (
-                  <span className="text-text-secondary">{guide.price_unit}</span>
+                  <span className="text-text-secondary">{formatPricingUnit(guide.price_unit)}</span>
                 )}
               </div>
               {guide.duration_of_results && (

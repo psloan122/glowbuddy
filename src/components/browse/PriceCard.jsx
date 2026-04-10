@@ -568,7 +568,12 @@ function PriceCard({
   onDosingClick,
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
-  const rows = Array.isArray(procedures) ? procedures : [];
+  // Filter out internal range_low/range_high rows at the data level.
+  const rows = (Array.isArray(procedures) ? procedures : []).filter((p) =>
+    p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
+    p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
+    p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+  );
   if (rows.length === 0) return null;
 
   // The "primary" carries provider identity (name, city, slug, distance,

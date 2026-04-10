@@ -127,7 +127,11 @@ export default function TreatmentTimeline() {
         .eq('user_id', user.id),
     ]);
 
-    const procs = procsResult.data || [];
+    const procs = (procsResult.data || []).filter((p) =>
+      p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
+      p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
+      p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+    );
     setProcedures(procs);
     setProfile(profileResult.data);
 

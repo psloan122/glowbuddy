@@ -25,6 +25,7 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
   const fileRef = useRef(null);
 
   function resetForm() {
@@ -49,6 +50,15 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
 
   async function handlePhotoUpload(f) {
     if (!f) return;
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED.includes(f.type)) {
+      setError('Please upload a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setError('File must be under 5MB.');
+      return;
+    }
     setUploading(true);
     try {
       const ext = f.name.split('.').pop().toLowerCase();
@@ -292,6 +302,7 @@ export default function InjectorsTab({ provider, injectors, onRefresh }) {
                 }}
                 className="hidden"
               />
+              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
             </div>
 
             <div className="flex items-center gap-3">

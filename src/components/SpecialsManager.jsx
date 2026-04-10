@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Eye, MousePointerClick, RefreshCw, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatUnitSuffix } from '../utils/formatPricingUnit';
 import SpecialCountdownBadge from './SpecialCountdownBadge';
 import CreateSpecialForm from './CreateSpecialForm';
 
@@ -163,7 +164,7 @@ export default function SpecialsManager({ provider, prefill }) {
                       </div>
 
                       <p className="text-sm text-text-secondary mb-2">
-                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)}/{special.price_unit}
+                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)} {formatUnitSuffix(special.price_unit)}
                       </p>
 
                       {/* Stats */}
@@ -222,7 +223,7 @@ export default function SpecialsManager({ provider, prefill }) {
                         {special.headline}
                       </h4>
                       <p className="text-sm text-text-secondary mb-2">
-                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)}/{special.price_unit}
+                        {special.treatment_name} — ${Number(special.promo_price).toFixed(2)} {formatUnitSuffix(special.price_unit)}
                       </p>
                       <div className="flex items-center gap-4 text-xs text-text-secondary">
                         <span className="inline-flex items-center gap-1">
