@@ -354,19 +354,21 @@ export default memo(function GlowMap({
     // can force a fresh init without remounting the component.
   }, [retryNonce]);
 
-  // ── 8s UI timeout — never leave users on an infinite spinner ────────
-  // If the map hasn't loaded within 8 seconds (CDN hang, ad-blocker,
-  // network blip), show the fallback. The "Try map again" button in the
-  // fallback bumps retryNonce which resets mapError and re-runs init.
+  // ── UI timeout — show fallback after 20s of no progress ────────────
+  // Applies to all viewports. The loadGoogleMaps loader has its own 10s
+  // script-load timeout that rejects the promise and shows an error. This
+  // secondary timeout catches the rarer case where the script loads but
+  // the Map constructor never fires ready (corrupted API response, silent
+  // WebGL failure, etc.). 20s is generous enough for slow mobile networks.
   useEffect(() => {
-    if (!isMobile || ready || mapError) return;
+    if (ready || mapError) return;
     const timer = setTimeout(() => {
       // eslint-disable-next-line no-console
-      console.warn('[GlowMap] map load timed out after 10s — showing fallback');
+      console.warn('[GlowMap] map load timed out after 20s — showing fallback');
       setMapError('Map load timed out');
-    }, 10_000);
+    }, 20_000);
     return () => clearTimeout(timer);
-  }, [isMobile, ready, mapError]);
+  }, [ready, mapError]);
 
   // ── Recenter on city change ─────────────────────────────────────────
   // Only fires when (city, state) actually changes. Resets the
