@@ -268,11 +268,11 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
             color: '#888',
             lineHeight: 1.4,
           }}
-          title="Dysport requires ~2.5× more units than Botox for equivalent effect"
+          title="Dysport requires roughly 2–2.5× more units than Botox. Published ratios range from 2:1 to 4:1 — the FDA says units are not interchangeable between products."
         >
           {compareValue > 0
-            ? `\u2248 $${(compareValue * 2.5).toFixed(2)} Botox-equivalent (2.5\u00D7 units)`
-            : 'Dysport units \u2260 Botox units. Typically 2.5\u00D7 more units needed.'}
+            ? `\u2248 $${(compareValue * 2.5).toFixed(2)} Botox-equivalent (at ~2.5\u00D7 ratio \u2014 actual ratio varies)`
+            : 'Dysport units \u2260 Botox units. Standard aesthetic ratio is 2\u20132.5\u00D7, but studies range from 2:1 to 4:1.'}
         </p>
       )}
 

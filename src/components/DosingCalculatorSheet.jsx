@@ -12,7 +12,7 @@
 
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, AlertTriangle, ChevronRight } from 'lucide-react';
-import { NEUROTOXIN_DOSING, FILLER_DOSING } from '../data/dosingGuidance';
+import { NEUROTOXIN_DOSING, FILLER_DOSING, KEY_INSIGHT } from '../data/dosingGuidance';
 
 // ─── Keyframe injection (once per page) ───────────────────────────────
 const KF_ID = 'dosing-calculator-sheet-kf';
@@ -57,8 +57,9 @@ function mapTreatmentAreaToId(treatmentArea) {
     'chin': 'chinDimpling',
     'lip lines': 'lipLines',
     'smoker lines': 'lipLines',
-    'neck lines': 'neckLines',
-    'platysmal bands': 'neckLines',
+    'neck lines': 'platysmaBands',
+    'platysmal bands': 'platysmaBands',
+    'neck bands': 'platysmaBands',
     'nefertiti': 'neckNefertiti',
     'nefertiti lift': 'neckNefertiti',
     masseter: 'masseter',
@@ -74,20 +75,21 @@ function mapTreatmentAreaToId(treatmentArea) {
 // Find the cross-brand equivalent key for neurotoxin comparison
 function getCrossBrandKeys(currentKey) {
   const all = Object.keys(NEUROTOXIN_DOSING);
-  return all.filter((k) => k !== currentKey && NEUROTOXIN_DOSING[k].areas.length > 1);
+  return all.filter((k) => k !== currentKey && Object.keys(NEUROTOXIN_DOSING[k].areas).length > 1);
 }
 
 // ─── Neurotoxin Mode ──────────────────────────────────────────────────
 function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName }) {
   const brand = NEUROTOXIN_DOSING[brandKey];
-  const areas = brand.areas;
+  const areasObj = brand.areas;
+  const areaEntries = useMemo(() => Object.entries(areasObj), [areasObj]);
 
   // Pre-check the treatment area if it maps
   const preCheckId = mapTreatmentAreaToId(treatmentArea);
   const [checked, setChecked] = useState(() => {
     const init = {};
-    for (const a of areas) {
-      init[a.id] = a.id === preCheckId;
+    for (const [id] of Object.entries(areasObj)) {
+      init[id] = id === preCheckId;
     }
     return init;
   });
@@ -98,17 +100,21 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
   }, []);
 
   const selectedAreas = useMemo(
-    () => areas.filter((a) => checked[a.id]),
-    [areas, checked],
+    () => areaEntries.filter(([id]) => checked[id]).map(([id, area]) => ({ id, ...area })),
+    [areaEntries, checked],
   );
 
   const totals = useMemo(() => {
     let minUnits = 0, maxUnits = 0;
     for (const a of selectedAreas) {
-      minUnits += a.unitRange[0];
-      maxUnits += a.unitRange[1];
+      if (firstTimer) {
+        minUnits += a.firstTimer;
+        maxUnits += a.firstTimer;
+      } else {
+        minUnits += a.min;
+        maxUnits += a.max;
+      }
     }
-    if (firstTimer) maxUnits = minUnits; // lock to minimums
     return {
       minUnits,
       maxUnits,
@@ -123,17 +129,20 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
     const others = getCrossBrandKeys(brandKey);
     return others.slice(0, 2).map((key) => {
       const other = NEUROTOXIN_DOSING[key];
-      const areaMap = {};
-      for (const a of other.areas) areaMap[a.id] = a;
+      const otherAreas = other.areas;
       let min = 0, max = 0;
       for (const sel of selectedAreas) {
-        const equiv = areaMap[sel.id];
+        const equiv = otherAreas[sel.id];
         if (equiv) {
-          min += equiv.unitRange[0];
-          max += equiv.unitRange[1];
+          if (firstTimer) {
+            min += equiv.firstTimer;
+            max += equiv.firstTimer;
+          } else {
+            min += equiv.min;
+            max += equiv.max;
+          }
         }
       }
-      if (firstTimer) max = min;
       return { brandName: other.brandName, minUnits: min, maxUnits: max, conversionNote: other.conversionNote };
     });
   }, [brandKey, selectedAreas, firstTimer]);
@@ -179,27 +188,27 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
         }}>
           Select treatment areas
         </p>
-        {areas.map((area) => (
+        {areaEntries.map(([id, area]) => (
           <label
-            key={area.id}
+            key={id}
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '10px 12px', marginBottom: 4, borderRadius: 6, cursor: 'pointer',
-              background: checked[area.id] ? '#FDF2F7' : 'transparent',
-              border: `1px solid ${checked[area.id] ? '#E8347A' : '#EDE8E3'}`,
+              background: checked[id] ? '#FDF2F7' : 'transparent',
+              border: `1px solid ${checked[id] ? '#E8347A' : '#EDE8E3'}`,
               transition: 'background 100ms, border-color 100ms',
             }}
           >
             <input
               type="checkbox"
-              checked={checked[area.id]}
-              onChange={() => toggleArea(area.id)}
+              checked={checked[id]}
+              onChange={() => toggleArea(id)}
               style={{ accentColor: '#E8347A', marginTop: 2, flexShrink: 0 }}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: '#111',
-                display: 'flex', alignItems: 'center', gap: 6,
+                display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
               }}>
                 {area.label}
                 {area.popular && (
@@ -209,6 +218,24 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                     padding: '2px 5px', borderRadius: 2,
                   }}>
                     Popular
+                  </span>
+                )}
+                {area.fdaApproved && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', color: '#1A7A3A', background: '#F0FAF5',
+                    padding: '2px 5px', borderRadius: 2,
+                  }}>
+                    FDA
+                  </span>
+                )}
+                {area.offLabel && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600, letterSpacing: '0.06em',
+                    textTransform: 'uppercase', color: '#999', background: '#F5F3F0',
+                    padding: '2px 5px', borderRadius: 2,
+                  }}>
+                    Off-label
                   </span>
                 )}
                 {area.specialist && (
@@ -225,21 +252,25 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
                 fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 300, color: '#888',
               }}>
                 {firstTimer
-                  ? `${area.unitRange[0]} units`
-                  : `${area.unitRange[0]}–${area.unitRange[1]} units`}
-                {checked[area.id] && unitPrice > 0 && (
+                  ? `${area.firstTimer} units`
+                  : `${area.min}\u2013${area.max} units`}
+                {area.typical && !firstTimer && area.typical !== area.min && (
+                  <span style={{ color: '#999' }}>{` (typical ${area.typical})`}</span>
+                )}
+                {checked[id] && unitPrice > 0 && (
                   <span style={{ color: '#666', fontWeight: 500 }}>
-                    {' · '}
+                    {' \u00b7 '}
                     {firstTimer
-                      ? fmtDollars(area.unitRange[0] * unitPrice)
-                      : `${fmtDollars(area.unitRange[0] * unitPrice)}–${fmtDollars(area.unitRange[1] * unitPrice)}`}
+                      ? fmtDollars(area.firstTimer * unitPrice)
+                      : `${fmtDollars(area.min * unitPrice)}\u2013${fmtDollars(area.max * unitPrice)}`}
                   </span>
                 )}
               </span>
-              {area.note && (
+              {area.note && checked[id] && (
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 400,
-                  fontStyle: 'italic', color: '#B45309', display: 'block', marginTop: 2,
+                  color: '#888', display: 'block', marginTop: 4, lineHeight: 1.5,
+                  whiteSpace: 'pre-line',
                 }}>
                   {area.note}
                 </span>
@@ -326,10 +357,27 @@ function NeurotoxinCalculator({ brandKey, unitPrice, treatmentArea, providerName
           ))}
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 300,
-            fontStyle: 'italic', color: '#AAA', margin: '4px 0 0 0',
+            fontStyle: 'italic', color: '#AAA', margin: '4px 0 0 0', lineHeight: 1.5,
           }}>
-            Unit counts differ between brands. Prices not shown — look up each brand for provider-specific pricing.
+            Cross-brand units are approximate. The standard aesthetic ratio is 2{'\u2013'}2.5 Dysport per 1 Botox unit, but published studies range from 2:1 to 4:1. The FDA says neurotoxin units are not interchangeable between products. Your provider determines actual dosing.
           </p>
+          <div style={{
+            marginTop: 14, padding: '12px 14px',
+            background: '#F9F7F5', borderLeft: '3px solid #E8347A', borderRadius: '0 6px 6px 0',
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+              color: '#333', margin: 0, lineHeight: 1.5,
+            }}>
+              {KEY_INSIGHT.text}
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 300,
+              color: '#AAA', margin: '6px 0 0 0',
+            }}>
+              Source: {KEY_INSIGHT.source}
+            </p>
+          </div>
         </div>
       )}
     </>
