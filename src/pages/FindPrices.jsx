@@ -1210,6 +1210,7 @@ export default function FindPrices() {
           const { key, data, ts } = JSON.parse(cached);
           if (key === cacheKey && Date.now() - ts < RESULTS_CACHE_TTL) {
             setProcedures(data);
+            setFeedError(null);
             setLoadingProcedures(false);
             return;
           }
@@ -2861,8 +2862,8 @@ export default function FindPrices() {
 
         {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
 
-        {/* Feed error banner */}
-        {feedError && !loadingProcedures && (
+        {/* Feed error banner — suppress when results loaded (e.g. from cache) */}
+        {feedError && !loadingProcedures && displayedProcedures.length === 0 && (
           <div
             style={{
               background: '#fff5f5',
