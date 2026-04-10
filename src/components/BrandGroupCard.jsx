@@ -69,11 +69,9 @@ function leadPriceDisplay(row) {
 }
 
 export default function BrandGroupCard({ group, userLat, userLng }) {
-  // Filter out internal range_low/range_high rows at the data level.
+  // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
   const filteredRows = (group.rows || []).filter((p) =>
-    p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
-    p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
-    p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+    p.normalized_category !== 'hidden'
   );
   const rows = filteredRows.length > 0 ? filteredRows : group.rows;
   const lead = rows[0] || group.lead;

@@ -93,8 +93,7 @@ export default function Community() {
         .order('created_at', { ascending: false })
         .limit(10);
       setRecentSubmissions((recent || []).filter((p) =>
-        p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
-        p.price_unit !== 'range_low' && p.price_unit !== 'range_high'
+        p.normalized_category !== 'hidden'
       ));
 
       // Fetch all user_badges for badge counts

@@ -568,11 +568,9 @@ function PriceCard({
   onDosingClick,
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
-  // Filter out internal range_low/range_high rows at the data level.
+  // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
   const rows = (Array.isArray(procedures) ? procedures : []).filter((p) =>
-    p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
-    p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
-    p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+    p.normalized_category !== 'hidden'
   );
   if (rows.length === 0) return null;
 

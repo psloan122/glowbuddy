@@ -1083,7 +1083,10 @@ export default function FindPrices() {
           _source: row.source,
           _source_url: row.source_url,
         };
-      });
+      // Filter at the SOURCE: drop rows that normalizePrice flagged as
+      // hidden (range_low, range_high, unknown price_label values, etc.).
+      // These rows have no displayable price and must never reach the UI.
+      }).filter((r) => r.normalized_category !== 'hidden');
     }
 
     function trustWeightForRow(row) {
@@ -1696,10 +1699,11 @@ export default function FindPrices() {
   // main fetch effect. We layer the verified-only filter and nearest sort
   // on top locally without re-querying Supabase.
   const displayedProcedures = useMemo(() => {
+    // Drop rows that normalizePrice flagged as hidden. Provider_pricing
+    // rows carry normalized_category from normalizePrice(); patient
+    // submissions don't have this field (undefined !== 'hidden' → kept).
     let rows = (procedures || []).filter((p) =>
-      p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
-      p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
-      p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+      p.normalized_category !== 'hidden'
     );
     if (verifiedOnly) {
       rows = rows.filter(

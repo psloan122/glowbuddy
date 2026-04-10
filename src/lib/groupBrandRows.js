@@ -58,10 +58,15 @@ function compareValue(row) {
 export function groupBrandRows(procedures) {
   if (!Array.isArray(procedures) || procedures.length === 0) return [];
 
+  // Filter out hidden rows (range_low, range_high, unknown price_label
+  // values) BEFORE grouping so they never influence group composition.
+  const cleaned = procedures.filter((p) => p.normalized_category !== 'hidden');
+  if (cleaned.length === 0) return [];
+
   const groups = new Map();
   const order = [];
 
-  for (const row of procedures) {
+  for (const row of cleaned) {
     const key = `${providerKey(row)}::${categoryKey(row)}`;
     if (!groups.has(key)) {
       groups.set(key, { key, rows: [] });

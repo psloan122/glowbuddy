@@ -5,11 +5,9 @@ import StarRating from '../StarRating';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 
 export default function SubmissionsTab({ communityProcedures: rawCommunityProcedures, pricing, providerId, onRefresh }) {
-  // Filter out internal range_low/range_high rows at the data level.
+  // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
   const communityProcedures = (rawCommunityProcedures || []).filter((p) =>
-    p.pricing_unit !== 'range_low' && p.pricing_unit !== 'range_high' &&
-    p.price_unit !== 'range_low' && p.price_unit !== 'range_high' &&
-    p.pricingUnit !== 'range_low' && p.pricingUnit !== 'range_high'
+    p.normalized_category !== 'hidden'
   );
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState('');
