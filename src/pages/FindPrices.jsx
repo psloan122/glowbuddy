@@ -8,7 +8,6 @@ import PriceCard from '../components/browse/PriceCard';
 import CompareTray from '../components/browse/CompareTray';
 import SavingsCallout from '../components/browse/SavingsCallout';
 import SmartEmptyState from '../components/browse/SmartEmptyState';
-import ResultsCountBar from '../components/browse/ResultsCountBar';
 import GlowMap from '../components/browse/GlowMap';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
 import ProviderProfileModal from '../components/ProviderProfileModal';
@@ -3197,13 +3196,6 @@ export default function FindPrices() {
           className="mx-auto px-4"
           style={{ maxWidth: 860, paddingBottom: 40 }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
-            <span>{groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'}</span>
-            <button type="button" onClick={handleShareResults} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: shareCopied ? '#1A7A3A' : 'transparent', color: shareCopied ? 'white' : '#888', border: `1px solid ${shareCopied ? '#1A7A3A' : '#DDD'}`, borderRadius: 2, fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 150ms, color 150ms' }}>
-              <Link2 size={11} />
-              {shareCopied ? 'Copied!' : 'Share'}
-            </button>
-          </div>
           {groupedProviders.map((group) => {
             const primary = group.procedures[0];
             const slug =
@@ -3314,7 +3306,6 @@ export default function FindPrices() {
                     <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
                     {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
                     {brandFilter || procFilter?.label || 'treatments'}
-                    {selectedLoc?.city ? ` in ${selectedLoc.city}` : ''}
                     {displayedProcedures.length !== groupedProviders.length && (
                       <span style={{ color: '#B8A89A' }}>
                         {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}
