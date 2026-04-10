@@ -38,6 +38,7 @@ export default memo(function MobileBrowseSheet({
   pills,
   onProviderSelect,
   onSnapChange,
+  listingCount,
 }) {
   const [snap, setSnap] = useState('half'); // 'full_map' | 'half' | 'full_list'
   const [dragY, setDragY] = useState(null); // live translateY during drag
@@ -233,6 +234,8 @@ export default memo(function MobileBrowseSheet({
   const allowScroll = snap === 'full_list';
 
   const count = providerCount ?? providers.length;
+  const listings = listingCount ?? count;
+  const showListings = listings !== count;
 
   return (
     <div
@@ -325,7 +328,9 @@ export default memo(function MobileBrowseSheet({
         >
           {loading
             ? 'Finding providers\u2026'
-            : `${count} provider${count !== 1 ? 's' : ''} in ${city || ''}${state ? `, ${state}` : ''}`}
+            : showListings
+              ? `${count} ${count === 1 ? 'med spa' : 'med spas'}  \u00b7  ${listings} ${listings === 1 ? 'price' : 'prices'} in ${city || ''}${state ? `, ${state}` : ''}`
+              : `${count} provider${count !== 1 ? 's' : ''} in ${city || ''}${state ? `, ${state}` : ''}`}
         </p>
       </div>
 

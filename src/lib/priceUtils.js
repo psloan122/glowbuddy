@@ -219,6 +219,8 @@ export function formatUnitsIncluded(unitsOrVolume) {
   if (!unitsOrVolume) return null;
   const s = String(unitsOrVolume).trim();
   if (!s) return null;
+  // Raw DB compare-unit identifiers should never leak into the UI.
+  if (/^per[_ ](unit|syringe|vial|session|area|treatment)$/i.test(s)) return null;
   if (/^\d+$/.test(s)) return `incl. ${s} units`;
   return `incl. ${s}`;
 }

@@ -1,17 +1,18 @@
 /*
  * ResultsCountBar — sits below the price context bar.
  *
- * Left:  "{count} results for {brand} in {city}"  (Outfit 300, 13px, #888)
- * Right: SHARE THESE RESULTS button. Copies the current URL to the
- *        clipboard and shows a transient "Copied!" confirmation for 2s.
+ * Shows a unified count that distinguishes providers (unique med spas)
+ * from listings (total price rows):
+ *   - Same count:  "4 providers offering Botox in Miami, FL"
+ *   - Different:   "4 med spas  ·  10 Botox prices in Miami, FL"
  *
- * The URL is shareable as-is because all filters live in URL params.
+ * Right side: SHARE THESE RESULTS button (copies current URL).
  */
 
 import { useState } from 'react';
 import { Link2 } from 'lucide-react';
 
-export default function ResultsCountBar({ count, brandLabel, city, state }) {
+export default function ResultsCountBar({ count, providerCount, brandLabel, city, state }) {
   const [copied, setCopied] = useState(false);
 
   function handleShare() {
@@ -26,13 +27,9 @@ export default function ResultsCountBar({ count, brandLabel, city, state }) {
   }
 
   const locStr = city && state ? `${city}, ${state}` : city || '';
-  const labelText = (() => {
-    const head = `${count} ${count === 1 ? 'result' : 'results'}`;
-    if (brandLabel && locStr) return `${head} for ${brandLabel} in ${locStr}`;
-    if (brandLabel) return `${head} for ${brandLabel}`;
-    if (locStr) return `${head} in ${locStr}`;
-    return head;
-  })();
+  const providers = providerCount ?? count;
+  const listings = count;
+  const same = providers === listings;
 
   return (
     <div
@@ -54,7 +51,23 @@ export default function ResultsCountBar({ count, brandLabel, city, state }) {
           color: '#888',
         }}
       >
-        {labelText}
+        {same ? (
+          <>
+            <strong style={{ fontWeight: 600, color: '#555' }}>{providers}</strong>
+            {` ${providers === 1 ? 'provider' : 'providers'} offering`}
+            {brandLabel ? ` ${brandLabel}` : ''}
+            {locStr ? ` in ${locStr}` : ''}
+          </>
+        ) : (
+          <>
+            <strong style={{ fontWeight: 600, color: '#555' }}>{providers}</strong>
+            {` ${providers === 1 ? 'med spa' : 'med spas'}`}
+            <span style={{ margin: '0 8px', color: '#D6CFC6' }}>·</span>
+            <strong style={{ fontWeight: 600, color: '#555' }}>{listings}</strong>
+            {` ${brandLabel || ''} ${listings === 1 ? 'price' : 'prices'} listed`}
+            {locStr ? ` in ${locStr}` : ''}
+          </>
+        )}
       </p>
 
       <button

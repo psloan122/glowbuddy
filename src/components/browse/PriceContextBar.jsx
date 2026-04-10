@@ -90,10 +90,6 @@ export default function PriceContextBar({
           </>
         )}
       </span>
-      <span style={{ color: '#D6CFC6' }}>·</span>
-      <span>
-        {providerCount} {providerCount === 1 ? 'provider' : 'providers'}
-      </span>
       {hasNumericPrices && (
         <>
           <span style={{ color: '#D6CFC6' }}>·</span>

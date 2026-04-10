@@ -1702,6 +1702,27 @@ export default function FindPrices() {
     return rows;
   }, [procedures, verifiedOnly, sortBy, userLat, userLng, brandFilter, mapBounds]);
 
+  // Enrich procedures with provider_id resolved from gateProviders so the
+  // GlowMap price index can match patient-submitted rows (which come from
+  // the procedures table and lack provider_id) to the correct map pin.
+  // Without this, pins stay as gray initials even when cards show prices.
+  const proceduresForMap = useMemo(() => {
+    if (!displayedProcedures?.length || !gateProviders?.length) return displayedProcedures;
+    const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+(llc|inc|med\s*spa|medical\s*spa|aesthetics|medspa|clinic|center|centre)\.?$/i, '').trim();
+    const byKey = new Map();
+    for (const p of gateProviders) {
+      const key = `${normalize(p.name || p.provider_name)}|${(p.city || '').trim().toLowerCase()}|${(p.state || '').trim().toLowerCase()}`;
+      if (key !== '||') byKey.set(key, p);
+    }
+    return displayedProcedures.map((proc) => {
+      if (proc.provider_id) return proc;
+      const key = `${normalize(proc.provider_name)}|${(proc.city || '').trim().toLowerCase()}|${(proc.state || '').trim().toLowerCase()}`;
+      const match = byKey.get(key);
+      if (!match) return proc;
+      return { ...proc, provider_id: match.id, provider_lat: proc.provider_lat ?? match.lat ?? null, provider_lng: proc.provider_lng ?? match.lng ?? null };
+    });
+  }, [displayedProcedures, gateProviders]);
+
   // City average — unit-normalized when possible so $14/unit and $700/20u
   // sit on the same scale. Used for the vs-average badges + savings callout.
   const cityAvgPrice = useMemo(() => {
@@ -3071,7 +3092,7 @@ export default function FindPrices() {
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <GlowMap
                 allProviders={gateProviders}
-                procedures={hasPricedResults ? displayedProcedures : []}
+                procedures={hasPricedResults ? proceduresForMap : []}
                 cityAvg={hasPricedResults ? cityAvgPrice : undefined}
                 city={selectedLoc.city}
                 state={selectedLoc.state}
@@ -3197,6 +3218,7 @@ export default function FindPrices() {
           />
           <ResultsCountBar
             count={displayedProcedures.length}
+            providerCount={groupedProviders.length}
             brandLabel={brandFilter || procFilter?.label}
             city={selectedLoc?.city}
             state={selectedLoc?.state}
@@ -3329,6 +3351,11 @@ export default function FindPrices() {
                 <>
                 <div style={{ padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
                   {groupedProviders.length} {groupedProviders.length === 1 ? 'provider' : 'providers'} in this area
+                  {searchAreaBounds && (
+                    <span style={{ display: 'block', fontSize: 11, color: '#B8A89A', fontStyle: 'italic', marginTop: 2 }}>
+                      Viewing results in map area — drag to explore
+                    </span>
+                  )}
                 </div>
                 {/* First-Timer Onboarding Prompt — desktop */}
                 {selectedProc && !firstTimerActive && (
@@ -3404,7 +3431,7 @@ export default function FindPrices() {
             >
               <GlowMap
                 allProviders={gateProviders}
-                procedures={procFilter ? displayedProcedures : []}
+                procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
                 city={selectedLoc.city}
                 state={selectedLoc.state}
