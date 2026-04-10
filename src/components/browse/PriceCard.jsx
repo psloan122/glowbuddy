@@ -29,6 +29,8 @@ import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils'
 import { haversineMiles, formatMiles } from '../../lib/distance';
 import { resolveDosingKey, getQuickEstimates } from '../../data/dosingGuidance';
 import useDosingStore from '../../stores/dosingStore';
+import { getPriceFreshness, getFreshnessAge } from '../../lib/freshness';
+import { assignTrustTier, TRUST_TIERS } from '../../lib/trustTiers';
 
 function fmtPrice(n) {
   const v = Number(n) || 0;
@@ -212,6 +214,31 @@ const S = {
     marginLeft: 6,
   },
 
+  // Trust + freshness row
+  trustRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  sourceBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    fontFamily: 'var(--font-body)',
+    fontSize: 10,
+    fontWeight: 500,
+  },
+  freshnessLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    fontFamily: 'var(--font-body)',
+    fontSize: 10,
+    fontWeight: 400,
+  },
+
   // PriceCard header
   headerRow: {
     display: 'flex',
@@ -388,6 +415,46 @@ function VsAverageBadge({ price, avg }) {
   );
 }
 
+// Source trust badge: receipt_verified → green ✓, has_photo → blue ✓,
+// self_reported → gray ○. Uses assignTrustTier from lib/trustTiers.js.
+function SourceBadge({ procedure }) {
+  const tier = assignTrustTier({
+    receipt_verified: procedure.receipt_verified || procedure._verified,
+    has_result_photo: !!(procedure.result_photo_url || procedure.has_result_photo),
+  });
+  const info = TRUST_TIERS[tier.trust_tier];
+  if (!info) return null;
+  const isGreen = tier.trust_tier === 'receipt_verified' || tier.trust_tier === 'receipt_and_photo';
+  const isBlue = tier.trust_tier === 'has_photo';
+  const color = isGreen ? '#059669' : isBlue ? '#2563EB' : '#999';
+  const icon = isGreen || isBlue ? '\u2713' : '\u25CB';
+  return (
+    <span style={{ ...S.sourceBadge, color }}>
+      {icon} {info.label}
+    </span>
+  );
+}
+
+// Freshness label: FRESH → no label, RECENT → "X weeks ago",
+// GETTING_STALE → amber warning, STALE → red warning.
+function FreshnessTag({ procedure }) {
+  const ts = procedure.freshness_confirmed_at || procedure.created_at;
+  const freshness = getPriceFreshness(ts);
+  if (!freshness) return null;
+  // FRESH: no label needed
+  if (freshness.tier.key === 'fresh') return null;
+  const age = getFreshnessAge(freshness.daysOld);
+  const isStale = freshness.tier.key === 'stale';
+  const isGettingStale = freshness.tier.key === 'getting_stale';
+  return (
+    <span style={{ ...S.freshnessLabel, color: freshness.color }}>
+      {'\uD83D\uDD50'} {age}
+      {isGettingStale && ' \u26A0\uFE0F'}
+      {isStale && ' \u2014 verify current price'}
+    </span>
+  );
+}
+
 // One price row inside the multi-price card. Brand label, big editorial
 // price, vs-avg badge, and an optional dysport equivalency note.
 function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick }) {
@@ -515,6 +582,12 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
       {unitsLine && (
         <p style={S.unitsLine}>{unitsLine}</p>
       )}
+
+      {/* Trust source + freshness signals */}
+      <div style={S.trustRow}>
+        <SourceBadge procedure={procedure} />
+        <FreshnessTag procedure={procedure} />
+      </div>
 
       {isDiscounted && (
         <p
