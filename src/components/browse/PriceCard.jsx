@@ -415,6 +415,12 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
   const unitsLine = formatUnitsIncluded(procedure.units_or_volume);
   const treatmentArea = getProcedureDetail(procedure);
 
+  // Discount badge
+  const discountType = procedure.discount_type || null;
+  const isDiscounted = !!discountType;
+  const isMilitary =
+    discountType && discountType.toLowerCase().includes('military');
+
   // Dosing estimates — only for per-unit neurotoxins or per-syringe fillers
   const dosingInfo = useMemo(() => {
     if (compareValue <= 0) return null;
@@ -459,6 +465,18 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
             <span style={S.unitSuffix}>{unitLabel}</span>
           )}
         </span>
+        {isDiscounted && (
+          <span
+            style={{
+              ...S.badgeBase,
+              background: isMilitary ? '#1E3A5F' : '#6B4C9A',
+              color: '#fff',
+              fontSize: 9,
+            }}
+          >
+            {isMilitary ? '🎖️ MIL' : '🏷️ PROMO'}
+          </span>
+        )}
         <span style={S.flexShrink0}>
           <VsAverageBadge price={compareValue} avg={cityAvg} />
         </span>
@@ -480,6 +498,23 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
 
       {unitsLine && (
         <p style={S.unitsLine}>{unitsLine}</p>
+      )}
+
+      {isDiscounted && (
+        <p
+          style={{
+            margin: '4px 0 0 0',
+            fontFamily: 'var(--font-body)',
+            fontSize: 10,
+            fontWeight: 300,
+            color: '#999',
+            textAlign: 'center',
+          }}
+        >
+          {isMilitary
+            ? 'Military discount applied — market rate may differ'
+            : 'Promotional price — market rate may differ'}
+        </p>
       )}
 
       {isDysport && (

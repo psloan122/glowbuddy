@@ -66,8 +66,9 @@ export default function ProcedureDetail() {
       setCommunityData(communityItems);
       setVerifiedData(verifiedItems);
 
-      // Compute stats
+      // Compute stats — exclude discounted prices from averages
       const communityPrices = communityItems
+        .filter((p) => !p.discount_type)
         .map((p) => Number(p.price_paid))
         .filter((p) => p > 0);
       const verifiedPrices = verifiedItems

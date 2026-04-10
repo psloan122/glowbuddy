@@ -208,6 +208,73 @@ export default function Step1({ formData, setFormData }) {
             </p>
           )}
         </div>
+
+        {/* Discount type */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1.5">
+            Did you receive a discount?
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: null, label: 'None' },
+              { value: 'Military/Veteran', label: '🎖️ Military' },
+              { value: 'First Visit', label: 'First Visit' },
+              { value: 'Loyalty', label: 'Loyalty' },
+              { value: 'Referral', label: 'Referral' },
+              { value: 'Seasonal', label: 'Seasonal' },
+              { value: 'Other', label: 'Other' },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    discountType: opt.value,
+                    discountAmount: opt.value === null ? '' : prev.discountAmount,
+                  }))
+                }
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  formData.discountType === opt.value
+                    ? 'bg-rose-accent text-white border-rose-accent'
+                    : 'bg-white text-text-secondary border-gray-200 hover:border-rose-accent/50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {formData.discountType && (
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                Amount saved (optional)
+              </label>
+              <div className="relative w-40">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">
+                  $
+                </span>
+                <input
+                  type="number"
+                  placeholder="e.g. 50"
+                  min="0"
+                  step="1"
+                  value={formData.discountAmount}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d]/g, '');
+                    setFormData((prev) => ({ ...prev, discountAmount: val }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === '.' || e.key === '-' || e.key === 'e') {
+                      e.preventDefault();
+                    }
+                  }}
+                  className={`${INPUT_CLASSES} pl-7 text-sm`}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

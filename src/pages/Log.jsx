@@ -65,6 +65,9 @@ const INITIAL_FORM_DATA = {
   resultPhotoConsent: false,
   // User-submitted provider (from inline add modal)
   userSubmittedProviderId: null,
+  // Discount tracking
+  discountType: null,
+  discountAmount: '',
 };
 
 export default function Log() {
@@ -518,6 +521,11 @@ export default function Log() {
         injector_id: resolvedInjectorId || null,
         result_photo_url: resultPhotoUrl || null,
         result_photo_consent: formData.resultPhotoConsent,
+        // Discount tracking
+        discount_type: formData.discountType || null,
+        discount_amount: formData.discountAmount
+          ? parseInt(formData.discountAmount, 10)
+          : null,
       };
 
       const { data: inserted, error } = await supabase

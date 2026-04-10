@@ -187,6 +187,23 @@ export default function BrandGroupCard({ group, userLat, userLng }) {
                 >
                   {priceDisplay(row)}
                 </span>
+                {row.discount_type && (
+                  <span
+                    className="inline-flex items-center text-[9px] font-bold uppercase px-2 py-0.5"
+                    style={{
+                      letterSpacing: '0.06em',
+                      borderRadius: '4px',
+                      background: row.discount_type.toLowerCase().includes('military')
+                        ? '#1E3A5F'
+                        : '#6B4C9A',
+                      color: '#fff',
+                    }}
+                  >
+                    {row.discount_type.toLowerCase().includes('military')
+                      ? '🎖️ MIL'
+                      : '🏷️ PROMO'}
+                  </span>
+                )}
                 <span
                   className="inline-flex items-center text-[10px] font-medium uppercase text-hot-pink border border-hot-pink/40 px-2 py-0.5"
                   style={{ letterSpacing: '0.06em', borderRadius: '4px' }}

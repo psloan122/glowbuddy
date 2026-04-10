@@ -846,7 +846,7 @@ export default function FindPrices() {
     function buildProcedureQuery({ city, state, zip }) {
       let query = supabase
         .from('procedures')
-        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug')
+        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug, notes, discount_type, discount_amount')
         .eq('status', 'active');
 
       if (filterProcedureTypes.length === 1) {
@@ -921,7 +921,7 @@ export default function FindPrices() {
 
       let pendingQuery = supabase
         .from('procedures')
-        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug')
+        .select('id, procedure_type, price_paid, units_or_volume, provider_name, provider_type, city, state, zip_code, created_at, rating, review_body, receipt_verified, result_photo_url, has_receipt, status, is_anonymous, provider_slug, notes, discount_type, discount_amount')
         .eq('user_id', user.id)
         .in('status', ['pending', 'pending_confirmation'])
         .order('created_at', { ascending: false })
@@ -1445,12 +1445,13 @@ export default function FindPrices() {
         if (filterCity && filterState) {
           const { data: cityData } = await supabase
             .from('procedures')
-            .select('price_paid')
+            .select('price_paid, discount_type')
             .eq('status', 'active')
             .eq('procedure_type', procType)
             .ilike('city', `%${filterCity}%`);
-          if (cityData && cityData.length >= 3) {
-            const avg = cityData.reduce((s, r) => s + r.price_paid, 0) / cityData.length;
+          const cityFiltered = (cityData || []).filter((r) => !r.discount_type);
+          if (cityFiltered.length >= 3) {
+            const avg = cityFiltered.reduce((s, r) => s + r.price_paid, 0) / cityFiltered.length;
             avgs[procType] = { avg: Math.round(avg), scope: filterCity };
             continue;
           }
@@ -1461,12 +1462,13 @@ export default function FindPrices() {
         if (stateToUse) {
           const { data: stateData } = await supabase
             .from('procedures')
-            .select('price_paid')
+            .select('price_paid, discount_type')
             .eq('status', 'active')
             .eq('procedure_type', procType)
             .eq('state', stateToUse);
-          if (stateData && stateData.length >= 3) {
-            const avg = stateData.reduce((s, r) => s + r.price_paid, 0) / stateData.length;
+          const stateFiltered = (stateData || []).filter((r) => !r.discount_type);
+          if (stateFiltered.length >= 3) {
+            const avg = stateFiltered.reduce((s, r) => s + r.price_paid, 0) / stateFiltered.length;
             avgs[procType] = { avg: Math.round(avg), scope: stateToUse };
             continue;
           }
@@ -1475,11 +1477,12 @@ export default function FindPrices() {
         // National avg
         const { data: natData } = await supabase
           .from('procedures')
-          .select('price_paid')
+          .select('price_paid, discount_type')
           .eq('status', 'active')
           .eq('procedure_type', procType);
-        if (natData && natData.length >= 3) {
-          const avg = natData.reduce((s, r) => s + r.price_paid, 0) / natData.length;
+        const natFiltered = (natData || []).filter((r) => !r.discount_type);
+        if (natFiltered.length >= 3) {
+          const avg = natFiltered.reduce((s, r) => s + r.price_paid, 0) / natFiltered.length;
           avgs[procType] = { avg: Math.round(avg), scope: 'national' };
         }
       }
@@ -1783,6 +1786,7 @@ export default function FindPrices() {
   // sit on the same scale. Used for the vs-average badges + savings callout.
   const cityAvgPrice = useMemo(() => {
     const vals = (displayedProcedures || [])
+      .filter((p) => !p.discount_type) // exclude discounted prices from avg
       .map((p) => {
         const n = Number(
           p.normalized_compare_value != null && Number.isFinite(Number(p.normalized_compare_value))
