@@ -487,11 +487,19 @@ export default function FindPrices() {
     setShowSearchArea(false);
   }, [mapBounds]);
 
-  // Reset viewport state when the user changes city.
+  // Reset viewport + pricing state when the user changes city.
+  // Clearing cityPricingRows is critical: without it, filteredGateProviders
+  // tries to match NEW city providers against OLD city pricing rows (zero
+  // provider_id overlap) and returns an empty array — the map shows no pins
+  // until the cityPricingRows fetch catches up. With the clear,
+  // filterProvidersByTreatment's empty-rows fallback returns ALL providers
+  // immediately, then narrows once pricing data arrives.
   useEffect(() => {
     setMapBounds(null);
     setShowSearchArea(false);
     setSearchAreaBounds(null);
+    setCityPricingRows([]);
+    setPillCounts({});
   }, [selectedLoc]);
 
   // ── SEO meta tags — dynamic per spec ──
@@ -812,6 +820,10 @@ export default function FindPrices() {
   // joined to `providers`. Each row carries a `data_source` so the card can
   // render a distinct badge ("Patient reported" vs "From provider website").
   useEffect(() => {
+    // Cancellation flag: when deps change mid-flight, the stale fetch must
+    // not overwrite procedures with data from the previous city/filter combo.
+    let cancelled = false;
+
     // Fuzzy procedure-type match for provider_pricing, since `procedures` uses
     // canonical names like "Botox / Dysport / Xeomin" but `provider_pricing`
     // stores lowercase strings like "botox" from the scraper.
@@ -1224,13 +1236,15 @@ export default function FindPrices() {
       } catch {
         // Fall back to the unannotated results so we still render something.
       }
+      if (cancelled) return;
       setProcedures(resultsWithSpecials);
       } catch (err) {
+        if (cancelled) return;
         console.error('[FindPrices] feed fetch failed:', err);
         setFeedError('Something went wrong loading prices. Please try again.');
         setProcedures([]);
       } finally {
-        setLoadingProcedures(false);
+        if (!cancelled) setLoadingProcedures(false);
       }
     }
 
@@ -1239,10 +1253,15 @@ export default function FindPrices() {
     // rather render the empty state than leave the user staring at
     // shimmer placeholders.
     const skeletonSafetyTimeout = setTimeout(() => {
-      setLoadingProcedures(false);
+      if (!cancelled) setLoadingProcedures(false);
     }, 8000);
 
     fetchProcedures().finally(() => clearTimeout(skeletonSafetyTimeout));
+
+    return () => {
+      cancelled = true;
+      clearTimeout(skeletonSafetyTimeout);
+    };
   }, [
     procFilter,
     brandFilter,
