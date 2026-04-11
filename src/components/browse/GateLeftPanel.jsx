@@ -46,7 +46,7 @@ export default function GateLeftPanel({
   }
 
   const countStr = loading
-    ? '\u2026'
+    ? '…'
     : `${providerCount} ${providerCount === 1 ? 'provider' : 'providers'}`;
 
   return (
@@ -93,7 +93,7 @@ export default function GateLeftPanel({
           value={localQuery}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Search any treatment\u2026"
+          placeholder="Search any treatment…"
           style={{
             width: '100%',
             height: 40,

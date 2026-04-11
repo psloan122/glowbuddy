@@ -183,7 +183,7 @@ export default function LocationRadiusInput({ value, onChange, radius, onRadiusC
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
-            placeholder={ready ? 'City, state or ZIP code' : 'Loading\u2026'}
+            placeholder={ready ? 'City, state or ZIP code' : 'Loading…'}
             disabled={!ready}
             className="w-full pl-9 pr-3 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
             style={{ borderRadius: '2px', fontFamily: 'var(--font-body)' }}

@@ -234,7 +234,7 @@ export default function CreatePriceAlert({
                     fontFamily: 'var(--font-body)',
                   }}
                 >
-                  {submitting ? 'Creating\u2026' : 'Create alert'}
+                  {submitting ? 'Creating…' : 'Create alert'}
                 </button>
               </div>
             </form>

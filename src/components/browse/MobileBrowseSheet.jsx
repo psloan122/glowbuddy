@@ -269,7 +269,7 @@ export default memo(function MobileBrowseSheet({
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
           margin: 0, padding: '0 16px', textAlign: 'center',
         }}>
-          {loading ? 'Finding providers\u2026' : `${count} provider${count !== 1 ? 's' : ''}`}
+          {loading ? 'Finding providers…' : `${count} provider${count !== 1 ? 's' : ''}`}
           {!loading && city && <span style={{ fontWeight: 400, color: '#888' }}>{' \u00b7 '}{city}{state ? `, ${state}` : ''}</span>}
         </p>
       </div>
@@ -355,7 +355,7 @@ export default memo(function MobileBrowseSheet({
               textAlign: 'center',
             }}
           >
-            Finding med spas near you\u2026
+            Finding med spas near you…
           </p>
         ) : providers.length === 0 ? (
           <p
