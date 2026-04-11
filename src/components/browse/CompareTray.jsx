@@ -9,6 +9,7 @@
  * bottom: 24px on desktop. Sliding-up animation handled via CSS keyframe.
  */
 
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Star, ShieldCheck, ArrowRight } from 'lucide-react';
 import { providerProfileUrl } from '../../lib/slugify';
@@ -19,7 +20,7 @@ function fmtPrice(n) {
   return `$${Math.round(v).toLocaleString()}`;
 }
 
-export default function CompareTray({
+export default memo(function CompareTray({
   providers = [],
   onClear,
   onRemove,
@@ -367,4 +368,4 @@ export default function CompareTray({
       </div>
     </>
   );
-}
+});

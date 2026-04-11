@@ -6,9 +6,10 @@
  * this and supplies the savings/units/price/avg/city/unit props.
  */
 
+import { memo } from 'react';
 import { formatUnitSuffix } from '../../utils/formatPricingUnit';
 
-export default function SavingsCallout({
+export default memo(function SavingsCallout({
   city,
   savings,
   units,
@@ -87,4 +88,4 @@ export default function SavingsCallout({
       )}
     </div>
   );
-}
+});

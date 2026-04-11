@@ -14,12 +14,12 @@
  * narrower (top: 56px) so it sits flush under the mobile nav.
  */
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, memo } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import { NEUROTOXIN_DOSING } from '../../data/dosingGuidance';
 import useDosingStore from '../../stores/dosingStore';
 
-export default function StickyFilterBar({
+export default memo(function StickyFilterBar({
   sortBy,
   onSortChange,
   hasPricesOnly,
@@ -389,4 +389,4 @@ export default function StickyFilterBar({
       </div>
     </>
   );
-}
+});

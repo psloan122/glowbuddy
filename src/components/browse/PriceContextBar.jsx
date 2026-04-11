@@ -13,7 +13,9 @@
  * silently which made it look like the bar was missing entirely.
  */
 
-export default function PriceContextBar({
+import { memo } from 'react';
+
+export default memo(function PriceContextBar({
   prices,
   brandLabel,
   city,
@@ -112,4 +114,4 @@ export default function PriceContextBar({
       )}
     </div>
   );
-}
+});

@@ -7,6 +7,8 @@
  * scales proportionally.
  */
 
+import { memo } from 'react';
+
 const HOT_PINK = '#E8347A';
 
 function getInitials(name) {
@@ -23,7 +25,7 @@ function getFontSize(size) {
   return Math.max(8, Math.round(size * 0.33));
 }
 
-export default function ProviderAvatar({ name, size = 40 }) {
+export default memo(function ProviderAvatar({ name, size = 40 }) {
   if (!name) {
     return (
       <div
@@ -80,4 +82,4 @@ export default function ProviderAvatar({ name, size = 40 }) {
       {initials}
     </div>
   );
-}
+});

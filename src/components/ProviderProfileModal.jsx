@@ -11,7 +11,7 @@
  *     rating, google_review_count, rows, bestRow, bestPrice }
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, X, ArrowRight, Heart, ChevronRight } from 'lucide-react';
 import { providerProfileUrl } from '../lib/slugify';
@@ -58,7 +58,7 @@ function VsAvgBadge({ price, avg }) {
   );
 }
 
-export default function ProviderProfileModal({
+export default memo(function ProviderProfileModal({
   group,
   onClose,
   isMobile = false,
@@ -506,4 +506,4 @@ export default function ProviderProfileModal({
       </div>
     </>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { providerProfileUrl } from '../lib/slugify';
 import { haversineMiles, formatMiles } from '../lib/distance';
@@ -43,7 +44,7 @@ function formatPriceDisplay(row) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function MultiProcedureProviderCard({ entry, targetCount, userLat, userLng }) {
+export default memo(function MultiProcedureProviderCard({ entry, targetCount, userLat, userLng }) {
   const { provider, prices: rawPrices, matchCount } = entry;
   // Filter out internal-only rows that bypassed normalizePrice().
   const prices = rawPrices.filter((p) => {
@@ -212,4 +213,4 @@ export default function MultiProcedureProviderCard({ entry, targetCount, userLat
       </Link>
     </div>
   );
-}
+});

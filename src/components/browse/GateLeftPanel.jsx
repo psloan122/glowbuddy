@@ -6,12 +6,12 @@
  * Body, Skin) instead of 13+ individual treatment pills.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Search } from 'lucide-react';
 import { CATEGORY_PILLS } from '../../lib/constants';
 import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
-export default function GateLeftPanel({
+export default memo(function GateLeftPanel({
   city,
   state,
   providerCount,
@@ -227,4 +227,4 @@ export default function GateLeftPanel({
       </div>
     </div>
   );
-}
+});

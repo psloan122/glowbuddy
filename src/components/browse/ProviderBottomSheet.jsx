@@ -13,7 +13,7 @@
  * backdrop dismisses it.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, X, ArrowRight } from 'lucide-react';
 import { providerProfileUrl } from '../../lib/slugify';
@@ -27,7 +27,7 @@ function fmtPrice(n) {
   return `$${v.toFixed(2)}`;
 }
 
-export default function ProviderBottomSheet({
+export default memo(function ProviderBottomSheet({
   group,
   onClose,
   gateMode = false,
@@ -421,4 +421,4 @@ export default function ProviderBottomSheet({
       </div>
     </div>
   );
-}
+});
