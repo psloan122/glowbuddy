@@ -184,6 +184,12 @@ export default function FindPrices() {
   const locDebounce = useRef(null);
   const [cityHighlight, setCityHighlight] = useState(false);
 
+  // Late-bound reference to groupedProviders so early callbacks
+  // (handlePinClick) can read the latest value without hoisting
+  // ~1400 lines of dependent memos above them. Assigned on every
+  // render just below the `groupedProviders` useMemo.
+  const groupedProvidersRef = useRef([]);
+
   // Sort & extra filters
   const [sortBy, setSortBy] = useState(() => {
     const urlSort = searchParams.get('sort');
@@ -461,7 +467,10 @@ export default function FindPrices() {
       // Enrich with procedures already loaded in memory so the bottom
       // sheet never has to refetch. Fixes provider_id mismatches where
       // the marker group had empty rows despite the list card showing prices.
-      const match = groupedProviders.find(
+      // Read via ref so this callback can be declared before
+      // `groupedProviders` (which is defined much further down) without
+      // hitting a temporal-dead-zone crash.
+      const match = groupedProvidersRef.current.find(
         (g) => g.provider_id && g.provider_id === group.provider_id,
       );
       const enriched = match
@@ -480,7 +489,7 @@ export default function FindPrices() {
         }
       }
     },
-    [isMobile, groupedProviders],
+    [isMobile],
   );
 
   // Clicking empty map space dismisses the provider profile modal.
@@ -1889,6 +1898,10 @@ export default function FindPrices() {
     groups.sort((a, b) => a.bestPrice - b.bestPrice);
     return groups;
   }, [displayedProcedures]);
+
+  // Keep the late-bound ref (declared near the top for handlePinClick)
+  // in sync with the current groupedProviders snapshot on every render.
+  groupedProvidersRef.current = groupedProviders;
 
   // Providers that are in the current city but have NO pricing rows for
   // the selected treatment. Shown as gray pins on the map and in a
