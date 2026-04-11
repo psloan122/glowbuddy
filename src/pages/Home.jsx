@@ -583,37 +583,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Bid request CTA — waitlist gate while the feature ships */}
-          <div className="mb-5">
-            <Link
-              to="/request-bid"
-              className="inline-flex items-center gap-2 text-[12px]"
-              style={{
-                fontFamily: 'var(--font-body)',
-                color: '#666',
-                fontWeight: 500,
-                letterSpacing: '0.02em',
-              }}
-            >
-              Providers bidding for your appointment — coming soon.
-              <span
-                style={{
-                  background: '#E8347A',
-                  color: '#fff',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 700,
-                  fontSize: '9px',
-                  letterSpacing: '0.10em',
-                  textTransform: 'uppercase',
-                  padding: '3px 7px',
-                  borderRadius: '2px',
-                }}
-              >
-                Waitlist Open
-              </span>
-            </Link>
-          </div>
-
           {/* Recency / data freshness label */}
           {(providerCountTotal || patientCount) && (
             <p

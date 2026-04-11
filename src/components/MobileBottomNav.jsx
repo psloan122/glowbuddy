@@ -26,12 +26,6 @@ export default function MobileBottomNav() {
   // Hide on routes that have their own nav
   if (HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))) return null;
 
-  // Hide when mobile map is active (Find Prices with a city selected)
-  if (location.pathname === '/browse') {
-    const sp = new URLSearchParams(location.search);
-    if (sp.has('city')) return null;
-  }
-
   const path = location.pathname;
   const search = location.search;
 
