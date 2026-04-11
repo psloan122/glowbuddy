@@ -196,6 +196,7 @@ export default function FindPrices() {
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileSearchFocus, setMobileSearchFocus] = useState('treatment');
   const [detailSheet, setDetailSheet] = useState(null);
   const [experienceSheet, setExperienceSheet] = useState(null);
   const [dosingSheet, setDosingSheet] = useState(null);
@@ -327,15 +328,15 @@ export default function FindPrices() {
 
   // Body scroll lock: when mobile has a city selected, the map fills the
   // viewport and the bottom sheet handles scrolling. Lock the body so the
-  // page behind doesn't scroll.
+  // page behind doesn't scroll. Always return a cleanup so overflow is
+  // restored on unmount regardless of which branch was active.
   useEffect(() => {
     if (isMobile && selectedLoc) {
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
+    } else {
+      document.body.style.overflow = '';
     }
-    // Ensure body scroll is restored when conditions change
-    document.body.style.overflow = '';
-    return undefined;
+    return () => { document.body.style.overflow = ''; };
   }, [isMobile, selectedLoc]);
 
   // Fetch every active provider in the city. Runs whenever there's a
@@ -3204,7 +3205,7 @@ export default function FindPrices() {
               />
             )}
 
-            {/* Layer 3: Floating search pill */}
+            {/* Layer 3: Floating search inputs */}
             <div style={{
               position: 'absolute',
               top: 0, left: 0, right: 0,
@@ -3212,35 +3213,49 @@ export default function FindPrices() {
               padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 12px 0',
               pointerEvents: 'none',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
-                {/* Search pill */}
-                <button onClick={() => setMobileSearchOpen(true)} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-                  height: 48, padding: '0 16px', borderRadius: 24,
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                {/* Treatment input */}
+                <button onClick={() => { setMobileSearchFocus('treatment'); setMobileSearchOpen(true); }} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                  height: 44, padding: '0 12px', borderRadius: 22,
                   background: 'white', border: 'none',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
-                  cursor: 'pointer',
+                  cursor: 'pointer', minWidth: 0,
                 }}>
-                  <Search size={16} style={{ color: '#E8347A', flexShrink: 0 }} />
-                  <div style={{ flex: 1, textAlign: 'left', overflow: 'hidden' }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {brandFilter || procFilter?.label || 'All treatments'}
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 400, color: '#888', fontFamily: 'var(--font-body)' }}>
-                      {selectedLoc.city}{selectedLoc.state ? `, ${selectedLoc.state}` : ''}
-                    </div>
-                  </div>
+                  <span style={{ fontSize: 14, flexShrink: 0 }} aria-hidden>💆</span>
+                  <span style={{
+                    flex: 1, textAlign: 'left', fontSize: 13, fontWeight: 500, color: (brandFilter || procFilter) ? '#111' : '#888',
+                    fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {brandFilter || procFilter?.label || 'What are you looking for?'}
+                  </span>
+                </button>
+                {/* Location input */}
+                <button onClick={() => { setMobileSearchFocus('location'); setMobileSearchOpen(true); }} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                  height: 44, padding: '0 12px', borderRadius: 22,
+                  background: 'white', border: 'none',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+                  cursor: 'pointer', minWidth: 0,
+                }}>
+                  <span style={{ fontSize: 14, flexShrink: 0 }} aria-hidden>📍</span>
+                  <span style={{
+                    flex: 1, textAlign: 'left', fontSize: 13, fontWeight: 500, color: selectedLoc ? '#111' : '#888',
+                    fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : 'City or area...'}
+                  </span>
                 </button>
                 {/* Filter circle */}
                 <button onClick={() => setShowFilters(true)} style={{
-                  width: 44, height: 44, borderRadius: 22,
+                  width: 40, height: 40, borderRadius: 20,
                   background: 'white', border: 'none',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', flexShrink: 0,
                   pointerEvents: 'auto',
                 }}>
-                  <SlidersHorizontal size={18} style={{ color: '#555' }} />
+                  <SlidersHorizontal size={16} style={{ color: '#555' }} />
                 </button>
               </div>
             </div>
@@ -3249,6 +3264,7 @@ export default function FindPrices() {
             <MobileMapSearchOverlay
               open={mobileSearchOpen}
               onClose={() => setMobileSearchOpen(false)}
+              focusField={mobileSearchFocus}
               procRef={procRef}
               procFilter={procFilter}
               brandFilter={brandFilter}

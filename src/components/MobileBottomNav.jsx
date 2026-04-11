@@ -20,14 +20,10 @@ export default function MobileBottomNav() {
   const location = useLocation();
   const { user, openAuthModal } = useContext(AuthContext);
 
-  // Only show on mobile when logged in
-  if (!user) return null;
-
   // Hide on routes that have their own nav
   if (HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))) return null;
 
   const path = location.pathname;
-  const search = location.search;
 
   const savedCity = getGatingCity();
   const savedState = getGatingState();
@@ -56,6 +52,8 @@ export default function MobileBottomNav() {
           icon={Heart}
           label="My Glow"
           active={path === '/my-treatments' || path.startsWith('/my/')}
+          gated={!user}
+          onGatedTap={openAuthModal}
         />
 
         {/* Saved */}
@@ -64,6 +62,8 @@ export default function MobileBottomNav() {
           icon={Bookmark}
           label="Saved"
           active={path === '/alerts'}
+          gated={!user}
+          onGatedTap={openAuthModal}
         />
 
         {/* Center: FIND PRICES — elevated pink circle */}
@@ -103,6 +103,8 @@ export default function MobileBottomNav() {
           icon={Plus}
           label="Log It"
           active={path === '/log'}
+          gated={!user}
+          onGatedTap={openAuthModal}
         />
 
         {/* Account */}
@@ -111,13 +113,15 @@ export default function MobileBottomNav() {
           icon={User}
           label="Account"
           active={path === '/settings' || path === '/account' || path === '/rewards'}
+          gated={!user}
+          onGatedTap={openAuthModal}
         />
       </div>
     </nav>
   );
 }
 
-function NavTab({ to, icon: Icon, label, active }) {
+function NavTab({ to, icon: Icon, label, active, gated, onGatedTap }) {
   const color = active ? HOT_PINK : MUTED;
   const labelStyle = {
     fontSize: 10,
@@ -127,6 +131,20 @@ function NavTab({ to, icon: Icon, label, active }) {
     letterSpacing: '0.10em',
     color,
   };
+
+  if (gated) {
+    return (
+      <button
+        type="button"
+        onClick={() => onGatedTap?.()}
+        className="flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors"
+        style={{ color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        <Icon size={22} />
+        <span style={labelStyle}>{label}</span>
+      </button>
+    );
+  }
 
   return (
     <Link

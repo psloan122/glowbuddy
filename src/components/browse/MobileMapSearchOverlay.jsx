@@ -8,6 +8,7 @@ import {
 export default function MobileMapSearchOverlay({
   open,
   onClose,
+  focusField = 'treatment',
   // Procedure search
   procRef,
   procFilter,
@@ -34,14 +35,33 @@ export default function MobileMapSearchOverlay({
   selectedLoc,
 }) {
   const overlayRef = useRef(null);
+  const procInputRef = useRef(null);
+  const locInputRef = useRef(null);
 
-  // Lock body scroll while open
+  // Lock body scroll while open. Save and restore the previous value so
+  // we don't clobber FindPrices' own scroll lock when closing.
   useEffect(() => {
     if (open) {
+      const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
+      return () => { document.body.style.overflow = prev; };
     }
   }, [open]);
+
+  // Auto-focus the correct input when the overlay opens
+  useEffect(() => {
+    if (open) {
+      // Short delay so the slide-up animation starts first
+      const t = setTimeout(() => {
+        if (focusField === 'location') {
+          locInputRef.current?.focus();
+        } else if (!procFilter) {
+          procInputRef.current?.focus();
+        }
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [open, focusField, procFilter]);
 
   // Wrap selectPill/selectProcedure to auto-close overlay
   function handleSelectPill(pill) {
@@ -134,6 +154,7 @@ export default function MobileMapSearchOverlay({
             >
               <Search size={16} className="text-text-secondary shrink-0" />
               <input
+                ref={procInputRef}
                 type="text"
                 value={procQuery}
                 onChange={(e) => { setProcQuery(e.target.value); setProcOpen(true); }}
@@ -150,10 +171,9 @@ export default function MobileMapSearchOverlay({
                   }
                   if (e.key === 'Escape') setProcOpen(false);
                 }}
-                placeholder="Botox, filler, laser..."
+                placeholder="💆 What are you looking for?"
                 className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-text-secondary"
                 style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
-                autoFocus={open}
               />
             </div>
           )}
@@ -204,6 +224,7 @@ export default function MobileMapSearchOverlay({
           >
             <MapPin size={16} className="text-text-secondary shrink-0" />
             <input
+              ref={locInputRef}
               type="text"
               value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
               onChange={(e) => handleLocInput(e.target.value)}
@@ -219,7 +240,7 @@ export default function MobileMapSearchOverlay({
                 }
                 if (e.key === 'Escape') setLocOpen(false);
               }}
-              placeholder="City or zip code..."
+              placeholder="📍 City or area..."
               className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-text-secondary"
               style={{ fontFamily: 'var(--font-body)', fontSize: 16 }}
             />
