@@ -439,6 +439,12 @@ export default memo(function MobileBrowseSheet({
                   </Link>
                 </div>
               ))}
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A',
+                textAlign: 'center', margin: '10px 0 4px',
+              }}>
+                Help women{city ? ` in ${city}` : ''} know what to expect — share what you paid.
+              </p>
             </div>
           )}
           </>

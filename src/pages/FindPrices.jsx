@@ -3565,6 +3565,12 @@ export default function FindPrices() {
                         </Link>
                       </div>
                     ))}
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
+                      textAlign: 'center', margin: '12px 0 4px',
+                    }}>
+                      Help women{selectedLoc?.city ? ` in ${selectedLoc.city}` : ''} know what to expect — share what you paid.
+                    </p>
                   </div>
                 )}
                 </>

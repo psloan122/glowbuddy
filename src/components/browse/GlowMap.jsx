@@ -110,37 +110,33 @@ function buildPinIcon({ color, label, highlighted }) {
   };
 }
 
-// Gate-mode pin: small gray circle with the provider's 2-letter initials.
+// Gate-mode pin: small hollow white circle with a gray border.
 // No price label — the whole point of gate mode is that no treatment is
-// selected yet, so there's nothing to price. Smaller than the price pill
-// pins (scale 14 per the design brief) so a city-dense map doesn't get
-// overwhelming before the user refines.
+// selected yet, so there's nothing to price. Smaller and quieter than the
+// price pill pins so a city-dense map doesn't get overwhelming before the
+// user refines.
 function buildGatePinIcon({ initials, highlighted }) {
-  const size = highlighted ? 30 : 26;
+  const size = highlighted ? 16 : 10;
   const r = size / 2;
-  const fill = highlighted ? '#111111' : '#B8A89A';
-  const stroke = highlighted ? '#111111' : '#FFFFFF';
+  const fill = highlighted ? '#111111' : '#FFFFFF';
+  const stroke = highlighted ? '#111111' : '#AAAAAA';
   const strokeW = highlighted ? 2.5 : 2;
-  const textColor = '#FFFFFF';
-  const fontSize = highlighted ? 11 : 10;
-  const text = (initials || '').slice(0, 2).toUpperCase();
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 4}" height="${size + 4}" viewBox="0 0 ${size + 4} ${size + 4}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 6}" height="${size + 6}" viewBox="0 0 ${size + 6} ${size + 6}">
       <defs>
         <filter id="shadow-gate" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.22"/>
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.20"/>
         </filter>
       </defs>
       <g filter="url(#shadow-gate)">
-        <circle cx="${r + 2}" cy="${r + 2}" r="${r - 1}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
-        <text x="${r + 2}" y="${r + 2 + fontSize / 2 - 1}" text-anchor="middle" fill="${textColor}" font-family="Outfit, Arial, sans-serif" font-weight="700" font-size="${fontSize}" letter-spacing="0.5">${text}</text>
+        <circle cx="${r + 3}" cy="${r + 3}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
       </g>
     </svg>
   `;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    anchor: window.google?.maps ? new window.google.maps.Point(r + 2, r + 2) : undefined,
-    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 4, size + 4) : undefined,
+    anchor: window.google?.maps ? new window.google.maps.Point(r + 3, r + 3) : undefined,
+    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 6, size + 6) : undefined,
   };
 }
 
