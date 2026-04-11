@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import ProviderAvatar from './ProviderAvatar';
 import { providerProfileUrl } from '../lib/slugify';
+import cleanProviderType from '../utils/cleanProviderType';
 
 function VsAvgBadge({ bestPrice, cityAvg }) {
   if (bestPrice == null || !cityAvg || cityAvg <= 0) return null;
   const pct = ((bestPrice - cityAvg) / cityAvg) * 100;
+  if (pct < -90 || pct > 500) return null; // mixed pricing units — suppress
   if (Math.abs(pct) < 5) return null; // too close to average, skip
   const isBelow = pct < 0;
   return (
@@ -69,7 +71,7 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
             </span>
             {provider_type && (
               <span className="text-xs text-text-secondary bg-warm-gray px-1.5 py-0.5 rounded-full truncate max-w-[140px]">
-                {provider_type}
+                {cleanProviderType(provider_type)}
               </span>
             )}
           </div>

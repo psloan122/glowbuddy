@@ -8,6 +8,7 @@ import FairPriceBadge from './FairPriceBadge';
 import PriceAnnotation from './PriceAnnotation';
 import { providerProfileUrl } from '../lib/slugify';
 import { getSourceBadge, getQuoteFreshness } from '../lib/dataSource';
+import cleanProviderType from '../utils/cleanProviderType';
 import { getPriceFreshness, getFreshnessAge } from '../lib/freshness';
 import { isFirstTimerFor } from '../lib/firstTimerMode';
 import FinancingWidget from './FinancingWidget';
@@ -371,7 +372,7 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
               letterSpacing: '0.06em',
             }}
           >
-            {procedure.provider_type}
+            {cleanProviderType(procedure.provider_type)}
           </span>
         )}
 

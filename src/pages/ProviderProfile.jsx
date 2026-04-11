@@ -42,6 +42,7 @@ import CallNowButton from '../components/CallNowButton';
 import BookNowButton from '../components/BookNowButton';
 import VagaroWidget from '../components/VagaroWidget';
 import PioneerCredit from '../components/PioneerCredit';
+import cleanProviderType from '../utils/cleanProviderType';
 import AddProviderModal from '../components/AddProviderModal';
 import { getGuideUrl } from '../lib/guideMapping';
 import { getProcedureLabel } from '../lib/procedureLabel';
@@ -662,7 +663,7 @@ export default function ProviderProfile() {
                         border: '1px solid #E8347A',
                       }}
                     >
-                      {provider.provider_type}
+                      {cleanProviderType(provider.provider_type)}
                     </span>
                   )}
                   {provider?.is_verified && (

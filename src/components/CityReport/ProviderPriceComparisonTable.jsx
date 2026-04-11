@@ -43,6 +43,7 @@ function StalenessPill({ row }) {
 
 function VsAvgBadge({ pct }) {
   if (pct == null || pct === 0) return null;
+  if (pct < -90 || pct > 500) return null;
   const below = pct < 0;
   return (
     <span

@@ -4,6 +4,7 @@ import { Star, CheckCircle, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ProviderAvatar from './ProviderAvatar';
 import { haversineMiles } from '../lib/distance';
+import cleanProviderType from '../utils/cleanProviderType';
 
 const GRADIENTS = [
   'from-rose-light to-rose-accent/30',
@@ -343,7 +344,7 @@ export default function CompetitorAds({
                 </p>
                 <p className="text-[11px] text-gray-400 mb-2 truncate">
                   {[c.city, c.state].filter(Boolean).join(', ')}
-                  {c.provider_type && ` \u00b7 ${c.provider_type}`}
+                  {c.provider_type && ` \u00b7 ${cleanProviderType(c.provider_type)}`}
                 </p>
 
                 {/* Rating */}

@@ -457,7 +457,16 @@ export default function FindPrices() {
 
   const handlePinClick = useCallback(
     (group) => {
-      setSelectedProviderGroup(group);
+      // Enrich with procedures already loaded in memory so the bottom
+      // sheet never has to refetch. Fixes provider_id mismatches where
+      // the marker group had empty rows despite the list card showing prices.
+      const match = groupedProviders.find(
+        (g) => g.provider_id && g.provider_id === group.provider_id,
+      );
+      const enriched = match
+        ? { ...group, rows: match.procedures }
+        : group;
+      setSelectedProviderGroup(enriched);
       // On desktop we don't open a sheet — we just sync the selection
       // so the matching list card lights up. The user can scroll to it.
       if (!isMobile) {
@@ -470,7 +479,7 @@ export default function FindPrices() {
         }
       }
     },
-    [isMobile],
+    [isMobile, groupedProviders],
   );
 
   // Clicking empty map space dismisses the provider profile modal.

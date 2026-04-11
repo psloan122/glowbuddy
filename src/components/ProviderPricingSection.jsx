@@ -77,6 +77,7 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
 
 function ComparisonBadge({ pctDiff, level }) {
   if (pctDiff === 0) return null;
+  if (pctDiff < -90 || pctDiff > 500) return null; // mixed pricing units — suppress
 
   const isBelow = pctDiff < 0;
   const absPct = Math.abs(pctDiff);

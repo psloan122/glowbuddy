@@ -397,9 +397,11 @@ const S = {
 };
 
 // vs-average badge: green if below avg, gray if at avg, amber if above.
+// Suppressed when the percentage is unreasonable (mixed pricing units).
 function VsAverageBadge({ price, avg }) {
   if (!avg || !price) return null;
   const diff = Math.round(((price - avg) / avg) * 100);
+  if (diff < -90 || diff > 500) return null;
   if (Math.abs(diff) < 5) {
     return (
       <span style={{ ...S.badgeBase, ...S.badgeAtAvg }}>

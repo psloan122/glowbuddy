@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { providerProfileUrl } from '../lib/slugify';
+import cleanProviderType from '../utils/cleanProviderType';
 
 // Inline styles only — Google Maps InfoWindow strips className/Tailwind
 const styles = {
@@ -88,7 +89,7 @@ export default function MapInfoCard({ provider }) {
           </div>
           {provider_type && (
             <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
-              {provider_type}
+              {cleanProviderType(provider_type)}
             </div>
           )}
           {profileUrl ? (

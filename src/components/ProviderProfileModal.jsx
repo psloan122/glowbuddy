@@ -34,6 +34,7 @@ function providerInitials(name) {
 function VsAvgBadge({ price, avg }) {
   if (avg == null || price == null || avg <= 0) return null;
   const pct = Math.round(((price - avg) / avg) * 100);
+  if (pct < -90 || pct > 500) return null; // mixed pricing units — suppress
   if (pct === 0) return null;
   const below = pct < 0;
   return (
