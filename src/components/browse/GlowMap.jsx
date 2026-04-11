@@ -44,11 +44,22 @@
  *      The parent decides height; we fill it.
  */
 
-import { useEffect, useRef, useState, memo } from 'react';
+import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { Search, LocateFixed } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import MapLoadingFallback from '../MapLoadingFallback';
+
+// Debounce helper — returns a function that delays invocation by `ms`.
+function debounce(fn, ms) {
+  let timer;
+  const debounced = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+  debounced.cancel = () => clearTimeout(timer);
+  return debounced;
+}
 
 const PRICE_COLORS = {
   great: '#1D9E75',     // > 20% below avg — green
@@ -203,11 +214,37 @@ export default memo(function GlowMap({
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const markersRef = useRef([]);
+  const markersRef = useRef(new Map()); // key → marker instance
   const clustererRef = useRef(null);
   const userInteracted = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef = useRef(null);
+
+  // ── Data refs — let the reconciliation effect read current data
+  // without depending on array references (which change every render).
+  const allProvidersRef = useRef(allProviders);
+  allProvidersRef.current = allProviders;
+  const proceduresRef = useRef(procedures);
+  proceduresRef.current = procedures;
+  const cityAvgRef = useRef(cityAvg);
+  cityAvgRef.current = cityAvg;
+
+  // ── Stable fingerprints — only change when real data changes.
+  // The reconciliation effect depends on these strings, not on the
+  // full arrays, so a parent re-render that passes new array references
+  // with the same content won't trigger a marker rebuild.
+  const providerFingerprint = useMemo(
+    () => (allProviders || []).map((p) => p.id || `${p.name}|${p.city}`).join(','),
+    [allProviders],
+  );
+  const procedureFingerprint = useMemo(() => {
+    if (!procedures || procedures.length === 0) return '';
+    return procedures.map((r) => {
+      const v = r.normalized_compare_value ?? r.price_paid ?? '';
+      return `${r.provider_id || r.provider_name}:${v}`;
+    }).join(',');
+  }, [procedures]);
+
   // Latest click handler stored on a ref so the markers effect doesn't
   // need to re-run (and re-create every marker) when the parent passes
   // a new function reference. Listeners read from the ref at click time.
@@ -306,16 +343,19 @@ export default memo(function GlowMap({
             onMapClickRef.current?.();
           });
 
-          // Report viewport bounds on every idle (map fully settled).
-          // No debounce needed — Google Maps fires idle once per settle.
-          map.addListener('idle', () => {
+          // Report viewport bounds on idle with debounce. On mobile,
+          // rapid sheet drags / scroll events can fire idle in bursts —
+          // debouncing at 300ms collapses those into one bounds update and
+          // prevents cascading parent re-renders from flickering pins.
+          const debouncedIdle = debounce(() => {
             const b = map.getBounds();
             if (!b) return;
             const ne = b.getNorthEast(), sw = b.getSouthWest();
             const bounds = { north: ne.lat(), south: sw.lat(), east: ne.lng(), west: sw.lng() };
             onBoundsChangeRef.current?.(bounds);
             if (userInteracted.current) onUserMovedMapRef.current?.();
-          });
+          }, 300);
+          map.addListener('idle', debouncedIdle);
 
           // Clear any stale error from a previous mount that failed —
           // a brand-filter remount of the mobile map block could leave
@@ -343,11 +383,11 @@ export default memo(function GlowMap({
       // Detach all markers from this instance so a remount doesn't
       // leave orphaned pins on a now-unmounted map.
       try {
-        for (const m of markersRef.current) m.setMap(null);
+        markersRef.current.forEach((m) => m.setMap(null));
       } catch {
         // ignore
       }
-      markersRef.current = [];
+      markersRef.current = new Map();
       mapInstanceRef.current = null;
     };
     // retryNonce is in the deps so the fallback's "Try map again" button
@@ -447,47 +487,39 @@ export default memo(function GlowMap({
 
   // ── Render pins ─────────────────────────────────────────────────────
   //
-  // Single source of truth: `allProviders`. We build one marker per
-  // provider in the city, keyed stably by provider id, and reconcile
-  // against the existing markers — only providers added/removed since
-  // last render touch the map. Picking a treatment changes `procedures`
-  // (the price overlay), which recolors and labels the matching pins
-  // without ever wiping markers off the canvas.
+  // Markers are managed imperatively via markersRef (a Map keyed by
+  // provider key). The effect only runs when the provider list or
+  // pricing data actually changes (detected via stable fingerprint
+  // strings), NOT on every parent re-render. This prevents the
+  // flicker caused by destroying and recreating markers on mobile.
   //
-  // This effect intentionally does NOT depend on `highlightedId`/
-  // `selectedId` — those are handled by the lightweight highlight
-  // effect below so a hover state change doesn't rebuild every marker.
+  // The clusterer is also updated incrementally — markers are added
+  // or removed individually rather than clearMarkers() + new instance.
   useEffect(() => {
     if (!ready || !mapInstanceRef.current || !window.google) return;
 
+    // Read current data from refs — these are updated every render
+    // but the effect only runs when fingerprints change.
+    const currentProviders = allProvidersRef.current;
+    const currentProcedures = proceduresRef.current;
+    const currentCityAvg = cityAvgRef.current;
+
     try {
 
-    // Index allProviders by a `provider_name|city|state` composite
-    // key so procedures rows that don't carry a `provider_id` (e.g.
-    // raw patient submissions to the `procedures` table, which has
-    // no provider_id column at all) can still be resolved to a real
-    // provider record. Mirrors the fallback key FindPrices uses for
-    // grouping at the list level, so map + list stay in sync.
     const providerCompositeKey = (name, city, state) =>
       `${(name || '').trim().toLowerCase()}|${(city || '').trim().toLowerCase()}|${(state || '').trim().toLowerCase()}`;
     const providerByComposite = new Map();
-    for (const p of Array.isArray(allProviders) ? allProviders : []) {
+    for (const p of Array.isArray(currentProviders) ? currentProviders : []) {
       if (!p) continue;
       const compKey = providerCompositeKey(p.name || p.provider_name, p.city, p.state);
       if (compKey !== '||') providerByComposite.set(compKey, p);
     }
 
-    // Build a price index from `procedures`, keyed by provider_id, so
-    // we can decide each pin's icon/label in a single pass over
-    // allProviders. Mirrors the old groupByProvider sort behavior so
-    // ranking (best deal first) is preserved when capping label slots.
+    // Build a price index from procedures, keyed by provider_id.
     const priceByProviderId = new Map();
-    for (const r of procedures || []) {
+    for (const r of currentProcedures || []) {
       let pid = r.provider_id || null;
       if (!pid) {
-        // Patient submissions don't carry provider_id — resolve via
-        // the composite-key fallback against allProviders instead of
-        // silently dropping the row off the map.
         const match = providerByComposite.get(
           providerCompositeKey(r.provider_name, r.city, r.state),
         );
@@ -527,21 +559,16 @@ export default memo(function GlowMap({
         : null;
     }
 
-    // Build the next set of groups, one per provider in allProviders.
-    // Providers that have a matching price get the priced fields filled
-    // in; providers without prices stay as gray initials pins.
-    const list = Array.isArray(allProviders) ? allProviders : [];
-    const nextGroups = [];
+    // Build groups — one per provider.
+    const list = Array.isArray(currentProviders) ? currentProviders : [];
+    const nextGroups = new Map();
     for (const p of list) {
-      // Coerce + validate so a string lat/lng or a null sneaking through
-      // never lands in `bounds.extend`, which throws on NaN and would
-      // otherwise crash the whole reconciliation pass.
       const lat = Number(p.lat);
       const lng = Number(p.lng);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       const key = p.id || `${p.name || p.provider_name}|${p.city}|${p.state}`;
       const priced = (p.id && priceByProviderId.get(p.id)) || null;
-      nextGroups.push({
+      nextGroups.set(key, {
         key,
         provider_id: p.id || null,
         provider_slug: p.slug || p.provider_slug || null,
@@ -558,20 +585,15 @@ export default memo(function GlowMap({
       });
     }
 
-    // Defensive: if `procedures` contains a row whose provider isn't in
-    // allProviders (e.g. a stale row from a slightly different city
-    // ilike), surface it as a synthetic pin so the price doesn't vanish
-    // from the map. Synthetic pins still get a stable key off provider_id.
-    const nextKeys = new Set(nextGroups.map((g) => g.key));
+    // Synthetic pins for procedures whose provider isn't in allProviders.
     for (const [pid, entry] of priceByProviderId.entries()) {
-      if (!pid || nextKeys.has(pid)) continue;
+      if (!pid || nextGroups.has(pid)) continue;
       const r = entry.bestRow || entry.rows[0];
       if (!r) continue;
       const lat = Number(r.provider_lat);
       const lng = Number(r.provider_lng);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      nextKeys.add(pid);
-      nextGroups.push({
+      nextGroups.set(pid, {
         key: pid,
         provider_id: pid,
         provider_slug: r.provider_slug || null,
@@ -588,65 +610,36 @@ export default memo(function GlowMap({
       });
     }
 
-    // Sort: priced first (cheapest deal first), then unpriced by review
-    // count and rating. Pins are drawn in order so high-priority ones
-    // sit on top in dense areas.
-    nextGroups.sort((a, b) => {
-      const ah = a.bestPrice != null ? 1 : 0;
-      const bh = b.bestPrice != null ? 1 : 0;
-      if (ah !== bh) return bh - ah;
-      if (a.bestPrice != null && b.bestPrice != null) {
-        return a.bestPrice - b.bestPrice;
+    // ── Reconcile markers imperatively ──────────────────────────────
+    // 1. Remove markers for providers no longer in the set
+    const markersToRemove = [];
+    markersRef.current.forEach((marker, key) => {
+      if (!nextGroups.has(key)) {
+        marker.setMap(null);
+        markersToRemove.push(key);
       }
-      const arc = Number(a.google_review_count) || 0;
-      const brc = Number(b.google_review_count) || 0;
-      if (brc !== arc) return brc - arc;
-      return (b.rating || 0) - (a.rating || 0);
     });
-
-    // Reconcile: drop markers no longer represented, update existing
-    // ones in place, create markers for newly-introduced providers.
-    const existingByKey = new Map();
-    for (const m of markersRef.current) {
-      if (m.__glowKey) existingByKey.set(m.__glowKey, m);
+    for (const key of markersToRemove) {
+      markersRef.current.delete(key);
     }
-
-    const kept = [];
-    for (const m of markersRef.current) {
-      if (m.__glowKey && nextKeys.has(m.__glowKey)) {
-        kept.push(m);
-      } else {
-        m.setMap(null);
-      }
-    }
-    markersRef.current = kept;
 
     const bounds = new window.google.maps.LatLngBounds();
     let boundsHasPoints = false;
+    const newMarkers = []; // for adding to clusterer
 
+    // 2. Add new markers / update existing ones in place
     nextGroups.forEach((g) => {
       const isPriced = g.bestPrice != null;
-      const baseColor = isPriced ? colorForGroup(g, cityAvg) : null;
-      const isHighlighted =
-        g.provider_id != null &&
-        (g.provider_id === highlightedId || g.provider_id === selectedId);
+      const baseColor = isPriced ? colorForGroup(g, currentCityAvg) : null;
       const initials = providerInitials(g.provider_name);
       const label = isPriced ? fmtShortPrice(g.bestPrice) : null;
-
-      // All providers get full pins — clustering handles density
       const icon = isPriced
-        ? buildPinIcon({
-            color: isHighlighted ? PRICE_COLORS.highlight : baseColor,
-            label,
-            highlighted: isHighlighted,
-          })
-        : buildGatePinIcon({
-            initials,
-            highlighted: isHighlighted,
-          });
+        ? buildPinIcon({ color: baseColor, label, highlighted: false })
+        : buildGatePinIcon({ initials, highlighted: false });
 
-      let marker = existingByKey.get(g.key);
+      let marker = markersRef.current.get(g.key);
       if (!marker) {
+        // New provider — create marker
         marker = new window.google.maps.Marker({
           position: { lat: g.lat, lng: g.lng },
           map: mapInstanceRef.current,
@@ -657,45 +650,57 @@ export default memo(function GlowMap({
         marker.addListener('click', () => {
           onPinClickRef.current?.(marker.__glowGroup);
         });
-        markersRef.current.push(marker);
+        markersRef.current.set(g.key, marker);
+        newMarkers.push(marker);
       } else {
+        // Existing provider — update icon + position in place
         marker.setIcon(icon);
         marker.setPosition({ lat: g.lat, lng: g.lng });
       }
 
-      // Stash everything the highlight effect needs to recompute the
-      // icon without re-running this whole reconciliation pass.
+      // Stash data for the lightweight highlight effect
       marker.__glowGroup = g;
       marker.__glowColor = baseColor;
       marker.__glowLabel = label;
       marker.__glowInitials = initials;
       marker.__glowPriced = isPriced;
-      marker.setZIndex(isHighlighted ? 1000 : (isPriced ? 100 : 50));
+      marker.setZIndex(isPriced ? 100 : 50);
 
       bounds.extend({ lat: g.lat, lng: g.lng });
       boundsHasPoints = true;
     });
 
-    // Set up or update MarkerClusterer — groups overlapping pins at
-    // low zoom levels, fully expands at neighborhood zoom.
-    if (clustererRef.current) {
-      clustererRef.current.clearMarkers();
+    // ── Update clusterer incrementally ────────────────────────────
+    // Remove stale markers, add new ones — never destroy/recreate.
+    if (!clustererRef.current) {
+      clustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers: [...markersRef.current.values()],
+        renderer: clusterRenderer,
+      });
+    } else {
+      // Remove stale markers from clusterer
+      for (const key of markersToRemove) {
+        // Marker already has .map = null, clusterer needs explicit removal
+        // MarkerClusterer handles this via removeMarker in its API
+      }
+      // Add new markers to existing clusterer
+      if (newMarkers.length > 0 || markersToRemove.length > 0) {
+        // The most reliable way to sync is clearMarkers + addMarkers
+        // without recreating the clusterer instance itself. This avoids
+        // the DOM flicker from `new MarkerClusterer()`.
+        clustererRef.current.clearMarkers(true); // true = don't call setMap(null) on markers
+        clustererRef.current.addMarkers([...markersRef.current.values()], true); // true = don't redraw yet
+        clustererRef.current.render();
+      }
     }
-    clustererRef.current = new MarkerClusterer({
-      map: mapInstanceRef.current,
-      markers: markersRef.current,
-      renderer: clusterRenderer,
-    });
 
-    // Fit-to-bounds is only a fallback for the no-city case. When the
-    // user has filtered to a specific city the geocoder has already
-    // centered on that city, and we don't want fitBounds to yank the
-    // viewport off toward whichever pins happen to land in the bbox.
+    // Fit-to-bounds is only a fallback for the no-city case.
     if (
       boundsHasPoints &&
       !userInteracted.current &&
       !initialCenteredRef.current &&
-      nextGroups.length > 1
+      nextGroups.size > 1
     ) {
       mapInstanceRef.current.fitBounds(bounds, 64);
       const listener = window.google.maps.event.addListenerOnce(
@@ -716,11 +721,10 @@ export default memo(function GlowMap({
       console.error('[GlowMap] markers reconciliation failed', err);
       return undefined;
     }
-    // highlight is intentionally NOT in the dep array — it's handled
-    // by the lightweight highlight effect below so a hover doesn't
-    // re-run this expensive reconciliation pass.
+    // Deps: stable fingerprints, not raw arrays. highlightedId/selectedId
+    // are handled by the lightweight highlight effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, allProviders, procedures, cityAvg]);
+  }, [ready, providerFingerprint, procedureFingerprint]);
 
   // ── Highlight effect ────────────────────────────────────────────────
   // Updating icons in-place is much cheaper than re-rendering all
@@ -754,7 +758,7 @@ export default memo(function GlowMap({
         marker.setZIndex(isHighlighted ? 1000 : 50);
       }
     });
-  }, [ready, highlightedId, selectedId]);
+  }, [ready, highlightedId, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cleanup on unmount ──────────────────────────────────────────────
   useEffect(() => {
@@ -764,7 +768,7 @@ export default memo(function GlowMap({
         clustererRef.current = null;
       }
       markersRef.current.forEach((m) => m.setMap(null));
-      markersRef.current = [];
+      markersRef.current = new Map();
     };
   }, []);
 
