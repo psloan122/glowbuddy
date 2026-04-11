@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import MapProviderCard from '../MapProviderCard';
+import ProviderAvatar from '../ProviderAvatar';
 import { CATEGORY_PILLS } from '../../lib/constants';
 
 // Snap positions — dvh from top (used as translateY %).
@@ -41,6 +43,7 @@ export default memo(function MobileBrowseSheet({
   onProviderSelect,
   onSnapChange,
   listingCount,
+  unpricedProviders = [],
 }) {
   const [snap, setSnap] = useState('half'); // 'full_map' | 'half' | 'full_list'
   const [dragY, setDragY] = useState(null); // live translateY during drag
@@ -369,7 +372,8 @@ export default memo(function MobileBrowseSheet({
             No providers in this area yet.
           </p>
         ) : (
-          providers.map((p) => (
+          <>
+          {providers.map((p) => (
             <div
               key={p.key || p.provider_id || p.id}
               onClick={() => onProviderSelect?.(p)}
@@ -385,7 +389,59 @@ export default memo(function MobileBrowseSheet({
                 bestPrice={p.bestPrice ?? p.avg_price}
               />
             </div>
-          ))
+          ))}
+          {/* Unpriced providers — dashed cards below priced list */}
+          {unpricedProviders.length > 0 && (
+            <div style={{ padding: '0 4px' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '16px 0 8px', borderTop: '1px dashed #E0D6CE',
+                marginTop: 4,
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+                  letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B8A89A',
+                }}>
+                  {unpricedProviders.length} more — no prices yet
+                </span>
+              </div>
+              {unpricedProviders.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    border: '1.5px dashed #E0D6CE',
+                    borderRadius: 12,
+                    padding: '10px 12px',
+                    marginBottom: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    background: '#FAFAF8',
+                  }}
+                >
+                  <ProviderAvatar name={p.name || p.provider_name} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.name || p.provider_name}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#999' }}>
+                      {p.google_rating ? `★ ${Number(p.google_rating).toFixed(1)}` : 'No reviews'}
+                    </div>
+                  </div>
+                  <Link
+                    to="/log"
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                      color: '#E8347A', textDecoration: 'none', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    + Add price
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

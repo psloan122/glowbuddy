@@ -53,6 +53,7 @@ export default function SmartEmptyState({
   brand,
   city,
   state,
+  unpricedCount = 0,
 }) {
   const navigate = useNavigate();
   const [nearby, setNearby] = useState([]);
@@ -277,6 +278,27 @@ export default function SmartEmptyState({
           ? `No providers in ${cityLabel} have shared ${headBrand} prices yet.`
           : `No ${headBrand} prices yet — be the first to share what you paid.`}
       </p>
+      {unpricedCount > 0 && cityLabel && (
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize: 13,
+            color: '#B8A89A',
+            margin: '-12px auto 24px auto',
+            maxWidth: 480,
+          }}
+        >
+          {unpricedCount} provider{unpricedCount !== 1 ? 's' : ''} in this area — none have {headBrand} prices listed yet.
+          <br />
+          <Link
+            to="/log"
+            style={{ color: '#E8347A', fontWeight: 600, textDecoration: 'none' }}
+          >
+            Be the first to share →
+          </Link>
+        </p>
+      )}
 
       {loading ? (
         <p

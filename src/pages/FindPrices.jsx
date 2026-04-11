@@ -10,6 +10,7 @@ import SavingsCallout from '../components/browse/SavingsCallout';
 import SmartEmptyState from '../components/browse/SmartEmptyState';
 import GlowMap from '../components/browse/GlowMap';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
+import ProviderAvatar from '../components/ProviderAvatar';
 import ProviderProfileModal from '../components/ProviderProfileModal';
 import MobileBrowseSheet from '../components/browse/MobileBrowseSheet';
 import MobileMapSearchOverlay from '../components/browse/MobileMapSearchOverlay';
@@ -1879,6 +1880,15 @@ export default function FindPrices() {
     return groups;
   }, [displayedProcedures]);
 
+  // Providers that are in the current city but have NO pricing rows for
+  // the selected treatment. Shown as gray pins on the map and in a
+  // separate "no prices yet" section below the priced list.
+  const unpricedProviders = useMemo(() => {
+    if (!procFilter && !brandFilter) return [];
+    const pricedIds = new Set(groupedProviders.map((g) => g.provider_id).filter(Boolean));
+    return gateProviders.filter((p) => p.id && !pricedIds.has(p.id));
+  }, [procFilter, brandFilter, groupedProviders, gateProviders]);
+
   // Viewport-filtered gate-mode provider count — only counts providers
   // visible in the current map viewport so the "X providers in this
   // area" label stays in sync with the map.
@@ -3082,7 +3092,7 @@ export default function FindPrices() {
             {/* Layer 1: Map — fills full screen behind everything */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <GlowMap
-                allProviders={filteredGateProviders}
+                allProviders={gateProviders}
                 procedures={hasPricedResults ? proceduresForMap : []}
                 cityAvg={hasPricedResults ? cityAvgPrice : undefined}
                 city={selectedLoc.city}
@@ -3160,6 +3170,7 @@ export default function FindPrices() {
                 selectedProviderId={selectedProviderGroup?.provider_id || null}
                 providerCount={groupedProviders.length}
                 listingCount={displayedProcedures.length}
+                unpricedProviders={unpricedProviders}
                 onSnapChange={setMobileSheetSnap}
               />
             )}
@@ -3405,6 +3416,7 @@ export default function FindPrices() {
                     brand={brandFilter}
                     city={selectedLoc?.city}
                     state={selectedLoc?.state}
+                    unpricedCount={gateProviders.length}
                   />
                 </div>
               ) : (
@@ -3492,6 +3504,60 @@ export default function FindPrices() {
                     </div>
                   );
                 })}
+                {/* ── Unpriced providers — "no prices yet" tier ── */}
+                {unpricedProviders.length > 0 && (
+                  <div style={{ padding: '0 8px' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '20px 0 10px', borderTop: '1px dashed #E0D6CE',
+                      marginTop: 8,
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+                        letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B8A89A',
+                      }}>
+                        {unpricedProviders.length} more provider{unpricedProviders.length !== 1 ? 's' : ''} — no prices yet
+                      </span>
+                    </div>
+                    {unpricedProviders.map((p) => (
+                      <div
+                        key={p.id}
+                        data-provider-card={p.id}
+                        style={{
+                          border: '1.5px dashed #E0D6CE',
+                          borderRadius: 12,
+                          padding: '10px 12px',
+                          marginBottom: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          background: '#FAFAF8',
+                        }}
+                      >
+                        <ProviderAvatar name={p.name || p.provider_name} size={36} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.name || p.provider_name}
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#999' }}>
+                            {p.google_rating ? `★ ${Number(p.google_rating).toFixed(1)}` : ''}
+                            {p.google_rating && p.google_review_count ? ` (${p.google_review_count})` : ''}
+                            {!p.google_rating && 'No reviews yet'}
+                          </div>
+                        </div>
+                        <Link
+                          to="/log"
+                          style={{
+                            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                            color: '#E8347A', textDecoration: 'none', whiteSpace: 'nowrap',
+                          }}
+                        >
+                          + Add price
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 </>
               )}
             </div>
@@ -3509,7 +3575,7 @@ export default function FindPrices() {
               }}
             >
               <GlowMap
-                allProviders={filteredGateProviders}
+                allProviders={gateProviders}
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
                 city={selectedLoc.city}
