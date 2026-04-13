@@ -35,7 +35,7 @@ export async function fetchCityList() {
       .eq('display_suppressed', false)
       .not('providers.city', 'is', null)
       .not('providers.state', 'is', null)
-      .limit(10000),
+      .limit(50000),
   ]);
 
   // Normalize to { displayCity, displayState, key } so the two sources fold
@@ -113,7 +113,7 @@ const MIN_PATIENT_SUBMISSIONS = 5;
 const PROCEDURES_FIELDS =
   'id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, trust_tier';
 const PROVIDER_PRICING_FIELDS =
-  'id, procedure_type, price, units_or_volume, treatment_area, source, verified, scraped_at, created_at, providers!inner(id, name, slug, verified, city, state)';
+  'id, procedure_type, price, price_label, units_or_volume, treatment_area, brand, category, source, verified, scraped_at, created_at, confidence_tier, is_starting_price, providers!inner(id, name, slug, verified, city, state)';
 
 /**
  * Main report data for a single city, sourced from BOTH:
@@ -356,9 +356,12 @@ export async function fetchCityReport(city, state, yearMonth) {
       id: `menu-${r.id}`,
       procedure: r.procedure_type,
       price: Number(r.price),
+      priceLabel: r.price_label,
       units: r.units_or_volume || r.treatment_area,
       date: r.scraped_at || r.created_at,
       trustTier: r.verified === true && r.source === 'manual' ? 'verified' : null,
+      confidenceTier: r.confidence_tier,
+      isStartingPrice: r.is_starting_price,
       source: 'menu',
     })),
   ]
@@ -377,6 +380,11 @@ export async function fetchCityReport(city, state, yearMonth) {
   }
   const archiveMonths = [...monthSet].sort().reverse();
 
+  // Confidence tier stats for the menu data
+  const verifiedMenuCount = menuRows.filter(
+    (r) => r.confidence_tier != null && r.confidence_tier <= 2
+  ).length;
+
   return {
     priceTable,
     providers,
@@ -387,5 +395,6 @@ export async function fetchCityReport(city, state, yearMonth) {
     totalSubmissions,
     patientCount,
     menuCount,
+    verifiedMenuCount,
   };
 }

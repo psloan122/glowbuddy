@@ -562,6 +562,154 @@ export const FILLER_DOSING = {
   },
 };
 
+// ─── Goal-based dosing multipliers ────────────────────────────────────
+//
+// These exports power the 5-step dosing wizard. Each multiplier adjusts
+// the base unit ranges from NEUROTOXIN_DOSING above.
+
+export const GOAL_LEVELS = {
+  preventative: {
+    label: 'Preventative / Baby Botox',
+    description: 'Subtle relaxation, full natural movement maintained.',
+    multiplier: 0.6,
+  },
+  natural: {
+    label: 'Natural / Softened',
+    description: 'Lines noticeably softer, some natural movement preserved.',
+    multiplier: 0.85,
+  },
+  moderate: {
+    label: 'Moderate / Balanced',
+    description: 'Clear smoothing with limited movement.',
+    multiplier: 1.0,
+  },
+  significant: {
+    label: 'Significant / Dramatic',
+    description: 'Maximum smoothing, minimal muscle movement.',
+    multiplier: 1.35,
+  },
+};
+
+export const GENDER_MULTIPLIERS = {
+  female: { label: 'Female', multiplier: 1.0 },
+  male: {
+    label: 'Male',
+    multiplier: 1.6,
+    clinicalNote:
+      'Men require ~1.5–2× more units due to larger, stronger facial muscles. ' +
+      'Source: APT Injection Training, Dermatology Associates of Rochester',
+  },
+};
+
+export const EXPERIENCE_MULTIPLIERS = {
+  first_time: {
+    label: 'First time ever',
+    multiplier: 0.8,
+    headsUp: 'First-time patients receive conservative doses. You can top up after 2 weeks.',
+  },
+  some_experience: {
+    label: 'Had it before (1–3 times)',
+    multiplier: 1.0,
+  },
+  experienced: {
+    label: 'Regular (4+ treatments)',
+    multiplier: 1.1,
+  },
+};
+
+export const MUSCLE_STRENGTH = {
+  fine: {
+    label: 'Fine / Delicate features',
+    description: 'Lines are subtle, face is not very expressive',
+    multiplier: 0.85,
+  },
+  average: {
+    label: 'Average',
+    description: 'Typical expressiveness, moderate line depth',
+    multiplier: 1.0,
+  },
+  strong: {
+    label: 'Strong / Expressive',
+    description: 'Very expressive face, deep lines when moving',
+    multiplier: 1.25,
+  },
+};
+
+// Flat list of treatment areas (derived from Botox as baseline) for the
+// wizard area-picker step. Each entry mirrors the Botox area data but adds
+// a `category` field for grouping in the UI.
+export const TREATMENT_AREAS = (() => {
+  const botox = NEUROTOXIN_DOSING.botox.areas;
+  const cats = {
+    forehead: 'upper_face', glabella: 'upper_face', crowsFeet: 'upper_face', browLift: 'upper_face',
+    lipFlip: 'mid_face', bunnyLines: 'mid_face', lipLines: 'mid_face',
+    chinDimpling: 'lower_face',
+    masseter: 'jaw_neck', platysmaBands: 'jaw_neck', neckNefertiti: 'jaw_neck',
+    underarmsHyperhidrosis: 'body',
+  };
+  const result = {};
+  for (const [id, area] of Object.entries(botox)) {
+    result[id] = { ...area, category: cats[id] || 'other' };
+  }
+  return result;
+})();
+
+export const AREA_CATEGORIES = [
+  { key: 'upper_face', label: 'Upper Face' },
+  { key: 'mid_face', label: 'Mid Face' },
+  { key: 'lower_face', label: 'Lower Face' },
+  { key: 'jaw_neck', label: 'Jaw & Neck' },
+  { key: 'body', label: 'Body' },
+];
+
+export const POPULAR_COMBOS = [
+  {
+    id: 'upper_face_basics',
+    label: '✨ Upper face basics',
+    description: "Forehead + 11s + Crow's feet — most popular combination",
+    areas: ['forehead', 'glabella', 'crowsFeet'],
+  },
+  {
+    id: 'frown_only',
+    label: '😤 11s only',
+    description: 'Just the frown lines between the brows',
+    areas: ['glabella'],
+  },
+  {
+    id: 'preventative_starter',
+    label: '🌱 Preventative starter',
+    description: 'Low-dose forehead + 11s to prevent lines from deepening',
+    areas: ['forehead', 'glabella'],
+    recommendedGoal: 'preventative',
+  },
+  {
+    id: 'jaw_treatment',
+    label: '🦷 Jaw & TMJ',
+    description: 'Masseter for jaw slimming or teeth grinding relief',
+    areas: ['masseter'],
+  },
+  {
+    id: 'full_upper_face',
+    label: '💎 Full upper face',
+    description: "Forehead + 11s + Crow's feet + Brow lift",
+    areas: ['forehead', 'glabella', 'crowsFeet', 'browLift'],
+  },
+];
+
+// Product list for the wizard product picker (step 1)
+export const PRODUCTS = Object.fromEntries(
+  Object.entries(NEUROTOXIN_DOSING).map(([key, val]) => [
+    key,
+    {
+      key,
+      name: val.brandName,
+      genericName: val.genericName,
+      conversionFactor: val.conversionFactor,
+      conversionNote: val.conversionNote || null,
+    },
+  ]),
+);
+
 // ─── Mapping from procedure_type + brand → dosing key ─────────────────
 const PROCEDURE_MAP = {
   'Botox / Dysport / Xeomin': '__neurotoxin_by_brand__',

@@ -74,12 +74,63 @@ const HIDDEN = Object.freeze({
   comparableValue: null,
   compareUnit: '',
   category: 'hidden',
+  confidenceTier: null,
 });
+
+// ── Confidence tier config ──────────────────────────────────────────
+// 1=receipt_verified, 2=provider_listed, 3=scraped_unit_verified,
+// 4=scraped_unit_inferred, 5=community_submitted
+export const CONFIDENCE_TIERS = {
+  1: { label: 'Receipt verified',   color: 'green',  showDisclaimer: false },
+  2: { label: 'Provider listed',    color: 'green',  showDisclaimer: false },
+  3: { label: 'Price on website',   color: 'yellow', showDisclaimer: false },
+  4: { label: 'Estimated',          color: 'gray',   showDisclaimer: true  },
+  5: { label: 'Community reported', color: 'gray',   showDisclaimer: false },
+};
+
+export const TIER_DISCLAIMER =
+  "Price scraped from provider\u2019s website. Unit type estimated \u2014 contact provider to confirm exact pricing.";
+
+// ── Display guards (last line of defense) ───────────────────────────
+// Returns false for prices that are clearly wrong and should not render.
+export function shouldDisplayPrice(listing) {
+  if (!listing) return false;
+  const price = Number(listing.price);
+  if (!Number.isFinite(price) || price <= 0) return false;
+  const label = String(listing.price_label || '').toLowerCase().trim();
+  const proc = String(listing.procedure_type || '').toLowerCase();
+
+  // Botox per_unit outside real market range
+  if (proc.includes('botox') && label === UNIT.PER_UNIT) {
+    if (price < 8 || price > 25) return false;
+  }
+  // Filler per_syringe outside real market range
+  if (listing.category === 'Dermal Filler' && label === UNIT.PER_SYRINGE) {
+    if (price < 200 || price > 2500) return false;
+  }
+  return true;
+}
+
+// ── Unit display map ────────────────────────────────────────────────
+const UNIT_DISPLAY = {
+  [UNIT.PER_UNIT]:        '/ unit',
+  [UNIT.PER_SESSION]:     '/ session',
+  [UNIT.PER_SYRINGE]:     '/ syringe',
+  [UNIT.PER_VIAL]:        '/ vial',
+  [UNIT.PER_AREA]:        '/ area',
+  [UNIT.PER_CYCLE]:       '/ cycle',
+  [UNIT.PER_MONTH]:       '/ month',
+  [UNIT.FLAT_PACKAGE]:    '',
+  [UNIT.FLAT_RATE_AREA]:  '/ area',
+  'per_ml':               '/ ml',
+  'per_month':            '/ month',
+  'monthly':              '/ month',
+};
 
 /**
  * Normalize a single provider_pricing row for display.
- * Returns a `hidden` result for anything that isn't one of the four
- * confirmed price types.
+ * Now handles all 8+ unit types, is_starting_price "From" prefix,
+ * and confidence tier passthrough.
  *
  * @param {ProviderPriceListing} listing
  * @returns {NormalizedPrice}
@@ -90,57 +141,79 @@ export function normalizePrice(listing) {
   if (!Number.isFinite(price) || price <= 0) return HIDDEN;
 
   const label = String(listing.price_label || '').toLowerCase().trim();
+  const tier = listing.confidence_tier != null ? Number(listing.confidence_tier) : null;
+  const isStarting = listing.is_starting_price === true;
+  const prefix = isStarting ? 'From ' : '';
 
+  // Neurotoxin per_unit sanity check — reclassify as area price
   if (label === UNIT.PER_UNIT) {
-    // Neurotoxin sanity check — see NEUROTOXIN_PER_UNIT_MAX above. A
-    // mislabeled unit-priced row is a flat-rate area price in disguise;
-    // reclassify it so the brand-filter view can hide it (apples-to-
-    // apples comparison) and the broader category view renders it as
-    // "$425 / area" rather than "$425 / unit".
     if (
       isNeurotoxin(listing.procedure_type) &&
       price > NEUROTOXIN_PER_UNIT_MAX
     ) {
       return {
-        displayPrice: `${fmtMoney(price)} / area`,
+        displayPrice: `${prefix}${fmtMoney(price)} / area`,
         comparableValue: null,
         compareUnit: 'per area',
         category: UNIT.FLAT_RATE_AREA,
+        confidenceTier: tier,
+        isStartingPrice: isStarting,
       };
     }
+  }
+
+  // Known unit type → display it
+  const unitSuffix = UNIT_DISPLAY[label];
+  if (unitSuffix !== undefined) {
+    const displayUnit = unitSuffix ? ` ${unitSuffix}` : '';
+    // Only provide a comparable value for sortable unit types
+    const comparable = (label === UNIT.FLAT_PACKAGE || label === UNIT.FLAT_RATE_AREA)
+      ? null
+      : price;
     return {
-      displayPrice: `${fmtMoney(price)} / unit`,
-      comparableValue: price,
-      compareUnit: 'per unit',
-      category: UNIT.PER_UNIT,
+      displayPrice: `${prefix}${fmtMoney(price)}${displayUnit}`,
+      comparableValue: comparable,
+      compareUnit: unitSuffix ? unitSuffix.replace('/ ', 'per ') : '',
+      category: label,
+      confidenceTier: tier,
+      isStartingPrice: isStarting,
     };
   }
-  if (label === UNIT.PER_SYRINGE) {
-    return {
-      displayPrice: `${fmtMoney(price)} / syringe`,
-      comparableValue: price,
-      compareUnit: 'per syringe',
-      category: UNIT.PER_SYRINGE,
-    };
-  }
-  if (label === UNIT.PER_SESSION) {
-    return {
-      displayPrice: `${fmtMoney(price)} / session`,
-      comparableValue: price,
-      compareUnit: 'per session',
-      category: UNIT.PER_SESSION,
-    };
-  }
+
+  // Legacy monthly label
   if (label === 'per_month' || label === 'monthly') {
     return {
-      displayPrice: `${fmtMoney(price)} / month`,
+      displayPrice: `${prefix}${fmtMoney(price)} / month`,
       comparableValue: price,
       compareUnit: 'per month',
       category: 'per_month',
+      confidenceTier: tier,
+      isStartingPrice: isStarting,
     };
   }
 
   return HIDDEN;
+}
+
+/**
+ * Get price range stats for a set of records, filtered to high-confidence
+ * data only (tier ≤ 3). Returns null if not enough data.
+ */
+export function getPriceRange(records, priceLabelFilter) {
+  const verified = (records || []).filter((r) => {
+    if (priceLabelFilter && r.price_label !== priceLabelFilter) return false;
+    const tier = r.confidence_tier != null ? Number(r.confidence_tier) : 4;
+    return tier <= 3;
+  });
+  if (verified.length < 3) return null;
+  const prices = verified.map((r) => Number(r.price)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (prices.length < 3) return null;
+  return {
+    low: prices[Math.floor(prices.length * 0.1)],
+    high: prices[Math.floor(prices.length * 0.9)],
+    med: prices[Math.floor(prices.length * 0.5)],
+    count: prices.length,
+  };
 }
 
 // Below this per-unit price, the row is almost certainly Dysport (Botox

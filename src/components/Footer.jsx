@@ -132,15 +132,6 @@ export default function Footer() {
                   Product audit &rarr;
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/admin/waitlist"
-                  className="text-[12px] font-light hover:text-hot-pink transition-colors"
-                  style={{ color: '#B8A89A' }}
-                >
-                  Waitlist &rarr;
-                </Link>
-              </li>
             </ul>
           </div>
         </div>

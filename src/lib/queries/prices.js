@@ -27,7 +27,7 @@ const MIN_SAMPLES_FOR_VS_AVG = 5;
 
 const PROVIDER_FIELDS = 'id, name, slug, city, state, zip_code';
 const PRICING_FIELDS =
-  'id, provider_id, procedure_type, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at';
+  'id, provider_id, procedure_type, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at, confidence_tier, is_starting_price, category, brand, tags';
 
 function median(arr) {
   if (!arr.length) return null;

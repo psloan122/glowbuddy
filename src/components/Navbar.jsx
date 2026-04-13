@@ -30,7 +30,7 @@ const COMMUNITY_LINKS = [
 ];
 
 const MY_GLOW_LINKS = [
-  { to: '/request-bid', label: 'Bid Requests', sub: 'Let providers compete for you', badge: 'SOON' },
+
   { to: '/my-stack', label: 'My Stack', sub: 'Your treatment stack' },
   { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
   { to: '/budget', label: 'Budget', sub: 'Track what you spend' },

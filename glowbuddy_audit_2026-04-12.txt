@@ -1,0 +1,285 @@
+════════════════════════════════════════════════════════════
+  GLOWBUDDY SUPABASE AUDIT — 2026-04-12
+════════════════════════════════════════════════════════════
+
+PROVIDERS
+  Total in Supabase:          32,209
+  Expected from master:       32,209
+  Delta:                    +0
+  Active:                      4,626 (14.4%)
+
+  With website:                    1 (0.0%)
+  With coordinates:           27,582 (85.6%)
+  Claimed:                         4 (0.0%)
+
+  By type:
+    Med Spa (Non-Physician)               27,578
+    Med Spa (Physician-Owned)              3,258
+    Board-Certified Dermatologist            909
+    Plastic Surgeon                          262
+    Other                                    199
+    Dermatology                                2
+    Med Spa                                    1
+
+  By tier:
+    free                                  32,208
+    verified                                   1
+
+  Top 20 states:
+    FL      2,162
+    TX      1,583
+    CA      1,377
+    IN        988
+    AR        910
+    MI        905
+    NJ        889
+    NV        851
+    AL        849
+    KY        839
+    MA        832
+    KS        811
+    LA        811
+    NY        808
+    MS        801
+    DE        779
+    MD        765
+    MN        756
+    IL        740
+    ID        735
+
+════════════════════════════════════════════════════════════
+PRICING
+  Total price records:         2,310
+  Providers with prices:         291 (0.9% of all providers)
+
+  By procedure_type:
+    Chemical Peel                        625
+    Botox / Dysport / Xeomin             278
+    Microneedling                        238
+    Laser Hair Removal                   224
+    Lip Filler                           172
+    IPL / Photofacial                    160
+    HydraFacial                          125
+    PRP Injections                       106
+    RF Microneedling                     103
+    IV Therapy                            66
+    CoolSculpting                         58
+    PDO Thread Lift                       35
+    GLP-1 (unspecified)                   31
+    Sculptra                              18
+    Morpheus8                              8
+    Jeuveau                                8
+    Kybella                                7
+    PRP Hair Restoration                   7
+    Emsculpt NEO                           5
+    Daxxify                                5
+    Fractional CO2 Laser                   4
+    Nose Filler                            4
+    Clear + Brilliant                      3
+    Chin Filler                            3
+    Cheek Filler                           3
+    Jawline Filler                         3
+    Microdermabrasion                      3
+    Under Eye Filler                       2
+    Semaglutide (Ozempic / Wegovy)         2
+    Velashape                              1
+    PRP Microneedling                      1
+    Tirzepatide (Mounjaro / Zepbound)       1
+    Botox Lip Flip                         1
+
+  By price_label:
+    per_session                        1,163
+    flat_package                         326
+    per_area                             234
+    starting_at                          219
+    per_unit                             150
+    per_syringe                           99
+    range_low                             47
+    per_vial                              37
+    per_month                             20
+    per session                           11
+    unknown                                4
+
+  By source:
+    scrape                             2,310
+
+  Price ranges by procedure_type:
+    Type                              Min      Avg      Max   Count
+    Chemical Peel                     $10  $163.76     $950     625
+    Botox / Dysport / Xeomin           $5  $141.67   $3,000     278
+    Microneedling                     $25  $353.96   $2,225     238
+    Laser Hair Removal                $10  $498.66   $6,250     224
+    Lip Filler                        $19  $838.34   $7,500     172
+    IPL / Photofacial                 $29  $486.43   $2,997     160
+    HydraFacial                       $50  $261.91   $1,235     125
+    PRP Injections                    $30  $633.14   $3,300     106
+    RF Microneedling                  $40  $619.48   $3,400     103
+    IV Therapy                        $10  $164.23     $699      66
+    CoolSculpting                     $80  $757.31   $9,900      58
+    PDO Thread Lift                    $5  $686.43   $2,300      35
+    GLP-1 (unspecified)               $10  $409.35   $3,999      31
+    Sculptra                         $350 $1224.72   $3,150      18
+    Morpheus8                        $270  $559.00   $1,000       8
+    Jeuveau                           $10  $181.25     $480       8
+    Kybella                           $39 $1169.43   $2,499       7
+    PRP Hair Restoration             $125  $383.43     $699       7
+    Emsculpt NEO                     $160 $1370.00   $3,800       5
+    Daxxify                            $6    $8.40      $14       5
+    Fractional CO2 Laser             $150  $375.00     $550       4
+    Nose Filler                      $280  $882.50   $1,500       4
+    Clear + Brilliant                $449  $949.33   $1,599       3
+    Chin Filler                      $500  $666.67     $800       3
+    Cheek Filler                     $650  $650.00     $650       3
+    Jawline Filler                   $170 $1190.00   $1,800       3
+    Microdermabrasion                 $75  $200.00     $300       3
+    Under Eye Filler                 $230  $612.50     $995       2
+    Semaglutide (Ozempic / Wegovy)     $275  $287.00     $299       2
+    Velashape                        $300  $300.00     $300       1
+    PRP Microneedling                $675  $675.00     $675       1
+    Tirzepatide (Mounjaro / Zepbound)     $300  $300.00     $300       1
+    Botox Lip Flip                   $175  $175.00     $175       1
+
+  Top 20 states by price records:
+    FL        388
+    NY        351
+    CA        240
+    CO        206
+    MD        167
+    GA        102
+    TX         84
+    OR         84
+    AZ         76
+    PA         75
+    MO         73
+    MA         73
+    CT         64
+    NV         61
+    IL         55
+    NC         48
+    TN         40
+    WA         39
+    MN         33
+    LA         22
+
+  Top 20 cities by price records:
+    New York, NY                    193
+    Boca Raton, FL                  121
+    Denver, CO                      120
+    Pasadena, CA                     75
+    Falls Church, MD                 74
+    Brooklyn, NY                     69
+    Tampa, FL                        64
+    Portland, OR                     50
+    Lone Tree, CO                    48
+    Overland Park, MO                47
+    Queens, NY                       42
+    Las Vegas, NV                    40
+    Feasterville, PA                 39
+    Marietta, GA                     35
+    St. Petersburg, FL               35
+    Sherman Oaks, CA                 33
+    Los Angeles, CA                  33
+    Chicago, IL                      30
+    Northglenn, CO                   30
+    Houston, TX                      28
+
+  Top 20 providers by price records:
+    Prolase Medispa                          Falls Church, MD       71
+    Glamor Medical                           Boca Raton, FL         66
+    EYRE ESTHETICS                           Pasadena, CA           52
+    The Luxe Room - South Denver             Denver, CO             49
+    Elite Medical & Aesthetics               Lone Tree, CO          48
+    The Luxe Room - RiNo                     Denver, CO             48
+    Infinity Laser Spa                       New York, NY           41
+    LaserProf                                Feasterville, PA       39
+    UPKEEP MED SPA                           New York, NY           39
+    La Queen Aesthetics Skin Care            Queens, NY             38
+    Ora Wellness and Aesthetics              Boca Raton, FL         36
+    LivingYoung Center for Health & Anti-Aging St. Petersburg, FL     35
+    The Health & Wellness Clinic             Overland Park, MO      33
+    PBK Medspa                               Brooklyn, NY           31
+    Skin Perfection Aesthetics               Northglenn, CO         30
+    Cascade Medical Spa and Tattoo Removal Center Portland, OR           28
+    Zen Zone Spa                             Brighton, MA           27
+    Glass Aesthetics Med Spa                 Sherman Oaks, CA       25
+    Myst Beauty Bar & Med Spa                Las Vegas, NV          23
+    Noble Wellness and Aesthetics            Pasadena, CA           23
+
+════════════════════════════════════════════════════════════
+DATA QUALITY
+  Orphaned price records:          0
+  Duplicate name+city+state groups: 4,714 (9,542 total rows)
+  Null/zero prices:                0
+  per_unit out of range:           0 (price < $4 or > $35)
+  per_syringe below floor:         0 (price < $100)
+
+  Top 20 duplicates:
+    Salon Lofts                          Columbus, OH         ×10
+    Clearstone Laser Hair Removal & Med Spa Houston, TX          ×6
+    Plump Cosmetics & Injectables        New York, NY         ×6
+    Advanced Dermatology Of The Midlands, PC Omaha, NE            ×6
+    Salon Lofts                          Atlanta, GA          ×6
+    Salon Lofts                          Charlotte, NC        ×6
+    Dawes Fretzin Dermatology            Indianapolis, IN     ×4
+    Flawless Med Spa & Wellness          Albuquerque, NM      ×4
+    Burke Dermatology                    Dover, DE            ×4
+    The Spa at Marshall - Med Spa        Lexington, KY        ×4
+    Hawaii Dermatology and Plastic Surgery Centers Honolulu, HI         ×4
+    Colorado Dermatology Institute       Colorado Springs, CO ×4
+    Defying Time Med Spa                 Whitefish, MT        ×4
+    Midwest DERMaesthetics               Omaha, NE            ×4
+    Ada West Dermatology                 Meridian, ID         ×4
+    Elite Dermatology & Plastic Surgery  Houston, TX          ×4
+    Vitality Aesthetics                  San Diego, CA        ×4
+    IU Health Dermatology - Downtown Indianapolis Indianapolis, IN     ×4
+    Sousan Med Spa                       Houston, TX          ×4
+    Diepenbrock Facial Cosmetic Surgery  Fort Wayne, IN       ×4
+
+════════════════════════════════════════════════════════════
+COVERAGE GAPS — states with providers but zero prices
+    IN        988 providers, 0 prices
+    AR        910 providers, 0 prices
+    MI        905 providers, 0 prices
+    NJ        889 providers, 0 prices
+    AL        849 providers, 0 prices
+    KY        839 providers, 0 prices
+    KS        811 providers, 0 prices
+    MS        801 providers, 0 prices
+    DE        779 providers, 0 prices
+    ID        735 providers, 0 prices
+    NE        734 providers, 0 prices
+    NH        729 providers, 0 prices
+    NM        728 providers, 0 prices
+    RI        727 providers, 0 prices
+    MT        711 providers, 0 prices
+    HI        711 providers, 0 prices
+    IA        700 providers, 0 prices
+    ND        676 providers, 0 prices
+    AK        659 providers, 0 prices
+    ME        656 providers, 0 prices
+
+════════════════════════════════════════════════════════════
+COVERAGE — top 20 states by pricing penetration (min 10 providers)
+  State     Providers   With Price   Coverage
+  NY              808           35       4.3%
+  WA              333            9       2.7%
+  OR              374            9       2.4%
+  PA              395            9       2.3%
+  FL            2,162           48       2.2%
+  CA            1,377           30       2.2%
+  GA              636           14       2.2%
+  CO              724           15       2.1%
+  MO              667           12       1.8%
+  DC               58            1       1.7%
+  NC              644           10       1.6%
+  TN              312            5       1.6%
+  IL              740           11       1.5%
+  MD              765           11       1.4%
+  CT              664            9       1.4%
+  TX            1,583           22       1.4%
+  AZ              610            8       1.3%
+  UT              251            3       1.2%
+  NV              851            9       1.1%
+  MA              832            8       1.0%
+
+════════════════════════════════════════════════════════════

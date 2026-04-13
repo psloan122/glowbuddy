@@ -34,14 +34,15 @@ function formatYearMonth(ym) {
  * Honest breakdown of where this city's prices came from. Falls back to a
  * single sentence when one source is empty.
  */
-function formatSourceBreakdown(menuCount = 0, patientCount = 0) {
+function formatSourceBreakdown(menuCount = 0, patientCount = 0, verifiedMenuCount = 0) {
   const menu = `${menuCount} provider menu price${menuCount === 1 ? '' : 's'}`;
   const patients = `${patientCount} patient report${patientCount === 1 ? '' : 's'}`;
+  const verified = verifiedMenuCount > 0 ? ` (${verifiedMenuCount} verified)` : '';
   if (menuCount > 0 && patientCount > 0) {
-    return `${menu} · ${patients}.`;
+    return `${menu}${verified} · ${patients}.`;
   }
   if (menuCount > 0) {
-    return `${menu} · no patient reports yet.`;
+    return `${menu}${verified} · no patient reports yet.`;
   }
   if (patientCount > 0) {
     return `${patients} · no provider menu prices yet.`;
@@ -273,7 +274,7 @@ export default function CityPriceReport() {
               {state}.
             </h1>
             <p className="editorial-deck max-w-2xl">
-              {formatSourceBreakdown(report.menuCount, report.patientCount)}
+              {formatSourceBreakdown(report.menuCount, report.patientCount, report.verifiedMenuCount)}
               {report.usingAllTime && ' All-time data (limited recent activity).'}
             </p>
           </div>

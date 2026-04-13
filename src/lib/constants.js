@@ -1,3 +1,20 @@
+// Top cities by pricing data volume — used for quick-pick chips on the
+// browse page when no city is selected.
+export const FEATURED_CITIES = [
+  { city: 'New York',        state: 'NY' },
+  { city: 'Houston',         state: 'TX' },
+  { city: 'Las Vegas',       state: 'NV' },
+  { city: 'Denver',          state: 'CO' },
+  { city: 'Chicago',         state: 'IL' },
+  { city: 'Los Angeles',     state: 'CA' },
+  { city: 'Phoenix',         state: 'AZ' },
+  { city: 'Atlanta',         state: 'GA' },
+  { city: 'San Diego',       state: 'CA' },
+  { city: 'Dallas',          state: 'TX' },
+  { city: 'Charlotte',       state: 'NC' },
+  { city: 'Philadelphia',    state: 'PA' },
+];
+
 export const PROCEDURE_TYPES = [
   // Neurotoxins
   'Botox / Dysport / Xeomin',

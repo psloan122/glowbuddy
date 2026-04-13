@@ -16,6 +16,8 @@ supabase/.temp/
 
 # Large data files
 data/2023_Gaz_place_national.*
+data/provider_websites/
+*.csv
 
 # Editor directories and files
 .vscode/*

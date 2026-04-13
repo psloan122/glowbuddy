@@ -20,7 +20,7 @@ import pandas as pd
 DOWNLOADS = os.path.expanduser("~/Downloads")
 DATA_DIR = os.path.expanduser("~/GlowBuddy/data")
 
-MASTER_IN = os.path.join(DOWNLOADS, "GlowBuddy_MASTER_ALL.csv")
+MASTER_IN = os.path.join(DOWNLOADS, "GlowBuddy_MASTER_CLEAN.csv")
 CHEERIO_GLOB = os.path.join(DOWNLOADS, "dataset_cheerio-scraper_*.csv")
 
 MASTER_FULL_OUT = os.path.join(DATA_DIR, "GlowBuddy_MASTER_WITH_PRICES.csv")

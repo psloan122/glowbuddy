@@ -17,6 +17,7 @@ export const UNIT = {
   PER_VIAL:     'per_vial',
   PER_CYCLE:    'per_cycle',
   PER_MONTH:    'per_month',
+  PER_ML:       'per_ml',
   FLAT_PACKAGE: 'flat_package',
   FLAT_RATE_AREA: 'flat_rate_area',
   HIDDEN:       'hidden',
@@ -45,6 +46,7 @@ const DISPLAY_MAP = {
   [UNIT.FLAT_PACKAGE]: 'flat rate',
   [UNIT.FLAT_RATE_AREA]: 'per area',
   [UNIT.PER_MONTH]:    'per month',
+  [UNIT.PER_ML]:       'per ml',
   // Simplified specials/guide values (stored without the "per_" prefix)
   'unit':     'per unit',
   'syringe':  'per syringe',
@@ -98,6 +100,7 @@ const SUFFIX_MAP = {
   [UNIT.PER_MONTH]:    '/mo',
   [UNIT.FLAT_PACKAGE]: '',
   [UNIT.FLAT_RATE_AREA]: '/area',
+  [UNIT.PER_ML]:       '/ml',
   // Simplified specials/guide values
   'unit':     '/unit',
   'syringe':  '/syringe',

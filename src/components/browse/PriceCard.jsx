@@ -25,7 +25,7 @@ import { Heart, Star, ShieldCheck, ArrowRight, Info, ChevronRight, Calculator } 
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getProcedureLabel, getProcedureDetail } from '../../lib/procedureLabel';
-import { inferNeurotoxinBrand, formatUnitsIncluded } from '../../lib/priceUtils';
+import { inferNeurotoxinBrand, formatUnitsIncluded, CONFIDENCE_TIERS, TIER_DISCLAIMER } from '../../lib/priceUtils';
 import { haversineMiles, formatMiles } from '../../lib/distance';
 import { resolveDosingKey, getQuickEstimates } from '../../data/dosingGuidance';
 import useDosingStore from '../../stores/dosingStore';
@@ -589,6 +589,30 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
       <div style={S.trustRow}>
         <SourceBadge procedure={procedure} />
         <FreshnessTag procedure={procedure} />
+        {/* Confidence tier badge — green for tier 1-2, subtle for tier 4 */}
+        {(() => {
+          const ct = procedure.confidence_tier != null ? Number(procedure.confidence_tier) : null;
+          const tierInfo = ct != null ? CONFIDENCE_TIERS[ct] : null;
+          if (!tierInfo) return null;
+          if (ct <= 2) {
+            return (
+              <span style={{ ...S.sourceBadge, color: '#059669' }}>
+                {'\u2713'} {tierInfo.label}
+              </span>
+            );
+          }
+          if (ct >= 4 && tierInfo.showDisclaimer) {
+            return (
+              <span
+                style={{ ...S.sourceBadge, color: '#999' }}
+                title={TIER_DISCLAIMER}
+              >
+                Estimated \u00B7 contact to confirm
+              </span>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {isDiscounted && (

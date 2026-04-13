@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Link2 } from 'lucide-react';
+import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Link2, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PriceContextBar from '../components/browse/PriceContextBar';
 import StickyFilterBar from '../components/browse/StickyFilterBar';
@@ -40,6 +40,7 @@ import {
   PROVIDER_TYPES,
   PROCEDURE_PILLS,
   CATEGORY_PILLS,
+  FEATURED_CITIES,
   resolveProcedureFilter,
   makeProcedureFilterFromCanonical,
   makeProcedureFilterFromPill,
@@ -58,6 +59,7 @@ import { setPageMeta } from '../lib/seo';
 import { normalizePrice } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
+import useGeolocation from '../hooks/useGeolocation';
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -207,6 +209,16 @@ export default function FindPrices() {
   const [experienceSheet, setExperienceSheet] = useState(null);
   const [dosingSheet, setDosingSheet] = useState(null);
   const [minRating, setMinRating] = useState('');
+
+  // ── "Near me" geolocation ──
+  const { geo, requestLocation: requestGeoLocation } = useGeolocation();
+
+  // When geolocation succeeds, auto-select the city
+  useEffect(() => {
+    if (geo.status === 'success' && geo.city && geo.state && !selectedLoc) {
+      selectLocation({ city: geo.city, state: geo.state });
+    }
+  }, [geo.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // First-timer state
   const [firstTimerActive, setFirstTimerActive] = useState(() => isFirstTimerMode());
@@ -1116,6 +1128,9 @@ export default function FindPrices() {
           // is actually a $425/forehead flat rate). See the filter
           // applied in displayedProcedures.
           normalized_category: normalized.category,
+          // Confidence tier (1-5) for display badges/disclaimers
+          confidence_tier: row.confidence_tier ?? null,
+          is_starting_price: row.is_starting_price ?? false,
           // Internals used by the merge sort, prefixed _ so they're clearly
           // not part of the procedures schema.
           _verified: row.verified === true,
@@ -2902,8 +2917,65 @@ export default function FindPrices() {
               <span className="italic text-hot-pink">See what people actually paid.</span>
             </h1>
             <p className="font-body font-light text-text-secondary mt-4 text-[15px] max-w-xl mx-auto">
-              Real prices from real med spas. Use the search above to start.
+              Real prices from real med spas.
             </p>
+
+            {/* Near me button */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+              {geo.status === 'denied' ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#999' }}>
+                  Location access denied. Use the search bar above to enter your city.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={requestGeoLocation}
+                  disabled={geo.status === 'loading'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '12px 24px', borderRadius: 999,
+                    background: '#E8347A', color: 'white', border: 'none',
+                    fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+                    cursor: geo.status === 'loading' ? 'wait' : 'pointer',
+                    opacity: geo.status === 'loading' ? 0.7 : 1,
+                    transition: 'opacity 150ms',
+                  }}
+                >
+                  {geo.status === 'loading' ? (
+                    <><Loader2 size={16} className="animate-spin" /> Finding your location...</>
+                  ) : (
+                    <><MapPin size={16} /> Use my location</>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Featured city quick-picks */}
+            <div style={{ marginTop: 28 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A', marginBottom: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+                Popular cities
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 600, margin: '0 auto' }}>
+                {FEATURED_CITIES.map(({ city, state }) => (
+                  <button
+                    key={`${city}-${state}`}
+                    type="button"
+                    onClick={() => selectLocation({ city, state })}
+                    style={{
+                      padding: '6px 14px', borderRadius: 20,
+                      border: '1.5px solid #E0D6CE', background: 'white',
+                      fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                      color: '#555', cursor: 'pointer',
+                      transition: 'border-color 150ms, background 150ms',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#E8347A'; e.currentTarget.style.background = '#FDF0F5'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E0D6CE'; e.currentTarget.style.background = 'white'; }}
+                  >
+                    {city}, {state}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -3053,8 +3125,44 @@ export default function FindPrices() {
               fontWeight: 400,
               marginBottom: 20,
             }}>
-              Enter a city or zip code to see {procFilter?.description || procFilter?.label || 'treatment'} prices near you.
+              See {procFilter?.description || procFilter?.label || 'treatment'} prices near you.
             </p>
+
+            {/* Near me button */}
+            {geo.status !== 'denied' && (
+              <button
+                type="button"
+                onClick={requestGeoLocation}
+                disabled={geo.status === 'loading'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '12px 24px', borderRadius: 999, marginBottom: 16,
+                  background: '#E8347A', color: 'white', border: 'none',
+                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+                  cursor: geo.status === 'loading' ? 'wait' : 'pointer',
+                  opacity: geo.status === 'loading' ? 0.7 : 1,
+                }}
+              >
+                {geo.status === 'loading' ? (
+                  <><Loader2 size={16} className="animate-spin" /> Finding your location...</>
+                ) : (
+                  <><MapPin size={16} /> Use my location</>
+                )}
+              </button>
+            )}
+            {geo.status === 'denied' && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#999', marginBottom: 12 }}>
+                Location access denied.
+              </p>
+            )}
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 auto 16px', maxWidth: 200 }}>
+              <div style={{ flex: 1, height: 1, background: '#E0D6CE' }} />
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A' }}>or</span>
+              <div style={{ flex: 1, height: 1, background: '#E0D6CE' }} />
+            </div>
+
             <button
               type="button"
               onClick={() => {
@@ -3073,10 +3181,35 @@ export default function FindPrices() {
                 fontSize: 13,
                 letterSpacing: '0.06em',
                 cursor: 'pointer',
+                marginBottom: 24,
               }}
             >
               Enter your city
             </button>
+
+            {/* Featured city quick-picks */}
+            <div>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#B8A89A', marginBottom: 8, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+                Popular cities
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                {FEATURED_CITIES.slice(0, 8).map(({ city, state }) => (
+                  <button
+                    key={`m-${city}-${state}`}
+                    type="button"
+                    onClick={() => selectLocation({ city, state })}
+                    style={{
+                      padding: '5px 12px', borderRadius: 16,
+                      border: '1.5px solid #E0D6CE', background: 'white',
+                      fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+                      color: '#555', cursor: 'pointer',
+                    }}
+                  >
+                    {city}, {state}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : loadingProcedures ? (
           // Loading state is owned by the desktop unified split-view
@@ -3164,9 +3297,9 @@ export default function FindPrices() {
                 onSnapChange={setMobileSheetSnap}
               />
             )}
-            {hasPricedResults && (
+            {(procFilter || brandFilter) && (
               <MobileBrowseSheet
-                providers={groupedProviders.map((group) => {
+                providers={hasPricedResults ? groupedProviders.map((group) => {
                   const primary = group.procedures[0];
                   return {
                     key: group.key,
@@ -3185,15 +3318,16 @@ export default function FindPrices() {
                     google_review_count: primary.google_review_count,
                     bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
                   };
-                })}
+                }) : []}
                 mode="priced"
                 city={selectedLoc?.city}
                 state={selectedLoc?.state}
                 cityAvg={cityAvgPrice}
                 selectedProviderId={selectedProviderGroup?.provider_id || null}
-                providerCount={groupedProviders.length}
-                listingCount={displayedProcedures.length}
-                unpricedProviders={unpricedProviders}
+                providerCount={hasPricedResults ? groupedProviders.length : 0}
+                listingCount={hasPricedResults ? displayedProcedures.length : 0}
+                loading={loadingProcedures}
+                unpricedProviders={hasPricedResults ? unpricedProviders : []}
                 onSnapChange={setMobileSheetSnap}
               />
             )}
@@ -3350,6 +3484,13 @@ export default function FindPrices() {
           className="mx-auto px-4"
           style={{ maxWidth: 860, paddingBottom: 40 }}
         >
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A',
+            margin: '0 0 16px 0', lineHeight: 1.5,
+          }}>
+            Prices are scraped from provider websites or reported by users and may vary.
+            GlowBuddy is independent — no paid placements.
+          </p>
           {groupedProviders.map((group) => {
             const primary = group.procedures[0];
             const slug =
@@ -3478,7 +3619,8 @@ export default function FindPrices() {
                       </span>
                     )}
                     <span style={{ display: 'block', fontSize: 11, color: '#aaa', marginTop: 4 }}>
-                      Prices are user-reported and may vary. GlowBuddy is independent — no paid placements.
+                      Prices are scraped from provider websites or reported by users and may vary.
+                      GlowBuddy is independent — no paid placements.
                     </span>
                   </span>
                   <button type="button" onClick={handleShareResults} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: shareCopied ? '#1A7A3A' : 'transparent', color: shareCopied ? 'white' : '#888', border: `1px solid ${shareCopied ? '#1A7A3A' : '#DDD'}`, borderRadius: 2, fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 150ms, color 150ms', flexShrink: 0 }}>
