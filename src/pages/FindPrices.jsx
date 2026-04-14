@@ -1938,8 +1938,17 @@ export default function FindPrices() {
     }
 
     const groups = [...map.values()].map((g) => {
-      const sortedProcs = g.procedures
-        .slice()
+      // Deduplicate: same procedure_type + normalized_category + price
+      // keeps only the first (which will be the one with better data).
+      const seen = new Set();
+      const deduped = g.procedures.filter((p) => {
+        const dedupKey = `${p.procedure_type}|${p.normalized_category || ''}|${p.price_paid}`;
+        if (seen.has(dedupKey)) return false;
+        seen.add(dedupKey);
+        return true;
+      });
+
+      const sortedProcs = deduped
         .sort((a, b) => compareValueOf(a) - compareValueOf(b));
       return {
         ...g,

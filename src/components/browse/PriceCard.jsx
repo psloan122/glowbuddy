@@ -729,14 +729,17 @@ function PriceCard({
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
   // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
-  const rows = (Array.isArray(procedures) ? procedures : []).filter((p) =>
+  const MAX_VISIBLE_ROWS = 4;
+  const allRows = (Array.isArray(procedures) ? procedures : []).filter((p) =>
     p.normalized_category !== 'hidden'
   );
-  if (rows.length === 0) return null;
+  if (allRows.length === 0) return null;
+  const rows = allRows.slice(0, MAX_VISIBLE_ROWS);
+  const hiddenRowCount = allRows.length - rows.length;
 
   // The "primary" carries provider identity (name, city, slug, distance,
   // rating). It is also what we hand to compare/save/hover callbacks.
-  const primary = rows[0];
+  const primary = allRows[0];
 
   const profileUrl = providerProfileUrl(
     primary.provider_slug,
@@ -758,7 +761,7 @@ function PriceCard({
   // current user's own pending submission. The amber treatment then
   // applies to the whole card (since the submitter is allowed to see
   // it but no one else is).
-  const isPendingSelf = rows.some((p) => p._pending_self === true);
+  const isPendingSelf = allRows.some((p) => p._pending_self === true);
 
   function handleCompareClick(e) {
     e.preventDefault();
@@ -862,6 +865,24 @@ function PriceCard({
             onDosingClick={onDosingClick ? (p, info) => onDosingClick(p, primary, info) : undefined}
           />
         ))}
+        {hiddenRowCount > 0 && profileUrl && (
+          <Link
+            to={profileUrl}
+            style={{
+              display: 'block',
+              textAlign: 'center',
+              padding: '10px 0 6px',
+              fontFamily: 'var(--font-body)',
+              fontSize: 11,
+              fontWeight: 600,
+              color: '#E8347A',
+              textDecoration: 'none',
+              letterSpacing: '0.04em',
+            }}
+          >
+            View {hiddenRowCount} more price{hiddenRowCount !== 1 ? 's' : ''} &rarr;
+          </Link>
+        )}
       </div>
 
       {/* Footer row */}

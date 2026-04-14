@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Star, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X } from 'lucide-react';
+import { Search, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import FounderStory from '../components/FounderStory';
@@ -11,31 +11,6 @@ import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
 import { buildBrowseUrl, parseSearchQuery, parseProcedureFromText } from '../lib/urlParams';
 import { getProcedureLabel } from '../lib/procedureLabel';
-
-// ── Placeholder testimonials ──
-const PLACEHOLDER_TESTIMONIALS = [
-  {
-    name: 'Sarah M.',
-    city: 'Austin, TX',
-    treatment: 'Botox',
-    quote: 'I was quoted $14/unit at one place and found $11/unit down the street on Know Before You Glow. Saved over $90 on my forehead alone.',
-    savings: '$90',
-  },
-  {
-    name: 'Jessica L.',
-    city: 'Nashville, TN',
-    treatment: 'Lip Filler',
-    quote: 'I always felt like I was overpaying but had no way to compare. Now I check Know Before You Glow before every appointment.',
-    savings: '$200',
-  },
-  {
-    name: 'Amanda R.',
-    city: 'Denver, CO',
-    treatment: 'Microneedling',
-    quote: 'Found a receipt-verified provider charging $100 less than my usual place for the exact same RF microneedling treatment.',
-    savings: '$100',
-  },
-];
 
 // Procedure pills shown in hero (editorial pink).
 // `slug` MUST be a valid PROCEDURE_PILLS slug from constants.js so the
@@ -790,64 +765,6 @@ export default function Home() {
           ═══════════════════════════════════════════════════════ */}
       <section className="max-w-3xl mx-auto px-4 pb-12">
         <FounderStory />
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          5. TESTIMONIALS — editorial
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-white py-16" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
-        <div className="max-w-5xl mx-auto px-4">
-          <p className="editorial-kicker text-center mb-3">The Chorus</p>
-          <h2 className="editorial-headline text-center mb-10">
-            What <span className="italic text-hot-pink">patients</span> are saying.
-          </h2>
-          <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-            {PLACEHOLDER_TESTIMONIALS.map((t, i) => (
-              <div key={i} className="glow-card p-5 snap-start shrink-0 w-[85vw] sm:w-[320px] md:w-auto">
-                <div className="flex items-center gap-0.5 mb-3">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={12} className="text-hot-pink fill-hot-pink" />
-                  ))}
-                </div>
-                <p className="font-display italic text-[15px] text-ink leading-snug mb-4">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #E8E8E8' }}>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase text-ink" style={{ letterSpacing: '0.08em' }}>
-                      {t.name}
-                    </p>
-                    <p className="text-[10px] text-text-secondary font-light mt-0.5">{t.city}</p>
-                  </div>
-                  <span
-                    className="text-[10px] font-semibold uppercase px-2 py-0.5"
-                    style={{
-                      letterSpacing: '0.06em',
-                      borderRadius: '4px',
-                      background: '#F0FAF5',
-                      color: '#1A7A3A',
-                      border: '1px solid #1A7A3A',
-                    }}
-                  >
-                    Saved {t.savings}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-6">
-            <p className="text-[10px] text-text-secondary/60 font-light uppercase mb-2" style={{ letterSpacing: '0.06em' }}>
-              Based on community-reported savings. Individual results vary.
-            </p>
-            <a
-              href="mailto:hello@knowbeforeyouglow.com?subject=My Know Before You Glow Story"
-              className="text-[10px] font-semibold uppercase text-hot-pink hover:text-hot-pink-dark transition-colors"
-              style={{ letterSpacing: '0.10em' }}
-            >
-              Share your story &rarr;
-            </a>
-          </div>
-        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════
