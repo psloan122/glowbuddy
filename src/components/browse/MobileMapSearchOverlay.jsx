@@ -98,6 +98,7 @@ export default function MobileMapSearchOverlay({
         display: 'flex',
         flexDirection: 'column',
         willChange: 'transform',
+        touchAction: 'manipulation',
       }}
     >
       {/* Top bar: close + title */}
@@ -305,19 +306,28 @@ export default function MobileMapSearchOverlay({
                 onClick={() => {
                   if (isActive) { handleClearProcedure(); } else { handleSelectPill(pill); }
                 }}
+                onTouchEnd={(e) => {
+                  // iOS Safari sometimes swallows onClick on transformed
+                  // containers. Fire the handler on touchEnd as a fallback.
+                  e.preventDefault();
+                  if (isActive) { handleClearProcedure(); } else { handleSelectPill(pill); }
+                }}
                 style={{
-                  height: 38,
-                  padding: '0 16px',
-                  borderRadius: 19,
+                  height: 44,
+                  minWidth: 44,
+                  padding: '0 18px',
+                  borderRadius: 22,
                   border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
                   background: isActive ? '#E8347A' : 'white',
                   color: isActive ? '#fff' : '#555',
                   fontFamily: 'var(--font-body)',
                   fontWeight: 600,
-                  fontSize: 13,
+                  fontSize: 14,
                   letterSpacing: '0.04em',
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation',
                 }}
               >
                 {pill.label === 'Fillers' ? 'Filler' : pill.label}

@@ -1293,6 +1293,17 @@ export default function FindPrices() {
     });
 
     async function fetchProcedures() {
+      // DEBUG: initial load diagnostic — remove before deploying
+      console.log('[FindPrices] fetch triggered:', {
+        procFilter: procFilter?.slug || null,
+        brandFilter,
+        filterProcedureTypes: filterProcedureTypes.length,
+        city: filterCity,
+        state: filterState,
+        selectedLoc: selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : null,
+        mapReady: !!document.querySelector('[data-glow-map]'),
+      });
+
       // Gate: if no procedure has been picked yet, don't fetch anything —
       // the UI shows the ProcedureGate prompt instead. This avoids
       // surfacing apples-to-oranges prices and saves a round-trip.
@@ -3595,11 +3606,11 @@ export default function FindPrices() {
               maxWidth: 1400,
               display: 'flex',
               gap: 0,
-              // Account for: navbar (~60px) + search bar (~56px) + PriceContextBar
-              // + StickyFilterBar when results are showing (~100px combined).
+              // Exact heights: navbar=64 + search bar=52 = 116px base.
+              // When results: + PriceContextBar(40) + StickyFilterBar(44) = 200px.
               height: hasResults
-                ? 'calc(100vh - 220px)'
-                : 'calc(100vh - 140px)',
+                ? 'calc(100vh - 200px)'
+                : 'calc(100vh - 116px)',
               minHeight: 480,
               overflow: 'hidden',
               paddingLeft: 16,

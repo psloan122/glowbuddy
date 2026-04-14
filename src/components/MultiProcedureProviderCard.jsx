@@ -27,15 +27,15 @@ function formatRowLabel(row) {
   return getProcedureLabel(row.procedure_type, row.brand).toUpperCase();
 }
 
+import { formatPricingUnit, isInternalField } from '../utils/formatPricingUnit';
+
 const INTERNAL_LABELS = new Set(['range_low', 'range_high', 'hidden']);
 
 function formatPriceLabel(row) {
   const unitLabel = row.price_label || null;
   if (!unitLabel) return null;
-  const lower = unitLabel.toLowerCase();
-  // Suppress internal-only labels that should never reach the UI.
-  if (INTERNAL_LABELS.has(lower)) return null;
-  return lower;
+  if (INTERNAL_LABELS.has(unitLabel.toLowerCase()) || isInternalField(unitLabel)) return null;
+  return formatPricingUnit(unitLabel) || null;
 }
 
 function formatPriceDisplay(row) {
@@ -175,6 +175,14 @@ export default memo(function MultiProcedureProviderCard({ entry, targetCount, us
                     }}
                   >
                     {subLabel}
+                    {(row.price_label || '').toLowerCase() === 'flat_package' && (
+                      <span
+                        style={{ marginLeft: 4, cursor: 'help' }}
+                        title="Fixed price — ask provider what's included"
+                      >
+                        &#9432;
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
