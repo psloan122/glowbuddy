@@ -104,9 +104,10 @@ export default function CompetitorAds({
         `id, name, slug, city, state, lat, lng,
          weighted_rating, review_count, verified_review_count,
          is_claimed, logo_url, tagline, provider_type,
-         google_rating, google_review_count`
+         google_rating, google_review_count, boost_active`
       )
       .eq('is_claimed', true)
+      .eq('boost_active', true)  // Only paid-boost providers appear on competitor pages
       .gte('lat', lat - latDelta)
       .lte('lat', lat + latDelta)
       .gte('lng', lng - lngDelta)
@@ -130,10 +131,11 @@ export default function CompetitorAds({
         `id, name, slug, city, state, lat, lng,
          weighted_rating, review_count, verified_review_count,
          is_claimed, logo_url, tagline, provider_type,
-         google_rating, google_review_count`
+         google_rating, google_review_count, boost_active`
       )
       .eq('state', state)
       .eq('is_claimed', true)
+      .eq('boost_active', true)  // Only paid-boost providers appear on competitor pages
       .order('weighted_rating', { ascending: false })
       .limit(10);
 

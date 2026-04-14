@@ -3649,15 +3649,13 @@ export default function FindPrices() {
                 <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
                   <span>
-                    <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length}</strong>
-                    {` ${groupedProviders.length === 1 ? 'provider' : 'providers'} offering `}
-                    {treatmentSearch
-                      ? `'${treatmentSearch}'`
-                      : CATEGORY_PILLS.find(p => p.slug === procFilter?.slug)?.description
-                        || brandFilter || procFilter?.label || 'treatments'}
-                    {displayedProcedures.length !== groupedProviders.length && (
+                    <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length + unpricedProviders.length}</strong>
+                    {` ${(groupedProviders.length + unpricedProviders.length) === 1 ? 'provider' : 'providers'} in this area`}
+                    {groupedProviders.length > 0 && (
                       <span style={{ color: '#B8A89A' }}>
-                        {' · '}{displayedProcedures.length} {displayedProcedures.length === 1 ? 'price listing' : 'price listings'}
+                        {' · '}{groupedProviders.length} with {treatmentSearch
+                          ? `'${treatmentSearch}'`
+                          : brandFilter || procFilter?.label || 'treatment'} prices
                       </span>
                     )}
                     {searchAreaBounds && (
@@ -3743,7 +3741,7 @@ export default function FindPrices() {
                         fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
                         letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B8A89A',
                       }}>
-                        {unpricedProviders.length} more provider{unpricedProviders.length !== 1 ? 's' : ''} — no prices yet
+                        Also in this area — no {brandFilter || procFilter?.label || ''} prices yet
                       </span>
                     </div>
                     {unpricedProviders.map((p) => (
@@ -3773,7 +3771,7 @@ export default function FindPrices() {
                           </div>
                         </div>
                         <Link
-                          to="/log"
+                          to={`/log?provider_id=${p.id}&provider=${encodeURIComponent(p.name || p.provider_name || '')}&city=${encodeURIComponent(p.city || '')}&state=${encodeURIComponent(p.state || '')}`}
                           style={{
                             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
                             color: '#E8347A', textDecoration: 'none', whiteSpace: 'nowrap',

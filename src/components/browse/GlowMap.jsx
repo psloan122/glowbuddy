@@ -829,10 +829,12 @@ export default memo(function GlowMap({
           onClick={() => onSearchAreaClick?.()}
           style={{
             position: 'absolute',
-            top: 12,
+            // On mobile the floating search inputs overlay the top ~56px
+            // of the map. Push the button below them so it's always tappable.
+            top: isMobile ? 'calc(env(safe-area-inset-top, 0px) + 60px)' : 12,
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 10,
+            zIndex: 45,
             display: 'flex',
             alignItems: 'center',
             gap: 6,

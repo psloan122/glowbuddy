@@ -261,7 +261,9 @@ export default function SmartEmptyState({
           margin: '0 0 8px 0',
         }}
       >
-        No {headBrand} prices{cityLabel ? ` in ${cityLabel}` : ''} yet.
+        {cityLabel
+          ? `GlowBuddy hasn\u2019t made it to ${cityLabel} yet.`
+          : `No ${headBrand} prices yet.`}
       </h2>
       <p
         style={{
@@ -275,10 +277,10 @@ export default function SmartEmptyState({
         }}
       >
         {unpricedCount > 0 && cityLabel
-          ? `${unpricedCount} provider${unpricedCount !== 1 ? 's' : ''} in this area haven't listed ${headBrand} prices. Be the first to share what you paid.`
+          ? `${unpricedCount} provider${unpricedCount !== 1 ? 's' : ''} are here but haven\u2019t listed ${headBrand} prices. Help us fill in the map.`
           : cityLabel
-          ? `No providers in ${cityLabel} have shared ${headBrand} prices yet.`
-          : `No ${headBrand} prices yet — be the first to share what you paid.`}
+          ? `Be the first to put ${cityLabel} on the map \u2014 your price helps everyone.`
+          : `No ${headBrand} prices yet \u2014 be the first to share what you paid.`}
       </p>
 
       {loading ? (
@@ -427,32 +429,50 @@ export default function SmartEmptyState({
         </Link>
       </div>
 
-      {/* Consumer CTA — add a provider */}
-      <p
+      {/* Consumer CTA — suggest a provider (earns giveaway entries) */}
+      <div
         style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 12,
-          color: '#888',
           marginTop: 24,
+          padding: '14px 20px',
+          background: '#FDF0F5',
+          borderRadius: 6,
+          border: '1px solid #F5D0E0',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 10,
         }}
       >
-        Don&rsquo;t see your provider?{' '}
-        <button
-          onClick={() => setShowAddModal(true)}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            color: '#C94F78',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            fontSize: 'inherit',
-          }}
-        >
-          Add them so you can log your price &rarr;
-        </button>
-      </p>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>🎁</span>
+        <div style={{ textAlign: 'left' }}>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#C94F78',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              textAlign: 'left',
+            }}
+          >
+            + Suggest a provider here
+          </button>
+          <p
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 11,
+              color: '#888',
+              fontWeight: 300,
+              margin: '2px 0 0',
+            }}
+          >
+            Earn bonus giveaway entries for adding providers we don&rsquo;t have yet.
+          </p>
+        </div>
+      </div>
 
       {/* Provider CTA */}
       <p
