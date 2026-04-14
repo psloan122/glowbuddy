@@ -32,6 +32,7 @@ import SpecialsManager from '../../components/SpecialsManager';
 import CallAnalyticsTab from '../../components/DashboardTabs/CallAnalyticsTab';
 import SubmissionsTab from '../../components/DashboardTabs/SubmissionsTab';
 import DemandIntelTab from '../../components/DashboardTabs/DemandIntelTab';
+import MenuUploader from '../../components/business/MenuUploader';
 import CallVolumeChart from '../../components/CallVolumeChart';
 import VagaroConnectFlow from '../../components/VagaroConnectFlow';
 import BookingPlatformConnect from '../../components/BookingPlatformConnect';
@@ -808,6 +809,13 @@ export default function Dashboard() {
       {/* ===== MENU TAB ===== */}
       {activeTab === 'Menu' && (
         <div>
+          {/* AI menu parser — upload PDF/image */}
+          {provider?.id && (
+            <div className="glow-card p-5 mb-6" style={{ borderTop: '3px solid #E8347A' }}>
+              <MenuUploader providerId={provider.id} />
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-text-primary">
               Your Procedure Menu

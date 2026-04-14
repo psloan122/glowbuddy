@@ -832,7 +832,7 @@ export default function Log() {
           {/* Form steps */}
           <div className="glow-card p-6 sm:p-8">
             {currentStep === 1 && (
-              <Step1 formData={formData} setFormData={setFormData} />
+              <Step1 formData={formData} setFormData={setFormData} prefilledProvider={prefilledProvider} />
             )}
             {currentStep === 2 && (
               <Step2 formData={formData} setFormData={setFormData} prefilledProvider={prefilledProvider} />

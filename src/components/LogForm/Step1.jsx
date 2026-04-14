@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Check } from 'lucide-react';
+import { Search, Check, FileText } from 'lucide-react';
 import {
   PROCEDURE_TYPES,
   PROCEDURE_CATEGORIES,
@@ -9,12 +9,23 @@ import {
   AVG_PRICES,
 } from '../../lib/constants';
 import { getCity, getState } from '../../lib/gating';
+import useProviderMenu from '../../hooks/useProviderMenu';
 import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
-export default function Step1({ formData, setFormData }) {
+const MENU_UNIT_LABELS = {
+  per_unit: '/unit',
+  per_syringe: '/syringe',
+  per_vial: '/vial',
+  per_session: '/session',
+  per_area: '/area',
+  per_cycle: '/cycle',
+  flat_package: '',
+};
+
+export default function Step1({ formData, setFormData, prefilledProvider }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(formData.procedureType || '');
   const wrapperRef = useRef(null);
@@ -31,6 +42,34 @@ export default function Step1({ formData, setFormData }) {
       items: procs.filter((p) => p.toLowerCase().includes(lowerSearch)),
     }))
     .filter((g) => g.items.length > 0);
+
+  // Provider menu items — when the provider has an uploaded/parsed menu,
+  // show their actual procedures as a selection list.
+  const { menuItems, fetchMenu } = useProviderMenu();
+  const [useMenuMode, setUseMenuMode] = useState(false);
+
+  useEffect(() => {
+    if (prefilledProvider?.id) {
+      fetchMenu(prefilledProvider.id);
+    }
+  }, [prefilledProvider?.id, fetchMenu]);
+
+  // Auto-enable menu mode when items are available
+  useEffect(() => {
+    if (menuItems.length > 0 && !formData.procedureType) {
+      setUseMenuMode(true);
+    }
+  }, [menuItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function selectFromMenu(item) {
+    setFormData((prev) => ({
+      ...prev,
+      procedureType: item.procedure_type,
+      pricePaid: String(item.price),
+    }));
+    setSearchTerm(item.procedure_type);
+    setUseMenuMode(false);
+  }
 
   const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
   const avgPrice = AVG_PRICES[formData.procedureType];
@@ -68,7 +107,44 @@ export default function Step1({ formData, setFormData }) {
       </p>
 
       <div className="space-y-5">
+        {/* Menu picker — shown when provider has an uploaded menu */}
+        {useMenuMode && menuItems.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <FileText size={14} className="text-rose-accent" />
+              <p className="text-sm font-medium text-text-primary">
+                {prefilledProvider?.name || 'This provider'} has a price menu on file
+              </p>
+            </div>
+            <div className="space-y-1.5 mb-3">
+              {menuItems.map((item, i) => (
+                <button
+                  key={`${item.procedure_type}-${item.price}-${i}`}
+                  type="button"
+                  onClick={() => selectFromMenu(item)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-rose-accent/50 transition-colors flex items-center justify-between"
+                >
+                  <span className="text-sm font-medium text-text-primary">
+                    {item.procedure_type}
+                  </span>
+                  <span className="text-sm text-text-secondary">
+                    ${item.price}{MENU_UNIT_LABELS[item.price_label] || ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setUseMenuMode(false)}
+              className="text-xs text-text-secondary underline"
+            >
+              Price isn't on their menu — enter manually
+            </button>
+          </div>
+        )}
+
         {/* Procedure type — searchable dropdown, selection required */}
+        {!useMenuMode && (
         <div ref={wrapperRef} className="relative">
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             Procedure Type <span className="text-rose-accent">*</span>
@@ -147,7 +223,19 @@ export default function Step1({ formData, setFormData }) {
 
           {/* Don't see your treatment? — inline suggest form. */}
           <SuggestTreatmentBlock variant="soft" source="log_step1" />
+
+          {/* Back to menu link — when provider has a menu and user switched to manual */}
+          {menuItems.length > 0 && !useMenuMode && (
+            <button
+              type="button"
+              onClick={() => setUseMenuMode(true)}
+              className="text-xs text-rose-accent underline mt-1"
+            >
+              Back to {prefilledProvider?.name || 'provider'} menu
+            </button>
+          )}
         </div>
+        )}
 
         {/* Treatment area */}
         <div>
