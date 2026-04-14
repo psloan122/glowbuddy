@@ -3595,10 +3595,12 @@ export default function FindPrices() {
               maxWidth: 1400,
               display: 'flex',
               gap: 0,
+              // Account for: navbar (~60px) + search bar (~56px) + PriceContextBar
+              // + StickyFilterBar when results are showing (~100px combined).
               height: hasResults
-                ? 'calc(100vh - 130px)'
+                ? 'calc(100vh - 220px)'
                 : 'calc(100vh - 140px)',
-              minHeight: 520,
+              minHeight: 480,
               overflow: 'hidden',
               paddingLeft: 16,
               paddingRight: 16,
