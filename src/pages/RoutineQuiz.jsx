@@ -42,7 +42,7 @@ const SKIN_TYPES = [
 ];
 
 const TREATMENT_RECS = {
-  'Fine lines & wrinkles': ['Botox / Dysport / Xeomin', 'Microneedling', 'Chemical Peel'],
+  'Fine lines & wrinkles': ['Botox', 'Dysport', 'Xeomin', 'Microneedling', 'Chemical Peel'],
   'Volume loss (cheeks, temples)': ['Cheek Filler', 'Sculptra'],
   'Lip enhancement': ['Lip Filler'],
   'Skin texture & tone': ['Microneedling', 'RF Microneedling', 'Chemical Peel', 'HydraFacial'],
@@ -50,7 +50,7 @@ const TREATMENT_RECS = {
   'Double chin': ['Kybella'],
   'Pore size': ['HydraFacial', 'Chemical Peel', 'Microneedling'],
   'Skin hydration': ['HydraFacial', 'PRP/PRF'],
-  'Anti-aging prevention': ['Botox / Dysport / Xeomin', 'HydraFacial', 'Microneedling'],
+  'Anti-aging prevention': ['Botox', 'Dysport', 'Xeomin', 'HydraFacial', 'Microneedling'],
   'Body contouring': ['CoolSculpting', 'Emsculpt NEO', 'Kybella'],
   'Weight loss': ['Semaglutide (Ozempic / Wegovy)', 'Tirzepatide (Mounjaro / Zepbound)', 'Compounded Semaglutide', 'GLP-1 (unspecified)'],
 };
@@ -74,7 +74,7 @@ export default function RoutineQuiz() {
   }, []);
 
   const ALL_TREATMENTS = [
-    'Botox / Dysport / Xeomin', 'Lip Filler', 'Cheek Filler',
+    'Botox', 'Dysport', 'Xeomin', 'Lip Filler', 'Cheek Filler',
     'Microneedling', 'RF Microneedling', 'Chemical Peel',
     'HydraFacial', 'PRP/PRF', 'Sculptra', 'Kybella',
     'Semaglutide (Ozempic / Wegovy)', 'Tirzepatide (Mounjaro / Zepbound)',

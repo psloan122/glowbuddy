@@ -39,18 +39,18 @@ export const COL = {
 const DISPLAY_MAP = {
   [UNIT.PER_UNIT]:     'per unit',
   [UNIT.PER_SESSION]:  'per session',
-  [UNIT.PER_AREA]:     'per area',
+  [UNIT.PER_AREA]:     'per treatment area',
   [UNIT.PER_SYRINGE]:  'per syringe',
   [UNIT.PER_VIAL]:     'per vial',
   [UNIT.PER_CYCLE]:    'per cycle',
   [UNIT.FLAT_PACKAGE]: 'flat rate',
-  [UNIT.FLAT_RATE_AREA]: 'per area',
+  [UNIT.FLAT_RATE_AREA]: 'per treatment area',
   [UNIT.PER_MONTH]:    'per month',
   [UNIT.PER_ML]:       'per ml',
   // Simplified specials/guide values (stored without the "per_" prefix)
   'unit':     'per unit',
   'syringe':  'per syringe',
-  'area':     'per area',
+  'area':     'per treatment area',
   'session':  'per session',
   'vial':     'per vial',
 };
@@ -93,18 +93,18 @@ export function formatPriceDisplay(price, unit, quantity) {
 const SUFFIX_MAP = {
   [UNIT.PER_UNIT]:     '/unit',
   [UNIT.PER_SESSION]:  '/session',
-  [UNIT.PER_AREA]:     '/area',
+  [UNIT.PER_AREA]:     '',
   [UNIT.PER_SYRINGE]:  '/syringe',
   [UNIT.PER_VIAL]:     '/vial',
   [UNIT.PER_CYCLE]:    '/cycle',
   [UNIT.PER_MONTH]:    '/mo',
   [UNIT.FLAT_PACKAGE]: '',
-  [UNIT.FLAT_RATE_AREA]: '/area',
+  [UNIT.FLAT_RATE_AREA]: '',
   [UNIT.PER_ML]:       '/ml',
   // Simplified specials/guide values
   'unit':     '/unit',
   'syringe':  '/syringe',
-  'area':     '/area',
+  'area':     '',
   'session':  '/session',
   'vial':     '/vial',
 };

@@ -75,6 +75,7 @@ const HIDDEN = Object.freeze({
   compareUnit: '',
   category: 'hidden',
   confidenceTier: null,
+  unitSubtext: '',
 });
 
 // ── Confidence tier config ──────────────────────────────────────────
@@ -92,6 +93,18 @@ export const TIER_DISCLAIMER =
   "Price scraped from provider\u2019s website. Unit type estimated \u2014 contact provider to confirm exact pricing.";
 
 // ── Display guards (last line of defense) ───────────────────────────
+// Per-brand per-unit ceilings. Any per_unit row above these thresholds
+// is almost certainly a flat/session price that got mislabeled during
+// scraping. We suppress it rather than showing a misleading "/unit".
+const UNIT_PRICE_CEILINGS = {
+  botox:       25,
+  dysport:     12,
+  xeomin:      22,
+  jeuveau:     20,
+  daxxify:     25,
+  neurotoxin:  25,
+};
+
 // Returns false for prices that are clearly wrong and should not render.
 export function shouldDisplayPrice(listing) {
   if (!listing) return false;
@@ -100,9 +113,11 @@ export function shouldDisplayPrice(listing) {
   const label = String(listing.price_label || '').toLowerCase().trim();
   const proc = String(listing.procedure_type || '').toLowerCase();
 
-  // Botox per_unit outside real market range
-  if (proc.includes('botox') && label === UNIT.PER_UNIT) {
-    if (price < 8 || price > 25) return false;
+  // Neurotoxin per_unit outside real market range — check all brands
+  if (label === UNIT.PER_UNIT) {
+    for (const [brand, ceiling] of Object.entries(UNIT_PRICE_CEILINGS)) {
+      if (proc.includes(brand) && price > ceiling) return false;
+    }
   }
   // Filler per_syringe outside real market range
   if (listing.category === 'Dermal Filler' && label === UNIT.PER_SYRINGE) {
@@ -117,14 +132,20 @@ const UNIT_DISPLAY = {
   [UNIT.PER_SESSION]:     '/ session',
   [UNIT.PER_SYRINGE]:     '/ syringe',
   [UNIT.PER_VIAL]:        '/ vial',
-  [UNIT.PER_AREA]:        '/ area',
+  [UNIT.PER_AREA]:        '',
   [UNIT.PER_CYCLE]:       '/ cycle',
   [UNIT.PER_MONTH]:       '/ month',
   [UNIT.FLAT_PACKAGE]:    '',
-  [UNIT.FLAT_RATE_AREA]:  '/ area',
+  [UNIT.FLAT_RATE_AREA]:  '',
   'per_ml':               '/ ml',
   'per_month':            '/ month',
   'monthly':              '/ month',
+};
+
+// Subtext shown below the price for labels that don't use an inline suffix.
+const UNIT_SUBTEXT = {
+  [UNIT.PER_AREA]:        'per treatment area',
+  [UNIT.FLAT_RATE_AREA]:  'per treatment area',
 };
 
 /**
@@ -152,12 +173,13 @@ export function normalizePrice(listing) {
       price > NEUROTOXIN_PER_UNIT_MAX
     ) {
       return {
-        displayPrice: `${prefix}${fmtMoney(price)} / area`,
+        displayPrice: `${prefix}${fmtMoney(price)}`,
         comparableValue: null,
         compareUnit: 'per area',
         category: UNIT.FLAT_RATE_AREA,
         confidenceTier: tier,
         isStartingPrice: isStarting,
+        unitSubtext: UNIT_SUBTEXT[UNIT.FLAT_RATE_AREA] || '',
       };
     }
   }
@@ -177,6 +199,7 @@ export function normalizePrice(listing) {
       category: label,
       confidenceTier: tier,
       isStartingPrice: isStarting,
+      unitSubtext: UNIT_SUBTEXT[label] || '',
     };
   }
 
@@ -189,6 +212,7 @@ export function normalizePrice(listing) {
       category: 'per_month',
       confidenceTier: tier,
       isStartingPrice: isStarting,
+      unitSubtext: '',
     };
   }
 
@@ -279,10 +303,11 @@ export function inferNeurotoxinBrand({ procedureType, brand, perUnitPrice }) {
  * Format the `units_or_volume` field for display below a price.
  * Returns null when nothing should be shown.
  *
- *   "60"        → "incl. 60 units"
- *   "20 units"  → "incl. 20 units"
- *   "1 syringe" → "incl. 1 syringe"
- *   ""          → null
+ *   "2 syringes" → "incl. 2 syringes"
+ *   "1 syringe"  → "incl. 1 syringe"
+ *   "60"         → null  (plain numbers are likely back-calculated, not real data)
+ *   "20 units"   → null  (unit counts without explicit provider source are unreliable)
+ *   ""           → null
  */
 export function formatUnitsIncluded(unitsOrVolume) {
   if (!unitsOrVolume) return null;
@@ -291,7 +316,11 @@ export function formatUnitsIncluded(unitsOrVolume) {
   // Raw DB identifiers should never leak into the UI.
   // Catches per_unit, per_syringe, range_low, range_high, flat_package, etc.
   if (/^(per[_ ]\w+|range[_ ](low|high)|flat[_ ]\w+|hidden)$/i.test(s)) return null;
-  if (/^\d+$/.test(s)) return `incl. ${s} units`;
+  // Plain numbers or "N units" are likely back-calculated from price / assumed
+  // per-unit rate. Suppress them — we'll show real unit counts when providers
+  // explicitly list them.
+  if (/^\d+$/.test(s)) return null;
+  if (/^\d+\s*units?$/i.test(s)) return null;
   return `incl. ${s}`;
 }
 

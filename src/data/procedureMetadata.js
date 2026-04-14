@@ -85,6 +85,12 @@ PROCEDURE_METADATA.set('Botox / Dysport / Xeomin', {
   ]
 });
 
+// Individual brand keys — share the same metadata as the legacy grouped entry
+const _neurotoxinBase = PROCEDURE_METADATA.get('Botox / Dysport / Xeomin');
+PROCEDURE_METADATA.set('Botox', { ..._neurotoxinBase, id: 'botox', displayName: 'Botox' });
+PROCEDURE_METADATA.set('Dysport', { ..._neurotoxinBase, id: 'dysport', displayName: 'Dysport' });
+PROCEDURE_METADATA.set('Xeomin', { ..._neurotoxinBase, id: 'xeomin', displayName: 'Xeomin' });
+
 PROCEDURE_METADATA.set('Jeuveau', {
   id: 'jeuveau',
   displayName: 'Jeuveau',

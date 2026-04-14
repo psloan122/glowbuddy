@@ -43,7 +43,12 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
                 )}
               </div>
               <div className="text-right flex items-center gap-2 shrink-0">
-                <p className="text-lg font-bold text-text-primary">{normalized.displayPrice}</p>
+                <div>
+                  <p className="text-lg font-bold text-text-primary">{normalized.displayPrice}</p>
+                  {normalized.unitSubtext && (
+                    <p className="text-[11px] text-text-secondary font-light">{normalized.unitSubtext}</p>
+                  )}
+                </div>
                 {comparison && (
                   <ComparisonBadge pctDiff={comparison.pctDiff} level={comparison.level} />
                 )}

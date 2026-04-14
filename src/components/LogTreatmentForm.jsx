@@ -6,7 +6,9 @@ import StarRating from './StarRating';
 import { getProcedureLabel } from '../lib/procedureLabel';
 
 const TREATMENT_NAMES = [
-  'Botox / Dysport / Xeomin',
+  'Botox',
+  'Dysport',
+  'Xeomin',
   'Lip Filler',
   'Cheek Filler',
   'Sculptra',

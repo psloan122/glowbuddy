@@ -158,6 +158,9 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
           >
             {cardLabel}
             {mobileUnit && <span> &middot; {mobileUnit}</span>}
+            {!mobileUnit && procedure.normalized_unit_subtext && (
+              <span> &middot; {procedure.normalized_unit_subtext}</span>
+            )}
           </span>
           <FairPriceBadge
             price={procedure.normalized_compare_value || procedure.price_paid}
@@ -193,7 +196,12 @@ export default function ProcedureCard({ procedure, firstTimerActive, userAlerts,
           {formatUnitsIncluded(procedure.units_or_volume)}
         </p>
       )}
-      {!formatUnitsIncluded(procedure.units_or_volume) && <div className="mb-2" />}
+      {!formatUnitsIncluded(procedure.units_or_volume) && procedure.normalized_unit_subtext && (
+        <p className="text-[11px] font-light text-text-secondary mb-3">
+          {procedure.normalized_unit_subtext}
+        </p>
+      )}
+      {!formatUnitsIncluded(procedure.units_or_volume) && !procedure.normalized_unit_subtext && <div className="mb-2" />}
 
       {/* FairPrice + Brand chips row */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">

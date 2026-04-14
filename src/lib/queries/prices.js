@@ -20,7 +20,7 @@
 
 import { supabase } from '../supabase';
 import { parseCitySlug } from '../slugify';
-import { normalizePrice } from '../priceUtils';
+import { normalizePrice, shouldDisplayPrice } from '../priceUtils';
 
 const STALE_DAYS = 90;
 const MIN_SAMPLES_FOR_VS_AVG = 5;
@@ -125,6 +125,7 @@ export async function getProviderPriceComparisons(citySlug, procedureType) {
   // filter, so every normalized value is a direct comparable — no more
   // estimates.
   const normalizedRows = rows
+    .filter((row) => shouldDisplayPrice(row))
     .map((row) => ({ row, normalized: normalizePrice(row) }))
     .filter(
       (item) =>

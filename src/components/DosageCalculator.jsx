@@ -34,7 +34,10 @@ export default function DosageCalculator({ treatmentName, cityAvgPrice }) {
   const sliderConfig = SIMPLE_SLIDER_CONFIG[treatmentName];
   const [sliderVal, setSliderVal] = useState(sliderConfig?.defaultVal || 0);
 
-  const isBotox = treatmentName === 'Botox / Dysport / Xeomin';
+  const isBotox = treatmentName === 'Botox / Dysport / Xeomin'
+    || treatmentName === 'Botox'
+    || treatmentName === 'Dysport'
+    || treatmentName === 'Xeomin';
   const fillerLevels = FILLER_LEVELS[treatmentName];
 
   // Botox calculation

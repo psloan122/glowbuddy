@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Check } from 'lucide-react';
 import {
   PROCEDURE_TYPES,
+  PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
   REQUIRES_TREATMENT_AREA,
   UNITS_PLACEHOLDER,
@@ -18,9 +19,18 @@ export default function Step1({ formData, setFormData }) {
   const [searchTerm, setSearchTerm] = useState(formData.procedureType || '');
   const wrapperRef = useRef(null);
 
+  const lowerSearch = searchTerm.toLowerCase();
   const filteredTypes = PROCEDURE_TYPES.filter((type) =>
-    type.toLowerCase().includes(searchTerm.toLowerCase())
+    type.toLowerCase().includes(lowerSearch)
   );
+
+  // Build grouped results for category headers in the dropdown
+  const groupedResults = Object.entries(PROCEDURE_CATEGORIES)
+    .map(([cat, procs]) => ({
+      category: cat,
+      items: procs.filter((p) => p.toLowerCase().includes(lowerSearch)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
   const avgPrice = AVG_PRICES[formData.procedureType];
@@ -98,20 +108,26 @@ export default function Step1({ formData, setFormData }) {
           </div>
           {searchOpen && (
             <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-              {filteredTypes.length > 0 ? (
-                filteredTypes.map((type) => (
-                  <li key={type}>
-                    <button
-                      type="button"
-                      onClick={() => selectProcedure(type)}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/50 transition-colors ${
-                        formData.procedureType === type
-                          ? 'bg-rose-light text-rose-dark font-medium'
-                          : 'text-text-primary'
-                      }`}
-                    >
-                      {type}
-                    </button>
+              {groupedResults.length > 0 ? (
+                groupedResults.map((group) => (
+                  <li key={group.category}>
+                    <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
+                      {group.category}
+                    </p>
+                    {group.items.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => selectProcedure(type)}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/50 transition-colors ${
+                          formData.procedureType === type
+                            ? 'bg-rose-light text-rose-dark font-medium'
+                            : 'text-text-primary'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
                   </li>
                 ))
               ) : (

@@ -150,7 +150,7 @@ export default memo(function GateLeftPanel({
       >
         {CATEGORY_PILLS.map((pill) => {
           const count = pillCounts[pill.label];
-          const hasCount = count != null && count > 0;
+          const hasCount = count != null && count > 1;
           const isActive = activeCategorySlug === pill.slug;
           return (
             <button

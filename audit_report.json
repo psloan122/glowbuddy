@@ -1,0 +1,270 @@
+{
+  "date": "2026-04-13 17:49:46.183619",
+  "site": "https://knowbeforeyouglow.com",
+  "summary": {
+    "passed": 30,
+    "warned": 2,
+    "failed": 5
+  },
+  "results": [
+    {
+      "category": "data",
+      "name": "Total providers",
+      "status": "pass",
+      "detail": "43,484 providers in DB",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "Active providers",
+      "status": "pass",
+      "detail": "43,277 active providers",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "Pricing records total",
+      "status": "pass",
+      "detail": "79,303 pricing records",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "GlossGenius junk removed",
+      "status": "pass",
+      "detail": "0 glossgenius records remaining",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "No null confidence tiers",
+      "status": "pass",
+      "detail": "0 records missing confidence tier",
+      "priority": "medium"
+    },
+    {
+      "category": "data",
+      "name": "Botox per_unit ceiling enforced",
+      "status": "fail",
+      "detail": "195 Botox records with per_unit > $25",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "Providers with geo coordinates",
+      "status": "warn",
+      "detail": "27,421 (63.4%) have lat/lng",
+      "priority": "high"
+    },
+    {
+      "category": "data",
+      "name": "Providers with website",
+      "status": "pass",
+      "detail": "15,456 (35.7%) have a website",
+      "priority": "medium"
+    },
+    {
+      "category": "data",
+      "name": "City price benchmarks table",
+      "status": "fail",
+      "detail": "Table does not exist \u2014 run migration 073",
+      "priority": "medium"
+    },
+    {
+      "category": "seo",
+      "name": "Site loads (200 OK)",
+      "status": "pass",
+      "detail": "Status 200",
+      "priority": "critical"
+    },
+    {
+      "category": "seo",
+      "name": "Page title tag",
+      "status": "pass",
+      "detail": "present",
+      "priority": "high"
+    },
+    {
+      "category": "seo",
+      "name": "Meta description",
+      "status": "pass",
+      "detail": "present",
+      "priority": "high"
+    },
+    {
+      "category": "seo",
+      "name": "OG title tag",
+      "status": "pass",
+      "detail": "present",
+      "priority": "high"
+    },
+    {
+      "category": "seo",
+      "name": "OG image tag",
+      "status": "pass",
+      "detail": "present",
+      "priority": "high"
+    },
+    {
+      "category": "seo",
+      "name": "Canonical URL",
+      "status": "warn",
+      "detail": "missing",
+      "priority": "medium"
+    },
+    {
+      "category": "mobile",
+      "name": "Viewport meta",
+      "status": "pass",
+      "detail": "present",
+      "priority": "high"
+    },
+    {
+      "category": "seo",
+      "name": "Favicon",
+      "status": "pass",
+      "detail": "present",
+      "priority": "low"
+    },
+    {
+      "category": "security",
+      "name": "HTTP \u2192 HTTPS redirect",
+      "status": "pass",
+      "detail": "HTTP returns 308",
+      "priority": "high"
+    },
+    {
+      "category": "security",
+      "name": "HSTS header",
+      "status": "pass",
+      "detail": "max-age=63072000; includeSubDomains; preload",
+      "priority": "medium"
+    },
+    {
+      "category": "security",
+      "name": "X-Frame-Options",
+      "status": "pass",
+      "detail": "DENY",
+      "priority": "medium"
+    },
+    {
+      "category": "security",
+      "name": "X-Content-Type-Options",
+      "status": "pass",
+      "detail": "nosniff",
+      "priority": "low"
+    },
+    {
+      "category": "security",
+      "name": "Content-Security-Policy",
+      "status": "pass",
+      "detail": "present",
+      "priority": "medium"
+    },
+    {
+      "category": "seo",
+      "name": "robots.txt",
+      "status": "pass",
+      "detail": "Status 200",
+      "priority": "low"
+    },
+    {
+      "category": "seo",
+      "name": "sitemap.xml",
+      "status": "pass",
+      "detail": "Status 200",
+      "priority": "medium"
+    },
+    {
+      "category": "legal",
+      "name": "Privacy policy linked",
+      "status": "fail",
+      "detail": "MISSING \u2014 required before launch",
+      "priority": "high"
+    },
+    {
+      "category": "legal",
+      "name": "Terms of service linked",
+      "status": "fail",
+      "detail": "MISSING \u2014 required before launch",
+      "priority": "high"
+    },
+    {
+      "category": "api",
+      "name": "Supabase REST API responds",
+      "status": "pass",
+      "detail": "Status 200",
+      "priority": "critical"
+    },
+    {
+      "category": "security",
+      "name": "Anon key RLS enforced",
+      "status": "pass",
+      "detail": "Anon query returns 200",
+      "priority": "high"
+    },
+    {
+      "category": "security",
+      "name": "Users table blocked for anon",
+      "status": "pass",
+      "detail": "Status 404",
+      "priority": "high"
+    },
+    {
+      "category": "email",
+      "name": "MX records configured",
+      "status": "pass",
+      "detail": "Mail exchanger found",
+      "priority": "medium"
+    },
+    {
+      "category": "email",
+      "name": "SPF record",
+      "status": "fail",
+      "detail": "MISSING \u2014 emails will land in spam",
+      "priority": "high"
+    },
+    {
+      "category": "email",
+      "name": "DMARC record",
+      "status": "pass",
+      "detail": "DMARC present",
+      "priority": "medium"
+    },
+    {
+      "category": "security",
+      "name": "npm critical vulnerabilities",
+      "status": "pass",
+      "detail": "0 critical, 1 high, 0 moderate",
+      "priority": "high"
+    },
+    {
+      "category": "security",
+      "name": "No secrets in source code",
+      "status": "pass",
+      "detail": "Clean",
+      "priority": "critical"
+    },
+    {
+      "category": "security",
+      "name": ".env in .gitignore",
+      "status": "pass",
+      "detail": ".env is gitignored",
+      "priority": "critical"
+    },
+    {
+      "category": "build",
+      "name": "Vite production build",
+      "status": "pass",
+      "detail": "Builds cleanly",
+      "priority": "critical"
+    },
+    {
+      "category": "build",
+      "name": "Bundle size",
+      "status": "pass",
+      "detail": "2.5 MB total dist",
+      "priority": "medium"
+    }
+  ]
+}

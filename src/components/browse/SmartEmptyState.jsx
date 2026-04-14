@@ -359,7 +359,7 @@ export default function SmartEmptyState({
                         marginLeft: 4,
                       }}
                     >
-                      / area
+                      per treatment area
                     </span>
                   )}
                   <ArrowRight

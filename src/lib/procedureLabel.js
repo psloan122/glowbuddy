@@ -31,7 +31,10 @@
 // price rows and "Botox & more in Mandeville" headlines for the
 // multi-brand category view.
 export const PROCEDURE_DISPLAY_NAMES = {
-  'Botox / Dysport / Xeomin': 'Botox',
+  'Botox / Dysport / Xeomin': 'Botox', // legacy grouped name — backward compat
+  'Botox': 'Botox',
+  'Dysport': 'Dysport',
+  'Xeomin': 'Xeomin',
 };
 
 // Neurotoxin brands — when brand matches one of these, return the brand

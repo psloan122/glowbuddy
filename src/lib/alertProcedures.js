@@ -12,39 +12,42 @@
 // The grouping below mirrors the PROMPT 6 spec exactly so we don't have to
 // maintain two parallel lists in the UI.
 
+// Unit options and default unit per procedure category/brand.
+// unitOptions lists valid choices for the alert unit selector.
+// defaultUnit is pre-selected when the user picks the procedure.
 export const ALERT_PROCEDURE_GROUPS = [
   {
     label: 'Botox & more',
     options: [
-      { value: 'neurotoxin:Botox',    procedureType: 'neurotoxin',  brand: 'Botox',    label: 'Botox' },
-      { value: 'neurotoxin:Dysport',  procedureType: 'neurotoxin',  brand: 'Dysport',  label: 'Dysport' },
-      { value: 'neurotoxin:Xeomin',   procedureType: 'neurotoxin',  brand: 'Xeomin',   label: 'Xeomin' },
-      { value: 'neurotoxin:Jeuveau',  procedureType: 'neurotoxin',  brand: 'Jeuveau',  label: 'Jeuveau' },
-      { value: 'neurotoxin:Daxxify',  procedureType: 'neurotoxin',  brand: 'Daxxify',  label: 'Daxxify' },
-      { value: 'neurotoxin:any',      procedureType: 'neurotoxin',  brand: null,       label: 'Any Botox-type brand' },
+      { value: 'neurotoxin:Botox',    procedureType: 'neurotoxin',  brand: 'Botox',    label: 'Botox',    defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 12 },
+      { value: 'neurotoxin:Dysport',  procedureType: 'neurotoxin',  brand: 'Dysport',  label: 'Dysport',  defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 4 },
+      { value: 'neurotoxin:Xeomin',   procedureType: 'neurotoxin',  brand: 'Xeomin',   label: 'Xeomin',   defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 10 },
+      { value: 'neurotoxin:Jeuveau',  procedureType: 'neurotoxin',  brand: 'Jeuveau',  label: 'Jeuveau',  defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 10 },
+      { value: 'neurotoxin:Daxxify',  procedureType: 'neurotoxin',  brand: 'Daxxify',  label: 'Daxxify',  defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 12 },
+      { value: 'neurotoxin:any',      procedureType: 'neurotoxin',  brand: null,       label: 'Any Botox-type brand', defaultUnit: 'per_unit', unitOptions: ['per_unit', 'per_area', 'flat_package'], placeholder: 12 },
     ],
   },
   {
     label: 'Fillers',
     options: [
-      { value: 'filler:Juvederm',  procedureType: 'filler',  brand: 'Juvederm',  label: 'Juvederm' },
-      { value: 'filler:Restylane', procedureType: 'filler',  brand: 'Restylane', label: 'Restylane' },
-      { value: 'filler:Sculptra',  procedureType: 'filler',  brand: 'Sculptra',  label: 'Sculptra' },
-      { value: 'filler:Radiesse',  procedureType: 'filler',  brand: 'Radiesse',  label: 'Radiesse' },
-      { value: 'filler:any',       procedureType: 'filler',  brand: null,        label: 'Any filler' },
+      { value: 'filler:Juvederm',  procedureType: 'filler',  brand: 'Juvederm',  label: 'Juvederm',  defaultUnit: 'per_syringe', unitOptions: ['per_syringe', 'flat_package'], placeholder: 600 },
+      { value: 'filler:Restylane', procedureType: 'filler',  brand: 'Restylane', label: 'Restylane', defaultUnit: 'per_syringe', unitOptions: ['per_syringe', 'flat_package'], placeholder: 550 },
+      { value: 'filler:Sculptra',  procedureType: 'filler',  brand: 'Sculptra',  label: 'Sculptra',  defaultUnit: 'per_vial',    unitOptions: ['per_vial', 'flat_package'],    placeholder: 750 },
+      { value: 'filler:Radiesse',  procedureType: 'filler',  brand: 'Radiesse',  label: 'Radiesse',  defaultUnit: 'per_syringe', unitOptions: ['per_syringe', 'flat_package'], placeholder: 650 },
+      { value: 'filler:any',       procedureType: 'filler',  brand: null,        label: 'Any filler', defaultUnit: 'per_syringe', unitOptions: ['per_syringe', 'flat_package'], placeholder: 600 },
     ],
   },
   {
     label: 'Other',
     options: [
-      { value: 'laser',          procedureType: 'laser',          brand: null, label: 'Laser' },
-      { value: 'microneedling',  procedureType: 'microneedling',  brand: null, label: 'Microneedling' },
-      { value: 'rf-tightening',  procedureType: 'rf-tightening',  brand: null, label: 'RF Microneedling' },
-      { value: 'weight-loss',    procedureType: 'weight-loss',    brand: null, label: 'GLP-1' },
-      { value: 'chemical-peel',  procedureType: 'chemical-peel',  brand: null, label: 'Chemical Peel' },
-      { value: 'hydrafacial',    procedureType: 'hydrafacial',    brand: null, label: 'HydraFacial' },
-      { value: 'coolsculpting',  procedureType: 'coolsculpting',  brand: null, label: 'CoolSculpting' },
-      { value: 'iv-wellness',    procedureType: 'iv-wellness',    brand: null, label: 'IV Therapy' },
+      { value: 'laser',          procedureType: 'laser',          brand: null, label: 'Laser',           defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 200 },
+      { value: 'microneedling',  procedureType: 'microneedling',  brand: null, label: 'Microneedling',   defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 300 },
+      { value: 'rf-tightening',  procedureType: 'rf-tightening',  brand: null, label: 'RF Microneedling', defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 400 },
+      { value: 'weight-loss',    procedureType: 'weight-loss',    brand: null, label: 'GLP-1',           defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 300 },
+      { value: 'chemical-peel',  procedureType: 'chemical-peel',  brand: null, label: 'Chemical Peel',   defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 150 },
+      { value: 'hydrafacial',    procedureType: 'hydrafacial',    brand: null, label: 'HydraFacial',     defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 150 },
+      { value: 'coolsculpting',  procedureType: 'coolsculpting',  brand: null, label: 'CoolSculpting',   defaultUnit: 'per_cycle',  unitOptions: ['per_cycle', 'flat_package'], placeholder: 700 },
+      { value: 'iv-wellness',    procedureType: 'iv-wellness',    brand: null, label: 'IV Therapy',      defaultUnit: 'per_session', unitOptions: ['per_session'], placeholder: 150 },
     ],
   },
 ];

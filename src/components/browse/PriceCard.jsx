@@ -466,6 +466,7 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
   // Only show the compare-unit suffix inline — units_or_volume moves below
   const unitLabel =
     procedure.normalized_compare_unit === 'per unit' ? '/unit' : null;
+  const unitSubtext = procedure.normalized_unit_subtext || '';
   const compareValue = compareValueOf(procedure);
 
   // Price-aware brand inference — overrides "Botox" label when price < $10/unit
@@ -583,6 +584,9 @@ function PriceRow({ procedure, cityAvg, isFirst, onDetailClick, onDosingClick })
 
       {unitsLine && (
         <p style={S.unitsLine}>{unitsLine}</p>
+      )}
+      {unitSubtext && !unitsLine && (
+        <p style={S.unitsLine}>{unitSubtext}</p>
       )}
 
       {/* Trust source + freshness signals */}

@@ -77,10 +77,29 @@ async function request(url, options = {}, attempt = 0) {
   }
 }
 
+// Booking platforms show deposits/fees, not real procedure prices — skip them.
+const BOOKING_PLATFORM_BLOCKLIST = [
+  'glossgenius.com', 'vagaro.com', 'squareup.com', 'square.site',
+  'mindbodyonline.com', 'booker.com', 'schedulicity.com',
+  'acuityscheduling.com', 'janeapp.com', 'fresha.com',
+  'boulevard.app', 'zenoti.com', 'booksy.com', 'as.me',
+  'setmore.com', 'appointy.com', 'simplybook.me', 'phorest.com',
+  'timely.com', 'treatwell.co', 'healthie.com', 'intakeq.com',
+];
+
+function isBookingPlatform(url) {
+  const lower = (url || '').toLowerCase();
+  return BOOKING_PLATFORM_BLOCKLIST.some((p) => lower.includes(p));
+}
+
 // --- submit + poll ------------------------------------------------------
 async function submitBatch(payload) {
+  const filtered = payload.urls.filter((u) => !isBookingPlatform(u));
+  const skipped = payload.urls.length - filtered.length;
+  if (skipped > 0) console.log(`Skipped ${skipped} booking platform URLs`);
+
   const body = {
-    urls: payload.urls,
+    urls: filtered,
     formats: payload.formats ?? ['extract'],
     extract: payload.extract,
     onlyMainContent: payload.onlyMainContent ?? true,

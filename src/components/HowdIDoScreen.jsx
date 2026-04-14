@@ -13,7 +13,10 @@ const VERIFY_EMAIL = 'verify@knowbeforeyouglow.com';
 
 // Typical units per treatment for savings calculation
 const TYPICAL_UNITS = {
-  'Botox / Dysport / Xeomin': 28,
+  'Botox / Dysport / Xeomin': 28, // legacy grouped name — backward compat
+  'Botox': 28,
+  'Dysport': 28,
+  'Xeomin': 28,
   'Lip Filler': 1,
   'Cheek Filler': 1,
   'HydraFacial': 1,
@@ -95,7 +98,10 @@ export default function HowdIDoScreen({
   );
 
   // Determine unit label
-  const isPerUnit = procedure.procedure_type === 'Botox / Dysport / Xeomin';
+  const isPerUnit = procedure.procedure_type === 'Botox / Dysport / Xeomin'
+    || procedure.procedure_type === 'Botox'
+    || procedure.procedure_type === 'Dysport'
+    || procedure.procedure_type === 'Xeomin';
   const unitLabel = isPerUnit ? '/unit' : '';
 
   // Savings count-up animation

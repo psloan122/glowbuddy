@@ -425,11 +425,23 @@ export default function Account() {
           <p className="text-sm font-medium text-text-primary mb-2">Treatments I get</p>
           <div className="flex flex-wrap gap-2">
             {PROCEDURE_PILLS.filter((p) => p.isPrimary).map((pill) => {
-              const isActive = procedureSlugs.includes(pill.slug);
+              // Use the brand-specific key so each neurotoxin toggles
+              // independently (Botox, Dysport, Xeomin) instead of all
+              // sharing the 'neurotoxin' slug.
+              const prefKey = pill.brand || pill.slug;
+              const isActive = pill.brand
+                ? selectedBrands.includes(pill.brand)
+                : procedureSlugs.includes(pill.slug);
               return (
                 <button
-                  key={pill.slug}
-                  onClick={() => toggleProcedureSlug(pill.slug)}
+                  key={prefKey}
+                  onClick={() => {
+                    if (pill.brand) {
+                      toggleBrand(pill.brand);
+                    } else {
+                      toggleProcedureSlug(pill.slug);
+                    }
+                  }}
                   className="inline-flex items-center transition-colors"
                   style={{
                     padding: '8px 16px',

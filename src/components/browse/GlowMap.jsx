@@ -110,17 +110,16 @@ function buildPinIcon({ color, label, highlighted }) {
   };
 }
 
-// Gate-mode pin: small hollow white circle with a gray border.
-// No price label — the whole point of gate mode is that no treatment is
-// selected yet, so there's nothing to price. Smaller and quieter than the
+// Gate-mode pin: small filled circle. Smaller and quieter than the
 // price pill pins so a city-dense map doesn't get overwhelming before the
-// user refines.
+// user refines, but still clearly filled (not hollow) so pins don't look
+// broken when clusters break apart at high zoom.
 function buildGatePinIcon({ initials, highlighted }) {
-  const size = highlighted ? 16 : 10;
+  const size = highlighted ? 16 : 12;
   const r = size / 2;
-  const fill = highlighted ? '#111111' : '#FFFFFF';
-  const stroke = highlighted ? '#111111' : '#AAAAAA';
-  const strokeW = highlighted ? 2.5 : 2;
+  const fill = highlighted ? '#111111' : '#B8A89A';
+  const stroke = highlighted ? '#111111' : '#FFFFFF';
+  const strokeW = 2;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size + 6}" height="${size + 6}" viewBox="0 0 ${size + 6} ${size + 6}">
       <defs>
@@ -143,13 +142,32 @@ function buildGatePinIcon({ initials, highlighted }) {
 // Custom renderer for MarkerClusterer — renders cluster counts as a
 // pink pill with a white count label, matching the GlowBuddy brand.
 const clusterRenderer = {
-  render({ count, position }) {
+  render({ count, position, markers }) {
+    // Don't render a cluster overlay for a single marker — let the
+    // individual styled marker show through instead. This prevents
+    // the "hollow pin" flash when a cluster of 1 dissolves.
+    if (count <= 1) {
+      // Return a zero-size invisible marker so the clusterer has
+      // something to work with but it doesn't cover the real pin.
+      return new window.google.maps.Marker({
+        position,
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
+          )}`,
+          scaledSize: new window.google.maps.Size(1, 1),
+        },
+        zIndex: 0,
+        clickable: false,
+      });
+    }
     const size = count >= 100 ? 48 : count >= 10 ? 40 : 34;
     const fontSize = count >= 100 ? 13 : 12;
+    const label = count > 999 ? '999+' : String(count);
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="#E8347A" stroke="#fff" stroke-width="2"/>
-        <text x="${size / 2}" y="${size / 2 + fontSize / 2 - 1}" text-anchor="middle" fill="#fff" font-family="Outfit, Arial, sans-serif" font-weight="700" font-size="${fontSize}">${count}</text>
+        <text x="${size / 2}" y="${size / 2 + fontSize / 2 - 1}" text-anchor="middle" fill="#fff" font-family="Outfit, Arial, sans-serif" font-weight="700" font-size="${fontSize}">${label}</text>
       </svg>
     `;
     return new window.google.maps.Marker({

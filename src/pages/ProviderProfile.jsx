@@ -1047,7 +1047,7 @@ export default function ProviderProfile() {
       )}
 
       {/* 3. Empty State — no submissions yet (unclaimed) */}
-      {communityData.length === 0 && !isClaimed && (
+      {communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
           {!provider ? (
             <>
@@ -1068,7 +1068,7 @@ export default function ProviderProfile() {
           ) : (
             <>
               <p className="text-lg font-semibold text-text-primary mb-1">
-                0 prices shared at {providerName} yet.
+                No pricing listed yet for {providerName}.
               </p>
               <p className="text-sm text-text-secondary mb-4">
                 Had a treatment here? You&apos;d be the first to share what you paid.

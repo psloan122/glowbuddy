@@ -20,28 +20,48 @@
  *   tags        – searchable keywords for type-ahead matching
  */
 
+// Shared neurotoxin metadata — reused by individual brand keys and the
+// legacy grouped key for backward compatibility with existing DB data.
+const _NEUROTOXIN_BASE = {
+  category: 'Neurotoxins',
+  description:
+    'Injectable neurotoxins that temporarily relax facial muscles to smooth wrinkles and prevent new lines from forming.',
+  howItWorks:
+    'A small amount of botulinum toxin is injected into targeted muscles using a fine needle. The toxin blocks nerve signals, causing the muscle to relax and the overlying skin to smooth out.',
+  painLevel: 2,
+  painNote: 'Quick pinch; most people tolerate it without numbing',
+  recovery: 'No downtime. Mild redness or swelling at injection sites resolves within hours. Avoid rubbing the area for 24 hours.',
+  duration: '10-20 min',
+  results: 'Visible in 3-7 days, full effect by 2 weeks. Lasts 3-4 months on average.',
+  warnings: [
+    'Not recommended during pregnancy or breastfeeding',
+    'Avoid blood thinners and alcohol 24 hours before treatment',
+    'Temporary bruising at injection sites is common',
+    'Results are not permanent — maintenance treatments needed every 3-4 months',
+  ],
+  idealFor: ['Forehead lines', "Crow's feet", 'Frown lines (11s)', 'Preventative anti-aging'],
+  tags: ['botox', 'dysport', 'xeomin', 'neurotoxin', 'wrinkles', 'anti-aging', 'injectable'],
+};
+
 const PROCEDURE_METADATA = {
   // ── Neurotoxins ───────────────────────────────────────────────────────
+  // Legacy grouped key — backward compat with existing DB data
   'Botox / Dysport / Xeomin': {
+    ..._NEUROTOXIN_BASE,
     name: 'Botox / Dysport / Xeomin',
-    category: 'Neurotoxins',
-    description:
-      'Injectable neurotoxins that temporarily relax facial muscles to smooth wrinkles and prevent new lines from forming.',
-    howItWorks:
-      'A small amount of botulinum toxin is injected into targeted muscles using a fine needle. The toxin blocks nerve signals, causing the muscle to relax and the overlying skin to smooth out.',
-    painLevel: 2,
-    painNote: 'Quick pinch; most people tolerate it without numbing',
-    recovery: 'No downtime. Mild redness or swelling at injection sites resolves within hours. Avoid rubbing the area for 24 hours.',
-    duration: '10-20 min',
-    results: 'Visible in 3-7 days, full effect by 2 weeks. Lasts 3-4 months on average.',
-    warnings: [
-      'Not recommended during pregnancy or breastfeeding',
-      'Avoid blood thinners and alcohol 24 hours before treatment',
-      'Temporary bruising at injection sites is common',
-      'Results are not permanent — maintenance treatments needed every 3-4 months',
-    ],
-    idealFor: ['Forehead lines', "Crow's feet", 'Frown lines (11s)', 'Preventative anti-aging'],
-    tags: ['botox', 'dysport', 'xeomin', 'neurotoxin', 'wrinkles', 'anti-aging', 'injectable'],
+  },
+  // Individual brand keys
+  'Botox': {
+    ..._NEUROTOXIN_BASE,
+    name: 'Botox',
+  },
+  'Dysport': {
+    ..._NEUROTOXIN_BASE,
+    name: 'Dysport',
+  },
+  'Xeomin': {
+    ..._NEUROTOXIN_BASE,
+    name: 'Xeomin',
   },
 
   Jeuveau: {

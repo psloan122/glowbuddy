@@ -21,9 +21,21 @@ export default function CreatePriceAlert({
 }) {
   const { user, openAuthModal } = useContext(AuthContext);
 
+  const UNIT_LABELS = {
+    per_unit: 'per unit',
+    per_syringe: 'per syringe',
+    per_vial: 'per vial',
+    per_session: 'per session',
+    per_area: 'per area',
+    per_cycle: 'per cycle',
+    flat_package: 'per package',
+  };
+
   const [optionValue, setOptionValue] = useState(() =>
     buildAlertOptionValue(defaultProcedure, defaultBrand),
   );
+  const initialOption = findAlertOption(buildAlertOptionValue(defaultProcedure, defaultBrand));
+  const [priceUnit, setPriceUnit] = useState(initialOption?.defaultUnit || 'per_unit');
   const [location, setLocation] = useState(() => {
     if (!defaultCity) return null;
     return { city: defaultCity, state: defaultState || '', zip: '', lat: null, lng: null };
@@ -45,12 +57,23 @@ export default function CreatePriceAlert({
 
   const selectedOption = findAlertOption(optionValue);
 
+  // Reset unit and threshold when procedure changes
+  function handleOptionChange(value) {
+    setOptionValue(value);
+    const opt = findAlertOption(value);
+    if (opt) {
+      setPriceUnit(opt.defaultUnit || 'per_unit');
+      setMaxPrice('');
+    }
+  }
+
   // Live preview line — tells the user exactly what the alert will do.
   const previewText = (() => {
     if (!selectedOption) return null;
     const name = selectedOption.label;
+    const unitLabel = UNIT_LABELS[priceUnit] || '';
     const price = maxPrice && Number(maxPrice) > 0
-      ? `drops below $${Number(maxPrice).toLocaleString()}`
+      ? `drops below $${Number(maxPrice).toLocaleString()} ${unitLabel}`
       : 'is posted';
     const where = location
       ? radius > 0
@@ -85,6 +108,7 @@ export default function CreatePriceAlert({
       await createAlert({
         procedureType: selectedOption.procedureType,
         brand: selectedOption.brand,
+        priceUnit,
         city: location?.city || null,
         state: location?.state || null,
         lat: location?.lat ?? null,
@@ -153,7 +177,7 @@ export default function CreatePriceAlert({
                   </label>
                   <select
                     value={optionValue}
-                    onChange={(e) => setOptionValue(e.target.value)}
+                    onChange={(e) => handleOptionChange(e.target.value)}
                     className="w-full px-3 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
                     style={{ borderRadius: '2px', fontFamily: 'var(--font-body)' }}
                   >
@@ -169,6 +193,38 @@ export default function CreatePriceAlert({
                     ))}
                   </select>
                 </div>
+
+                {/* Unit selector — only show when procedure has multiple unit options */}
+                {selectedOption && selectedOption.unitOptions && selectedOption.unitOptions.length > 1 && (
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wide">
+                      Price type
+                    </label>
+                    <div className="flex gap-2 flex-wrap">
+                      {selectedOption.unitOptions.map((unit) => (
+                        <button
+                          key={unit}
+                          type="button"
+                          onClick={() => { setPriceUnit(unit); setMaxPrice(''); }}
+                          className="transition-all"
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '2px',
+                            border: priceUnit === unit ? '1.5px solid #E8347A' : '1px solid #E0E0E0',
+                            background: priceUnit === unit ? '#FDF0F5' : 'white',
+                            color: priceUnit === unit ? '#E8347A' : '#666',
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: priceUnit === unit ? 600 : 400,
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {UNIT_LABELS[unit] || unit}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Location + radius */}
                 <LocationRadiusInput
@@ -192,13 +248,20 @@ export default function CreatePriceAlert({
                     </span>
                     <input
                       type="number"
-                      placeholder="0 = any price"
+                      placeholder={selectedOption?.placeholder ? `e.g. ${selectedOption.placeholder}` : '0 = any price'}
                       value={maxPrice}
                       onChange={(e) => setMaxPrice(e.target.value)}
                       min="0"
-                      className="w-full pl-7 pr-3 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
+                      step={priceUnit === 'per_unit' ? 1 : 50}
+                      className="w-full pl-7 pr-20 py-3 text-[13px] border border-rule bg-white focus:outline-none focus:border-hot-pink"
                       style={{ borderRadius: '2px', fontFamily: 'var(--font-body)' }}
                     />
+                    <span
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-text-secondary"
+                      style={{ fontFamily: 'var(--font-body)' }}
+                    >
+                      {UNIT_LABELS[priceUnit] || ''}
+                    </span>
                   </div>
                 </div>
 

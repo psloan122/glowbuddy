@@ -70,12 +70,7 @@
     "current_period_end",
     "tier_updated_at",
     "booking_url",
-    "booking_platform"
-  ],
-  "providerCount": 32209,
-  "activeCount": 4626,
-  "inactiveCount": 27583,
-  "missingColumns": [
+    "booking_platform",
     "yelp_url",
     "yelp_rating",
     "yelp_review_count",
@@ -84,5 +79,9 @@
     "legitimacy_score",
     "legitimacy_source"
   ],
-  "hasConfidenceTier": false
+  "providerCount": 43484,
+  "activeCount": 43277,
+  "inactiveCount": 207,
+  "missingColumns": [],
+  "hasConfidenceTier": true
 }

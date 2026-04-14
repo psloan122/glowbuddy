@@ -137,7 +137,7 @@ function PillGrid({ primary, more, moreOpen, onToggleMore, onSelect, pillCounts 
 }
 
 function PillButton({ pill, count, onSelect, compact }) {
-  const hasCount = count != null && count > 0;
+  const hasCount = count != null && count > 1;
   return (
     <button
       type="button"

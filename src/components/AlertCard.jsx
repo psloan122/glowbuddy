@@ -9,6 +9,7 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
     id,
     procedure_type,
     brand,
+    price_unit,
     city,
     state,
     radius_miles,
@@ -17,6 +18,13 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
     trigger_count,
     last_triggered_at,
   } = alert;
+
+  const UNIT_LABELS = {
+    per_unit: '/unit', per_syringe: '/syringe', per_vial: '/vial',
+    per_session: '/session', per_area: '/area', per_cycle: '/cycle',
+    flat_package: '',
+  };
+  const unitSuffix = price_unit ? (UNIT_LABELS[price_unit] || '') : '';
 
   // Label: prefer the brand (e.g. "Botox") over the generic category slug
   // (e.g. "neurotoxin") so the user sees what they actually signed up for.
@@ -99,7 +107,7 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
 
           {max_price != null && (
             <p className="text-sm text-secondary mt-0.5">
-              Target: <span className="font-medium text-primary">Under ${max_price}</span>
+              Target: <span className="font-medium text-primary">Under ${max_price}{unitSuffix}</span>
             </p>
           )}
 

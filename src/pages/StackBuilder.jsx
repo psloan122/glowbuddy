@@ -9,7 +9,9 @@ import RoutineVisualizer from '../components/RoutineVisualizer';
 import { getProcedureLabel } from '../lib/procedureLabel';
 
 const TREATMENTS = [
-  'Botox / Dysport / Xeomin',
+  'Botox',
+  'Dysport',
+  'Xeomin',
   'Lip Filler',
   'Cheek Filler',
   'Microneedling',

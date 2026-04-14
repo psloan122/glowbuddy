@@ -56,7 +56,7 @@ import ProcedureDetailSheet from '../components/ProcedureDetailSheet';
 import DosingCalculatorSheet from '../components/DosingCalculatorSheet';
 import AddExperienceSheet from '../components/AddExperienceSheet';
 import { setPageMeta } from '../lib/seo';
-import { normalizePrice } from '../lib/priceUtils';
+import { normalizePrice, shouldDisplayPrice } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
 import useGeolocation from '../hooks/useGeolocation';
@@ -213,9 +213,17 @@ export default function FindPrices() {
   // ── "Near me" geolocation ──
   const { geo, requestLocation: requestGeoLocation } = useGeolocation();
 
-  // When geolocation succeeds, auto-select the city
+  // Track whether the initial location came from URL params so we never
+  // overwrite an explicit URL-sourced city with the browser's geolocation.
+  const locSourcedFromUrl = useRef(
+    !!(searchParams.get('city') && searchParams.get('state'))
+  );
+
+  // When geolocation succeeds, auto-select the city — but only if the user
+  // didn't arrive with explicit URL params (Monroe in URL should never be
+  // overwritten by Mandeville from geolocation).
   useEffect(() => {
-    if (geo.status === 'success' && geo.city && geo.state && !selectedLoc) {
+    if (geo.status === 'success' && geo.city && geo.state && !selectedLoc && !locSourcedFromUrl.current) {
       selectLocation({ city: geo.city, state: geo.state });
     }
   }, [geo.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -589,10 +597,32 @@ export default function FindPrices() {
     setPageMeta({ title, description: desc, canonical });
   }, [procFilter, brandFilter, subTypeFilter, selectedLoc]);
 
+  // Skip the first state→URL sync so we don't clobber URL params that
+  // were already used to seed the initial state. Without this guard the
+  // effect fires on mount and can overwrite URL params with identical
+  // values, triggering the URL→state sync effect in a ping-pong loop.
+  const mountedRef = useRef(false);
+
   // Sync filters to URL params (SEO-friendly) AND persist to sessionStorage
   // so the user can navigate to a provider profile and click "Find Prices"
   // again without losing their filters.
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      // Still persist to sessionStorage on mount so navigating away and
+      // back (without URL params) restores the current filters.
+      writePersistedFilters({
+        procedureSlug: procFilter?.slug || null,
+        brand: brandFilter || null,
+        subType: subTypeFilter || null,
+        city: selectedLoc?.city || null,
+        state: selectedLoc?.state || null,
+        sortBy,
+        hasPricesOnly,
+        verifiedOnly,
+      });
+      return;
+    }
     const params = {};
     if (procFilter) params.procedure = procFilter.slug;
     if (brandFilter) params.brand = brandFilter;
@@ -647,10 +677,13 @@ export default function FindPrices() {
     if (urlCity !== currentCity || urlState !== currentState) {
       if (urlCity && urlState) {
         setSelectedLoc({ city: urlCity, state: urlState });
+        // Mark as URL-sourced so geolocation doesn't overwrite
+        locSourcedFromUrl.current = true;
       } else if (!urlCity && !urlState && (currentCity || currentState)) {
         // URL cleared city/state — only clear local state if both gone,
         // so partial param edits don't drop the user's location.
         setSelectedLoc(null);
+        locSourcedFromUrl.current = false;
       }
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1072,7 +1105,11 @@ export default function FindPrices() {
         return [];
       }
 
-      return (data || []).map((row) => {
+      return (data || [])
+      // Pre-filter: drop mislabeled per_unit rows (e.g. $200 "per_unit"
+      // Botox that's really a flat session price) before normalizing.
+      .filter((row) => shouldDisplayPrice(row))
+      .map((row) => {
         const provider = row.providers || {};
         // Normalize the price so search results show "$200 area (~$10/u est.)"
         // instead of just "$200" — keeps shoppers from getting tricked by
@@ -1128,6 +1165,7 @@ export default function FindPrices() {
           // is actually a $425/forehead flat rate). See the filter
           // applied in displayedProcedures.
           normalized_category: normalized.category,
+          normalized_unit_subtext: normalized.unitSubtext || '',
           // Confidence tier (1-5) for display badges/disclaimers
           confidence_tier: row.confidence_tier ?? null,
           is_starting_price: row.is_starting_price ?? false,

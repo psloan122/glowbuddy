@@ -14,6 +14,7 @@ interface CheckPriceAlertsInput {
   special_id?: string
   procedure_type: string
   price: number
+  price_unit?: string
   city: string
   state: string
   provider_name: string
@@ -77,7 +78,12 @@ Deno.serve(async (req: Request) => {
       const stateMatch = alert.state == null || alert.state === input.state
       const cityMatch = alert.city == null || alert.city === input.city
       const priceMatch = alert.max_price == null || input.price <= alert.max_price
-      return stateMatch && cityMatch && priceMatch
+      // Unit match: alert.price_unit must match the incoming price's unit.
+      // Default to per_unit for existing alerts that don't have price_unit set.
+      const alertUnit = alert.price_unit || 'per_unit'
+      const inputUnit = input.price_unit || 'per_unit'
+      const unitMatch = alertUnit === inputUnit
+      return stateMatch && cityMatch && priceMatch && unitMatch
     })
 
     if (matchingAlerts.length === 0) {

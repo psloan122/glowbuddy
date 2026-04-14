@@ -6,7 +6,10 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const TREATMENT_COLORS = {
-  'Botox / Dysport / Xeomin': '#C94F78',
+  'Botox / Dysport / Xeomin': '#C94F78', // legacy grouped name — backward compat
+  'Botox': '#C94F78',
+  'Dysport': '#C94F78',
+  'Xeomin': '#C94F78',
   'Lip Filler': '#8B5CF6',
   'Cheek Filler': '#6366F1',
   'Microneedling': '#10B981',

@@ -74,6 +74,23 @@ PRICE_CEILINGS = {
 
 JUNK_DOMAINS = {'stayageless.net', 'ranibeautyclinic.com', 'thewooskin.com'}
 
+# Booking platforms show deposits/minimums/booking fees, not real procedure prices.
+BOOKING_PLATFORM_BLOCKLIST = {
+    'glossgenius.com', 'vagaro.com', 'squareup.com', 'square.site',
+    'mindbodyonline.com', 'booker.com', 'schedulicity.com',
+    'acuityscheduling.com', 'janeapp.com', 'fresha.com',
+    'boulevard.app', 'zenoti.com', 'booksy.com', 'as.me',
+    'setmore.com', 'appointy.com', 'simplybook.me', 'phorest.com',
+    'timely.com', 'treatwell.co', 'healthie.com', 'intakeq.com',
+}
+
+
+def is_booking_platform(domain):
+    if not domain:
+        return False
+    domain = domain.lower()
+    return any(p in domain for p in BOOKING_PLATFORM_BLOCKLIST)
+
 # ── Load Cheerio ──────────────────────────────────────────────────────────────
 print("Loading Cheerio files from ~/Downloads/...")
 cheerio_files = sorted(glob.glob(os.path.join(CHEERIO_DIR, "dataset_cheerio-scraper_*.csv")))
@@ -410,6 +427,8 @@ for domain, data in domain_data.items():
     if domain in existing_price_domains:
         continue
     if domain in JUNK_DOMAINS:
+        continue
+    if is_booking_platform(domain):
         continue
 
     combined = data.get('combined', '')

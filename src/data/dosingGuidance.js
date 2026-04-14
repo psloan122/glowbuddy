@@ -712,7 +712,10 @@ export const PRODUCTS = Object.fromEntries(
 
 // ─── Mapping from procedure_type + brand → dosing key ─────────────────
 const PROCEDURE_MAP = {
-  'Botox / Dysport / Xeomin': '__neurotoxin_by_brand__',
+  'Botox / Dysport / Xeomin': '__neurotoxin_by_brand__', // legacy grouped name — backward compat
+  'Botox':         { type: 'neurotoxin', key: 'botox' },
+  'Dysport':       { type: 'neurotoxin', key: 'dysport' },
+  'Xeomin':        { type: 'neurotoxin', key: 'xeomin' },
   'Jeuveau':       { type: 'neurotoxin', key: 'jeuveau' },
   'Daxxify':       { type: 'neurotoxin', key: 'daxxify' },
   'Botox Lip Flip': { type: 'neurotoxin', key: 'botox' },

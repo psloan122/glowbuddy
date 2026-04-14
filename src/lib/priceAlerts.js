@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 export async function createAlert({
   procedureType,
   brand = null,
+  priceUnit = 'per_unit',
   city = null,
   state = null,
   lat = null,
@@ -21,6 +22,7 @@ export async function createAlert({
       user_id: user.id,
       procedure_type: procedureType,
       brand: brand || null,
+      price_unit: priceUnit || 'per_unit',
       city: city || null,
       state: state || null,
       lat: lat ?? null,
@@ -43,7 +45,7 @@ export async function getUserAlerts() {
 
   const { data, error } = await supabase
     .from('price_alerts')
-    .select('id, user_id, procedure_type, brand, city, state, zip_code, lat, lng, radius_miles, max_price, is_active, created_at')
+    .select('id, user_id, procedure_type, brand, price_unit, city, state, zip_code, lat, lng, radius_miles, max_price, is_active, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

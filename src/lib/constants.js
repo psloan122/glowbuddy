@@ -15,9 +15,14 @@ export const FEATURED_CITIES = [
   { city: 'Philadelphia',    state: 'PA' },
 ];
 
+// Legacy grouped name — kept so existing submissions still display and match.
+export const LEGACY_NEUROTOXIN_GROUP = 'Botox / Dysport / Xeomin';
+
 export const PROCEDURE_TYPES = [
-  // Neurotoxins
-  'Botox / Dysport / Xeomin',
+  // Neurotoxins — individual brands
+  'Botox',
+  'Dysport',
+  'Xeomin',
   'Jeuveau',
   'Daxxify',
   'Botox Lip Flip',
@@ -116,7 +121,7 @@ export const PROCEDURE_TYPES = [
 ];
 
 export const PROCEDURE_CATEGORIES = {
-  Neurotoxins: ['Botox / Dysport / Xeomin', 'Jeuveau', 'Daxxify', 'Botox Lip Flip'],
+  Neurotoxins: ['Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify', 'Botox Lip Flip'],
   Fillers: ['Lip Filler', 'Cheek Filler', 'Jawline Filler', 'Nasolabial Filler', 'Under Eye Filler', 'Chin Filler', 'Nose Filler', 'Hand Filler', 'Temple Filler'],
   Body: ['Kybella', 'CoolSculpting', 'Emsculpt NEO', 'truSculpt', 'SculpSure', 'BodyTite', 'Velashape', 'Cellulite Treatment'],
   Microneedling: ['Microneedling', 'RF Microneedling', 'Morpheus8', 'PRP Microneedling', 'Exosome Microneedling'],
@@ -267,7 +272,9 @@ export const BADGE_DEFINITIONS = {
 
 // Procedures that require treatment area selection
 export const REQUIRES_TREATMENT_AREA = new Set([
-  'Botox / Dysport / Xeomin',
+  'Botox',
+  'Dysport',
+  'Xeomin',
   'Jeuveau',
   'Daxxify',
   'Lip Filler',
@@ -292,7 +299,9 @@ export const REQUIRES_TREATMENT_AREA = new Set([
 
 // Dynamic placeholder for "How much?" field
 export const UNITS_PLACEHOLDER = {
-  'Botox / Dysport / Xeomin': 'e.g. 20 units',
+  'Botox': 'e.g. 20 units',
+  'Dysport': 'e.g. 50 units (Dysport units ≈ 2.5× Botox)',
+  'Xeomin': 'e.g. 20 units',
   'Jeuveau': 'e.g. 20 units',
   'Daxxify': 'e.g. 40 units',
   'Lip Filler': 'e.g. 1 syringe',
@@ -359,9 +368,11 @@ export const UNITS_PLACEHOLDER = {
 
 // Reference average prices (national) for helper text
 export const AVG_PRICES = {
-  'Botox / Dysport / Xeomin': { avg: 302, unit: '/area' },
-  'Jeuveau': { avg: 280, unit: '/area' },
-  'Daxxify': { avg: 450, unit: '/area' },
+  'Botox': { avg: 13, unit: '/unit' },
+  'Dysport': { avg: 5, unit: '/unit' },
+  'Xeomin': { avg: 12, unit: '/unit' },
+  'Jeuveau': { avg: 12, unit: '/unit' },
+  'Daxxify': { avg: 15, unit: '/unit' },
   'Lip Filler': { avg: 672, unit: '/syringe' },
   'Cheek Filler': { avg: 750, unit: '/syringe' },
   'Jawline Filler': { avg: 800, unit: '/syringe' },

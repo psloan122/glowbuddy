@@ -99,7 +99,7 @@ function AlertRow({ alert }) {
           {getProcedureLabel(alert.procedure_type, alert.brand)}
         </p>
         <p className="text-xs text-text-secondary">
-          {alert.max_price ? `Under $${Number(alert.max_price).toLocaleString()}` : 'Any price'}
+          {alert.max_price ? `Under $${Number(alert.max_price).toLocaleString()}${alert.price_unit === 'per_unit' ? '/unit' : alert.price_unit === 'per_syringe' ? '/syringe' : alert.price_unit === 'per_session' ? '/session' : ''}` : 'Any price'}
           {alert.city && ` in ${alert.city}`}
         </p>
       </div>

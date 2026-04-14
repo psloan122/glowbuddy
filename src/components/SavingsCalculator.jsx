@@ -10,7 +10,10 @@ import { lookupZip } from '../lib/zipLookup';
 import SavingsShareCard from './SavingsShareCard';
 
 const TYPICAL_UNITS = {
-  'Botox / Dysport / Xeomin': 28,
+  'Botox / Dysport / Xeomin': 28, // legacy grouped name — backward compat
+  'Botox': 28,
+  'Dysport': 28,
+  'Xeomin': 28,
   'Jeuveau': 28,
   'Daxxify': 40,
   'Lip Filler': 1,
@@ -29,7 +32,10 @@ const TYPICAL_UNITS = {
 };
 
 const UNIT_LABELS = {
-  'Botox / Dysport / Xeomin': '/unit',
+  'Botox / Dysport / Xeomin': '/unit', // legacy grouped name — backward compat
+  'Botox': '/unit',
+  'Dysport': '/unit',
+  'Xeomin': '/unit',
   'Jeuveau': '/unit',
   'Daxxify': '/unit',
   'Lip Filler': '/syringe',

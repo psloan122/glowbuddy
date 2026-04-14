@@ -1,9 +1,12 @@
 // Maps procedure_type strings (from PROCEDURE_TYPES) to procedure_guides slugs.
 // Each guide covers one or more procedure types.
 const GUIDE_MAP = {
-  'Botox / Dysport / Xeomin': 'botox',
-  'Jeuveau': 'botox',
-  'Daxxify': 'botox',
+  'Botox / Dysport / Xeomin': 'botox', // legacy grouped name — backward compat
+  'Botox': 'botox',
+  'Dysport': 'dysport',
+  'Xeomin': 'xeomin',
+  'Jeuveau': 'jeuveau',
+  'Daxxify': 'daxxify',
   'Botox Lip Flip': 'botox',
   'Lip Filler': 'lip-filler',
   'Cheek Filler': 'cheek-filler',

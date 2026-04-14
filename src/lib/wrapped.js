@@ -2,7 +2,10 @@ import { supabase } from './supabase';
 import { fetchBenchmark } from './priceBenchmark';
 
 const TYPICAL_UNITS = {
-  'Botox / Dysport / Xeomin': 28,
+  'Botox / Dysport / Xeomin': 28, // legacy grouped name — backward compat
+  'Botox': 28,
+  'Dysport': 28,
+  'Xeomin': 28,
   'Lip Filler': 1,
   'Cheek Filler': 1,
   'HydraFacial': 1,

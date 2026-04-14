@@ -2,7 +2,7 @@ import ProcedureIcon from './ProcedureIcon';
 import ProviderAvatar from './ProviderAvatar';
 
 const MOCK_CARDS = [
-  { type: 'Botox / Dysport / Xeomin', label: 'Botox', price: '$12/unit', provider: 'Dr. Kim' },
+  { type: 'Botox', label: 'Botox', price: '$12/unit', provider: 'Dr. Kim' },
   { type: 'Lip Filler', label: 'Lip Filler', price: '$650', provider: 'SkinRx Med Spa' },
   { type: 'Hydrafacial', label: 'HydraFacial', price: '$189', provider: 'Glow Studio' },
   { type: 'Chemical Peel', label: 'Chemical Peel', price: '$150', provider: 'Dr. Patel' },

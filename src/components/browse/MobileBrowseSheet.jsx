@@ -289,7 +289,7 @@ export default memo(function MobileBrowseSheet({
         >
           {CATEGORY_PILLS.map((pill) => {
             const ct = categoryCounts[pill.label];
-            const hasCount = ct != null && ct > 0;
+            const hasCount = ct != null && ct > 1;
             const isActive = activeCategorySlug === pill.slug;
             return (
               <button
