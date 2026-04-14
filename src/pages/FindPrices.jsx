@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import PriceContextBar from '../components/browse/PriceContextBar';
 import StickyFilterBar from '../components/browse/StickyFilterBar';
 import PriceCard from '../components/browse/PriceCard';
+import MapListCard from '../components/browse/MapListCard';
 import CompareTray from '../components/browse/CompareTray';
 import SavingsCallout from '../components/browse/SavingsCallout';
 import SmartEmptyState from '../components/browse/SmartEmptyState';
@@ -2908,7 +2909,10 @@ export default function FindPrices() {
       >
         {/* "Save your preferences" banner — logged-in users with no saved
             preferences yet. Dismissible with X, remembered in localStorage. */}
-        {user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && !prefsBannerDismissed && (
+        {/* Banner appears in the left column of the desktop split-view
+            instead of above it (see split-view block below). Show here
+            only on mobile or before a city is selected. */}
+        {user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && !prefsBannerDismissed && (isMobile || !selectedLoc) && (
           <div
             className="mb-4 flex items-center justify-between gap-3"
             style={{
@@ -3118,8 +3122,10 @@ export default function FindPrices() {
         {/* Unhappy paths only — gate, personalized, loading, empty.
             The happy path (we have results) is rendered OUTSIDE this
             900px container so the desktop split-view map can fill the
-            full viewport width. */}
-        {personalizedMode ? (
+            full viewport width. Personalized mode on desktop renders
+            inside the unified split-view below — only mobile or
+            no-city personalized falls through to this block. */}
+        {personalizedMode && (isMobile || !selectedLoc) ? (
           personalLoading ? (
             <SkeletonGrid count={6} />
           ) : personalProviders.length === 0 ? (
@@ -3601,10 +3607,9 @@ export default function FindPrices() {
           displayedProcedures.length > 0;
         return (
           <div
-            className="mx-auto"
             style={{
-              maxWidth: 1400,
               display: 'flex',
+              flexDirection: 'row',
               gap: 0,
               // Exact heights: navbar=64 + search bar=52 = 116px base.
               // When results: + PriceContextBar(40) + StickyFilterBar(44) = 200px.
@@ -3613,23 +3618,165 @@ export default function FindPrices() {
                 : 'calc(100vh - 116px)',
               minHeight: 480,
               overflow: 'hidden',
-              paddingLeft: 16,
-              paddingRight: 16,
             }}
           >
-            {/* Left: scrollable content — content swaps but the pane
-                stays mounted so the map's flex sibling never reflows. */}
+            {/* Left: 50% width, scrollable. Airbnb-style layout. */}
             <div
               style={{
-                width: 460,
+                width: '50%',
                 flexShrink: 0,
                 overflowY: 'auto',
-                paddingRight: !procFilter ? 24 : 16,
+                padding: !procFilter ? '0 24px' : '16px 24px',
                 paddingBottom: !procFilter ? 0 : 40,
                 borderRight: '1px solid #EDE8E3',
               }}
             >
-              {!procFilter ? (
+              {/* "Save your preferences" banner — top of left column */}
+              {user && !hasSavedPrefs && !prefsLoading && !procFilter && !brandFilter && !prefsBannerDismissed && (
+                <div
+                  className="mb-4 flex items-center justify-between gap-3"
+                  style={{
+                    background: '#FBF9F7',
+                    borderLeft: '3px solid #E8347A',
+                    borderRadius: 0,
+                    padding: '10px 14px',
+                  }}
+                >
+                  <p
+                    className="text-[13px] text-ink"
+                    style={{ fontFamily: 'var(--font-body)', fontWeight: 400 }}
+                  >
+                    Save your treatment preferences to skip this step next time.
+                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      to="/settings#treatment-preferences"
+                      className="text-[10px] font-semibold uppercase transition-opacity hover:opacity-80"
+                      style={{
+                        color: '#E8347A',
+                        letterSpacing: '0.10em',
+                        borderBottom: '1px solid #E8347A',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Set preferences
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrefsBannerDismissed(true);
+                        try { localStorage.setItem('glow_prefs_banner_dismissed', '1'); } catch {}
+                      }}
+                      aria-label="Dismiss"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        padding: 4, color: '#999', display: 'inline-flex', alignItems: 'center',
+                      }}
+                    >
+                      <X size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {personalizedMode ? (
+                <div style={{ padding: '0 0 40px 0' }}>
+                  {/* Header — count + city */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    padding: '4px 0 12px',
+                  }}>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: 13, color: '#888', margin: 0,
+                    }}>
+                      <strong style={{ color: '#555', fontWeight: 600 }}>
+                        {personalProviders.length}
+                      </strong>{' '}
+                      {personalProviders.length === 1 ? 'provider' : 'providers'} matching your treatments
+                      {selectedLoc && (
+                        <span> · {selectedLoc.city}, {selectedLoc.state}</span>
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPersonalDismissed(true)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontFamily: 'var(--font-body)', fontSize: 11, color: '#E8347A',
+                        textDecoration: 'underline', padding: 0,
+                      }}
+                    >
+                      Browse all
+                    </button>
+                  </div>
+
+                  {personalLoading ? (
+                    <SkeletonGrid count={4} />
+                  ) : personalProviders.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+                      <p style={{
+                        fontFamily: "'Playfair Display', Georgia, serif",
+                        fontWeight: 700, fontSize: 18, color: '#111', marginBottom: 8,
+                      }}>
+                        No matches in {selectedLoc?.city || 'this area'} yet.
+                      </p>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: 13, color: '#888', fontWeight: 300,
+                      }}>
+                        Try a different city, or{' '}
+                        <button
+                          type="button"
+                          onClick={() => setPersonalDismissed(true)}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            color: '#E8347A', fontWeight: 600, cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          browse all treatments
+                        </button>
+                        .
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: 16,
+                    }}>
+                      {personalProviders.map((entry) => {
+                        // Pull the lowest-priced procedure for the lead-price card
+                        const sortedPrices = (entry.prices || [])
+                          .filter((p) => Number(p.price) > 0)
+                          .sort((a, b) => Number(a.price) - Number(b.price));
+                        const top = sortedPrices[0];
+                        const leadPrice = top
+                          ? {
+                              procedure_type: top.procedure_type,
+                              price_label: top.price_label || 'per_unit',
+                              price: top.price,
+                            }
+                          : null;
+                        return (
+                          <div key={entry.provider.id} data-provider-card={entry.provider.id}>
+                            <MapListCard
+                              provider={{
+                                ...entry.provider,
+                                provider_name: entry.provider.name,
+                                provider_slug: entry.provider.slug,
+                              }}
+                              leadPrice={leadPrice}
+                              onHoverChange={handleCardHover}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : !procFilter ? (
                 <GateLeftPanel
                   city={selectedLoc.city}
                   state={selectedLoc.state}
@@ -3703,52 +3850,49 @@ export default function FindPrices() {
                     />
                   </div>
                 )}
-                {groupedProviders.map((group) => {
-                  const primary = group.procedures[0];
-                  const slug =
-                    primary.provider_slug ||
-                    providerSlugFromParts(
-                      primary.provider_name,
-                      primary.city,
-                      primary.state,
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 16,
+                  }}
+                >
+                  {groupedProviders.map((group) => {
+                    const primary = group.procedures[0];
+                    const selected =
+                      selectedProviderGroup?.provider_id != null &&
+                      selectedProviderGroup.provider_id === group.provider_id;
+                    // Lead price = the first procedure (already sorted lowest first)
+                    const leadPrice = primary
+                      ? {
+                          procedure_type: primary.procedure_type,
+                          price_label: primary.price_label || primary.normalized_compare_unit?.replace(/^per /, 'per_') || 'per_unit',
+                          price: primary.normalized_compare_value || primary.price_paid,
+                        }
+                      : null;
+                    return (
+                      <div
+                        key={group.key}
+                        data-provider-card={group.provider_id || ''}
+                      >
+                        <MapListCard
+                          provider={primary}
+                          leadPrice={leadPrice}
+                          brandLabel={brandFilter || procFilter?.label}
+                          selected={selected}
+                          onHoverChange={handleCardHover}
+                        />
+                      </div>
                     );
-                  const saved = slug ? isSaved(slug) : false;
-                  const isCompared = comparing.some(
-                    (p) => p.id === primary.id,
-                  );
-                  const selected =
-                    selectedProviderGroup?.provider_id != null &&
-                    selectedProviderGroup.provider_id === group.provider_id;
-                  return (
-                    <div
-                      key={group.key}
-                      data-provider-card={group.provider_id || ''}
-                    >
-                      <PriceCard
-                        procedures={group.procedures}
-                        cityAvg={cityAvgPrice}
-                        userLat={userLat}
-                        userLng={userLng}
-                        isCompared={isCompared}
-                        onCompareToggle={() => toggleCompare(primary)}
-                        isSaved={saved}
-                        onSaveToggle={() => handleSaveToggle(primary)}
-                        comparingFull={comparing.length >= 3 && !isCompared}
-                        onHoverChange={handleCardHover}
-                        selected={selected}
-                        onProcedureDetail={handleProcedureDetail}
-                        onDosingClick={handleDosingClick}
-                      />
-                    </div>
-                  );
-                })}
+                  })}
+                </div>
                 {/* ── Unpriced providers — "no prices yet" tier ── */}
                 {unpricedProviders.length > 0 && (
-                  <div style={{ padding: '0 8px' }}>
+                  <div>
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '20px 0 10px', borderTop: '1px dashed #E0D6CE',
-                      marginTop: 8,
+                      padding: '24px 0 12px', borderTop: '1px dashed #E0D6CE',
+                      marginTop: 16,
                     }}>
                       <span style={{
                         fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
@@ -3757,46 +3901,27 @@ export default function FindPrices() {
                         Also in this area — no {brandFilter || procFilter?.label || ''} prices yet
                       </span>
                     </div>
-                    {unpricedProviders.map((p) => (
-                      <div
-                        key={p.id}
-                        data-provider-card={p.id}
-                        style={{
-                          border: '1.5px dashed #E0D6CE',
-                          borderRadius: 12,
-                          padding: '10px 12px',
-                          marginBottom: 6,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          background: '#FAFAF8',
-                        }}
-                      >
-                        <ProviderAvatar name={p.name || p.provider_name} size={36} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {p.name || p.provider_name}
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#999' }}>
-                            {p.google_rating ? `★ ${Number(p.google_rating).toFixed(1)}` : ''}
-                            {p.google_rating && p.google_review_count ? ` (${p.google_review_count})` : ''}
-                            {!p.google_rating && 'No reviews yet'}
-                          </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 16,
+                      }}
+                    >
+                      {unpricedProviders.map((p) => (
+                        <div key={p.id} data-provider-card={p.id}>
+                          <MapListCard
+                            provider={p}
+                            leadPrice={null}
+                            brandLabel={brandFilter || procFilter?.label}
+                            onHoverChange={handleCardHover}
+                          />
                         </div>
-                        <Link
-                          to={`/log?provider_id=${p.id}&provider=${encodeURIComponent(p.name || p.provider_name || '')}&city=${encodeURIComponent(p.city || '')}&state=${encodeURIComponent(p.state || '')}`}
-                          style={{
-                            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-                            color: '#E8347A', textDecoration: 'none', whiteSpace: 'nowrap',
-                          }}
-                        >
-                          + Add price
-                        </Link>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                     <p style={{
                       fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
-                      textAlign: 'center', margin: '12px 0 4px',
+                      textAlign: 'center', margin: '16px 0 4px',
                     }}>
                       Help women{selectedLoc?.city ? ` in ${selectedLoc.city}` : ''} know what to expect — share what you paid.
                     </p>
@@ -3806,16 +3931,17 @@ export default function FindPrices() {
               )}
             </div>
 
-            {/* Right: stable map — same component instance for the
+            {/* Right: 50% width map — same component instance for the
                 entire gate → priced lifecycle so markers never get
                 wiped. allProviders is the always-fetched base layer
                 of city pins (gray); procedures is the priced overlay
                 (colored by price tier) and is empty in gate state. */}
             <div
               style={{
-                flex: 1,
+                width: '50%',
+                flexShrink: 0,
                 position: 'relative',
-                paddingLeft: 16,
+                minWidth: 0,
               }}
             >
               <GlowMap
