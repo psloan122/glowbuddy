@@ -143,23 +143,24 @@ function buildGatePinIcon({ initials, highlighted }) {
 // pink pill with a white count label, matching the GlowBuddy brand.
 const clusterRenderer = {
   render({ count, position, markers }) {
-    // Don't render a cluster overlay for a single marker — let the
-    // individual styled marker show through instead. This prevents
-    // the "hollow pin" flash when a cluster of 1 dissolves.
-    if (count <= 1) {
-      // Return a zero-size invisible marker so the clusterer has
-      // something to work with but it doesn't cover the real pin.
-      return new window.google.maps.Marker({
+    // Individual pin — the clusterer hides the original marker and puts this
+    // in its place, so we must return a fully-styled marker, NOT an invisible
+    // placeholder. Reuse the exact icon already on the original marker so
+    // priced pills, gate circles, and highlighted states all stay correct.
+    if (count === 1 && markers?.[0]) {
+      const m = markers[0];
+      const rendered = new window.google.maps.Marker({
         position,
-        icon: {
-          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
-          )}`,
-          scaledSize: new window.google.maps.Size(1, 1),
-        },
-        zIndex: 0,
-        clickable: false,
+        icon: m.getIcon(),
+        zIndex: m.getZIndex() ?? (m.__glowPriced ? 100 : 50),
+        title: m.getTitle(),
       });
+      // Forward clicks to the original marker's listener so the provider
+      // card opens even while the marker itself has map=null.
+      rendered.addListener('click', () => {
+        window.google.maps.event.trigger(m, 'click');
+      });
+      return rendered;
     }
     const size = count >= 100 ? 48 : count >= 10 ? 40 : 34;
     const fontSize = count >= 100 ? 13 : 12;
@@ -361,7 +362,15 @@ export default memo(function GlowMap({
           // rapid sheet drags / scroll events can fire idle in bursts —
           // debouncing at 300ms collapses those into one bounds update and
           // prevents cascading parent re-renders from flickering pins.
+          //
+          // Guard: don't report bounds until the city geocoding has centered
+          // the map. The map initialises at the US centre (lat 39.5, lng -98.35,
+          // zoom 11) and fires `idle` immediately with a tiny Kansas viewport.
+          // Without this guard, displayedProcedures filters every city-specific
+          // provider as out-of-bounds for ~500ms while geocoding resolves —
+          // causing the empty-list-on-first-load bug.
           const debouncedIdle = debounce(() => {
+            if (!initialCenteredRef.current) return;
             const b = map.getBounds();
             if (!b) return;
             const ne = b.getNorthEast(), sw = b.getSouthWest();
@@ -724,6 +733,9 @@ export default memo(function GlowMap({
           if (mapInstanceRef.current && mapInstanceRef.current.getZoom() > 14) {
             mapInstanceRef.current.setZoom(14);
           }
+          // Allow bounds reporting after fit-to-bounds completes so the
+          // no-city discovery viewport filter and "Search this area" work.
+          initialCenteredRef.current = true;
         },
       );
       return () => window.google.maps.event.removeListener(listener);

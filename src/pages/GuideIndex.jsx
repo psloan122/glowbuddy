@@ -31,15 +31,27 @@ function GuideCard({ guide }) {
         </p>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          {guide.avg_cost_low != null && guide.avg_cost_high != null && (
-            <span className="text-xs text-text-secondary">
+      <div className="flex flex-col gap-1 mt-auto">
+        {guide.avg_cost_low != null && guide.avg_cost_high != null && (
+          <div>
+            <span className="text-xs font-medium text-text-primary">
               ${Number(guide.avg_cost_low).toLocaleString()}–${Number(guide.avg_cost_high).toLocaleString()}
               {guide.avg_cost_unit ? ` ${guide.avg_cost_unit}` : ''}
             </span>
-          )}
-          {guide.satisfaction_rate && (
+            {guide.session_label && (
+              <span className="text-[11px] text-text-secondary ml-1.5">
+                · {guide.session_label}
+              </span>
+            )}
+          </div>
+        )}
+        {guide.pricing_note && (
+          <p className="text-[11px] text-rose-accent italic leading-snug">
+            {guide.pricing_note}
+          </p>
+        )}
+        <div className="flex items-center justify-between mt-1">
+          {guide.satisfaction_rate ? (
             <span className="flex items-center gap-1">
               <span className="flex items-center gap-px">
                 {[...Array(5)].map((_, i) => (
@@ -55,11 +67,13 @@ function GuideCard({ guide }) {
               </span>
               <span className="text-[11px] text-text-secondary">{guide.satisfaction_rate}%</span>
             </span>
+          ) : (
+            <span />
           )}
+          <span className="text-xs font-medium text-rose-accent opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+            Learn more <ArrowRight size={12} />
+          </span>
         </div>
-        <span className="text-xs font-medium text-rose-accent opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-          Learn more <ArrowRight size={12} />
-        </span>
       </div>
     </Link>
   );
@@ -86,7 +100,7 @@ export default function GuideIndex() {
   useEffect(() => {
     supabase
       .from('procedure_guides')
-      .select('id, name, slug, category, tagline, satisfaction_rate, avg_cost_low, avg_cost_high, avg_cost_unit')
+      .select('id, name, slug, category, tagline, satisfaction_rate, avg_cost_low, avg_cost_high, avg_cost_unit, session_label, pricing_note')
       .eq('is_published', true)
       .order('name')
       .then(({ data }) => {

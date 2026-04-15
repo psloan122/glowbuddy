@@ -3,8 +3,8 @@
  *
  * Fetches up to 3 nearby cities (same procedure_type ilike) with at least
  * one active price, computes their average, and lets the user jump to
- * those cities. Falls back to the always-helpful "be the first to share"
- * + "set a price alert" CTAs.
+ * those cities. Falls back to the always-helpful "suggest a provider" +
+ * "log what you paid" CTAs.
  *
  * Pulls from BOTH `procedures` (patient submissions) and `provider_pricing`
  * (provider menu prices) so the nearby summary reflects every city that
@@ -28,6 +28,19 @@ import AddProviderModal from '../AddProviderModal';
 // Dysport / Xeomin / Jeuveau / Daxxify all sit well under $50/unit; any
 // neurotoxin row above that is a flat-rate area price in disguise.
 const NEUROTOXIN_PER_UNIT_MAX = 50;
+
+const EMPTY_MESSAGES = [
+  "Our pins must be on vacation.",
+  "Crickets. Beautiful, unpinned crickets.",
+  "GlowBuddy hasn\u2019t made it here yet \u2014 help us fix that.",
+  "We see a city. We just don\u2019t know what\u2019s inside it yet.",
+  "First one to add a provider here wins the internet.",
+];
+
+// Stable per-mount random index so the message doesn't shuffle on re-renders.
+function pickMessage() {
+  return EMPTY_MESSAGES[Math.floor(Math.random() * EMPTY_MESSAGES.length)];
+}
 
 function isNeurotoxinSlug(slug, type) {
   const s = String(slug || '').toLowerCase();
@@ -59,6 +72,8 @@ export default function SmartEmptyState({
   const [nearby, setNearby] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Stable headline: picked once on mount, doesn't shuffle on re-render.
+  const [headline] = useState(pickMessage);
 
   const headBrand = brand || procedureLabel || procedureType || 'this treatment';
   const cityLabel = city ? `${city}${state ? `, ${state}` : ''}` : '';
@@ -250,21 +265,20 @@ export default function SmartEmptyState({
         textAlign: 'center',
       }}
     >
-      <h2
+      {/* Rotating witty headline */}
+      <p
         style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontStyle: 'italic',
-          fontWeight: 700,
-          fontSize: 24,
+          fontFamily: 'var(--font-body)',
+          fontWeight: 600,
+          fontSize: 18,
           color: '#111',
-          lineHeight: 1.25,
-          margin: '0 0 8px 0',
+          marginBottom: 8,
         }}
       >
-        {cityLabel
-          ? `GlowBuddy hasn\u2019t made it to ${cityLabel} yet.`
-          : `No ${headBrand} prices yet.`}
-      </h2>
+        {headline}
+      </p>
+
+      {/* Soft subtext */}
       <p
         style={{
           fontFamily: 'var(--font-body)',
@@ -277,12 +291,13 @@ export default function SmartEmptyState({
         }}
       >
         {unpricedCount > 0 && cityLabel
-          ? `${unpricedCount} provider${unpricedCount !== 1 ? 's' : ''} are here but haven\u2019t listed ${headBrand} prices. Help us fill in the map.`
+          ? `${unpricedCount} provider${unpricedCount !== 1 ? 's' : ''} are here but haven\u2019t listed ${headBrand} prices yet.`
           : cityLabel
-          ? `Be the first to put ${cityLabel} on the map \u2014 your price helps everyone.`
+          ? `No ${headBrand} prices in ${cityLabel} yet. Be the first to put ${cityLabel} on the map.`
           : `No ${headBrand} prices yet \u2014 be the first to share what you paid.`}
       </p>
 
+      {/* Nearby city benchmarks */}
       {loading ? (
         <p
           style={{
@@ -375,7 +390,7 @@ export default function SmartEmptyState({
         </div>
       ) : null}
 
-      {/* CTAs */}
+      {/* CTAs — suggest-a-provider is primary, log-what-you-paid is secondary */}
       <div
         style={{
           display: 'flex',
@@ -384,15 +399,16 @@ export default function SmartEmptyState({
           gap: 10,
         }}
       >
-        <Link
-          to={logUrl}
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
             background: '#E8347A',
             color: 'white',
-            textDecoration: 'none',
+            border: 'none',
             padding: '12px 20px',
             borderRadius: 2,
             fontFamily: 'var(--font-body)',
@@ -400,11 +416,13 @@ export default function SmartEmptyState({
             fontSize: 11,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
+            cursor: 'pointer',
           }}
         >
-          Be the first to share what you paid
+          + Suggest a provider here
           <ArrowRight size={12} />
-        </Link>
+        </button>
+
         <Link
           to={alertUrl}
           style={{
@@ -429,50 +447,23 @@ export default function SmartEmptyState({
         </Link>
       </div>
 
-      {/* Consumer CTA — suggest a provider (earns giveaway entries) */}
-      <div
+      {/* Secondary: log a price you already paid */}
+      <p
         style={{
-          marginTop: 24,
-          padding: '14px 20px',
-          background: '#FDF0F5',
-          borderRadius: 6,
-          border: '1px solid #F5D0E0',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 10,
+          fontFamily: 'var(--font-body)',
+          fontSize: 13,
+          color: '#888',
+          marginTop: 16,
         }}
       >
-        <span style={{ fontSize: 18, flexShrink: 0 }}>🎁</span>
-        <div style={{ textAlign: 'left' }}>
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              color: '#C94F78',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              textAlign: 'left',
-            }}
-          >
-            + Suggest a provider here
-          </button>
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 11,
-              color: '#888',
-              fontWeight: 300,
-              margin: '2px 0 0',
-            }}
-          >
-            Earn bonus giveaway entries for adding providers we don&rsquo;t have yet.
-          </p>
-        </div>
-      </div>
+        Already go somewhere?{' '}
+        <Link
+          to={logUrl}
+          style={{ color: '#C94F78', fontWeight: 600, textDecoration: 'none' }}
+        >
+          Log what you paid &rarr;
+        </Link>
+      </p>
 
       {/* Provider CTA */}
       <p

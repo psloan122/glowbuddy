@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, Check, FileText } from 'lucide-react';
 import {
-  PROCEDURE_TYPES,
-  PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
   REQUIRES_TREATMENT_AREA,
-  UNITS_PLACEHOLDER,
-  AVG_PRICES,
 } from '../../lib/constants';
+import {
+  getGroupedProcedures,
+  getProcedureOption,
+  LOG_PROC_UNIT_DISPLAY,
+} from '../../lib/logProcedures';
 import { getCity, getState } from '../../lib/gating';
 import useProviderMenu from '../../hooks/useProviderMenu';
 import SuggestTreatmentBlock from '../SuggestTreatmentBlock';
@@ -31,17 +32,9 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
   const wrapperRef = useRef(null);
 
   const lowerSearch = searchTerm.toLowerCase();
-  const filteredTypes = PROCEDURE_TYPES.filter((type) =>
-    type.toLowerCase().includes(lowerSearch)
-  );
 
   // Build grouped results for category headers in the dropdown
-  const groupedResults = Object.entries(PROCEDURE_CATEGORIES)
-    .map(([cat, procs]) => ({
-      category: cat,
-      items: procs.filter((p) => p.toLowerCase().includes(lowerSearch)),
-    }))
-    .filter((g) => g.items.length > 0);
+  const groupedResults = getGroupedProcedures(lowerSearch);
 
   // Provider menu items — when the provider has an uploaded/parsed menu,
   // show their actual procedures as a selection list.
@@ -72,18 +65,20 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
   }
 
   const needsArea = REQUIRES_TREATMENT_AREA.has(formData.procedureType);
-  const avgPrice = AVG_PRICES[formData.procedureType];
-  const unitsPlaceholder =
-    UNITS_PLACEHOLDER[formData.procedureType] || 'e.g. 1 session';
+  const proc = getProcedureOption(formData.procedureType);
+  const unitsPlaceholder = proc?.unitHint || 'e.g. 1 session';
+  // Area options: procedure-specific list when available, fallback to global list
+  const areaOptions = proc?.popularAreas?.length ? proc.popularAreas : TREATMENT_AREAS;
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setSearchOpen(false);
-        // Reset search term to selected value if user clicked away
+        // Reset search term to selected label if user clicked away
         if (formData.procedureType) {
-          setSearchTerm(formData.procedureType);
+          const selected = getProcedureOption(formData.procedureType);
+          setSearchTerm(selected?.label || formData.procedureType);
         }
       }
     }
@@ -91,9 +86,16 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [formData.procedureType]);
 
-  function selectProcedure(type) {
-    setSearchTerm(type);
-    setFormData((prev) => ({ ...prev, procedureType: type }));
+  function selectProcedure(value) {
+    const selected = getProcedureOption(value);
+    setSearchTerm(selected?.label || value);
+    setFormData((prev) => ({
+      ...prev,
+      procedureType: value,
+      pricingUnit: selected?.defaultUnit || prev.pricingUnit || '',
+      // Reset treatment area when procedure changes so stale values don't persist
+      treatmentArea: '',
+    }));
     setSearchOpen(false);
   }
 
@@ -173,7 +175,8 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
               }}
               onFocus={() => {
                 setSearchOpen(true);
-                setSearchTerm(formData.procedureType || searchTerm);
+                const selected = getProcedureOption(formData.procedureType);
+                setSearchTerm(selected?.label || formData.procedureType || searchTerm);
               }}
               className={`${INPUT_CLASSES} pl-10 ${
                 formData.procedureType && !searchOpen
@@ -190,18 +193,18 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
                     <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
                       {group.category}
                     </p>
-                    {group.items.map((type) => (
+                    {group.items.map((p) => (
                       <button
-                        key={type}
+                        key={p.value}
                         type="button"
-                        onClick={() => selectProcedure(type)}
+                        onClick={() => selectProcedure(p.value)}
                         className={`w-full text-left px-4 py-2.5 text-sm hover:bg-rose-light/50 transition-colors ${
-                          formData.procedureType === type
+                          formData.procedureType === p.value
                             ? 'bg-rose-light text-rose-dark font-medium'
                             : 'text-text-primary'
                         }`}
                       >
-                        {type}
+                        {p.label}
                       </button>
                     ))}
                   </li>
@@ -215,9 +218,10 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
           )}
 
           {/* Avg price helper */}
-          {formData.procedureType && avgPrice && (
+          {proc?.avgNational && (
             <p className="text-xs text-text-secondary mt-1.5">
-              Avg price nationally: <span className="font-medium">${avgPrice.avg.toLocaleString()}{avgPrice.unit}</span>
+              Avg {proc.label} nationally:{' '}
+              <span className="font-medium">${proc.avgNational.toLocaleString()}{proc.avgUnit}</span>
             </p>
           )}
 
@@ -237,6 +241,41 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
         </div>
         )}
 
+        {/* Unit type selector — shown when the procedure has multiple pricing options */}
+        {proc && proc.unitOptions.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              How is it priced?
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {proc.unitOptions.map((unit) => {
+                const isActive = (formData.pricingUnit || proc.defaultUnit) === unit;
+                return (
+                  <button
+                    key={unit}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, pricingUnit: unit }))}
+                    className="inline-flex items-center transition-colors"
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '2px',
+                      border: `1px solid ${isActive ? '#E8347A' : '#DDD'}`,
+                      background: isActive ? '#E8347A' : 'transparent',
+                      color: isActive ? '#fff' : '#888',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: '12px',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {LOG_PROC_UNIT_DISPLAY[unit] || unit.replace(/_/g, ' ')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Treatment area */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
@@ -252,11 +291,14 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
             <option value="">
               {needsArea ? 'Select area' : 'Select area (optional)'}
             </option>
-            {TREATMENT_AREAS.map((area) => (
+            {areaOptions.map((area) => (
               <option key={area} value={area}>
                 {area}
               </option>
             ))}
+            {proc?.popularAreas?.length > 0 && (
+              <option value="Other">Other</option>
+            )}
           </select>
         </div>
 
@@ -306,9 +348,10 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
               className={`${INPUT_CLASSES} pl-8`}
             />
           </div>
-          {formData.procedureType && avgPrice && getState() && (
+          {proc?.avgNational && getState() && (
             <p className="text-xs text-text-secondary mt-1.5">
-              Avg in {getState()}: <span className="font-medium">${avgPrice.avg.toLocaleString()}{avgPrice.unit}</span>
+              Avg {proc.label} nationally:{' '}
+              <span className="font-medium">${proc.avgNational.toLocaleString()}{proc.avgUnit}</span>
             </p>
           )}
         </div>

@@ -68,6 +68,9 @@ const INITIAL_FORM_DATA = {
   // Discount tracking
   discountType: null,
   discountAmount: '',
+  // Price label (per_unit, per_syringe, per_session, etc.) — set dynamically
+  // when user selects a procedure; saved as price_label in procedures table.
+  pricingUnit: '',
 };
 
 export default function Log() {
@@ -526,6 +529,8 @@ export default function Log() {
         discount_amount: formData.discountAmount
           ? parseInt(formData.discountAmount, 10)
           : null,
+        // Price label — disambiguates per-unit vs per-session pricing
+        price_label: formData.pricingUnit || null,
       };
 
       const { data: inserted, error } = await supabase

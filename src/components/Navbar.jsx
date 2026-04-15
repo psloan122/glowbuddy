@@ -15,12 +15,28 @@ import { buildBrowseUrl } from '../lib/urlParams';
 // "Find Prices" is generated lazily inside the component so we can carry
 // the user's saved city/state forward into the /browse URL.
 
-const DISCOVER_LINKS = [
-  { to: '/guides', label: 'Glossary', sub: 'Common treatments explained — no jargon' },
-  { to: '/specials', label: 'Specials', sub: 'New deals from verified providers' },
-  { to: '/insights', label: 'Insights', sub: 'Price trends & data' },
-  { to: '/prices', label: 'City Reports', sub: 'Prices by location' },
-  { to: '/calculator', label: 'Savings Calc', sub: 'See how much you save' },
+// Discover dropdown: two labeled sections for all users.
+const DISCOVER_SECTIONS = [
+  {
+    header: 'PRICES, TRENDS & DEALS',
+    links: [
+      { to: '/guides',      label: 'Glossary',     sub: 'Common treatments explained — no jargon' },
+      { to: '/prices',      label: 'City Reports',  sub: 'Prices by location' },
+      { to: '/insights',    label: 'Insights',      sub: 'Price trends & data' },
+      { to: '/specials',    label: 'Specials',       sub: 'New deals from verified providers' },
+      { to: '/calculator',  label: 'Savings Calc',  sub: 'See how much you save' },
+    ],
+  },
+  {
+    header: 'MY GLOWBUDDY',
+    links: [
+      { to: '/my/history',       label: 'My History', sub: 'Past submissions' },
+      { to: '/my-stack',         label: 'My Stack',   sub: 'Your treatment stack' },
+      { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
+      { to: '/budget',           label: 'Budget',     sub: 'Track what you spend' },
+      { to: '/alerts',           label: 'Alerts',     sub: 'Price drop notifications' },
+    ],
+  },
 ];
 
 const COMMUNITY_LINKS = [
@@ -29,25 +45,13 @@ const COMMUNITY_LINKS = [
   { to: '/glow-fund', label: 'The Glow Fund', sub: '5% of profits fund survivors', heart: true },
 ];
 
-const MY_GLOW_LINKS = [
-
-  { to: '/my-stack', label: 'My Stack', sub: 'Your treatment stack' },
-  { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
-  { to: '/budget', label: 'Budget', sub: 'Track what you spend' },
-  { to: '/my/history', label: 'My History', sub: 'Past submissions' },
-  { to: '/alerts', label: 'Alerts', sub: 'Price drop notifications' },
-];
-
-// Base dropdowns (logged-out): all three menus
 const DROPDOWNS_ALL = [
-  { key: 'discover', label: 'Discover', tagline: 'Prices, trends & deals', links: DISCOVER_LINKS },
+  { key: 'discover', label: 'Discover', sections: DISCOVER_SECTIONS },
   { key: 'community', label: 'Community', tagline: 'Real patients, real talk', links: COMMUNITY_LINKS },
-  { key: 'myglow', label: 'My Glow', tagline: 'Your personal glow tracker', links: MY_GLOW_LINKS },
 ];
 
-// Logged-in: merge My Glow links into Discover, drop the My Glow dropdown
 const DROPDOWNS_LOGGED_IN = [
-  { key: 'discover', label: 'Discover', tagline: 'Prices, trends & deals', links: [...DISCOVER_LINKS, ...MY_GLOW_LINKS] },
+  { key: 'discover', label: 'Discover', sections: DISCOVER_SECTIONS },
   { key: 'community', label: 'Community', tagline: 'Real patients, real talk', links: COMMUNITY_LINKS },
 ];
 
@@ -94,50 +98,88 @@ function NavDropdown({ dropdown, isActive, openKey, setOpenKey }) {
 
       {isOpen && (
         <div className="absolute top-full left-0 pt-2 z-50">
-          <div className="min-w-[260px] bg-white border border-rule rounded-none py-3" style={{ borderTop: '2px solid #111' }} role="menu">
-            <p
-              className="px-4 pb-2 text-[10px] font-semibold text-hot-pink uppercase"
-              style={{ letterSpacing: '0.12em' }}
-            >
-              {dropdown.tagline}
-            </p>
-            {dropdown.links.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={() => setOpenKey(null)}
-                role="menuitem"
-                className="block px-4 py-2.5 hover:bg-cream transition-colors group"
-              >
-                <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
-                  {link.label}
-                  {link.heart && (
-                    <Heart size={11} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
-                  )}
-                  {link.badge && (
-                    <span
-                      style={{
-                        background: '#EEEDFE',
-                        color: '#7F77DD',
-                        borderRadius: '3px',
-                        fontSize: '9px',
-                        fontWeight: 600,
-                        letterSpacing: '0.04em',
-                        padding: '2px 6px',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {link.badge}
-                    </span>
-                  )}
-                </span>
-                {link.sub && (
-                  <p className="text-[11px] text-text-secondary mt-0.5 leading-tight font-light">
-                    {link.sub}
+          <div className="min-w-[280px] bg-white border border-rule rounded-none py-3" style={{ borderTop: '2px solid #111' }} role="menu">
+            {dropdown.sections ? (
+              // Sectioned layout (Discover dropdown)
+              dropdown.sections.map((section, i) => (
+                <div key={section.header}>
+                  <p
+                    className="px-4 pt-3 pb-1 text-[10px] font-semibold text-hot-pink uppercase"
+                    style={{ letterSpacing: '0.12em' }}
+                  >
+                    {section.header}
                   </p>
-                )}
-              </Link>
-            ))}
+                  {section.links.map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      onClick={() => setOpenKey(null)}
+                      role="menuitem"
+                      className="block px-4 py-2.5 hover:bg-cream transition-colors group"
+                    >
+                      <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                        {link.label}
+                      </span>
+                      {link.sub && (
+                        <p className="text-[11px] text-text-secondary mt-0.5 leading-tight font-light">
+                          {link.sub}
+                        </p>
+                      )}
+                    </Link>
+                  ))}
+                  {i < dropdown.sections.length - 1 && (
+                    <div className="mx-4 my-2 border-t border-rule" />
+                  )}
+                </div>
+              ))
+            ) : (
+              // Flat layout (Community dropdown)
+              <>
+                <p
+                  className="px-4 pb-2 text-[10px] font-semibold text-hot-pink uppercase"
+                  style={{ letterSpacing: '0.12em' }}
+                >
+                  {dropdown.tagline}
+                </p>
+                {dropdown.links.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setOpenKey(null)}
+                    role="menuitem"
+                    className="block px-4 py-2.5 hover:bg-cream transition-colors group"
+                  >
+                    <span className="flex items-center gap-2 text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                      {link.label}
+                      {link.heart && (
+                        <Heart size={11} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
+                      )}
+                      {link.badge && (
+                        <span
+                          style={{
+                            background: '#EEEDFE',
+                            color: '#7F77DD',
+                            borderRadius: '3px',
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                            padding: '2px 6px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {link.badge}
+                        </span>
+                      )}
+                    </span>
+                    {link.sub && (
+                      <p className="text-[11px] text-text-secondary mt-0.5 leading-tight font-light">
+                        {link.sub}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -218,7 +260,10 @@ export default function Navbar() {
 
   // Check if a dropdown should show active state
   function isDropdownActive(dropdown) {
-    return dropdown.links.some((link) =>
+    const allLinks = dropdown.sections
+      ? dropdown.sections.flatMap((s) => s.links)
+      : dropdown.links;
+    return allLinks.some((link) =>
       link.to === '/'
         ? location.pathname === '/'
         : location.pathname.startsWith(link.to)
@@ -553,33 +598,68 @@ export default function Navbar() {
             {/* Grouped sections */}
             {(user ? DROPDOWNS_LOGGED_IN : DROPDOWNS_ALL).map((dd) => (
               <div key={dd.key} className="mt-8 pt-6 border-t border-rule">
-                <p
-                  className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
-                  style={{ letterSpacing: '0.12em' }}
-                >
-                  {dd.label}
-                </p>
-                {dd.links.map((link) => {
-                  const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
-                  return (
-                    <Link
-                      key={link.to}
-                      to={link.to}
-                      className={`flex items-center gap-2 py-2.5 text-[15px] transition-colors ${
-                        active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
-                      }`}
-                      onClick={() => setMobileOpen(false)}
+                {dd.sections ? (
+                  // Sectioned dropdown (Discover)
+                  dd.sections.map((section, i) => (
+                    <div key={section.header} className={i > 0 ? 'mt-6' : ''}>
+                      <p
+                        className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
+                        style={{ letterSpacing: '0.12em' }}
+                      >
+                        {section.header}
+                      </p>
+                      {section.links.map((link) => {
+                        const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+                        return (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            className={`flex items-center gap-2 py-2.5 text-[15px] transition-colors ${
+                              active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                            }`}
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {link.label}
+                            {link.to === '/alerts' && unreadCount > 0 && (
+                              <span className="w-2 h-2 bg-hot-pink rounded-full" />
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : (
+                  // Flat dropdown (Community)
+                  <>
+                    <p
+                      className="text-[10px] font-semibold text-hot-pink uppercase mb-3"
+                      style={{ letterSpacing: '0.12em' }}
                     >
-                      {link.label}
-                      {link.heart && (
-                        <Heart size={13} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
-                      )}
-                      {link.to === '/alerts' && unreadCount > 0 && (
-                        <span className="w-2 h-2 bg-hot-pink rounded-full" />
-                      )}
-                    </Link>
-                  );
-                })}
+                      {dd.label}
+                    </p>
+                    {dd.links.map((link) => {
+                      const active = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
+                      return (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          className={`flex items-center gap-2 py-2.5 text-[15px] transition-colors ${
+                            active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                          }`}
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          {link.label}
+                          {link.heart && (
+                            <Heart size={13} fill="#E8347A" stroke="#E8347A" aria-hidden="true" />
+                          )}
+                          {link.to === '/alerts' && unreadCount > 0 && (
+                            <span className="w-2 h-2 bg-hot-pink rounded-full" />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             ))}
 
