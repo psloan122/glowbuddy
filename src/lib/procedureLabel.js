@@ -5,33 +5,23 @@
  * The DB stores `procedure_type` as a freeform display string (e.g.
  * "Botox / Dysport / Xeomin", "Lip Filler", "RF Microneedling"). For the
  * neurotoxin category specifically, that combined string is the wrong
- * thing to show on a card — when no brand is set we use the most-
- * recognized brand name ("Botox") instead of the medical jargon
- * "Neurotoxin", which the typical first-time shopper doesn't understand.
+ * thing to show on a card — it looks like a database artifact.
  *
  * Rules:
  *   1. Brand always wins. "Botox" / "Dysport" / "Xeomin" → exactly that.
- *   2. If no brand, fall back to a clean display name for known combined
- *      procedure_type strings.
- *   3. Otherwise return the procedure_type as-is — most procedure_type
- *      values are already clean ("Lip Filler", "HydraFacial", etc).
+ *   2. Any grouped/slash procedure_type (contains "/" or "·") with no
+ *      brand collapses to "Neurotoxin".
+ *   3. Known combined strings in PROCEDURE_DISPLAY_NAMES are mapped
+ *      explicitly for belt-and-suspenders coverage.
+ *   4. Otherwise return the procedure_type as-is — most values are
+ *      already clean ("Lip Filler", "HydraFacial", etc).
  *
- * NEVER returns "Botox / Dysport / Xeomin" and NEVER returns "Neurotoxin"
- * (which is industry jargon that scares first-timers).
+ * NEVER returns "Botox / Dysport / Xeomin" or any slash-separated string.
  */
 
-// Combined procedure_type strings that should be collapsed to a clean
-// category name when no specific brand is known. Keep this list small —
-// only add entries for combined strings that look ugly on a card.
-//
-// The neurotoxin entry maps to "Botox" (not "Neurotoxin") because
-// real-world shoppers search and think in terms of the most-recognized
-// brand. Combined with the "& more" suffix in CATEGORY_LABELS for
-// headline/banner contexts, this gives us "BOTOX" chips on individual
-// price rows and "Botox & more in Mandeville" headlines for the
-// multi-brand category view.
+// Explicit overrides for known combined/legacy procedure_type strings.
 export const PROCEDURE_DISPLAY_NAMES = {
-  'Botox / Dysport / Xeomin': 'Botox', // legacy grouped name — backward compat
+  'Botox / Dysport / Xeomin': 'Neurotoxin',
   'Botox': 'Botox',
   'Dysport': 'Dysport',
   'Xeomin': 'Xeomin',
@@ -71,10 +61,15 @@ export function getProcedureLabel(procedureType, brand) {
     return brandStr;
   }
 
-  // Fall back to the cleaned-up display name when procedure_type is one
-  // of the known combined strings.
+  // Explicit map for known combined strings.
   if (procedureType && PROCEDURE_DISPLAY_NAMES[procedureType]) {
     return PROCEDURE_DISPLAY_NAMES[procedureType];
+  }
+
+  // General rule: any slash- or mid-dot-separated grouped string is a
+  // legacy DB artifact — collapse to "Neurotoxin".
+  if (procedureType && (procedureType.includes('/') || procedureType.includes('·'))) {
+    return 'Neurotoxin';
   }
 
   // Most procedure_type values are already clean (e.g. "Lip Filler",

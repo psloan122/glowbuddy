@@ -4,16 +4,7 @@ import { Star } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { formatPricingUnit } from '../../utils/formatPricingUnit';
-
-// Collapse legacy grouped procedure names ("Botox / Dysport / Xeomin")
-// to a clean category label so the lead-price line doesn't look like
-// a database artifact. We can't know which specific brand was used.
-function cleanProcedureName(name) {
-  if (!name) return '';
-  const s = String(name).trim();
-  if (s.includes('/') || s.includes('·')) return 'Neurotoxin';
-  return s;
-}
+import { getProcedureLabel } from '../../lib/procedureLabel';
 
 // Pull a usable photo URL off a provider record — check the common field
 // shapes used across the app (Google Places photos, joined photos table).
@@ -67,8 +58,7 @@ function MapListCard({
   const priceLine = leadPrice
     ? (() => {
         const unit = formatPricingUnit(leadPrice.price_label);
-        const rawProcedure = brandLabel || leadPrice.procedure_type || 'From';
-        const procedure = cleanProcedureName(rawProcedure);
+        const procedure = getProcedureLabel(leadPrice.procedure_type, brandLabel || leadPrice.brand);
         return `${procedure} from $${Math.round(leadPrice.price)}${unit ? ` / ${unit.replace(/^per /, '')}` : ''}`;
       })()
     : null;
