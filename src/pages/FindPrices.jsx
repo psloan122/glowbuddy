@@ -3121,11 +3121,12 @@ export default function FindPrices() {
 
         {/* Unhappy paths only — gate, personalized, loading, empty.
             The happy path (we have results) is rendered OUTSIDE this
-            900px container so the desktop split-view map can fill the
+            900px container so the desktop/mobile map blocks can fill the
             full viewport width. Personalized mode on desktop renders
-            inside the unified split-view below — only mobile or
-            no-city personalized falls through to this block. */}
-        {personalizedMode && (isMobile || !selectedLoc) ? (
+            inside the unified split-view below; on mobile it renders
+            inside the bottom sheet. Only fall through to this block
+            when there's no selected city yet. */}
+        {personalizedMode && !selectedLoc ? (
           personalLoading ? (
             <SkeletonGrid count={6} />
           ) : personalProviders.length === 0 ? (
@@ -3306,21 +3307,105 @@ export default function FindPrices() {
           z-55 covers the global Navbar (z-50); MobileBottomNav (z-100) still above. */}
       {isMobile && selectedLoc && (() => {
         const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
+
+        // Unified mobile provider list — works for ALL user states:
+        //   - Personalized mode: user's saved-treatment matches
+        //   - Priced mode (procedure selected): grouped priced providers
+        //   - Gate mode (no procedure): all city providers
+        let mobileProviders = [];
+        let mobileMode = 'gate';
+        let mobileSelectedId = null;
+        let mobileUnpriced = [];
+
+        if (personalizedMode && personalProviders.length > 0) {
+          mobileMode = 'priced';
+          mobileProviders = personalProviders.map((entry) => {
+            const p = entry.provider;
+            const sortedPrices = (entry.prices || [])
+              .filter((pr) => Number(pr.price) > 0)
+              .sort((a, b) => Number(a.price) - Number(b.price));
+            const top = sortedPrices[0];
+            return {
+              key: p.id,
+              id: p.id,
+              provider_id: p.id,
+              provider_name: p.name,
+              provider_slug: p.slug,
+              city: p.city,
+              state: p.state,
+              lat: p.lat,
+              lng: p.lng,
+              google_rating: p.google_rating,
+              google_review_count: p.google_review_count,
+              provider_type: p.provider_type,
+              avg_price: top ? Number(top.price) : null,
+              bestPrice: top ? Number(top.price) : null,
+              submission_count: entry.prices?.length || 0,
+              has_submissions: true,
+            };
+          });
+          mobileSelectedId = selectedProviderGroup?.provider_id || null;
+        } else if (hasPricedResults) {
+          mobileMode = 'priced';
+          mobileProviders = groupedProviders.map((group) => {
+            const primary = group.procedures[0];
+            return {
+              key: group.key,
+              id: group.provider_id,
+              provider_id: group.provider_id,
+              provider_name: primary.provider_name,
+              provider_slug: primary.provider_slug,
+              city: primary.city,
+              state: primary.state,
+              avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
+              submission_count: group.procedures.length,
+              verified_count: group.procedures.filter((p) => p.receipt_verified).length,
+              has_submissions: true,
+              provider_type: primary.provider_type,
+              google_rating: primary.google_rating || primary.rating,
+              google_review_count: primary.google_review_count,
+              bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
+            };
+          });
+          mobileSelectedId = selectedProviderGroup?.provider_id || null;
+          mobileUnpriced = unpricedProviders;
+        } else {
+          mobileMode = 'gate';
+          mobileProviders = gateProviders.map((p) => ({
+            key: p.id,
+            id: p.id,
+            provider_id: p.id,
+            provider_name: p.name || p.provider_name,
+            provider_slug: p.slug || p.provider_slug,
+            city: p.city,
+            state: p.state,
+            google_rating: p.google_rating,
+            google_review_count: p.google_review_count,
+            has_submissions: false,
+          }));
+          mobileSelectedId = gateSelectedProviderGroup?.provider_id || null;
+        }
+
+        // Pin set for the map — mirrors the list. Personalized mode uses
+        // the user's matched providers; otherwise fall back to gateProviders.
+        const mobileMapProviders =
+          personalizedMode && personalProviders.length > 0
+            ? personalProviders.map((entry) => entry.provider)
+            : gateProviders;
+
         return (
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
 
             {/* Layer 1: Map — fills full screen behind everything */}
             <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
               <GlowMap
-                allProviders={gateProviders}
+                allProviders={mobileMapProviders}
                 procedures={hasPricedResults ? proceduresForMap : []}
                 cityAvg={hasPricedResults ? cityAvgPrice : undefined}
                 city={selectedLoc.city}
                 state={selectedLoc.state}
                 highlightedId={hasPricedResults ? hoveredProviderId : null}
-                selectedId={hasPricedResults
-                  ? (selectedProviderGroup?.provider_id || null)
-                  : (gateSelectedProviderGroup?.provider_id || null)}
+                selectedId={mobileSelectedId}
                 onPinClick={hasPricedResults ? handlePinClick : handleGatePinClick}
                 onMapClick={handleMapClick}
                 onBoundsChange={handleBoundsChange}
@@ -3333,68 +3418,23 @@ export default function FindPrices() {
               />
             </div>
 
-            {/* Layer 2: Bottom sheet — rendered BEFORE header so header's
-                z-index wins and autocomplete dropdowns appear above the sheet */}
-            {!procFilter && !brandFilter && (
-              <MobileBrowseSheet
-                providers={gateProviders.map((p) => ({
-                  key: p.id,
-                  id: p.id,
-                  provider_id: p.id,
-                  provider_name: p.name || p.provider_name,
-                  provider_slug: p.slug || p.provider_slug,
-                  city: p.city,
-                  state: p.state,
-                  google_rating: p.google_rating,
-                  google_review_count: p.google_review_count,
-                  has_submissions: false,
-                }))}
-                mode="gate"
-                city={selectedLoc.city}
-                state={selectedLoc.state}
-                selectedProviderId={gateSelectedProviderGroup?.provider_id || null}
-                providerCount={gateProviders.length}
-                loading={gateProvidersLoading}
-                onSelectCategory={selectPill}
-                activeCategorySlug={procFilter?.slug}
-                categoryCounts={categoryCounts}
-                onSnapChange={setMobileSheetSnap}
-              />
-            )}
-            {(procFilter || brandFilter) && (
-              <MobileBrowseSheet
-                providers={hasPricedResults ? groupedProviders.map((group) => {
-                  const primary = group.procedures[0];
-                  return {
-                    key: group.key,
-                    id: group.provider_id,
-                    provider_id: group.provider_id,
-                    provider_name: primary.provider_name,
-                    provider_slug: primary.provider_slug,
-                    city: primary.city,
-                    state: primary.state,
-                    avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
-                    submission_count: group.procedures.length,
-                    verified_count: group.procedures.filter((p) => p.receipt_verified).length,
-                    has_submissions: true,
-                    provider_type: primary.provider_type,
-                    google_rating: primary.google_rating || primary.rating,
-                    google_review_count: primary.google_review_count,
-                    bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
-                  };
-                }) : []}
-                mode="priced"
-                city={selectedLoc?.city}
-                state={selectedLoc?.state}
-                cityAvg={cityAvgPrice}
-                selectedProviderId={selectedProviderGroup?.provider_id || null}
-                providerCount={hasPricedResults ? groupedProviders.length : 0}
-                listingCount={hasPricedResults ? displayedProcedures.length : 0}
-                loading={loadingProcedures}
-                unpricedProviders={hasPricedResults ? unpricedProviders : []}
-                onSnapChange={setMobileSheetSnap}
-              />
-            )}
+            {/* Layer 2: Bottom sheet — single unified render for all user states */}
+            <MobileBrowseSheet
+              providers={mobileProviders}
+              mode={mobileMode}
+              city={selectedLoc.city}
+              state={selectedLoc.state}
+              cityAvg={hasPricedResults ? cityAvgPrice : undefined}
+              selectedProviderId={mobileSelectedId}
+              providerCount={mobileProviders.length}
+              listingCount={hasPricedResults ? displayedProcedures.length : mobileProviders.length}
+              loading={personalizedMode ? personalLoading : (hasPricedResults ? loadingProcedures : gateProvidersLoading)}
+              onSelectCategory={!personalizedMode ? selectPill : undefined}
+              activeCategorySlug={procFilter?.slug}
+              categoryCounts={categoryCounts}
+              unpricedProviders={mobileUnpriced}
+              onSnapChange={setMobileSheetSnap}
+            />
 
             {/* Provider profile card — mobile pin click */}
             {hasPricedResults && selectedProviderGroup && (
@@ -3945,7 +3985,11 @@ export default function FindPrices() {
               }}
             >
               <GlowMap
-                allProviders={gateProviders}
+                allProviders={
+                  personalizedMode
+                    ? personalProviders.map((entry) => entry.provider)
+                    : gateProviders
+                }
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
                 city={selectedLoc.city}

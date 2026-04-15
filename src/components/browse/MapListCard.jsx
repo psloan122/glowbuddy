@@ -1,9 +1,28 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { formatPricingUnit } from '../../utils/formatPricingUnit';
+
+// Pull a usable photo URL off a provider record — check the common field
+// shapes used across the app (Google Places photos, joined photos table).
+function pickPhotoUrl(provider) {
+  if (!provider) return null;
+  const candidates = [
+    provider.photo_url,
+    provider.photoUrl,
+    provider.logo_url,
+    provider.photos?.[0]?.public_url,
+    provider.photos?.[0]?.url,
+    provider.google_photos?.[0],
+    provider.provider_photos?.[0]?.public_url,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.startsWith('http')) return c;
+  }
+  return null;
+}
 
 /**
  * Compact Airbnb-style map/list card. Used in the desktop browse 2-column
@@ -14,11 +33,16 @@ function MapListCard({
   provider,
   leadPrice,
   brandLabel,
-  photoUrl,
+  photoUrl: photoUrlProp,
   selected,
   onHoverChange,
   onClick,
 }) {
+  const photoUrl = useMemo(
+    () => photoUrlProp || pickPhotoUrl(provider),
+    [photoUrlProp, provider],
+  );
+  const hasPhoto = Boolean(photoUrl);
   const href = providerProfileUrl(
     provider.provider_slug || provider.slug,
     provider.provider_name || provider.name,
@@ -61,20 +85,27 @@ function MapListCard({
         if (!selected) e.currentTarget.style.borderColor = '#EDE8E3';
       }}
     >
-      {/* Photo — 4:3 aspect ratio */}
+      {/* Photo area — 4:3 aspect when a real photo exists, otherwise
+          a shorter 120px pink panel with centered initials so cards
+          without photos don't leave giant empty space. */}
       <div
-        style={{
+        style={hasPhoto ? {
           width: '100%',
           aspectRatio: '4/3',
           background: '#FBF9F7',
           position: 'relative',
+          overflow: 'hidden',
+        } : {
+          width: '100%',
+          height: 120,
+          background: '#FDF0F5',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
-        {photoUrl ? (
+        {hasPhoto ? (
           <img
             src={photoUrl}
             alt=""

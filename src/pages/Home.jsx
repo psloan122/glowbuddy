@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,24 @@ import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
 import { buildBrowseUrl, parseSearchQuery, parseProcedureFromText } from '../lib/urlParams';
 import { getProcedureLabel } from '../lib/procedureLabel';
+import { loadGoogleMaps } from '../lib/loadGoogleMaps';
+import { parseAddressComponents } from '../lib/places';
+
+// Quick treatment chips — normalized procedure slugs so URL params
+// are always clean. Free-text entry still falls through to the fuzzy
+// parser for anything not in this list.
+const TREATMENT_CHIPS = [
+  { label: 'Botox', value: 'botox', slug: 'neurotoxin', brand: 'Botox' },
+  { label: 'Dysport', value: 'dysport', slug: 'neurotoxin', brand: 'Dysport' },
+  { label: 'Xeomin', value: 'xeomin', slug: 'neurotoxin', brand: 'Xeomin' },
+  { label: 'Jeuveau', value: 'jeuveau', slug: 'neurotoxin', brand: 'Jeuveau' },
+  { label: 'Daxxify', value: 'daxxify', slug: 'neurotoxin', brand: 'Daxxify' },
+  { label: 'Fillers', value: 'filler', slug: 'filler', brand: null },
+  { label: 'Laser', value: 'laser', slug: 'laser', brand: null },
+  { label: 'Microneedling', value: 'microneedling', slug: 'microneedling', brand: null },
+  { label: 'HydraFacial', value: 'hydrafacial', slug: 'hydrafacial', brand: null },
+  { label: 'Chemical Peel', value: 'chemical-peel', slug: 'chemical-peel', brand: null },
+];
 
 // Procedure pills shown in hero (editorial pink).
 // `slug` MUST be a valid PROCEDURE_PILLS slug from constants.js so the
@@ -152,6 +170,51 @@ export default function Home() {
   // Hero search bar queries — split into location + treatment
   const [locationQuery, setLocationQuery] = useState('');
   const [treatmentQuery, setTreatmentQuery] = useState('');
+  // Structured location from Places Autocomplete. When set, this takes
+  // precedence over the free-text locationQuery — we never concatenate.
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  // Selected treatment chip — when non-null, URL uses exact slug/brand.
+  const [selectedTreatment, setSelectedTreatment] = useState(null);
+
+  const locationInputRef = useRef(null);
+  const locationAcRef = useRef(null);
+
+  // Initialize Google Places Autocomplete on the location input.
+  // Restricted to US cities so users can't pick a random address.
+  function initLocationAutocomplete(inputEl) {
+    if (!inputEl || locationAcRef.current) return;
+    const places = window.google?.maps?.places;
+    if (!places?.Autocomplete) {
+      loadGoogleMaps().catch(() => {});
+      return;
+    }
+    locationAcRef.current = new places.Autocomplete(inputEl, {
+      types: ['(cities)'],
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components', 'geometry', 'name'],
+    });
+    locationAcRef.current.addListener('place_changed', () => {
+      const place = locationAcRef.current.getPlace();
+      if (!place?.address_components) return;
+      const parsed = parseAddressComponents(place.address_components);
+      if (parsed.city && parsed.state) {
+        setSelectedLocation({ city: parsed.city, state: parsed.state });
+        // Replace input text with the resolved "City, ST" form
+        setLocationQuery(`${parsed.city}, ${parsed.state}`);
+      }
+    });
+  }
+
+  function clearLocation() {
+    setSelectedLocation(null);
+    setLocationQuery('');
+    if (locationInputRef.current) locationInputRef.current.focus();
+  }
+
+  function selectTreatmentChip(chip) {
+    setSelectedTreatment(chip);
+    setTreatmentQuery(chip.label);
+  }
 
   // "Find Prices" CTA banner (logged-in only, dismissable per session)
   const [findPricesDismissed, setFindPricesDismissed] = useState(
@@ -208,21 +271,31 @@ export default function Home() {
   // Falls back to saved city when location input is empty.
   function handleSearch(e) {
     if (e) e.preventDefault();
-    // Parse location
-    const locText = (locationQuery || '').trim();
+
+    // Location — structured Places result takes precedence; never concatenate
     let city = '', state = '';
-    if (locText) {
-      const parsed = parseSearchQuery(locText);
+    if (selectedLocation) {
+      city = selectedLocation.city;
+      state = selectedLocation.state;
+    } else if ((locationQuery || '').trim()) {
+      const parsed = parseSearchQuery(locationQuery.trim());
       city = parsed.city;
       state = parsed.state;
     }
     if (!city && savedCity) city = savedCity;
     if (!state && savedState) state = savedState;
-    // Parse treatment
-    const treatText = (treatmentQuery || '').trim();
-    const match = treatText ? parseProcedureFromText(treatText) : null;
-    const procedure = match?.slug || null;
-    const brand = match?.brand || null;
+
+    // Treatment — chip selection takes precedence over free-text parsing
+    let procedure = null, brand = null;
+    if (selectedTreatment) {
+      procedure = selectedTreatment.slug;
+      brand = selectedTreatment.brand;
+    } else if ((treatmentQuery || '').trim()) {
+      const match = parseProcedureFromText(treatmentQuery.trim());
+      procedure = match?.slug || null;
+      brand = match?.brand || null;
+    }
+
     navigate(buildBrowseUrl({ city, state, procedure, brand }));
   }
 
@@ -466,27 +539,95 @@ export default function Home() {
                 <input
                   type="text"
                   value={treatmentQuery}
-                  onChange={(e) => setTreatmentQuery(e.target.value)}
+                  onChange={(e) => {
+                    setTreatmentQuery(e.target.value);
+                    // Clear chip selection if user types free text
+                    if (selectedTreatment && e.target.value !== selectedTreatment.label) {
+                      setSelectedTreatment(null);
+                    }
+                  }}
                   placeholder="Botox, filler, laser..."
                   className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
                   style={{ fontSize: '16px' }}
                 />
+                {selectedTreatment && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTreatment(null);
+                      setTreatmentQuery('');
+                    }}
+                    className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                    aria-label="Clear treatment"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
-              {/* Location input */}
+              {/* Location input — Google Places Autocomplete (US cities) */}
               <div
                 className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
                 style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
               >
                 <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
                 <input
+                  ref={(el) => {
+                    locationInputRef.current = el;
+                    if (el) initLocationAutocomplete(el);
+                  }}
                   type="text"
                   value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
+                  onChange={(e) => {
+                    setLocationQuery(e.target.value);
+                    // Typing clears the structured location — next Places
+                    // selection will replace it, not append.
+                    if (selectedLocation) setSelectedLocation(null);
+                  }}
                   placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
+                  autoComplete="off"
                   className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
                   style={{ fontSize: '16px' }}
                 />
+                {(selectedLocation || locationQuery) && (
+                  <button
+                    type="button"
+                    onClick={clearLocation}
+                    className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                    aria-label="Clear location"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
+            </div>
+
+            {/* Treatment chips — quick select, normalizes procedure slug */}
+            <div className="flex flex-wrap gap-2 mt-1">
+              {TREATMENT_CHIPS.map((chip) => {
+                const isActive = selectedTreatment?.value === chip.value;
+                return (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    onClick={() => selectTreatmentChip(chip)}
+                    className="inline-flex items-center transition-colors"
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 999,
+                      border: `1px solid ${isActive ? '#E8347A' : '#EDE8E3'}`,
+                      background: isActive ? '#E8347A' : 'white',
+                      color: isActive ? '#fff' : '#555',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      fontSize: 12,
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
             </div>
             <button type="submit" className="btn-editorial btn-editorial-primary w-full sm:w-auto sm:self-start">
               Find Prices
