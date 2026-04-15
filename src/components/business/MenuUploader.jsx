@@ -38,7 +38,7 @@ function StagingRow({ item, onConfirm, onRemove }) {
             margin: 0,
           }}
         >
-          {item.procedure_type}
+          {((n) => !n ? 'Treatment' : n.includes('/') ? 'Neurotoxin' : n)(item.procedure_type)}
         </p>
         {item.notes && (
           <p

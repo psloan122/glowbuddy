@@ -15,28 +15,28 @@ import { buildBrowseUrl } from '../lib/urlParams';
 // "Find Prices" is generated lazily inside the component so we can carry
 // the user's saved city/state forward into the /browse URL.
 
-// Discover dropdown: two labeled sections for all users.
+// Discover dropdown: content/discovery only.
 const DISCOVER_SECTIONS = [
   {
     header: 'PRICES, TRENDS & DEALS',
     links: [
-      { to: '/guides',      label: 'Glossary',     sub: 'Common treatments explained — no jargon' },
-      { to: '/prices',      label: 'City Reports',  sub: 'Prices by location' },
-      { to: '/insights',    label: 'Insights',      sub: 'Price trends & data' },
-      { to: '/specials',    label: 'Specials',       sub: 'New deals from verified providers' },
-      { to: '/calculator',  label: 'Savings Calc',  sub: 'See how much you save' },
+      { to: '/guides',      label: 'Glossary',    sub: 'Common treatments explained — no jargon' },
+      { to: '/prices',      label: 'City Reports', sub: 'Prices by location' },
+      { to: '/insights',    label: 'Insights',     sub: 'Price trends & data' },
+      { to: '/specials',    label: 'Specials',      sub: 'New deals from verified providers' },
+      { to: '/calculator',  label: 'Savings Calc', sub: 'See how much you save' },
     ],
   },
-  {
-    header: 'MY GLOWBUDDY',
-    links: [
-      { to: '/my/history',       label: 'My History', sub: 'Past submissions' },
-      { to: '/my-stack',         label: 'My Stack',   sub: 'Your treatment stack' },
-      { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
-      { to: '/budget',           label: 'Budget',     sub: 'Track what you spend' },
-      { to: '/alerts',           label: 'Alerts',     sub: 'Price drop notifications' },
-    ],
-  },
+];
+
+// My GlowBuddy items — personal links shown in the avatar dropdown
+// (desktop) and the mobile auth section (logged-in).
+const MY_GLOW_LINKS = [
+  { to: '/my/history',       label: 'My History', sub: 'Past submissions' },
+  { to: '/my-stack',         label: 'My Stack',   sub: 'Your treatment stack' },
+  { to: '/build-my-routine', label: 'My Routine', sub: 'Build your schedule' },
+  { to: '/budget',           label: 'Budget',     sub: 'Track what you spend' },
+  { to: '/alerts',           label: 'Alerts',     sub: 'Price drop notifications' },
 ];
 
 const COMMUNITY_LINKS = [
@@ -406,42 +406,41 @@ export default function Navbar() {
 
                   {avatarOpen && (
                     <div
-                      className="absolute right-0 mt-2 w-52 bg-white border border-rule rounded-none py-2 z-50"
-                      style={{ borderTop: '2px solid #111' }}
+                      className="absolute right-0 mt-2 bg-white border border-rule rounded-none py-2 z-50"
+                      style={{ borderTop: '2px solid #111', minWidth: 220 }}
                       role="menu"
                     >
-                      <Link
-                        to="/account"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      {/* MY GLOWBUDDY section */}
+                      <p
+                        className="px-4 pt-2 pb-1 text-[10px] font-semibold text-hot-pink uppercase"
+                        style={{ letterSpacing: '0.12em' }}
                       >
-                        Account
-                      </Link>
-                      <Link
-                        to="/my-treatments"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        My Treatments
-                      </Link>
-                      <Link
-                        to="/my-stack"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        My Stack
-                      </Link>
-                      <Link
-                        to="/budget"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        Budget
-                      </Link>
+                        My GlowBuddy
+                      </p>
+                      {MY_GLOW_LINKS.map((link) => (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          onClick={() => setAvatarOpen(false)}
+                          role="menuitem"
+                          className="block px-4 py-2 hover:bg-cream transition-colors group"
+                        >
+                          <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                            {link.label}
+                            {link.to === '/alerts' && unreadCount > 0 && (
+                              <span className="inline-block w-2 h-2 bg-hot-pink rounded-full" />
+                            )}
+                          </span>
+                          <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">
+                            {link.sub}
+                          </p>
+                        </Link>
+                      ))}
+
+                      {/* Divider */}
+                      <div className="mx-4 my-2 border-t border-rule" />
+
+                      {/* Account links */}
                       <Link
                         to="/rewards"
                         onClick={() => setAvatarOpen(false)}
@@ -458,12 +457,20 @@ export default function Navbar() {
                       >
                         Refer &amp; Earn $10
                       </Link>
+                      <Link
+                        to="/account"
+                        onClick={() => setAvatarOpen(false)}
+                        role="menuitem"
+                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
+                      >
+                        Account Settings
+                      </Link>
                       <button
                         onClick={handleSignOut}
                         role="menuitem"
                         className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors"
                       >
-                        Sign Out
+                        Log Out
                       </button>
                     </div>
                   )}
@@ -676,9 +683,35 @@ export default function Navbar() {
             <div className="mt-8 pt-6 border-t border-rule">
               {user ? (
                 <div className="flex flex-col gap-1">
-                  <Link to="/my-treatments" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    My Treatments
-                  </Link>
+                  {/* MY GLOWBUDDY section */}
+                  <p
+                    className="text-[10px] font-semibold text-hot-pink uppercase mb-1"
+                    style={{ letterSpacing: '0.12em' }}
+                  >
+                    My GlowBuddy
+                  </p>
+                  {MY_GLOW_LINKS.map((link) => {
+                    const active = location.pathname.startsWith(link.to);
+                    return (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        className={`flex items-center gap-2 py-2 text-[15px] transition-colors ${
+                          active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                        }`}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        {link.label}
+                        {link.to === '/alerts' && unreadCount > 0 && (
+                          <span className="w-2 h-2 bg-hot-pink rounded-full" />
+                        )}
+                      </Link>
+                    );
+                  })}
+
+                  {/* Divider */}
+                  <div className="border-t border-rule my-3" />
+
                   <Link to="/rewards" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
                     My Rewards
                   </Link>
@@ -686,13 +719,13 @@ export default function Navbar() {
                     Refer &amp; Earn $10
                   </Link>
                   <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    Account
+                    Account Settings
                   </Link>
                   <button
                     onClick={handleSignOut}
                     className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink"
                   >
-                    Sign Out
+                    Log Out
                   </button>
                 </div>
               ) : (

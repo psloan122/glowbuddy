@@ -176,7 +176,7 @@ export default function ThankYou({
           ? 'Verify your email below to publish your submission and enter this month\u2019s giveaway.'
           : outlierFlagged
             ? 'Our team is reviewing your submission. It\u2019ll appear in results shortly.'
-            : `You just helped people${procedure.city ? ` in ${procedure.city}` : ''} who are researching ${procedure.procedure_type} prices know what to expect.`}
+            : `You just helped people${procedure.city ? ` in ${procedure.city}` : ''} who are researching ${((n) => !n ? 'Treatment' : n.includes('/') ? 'Neurotoxin' : n)(procedure.procedure_type)} prices know what to expect.`}
       </p>
 
       {/* Entry count card */}
@@ -221,7 +221,7 @@ export default function ThankYou({
           if (navigator.share) {
             navigator.share({
               title: 'I shared my price on Know Before You Glow',
-              text: `I just shared what I paid for ${procedure.procedure_type}${procedure.city ? ` in ${procedure.city}` : ''}. Check out real prices from real patients.`,
+              text: `I just shared what I paid for ${((n) => !n ? 'Treatment' : n.includes('/') ? 'Neurotoxin' : n)(procedure.procedure_type)}${procedure.city ? ` in ${procedure.city}` : ''}. Check out real prices from real patients.`,
               url: 'https://knowbeforeyouglow.com',
             }).catch(() => {});
           } else {

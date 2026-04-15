@@ -127,7 +127,7 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
                   className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-rose-accent/50 transition-colors flex items-center justify-between"
                 >
                   <span className="text-sm font-medium text-text-primary">
-                    {item.procedure_type}
+                    {((n) => !n ? 'Treatment' : n.includes('/') ? 'Neurotoxin' : n)(item.procedure_type)}
                   </span>
                   <span className="text-sm text-text-secondary">
                     ${item.price}{MENU_UNIT_LABELS[item.price_label] || ''}

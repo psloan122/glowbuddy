@@ -264,7 +264,7 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
 function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
   const isPaid = tierHelpers?.isPaid;
   const cityLabel = provider?.city || 'your city';
-  const procedureLabel = row.procedure_type;
+  const procedureLabel = ((n) => !n ? 'Treatment' : n.includes('/') ? 'Neurotoxin' : n)(row.procedure_type);
   const alertCount = Number(row.alert_count || 0);
   const avgThreshold = row.avg_threshold ? Number(row.avg_threshold) : null;
   const currentPrice = row.current_price ? Number(row.current_price) : null;

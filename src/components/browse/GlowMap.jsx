@@ -110,32 +110,34 @@ function buildPinIcon({ color, label, highlighted }) {
   };
 }
 
-// Gate-mode pin: small filled circle. Smaller and quieter than the
-// price pill pins so a city-dense map doesn't get overwhelming before the
-// user refines, but still clearly filled (not hollow) so pins don't look
-// broken when clusters break apart at high zoom.
-function buildGatePinIcon({ initials, highlighted }) {
-  const size = highlighted ? 16 : 12;
-  const r = size / 2;
-  const fill = highlighted ? '#111111' : '#B8A89A';
-  const stroke = highlighted ? '#111111' : '#FFFFFF';
-  const strokeW = 2;
+// No-price pin: tappable pill saying "No prices yet".
+// Larger and more readable than the old gray dot — every pin is now
+// an actionable entry point to the log flow.
+function buildNoPricePinIcon({ highlighted }) {
+  const w = highlighted ? 96 : 88;
+  const h = highlighted ? 26 : 24;
+  const textColor = highlighted ? '#ffffff' : '#6B7280';
+  const bgColor = highlighted ? '#111111' : '#ffffff';
+  const borderColor = highlighted ? '#111111' : '#D1D5DB';
+  const fontSize = highlighted ? 12 : 11;
+  const text = 'No prices yet';
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size + 6}" height="${size + 6}" viewBox="0 0 ${size + 6} ${size + 6}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + 8}" viewBox="0 0 ${w} ${h + 8}">
       <defs>
-        <filter id="shadow-gate" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.20"/>
+        <filter id="shadow-np" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.12"/>
         </filter>
       </defs>
-      <g filter="url(#shadow-gate)">
-        <circle cx="${r + 3}" cy="${r + 3}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}"/>
+      <g filter="url(#shadow-np)">
+        <rect x="1" y="1" rx="${h / 2}" ry="${h / 2}" width="${w - 2}" height="${h}" fill="${bgColor}" stroke="${borderColor}" stroke-width="1.5"/>
+        <text x="${w / 2}" y="${h / 2 + fontSize / 2 - 1}" text-anchor="middle" fill="${textColor}" font-family="Outfit, Arial, sans-serif" font-weight="500" font-size="${fontSize}">${text}</text>
       </g>
     </svg>
   `;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    anchor: window.google?.maps ? new window.google.maps.Point(r + 3, r + 3) : undefined,
-    scaledSize: window.google?.maps ? new window.google.maps.Size(size + 6, size + 6) : undefined,
+    anchor: window.google?.maps ? new window.google.maps.Point(w / 2, h + 4) : undefined,
+    scaledSize: window.google?.maps ? new window.google.maps.Size(w, h + 8) : undefined,
   };
 }
 
@@ -231,6 +233,7 @@ export default memo(function GlowMap({
   const mapInstanceRef = useRef(null);
   const markersRef = useRef(new Map()); // key → marker instance
   const clustererRef = useRef(null);
+  const infoWindowRef = useRef(null); // active no-price popup
   const userInteracted = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef = useRef(null);
@@ -352,9 +355,13 @@ export default memo(function GlowMap({
           });
 
           // Clicking empty map space (not a pin) dismisses any open
-          // provider profile card. Marker clicks do NOT bubble to the
-          // map, so this only fires on background taps.
+          // provider profile card or no-price popup. Marker clicks do
+          // NOT bubble to the map, so this only fires on background taps.
           map.addListener('click', () => {
+            if (infoWindowRef.current) {
+              infoWindowRef.current.close();
+              infoWindowRef.current = null;
+            }
             onMapClickRef.current?.();
           });
 
@@ -654,11 +661,10 @@ export default memo(function GlowMap({
     nextGroups.forEach((g) => {
       const isPriced = g.bestPrice != null;
       const baseColor = isPriced ? colorForGroup(g, currentCityAvg) : null;
-      const initials = providerInitials(g.provider_name);
       const label = isPriced ? fmtShortPrice(g.bestPrice) : null;
       const icon = isPriced
         ? buildPinIcon({ color: baseColor, label, highlighted: false })
-        : buildGatePinIcon({ initials, highlighted: false });
+        : buildNoPricePinIcon({ highlighted: false });
 
       let marker = markersRef.current.get(g.key);
       if (!marker) {
@@ -671,7 +677,30 @@ export default memo(function GlowMap({
         });
         marker.__glowKey = g.key;
         marker.addListener('click', () => {
-          onPinClickRef.current?.(marker.__glowGroup);
+          const grp = marker.__glowGroup;
+          if (!grp) return;
+          if (marker.__glowPriced) {
+            // Priced pin — open the full provider card
+            onPinClickRef.current?.(grp);
+          } else {
+            // No-price pin — show lightweight popup with log CTA
+            if (infoWindowRef.current) infoWindowRef.current.close();
+            const logUrl = `/log?${new URLSearchParams({
+              ...(grp.provider_id ? { provider_id: grp.provider_id } : {}),
+              provider: grp.provider_name,
+              city: grp.city,
+              state: grp.state,
+            }).toString()}`;
+            const iw = new window.google.maps.InfoWindow({
+              content: `<div style="font-family:Outfit,Arial,sans-serif;padding:4px 2px;min-width:180px;max-width:220px">
+                <p style="font-weight:600;font-size:13px;color:#111;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${grp.provider_name.replace(/</g, '&lt;')}</p>
+                <p style="font-size:12px;color:#888;margin:0 0 10px">No prices yet — be the first 💅</p>
+                <a href="${logUrl}" style="display:block;background:#E8347A;color:white;text-align:center;padding:8px 16px;border-radius:20px;font-weight:600;font-size:12px;text-decoration:none;letter-spacing:0.04em">+ Add a price</a>
+              </div>`,
+            });
+            iw.open({ map: mapInstanceRef.current, anchor: marker });
+            infoWindowRef.current = iw;
+          }
         });
         markersRef.current.set(g.key, marker);
         newMarkers.push(marker);
@@ -685,7 +714,6 @@ export default memo(function GlowMap({
       marker.__glowGroup = g;
       marker.__glowColor = baseColor;
       marker.__glowLabel = label;
-      marker.__glowInitials = initials;
       marker.__glowPriced = isPriced;
       marker.setZIndex(isPriced ? 100 : 50);
 
@@ -776,8 +804,7 @@ export default memo(function GlowMap({
         marker.setZIndex(isHighlighted ? 1000 : 100);
       } else {
         marker.setIcon(
-          buildGatePinIcon({
-            initials: marker.__glowInitials,
+          buildNoPricePinIcon({
             highlighted: isHighlighted,
           }),
         );
