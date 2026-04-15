@@ -3670,10 +3670,10 @@ export default function FindPrices() {
               overflow: 'hidden',
             }}
           >
-            {/* Left: 50% width, scrollable. Airbnb-style layout. */}
+            {/* Left: fixed 460px, scrollable. Airbnb-style layout. */}
             <div
               style={{
-                width: '50%',
+                width: 460,
                 flexShrink: 0,
                 overflowY: 'auto',
                 padding: !procFilter ? '0 24px' : '16px 24px',
@@ -3981,15 +3981,14 @@ export default function FindPrices() {
               )}
             </div>
 
-            {/* Right: 50% width map — same component instance for the
-                entire gate → priced lifecycle so markers never get
-                wiped. allProviders is the always-fetched base layer
-                of city pins (gray); procedures is the priced overlay
+            {/* Right: flex-1 map — fills remaining viewport. Same component
+                instance for the entire gate → priced lifecycle so markers
+                never get wiped. allProviders is the always-fetched base
+                layer of city pins (gray); procedures is the priced overlay
                 (colored by price tier) and is empty in gate state. */}
             <div
               style={{
-                width: '50%',
-                flexShrink: 0,
+                flex: 1,
                 position: 'relative',
                 minWidth: 0,
               }}

@@ -53,6 +53,10 @@ export default memo(function MultiProcedureProviderCard({ entry, targetCount, us
     return Number.isFinite(Number(p.price)) && Number(p.price) > 0;
   });
 
+  const MAX_ROWS = 3;
+  const visiblePrices = prices.slice(0, MAX_ROWS);
+  const hiddenPriceCount = Math.max(0, prices.length - MAX_ROWS);
+
   const badgeLabel = (() => {
     if (!targetCount || targetCount < 2) return null;
     if (matchCount >= targetCount) return `OFFERS ALL ${targetCount}`;
@@ -135,9 +139,9 @@ export default memo(function MultiProcedureProviderCard({ entry, targetCount, us
         )}
       </div>
 
-      {/* Procedure rows */}
+      {/* Procedure rows — capped at MAX_ROWS */}
       <div>
-        {prices.map((row, idx) => {
+        {visiblePrices.map((row, idx) => {
           const label = formatRowLabel(row);
           const subLabel = formatPriceLabel(row);
           const price = formatPriceDisplay(row);
@@ -203,7 +207,7 @@ export default memo(function MultiProcedureProviderCard({ entry, targetCount, us
         })}
       </div>
 
-      {/* Footer link */}
+      {/* Footer link — shows hidden count when rows are collapsed */}
       <Link
         to={profileHref}
         className="text-center hover:bg-cream transition-colors"
@@ -217,7 +221,9 @@ export default memo(function MultiProcedureProviderCard({ entry, targetCount, us
           textDecoration: 'none',
         }}
       >
-        View full menu &rarr;
+        {hiddenPriceCount > 0
+          ? `View full menu (${prices.length} prices) \u2192`
+          : 'View full menu \u2192'}
       </Link>
     </div>
   );

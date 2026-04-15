@@ -729,7 +729,7 @@ function PriceCard({
 }) {
   // Defensive: tolerate either an empty array or accidental single-row use.
   // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
-  const MAX_VISIBLE_ROWS = 4;
+  const MAX_VISIBLE_ROWS = 3;
   const allRows = (Array.isArray(procedures) ? procedures : []).filter((p) =>
     p.normalized_category !== 'hidden'
   );
