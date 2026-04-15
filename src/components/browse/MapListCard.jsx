@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
-import { formatPricingUnit } from '../../utils/formatPricingUnit';
+import { getPriceLabelShort } from '../../utils/formatPricingUnit';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 
 // Pull a usable photo URL off a provider record — check the common field
@@ -57,7 +57,7 @@ function MapListCard({
   // Lead price line: "Botox from $9/unit" or "No prices yet"
   const priceLine = leadPrice
     ? (() => {
-        const unit = formatPricingUnit(leadPrice.price_label);
+        const unit = getPriceLabelShort(leadPrice.price_label);
         const procedure = getProcedureLabel(leadPrice.procedure_type, brandLabel || leadPrice.brand);
         return `${procedure} from $${Math.round(leadPrice.price)}${unit ? ` / ${unit.replace(/^per /, '')}` : ''}`;
       })()

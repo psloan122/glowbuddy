@@ -36,32 +36,65 @@ export const COL = {
 
 // ── Display formatters ──────────────────────────────────────────────
 
+// Long-form labels — used on detail/profile pages.
 const DISPLAY_MAP = {
-  [UNIT.PER_UNIT]:     'per unit',
-  [UNIT.PER_SESSION]:  'per session',
-  [UNIT.PER_AREA]:     'per treatment area',
-  [UNIT.PER_SYRINGE]:  'per syringe',
-  [UNIT.PER_VIAL]:     'per vial',
-  [UNIT.PER_CYCLE]:    'per cycle',
-  [UNIT.FLAT_PACKAGE]: 'flat rate',
+  [UNIT.PER_UNIT]:       'per unit',
+  [UNIT.PER_SESSION]:    'per session',
+  [UNIT.PER_AREA]:       'per treatment area',
+  [UNIT.PER_SYRINGE]:    'per syringe',
+  [UNIT.PER_VIAL]:       'per vial',
+  [UNIT.PER_CYCLE]:      'per cycle',
+  [UNIT.FLAT_PACKAGE]:   'package deal',
   [UNIT.FLAT_RATE_AREA]: 'per treatment area',
-  [UNIT.PER_MONTH]:    'per month',
-  [UNIT.PER_ML]:       'per ml',
+  [UNIT.PER_MONTH]:      'per month',
+  [UNIT.PER_ML]:         'per ml',
   // Simplified specials/guide values (stored without the "per_" prefix)
-  'unit':     'per unit',
-  'syringe':  'per syringe',
-  'area':     'per treatment area',
-  'session':  'per session',
-  'vial':     'per vial',
+  'unit':    'per unit',
+  'syringe': 'per syringe',
+  'area':    'per treatment area',
+  'session': 'per session',
+  'vial':    'per vial',
+};
+
+// Short-form labels — used on browse cards and compact displays.
+const SHORT_DISPLAY_MAP = {
+  [UNIT.PER_UNIT]:       'per unit',
+  [UNIT.PER_SESSION]:    'per session',
+  [UNIT.PER_AREA]:       'per area',
+  [UNIT.PER_SYRINGE]:    'per syringe',
+  [UNIT.PER_VIAL]:       'per vial',
+  [UNIT.PER_CYCLE]:      'per cycle',
+  [UNIT.FLAT_PACKAGE]:   'package',
+  [UNIT.FLAT_RATE_AREA]: 'per area',
+  [UNIT.PER_MONTH]:      'per month',
+  [UNIT.PER_ML]:         'per ml',
+  'unit':    'per unit',
+  'syringe': 'per syringe',
+  'area':    'per area',
+  'session': 'per session',
+  'vial':    'per vial',
 };
 
 // Internal-only labels — suppress from UI display.
 const SUPPRESS = new Set(['range_low', 'range_high']);
 
-export function formatPricingUnit(unit) {
+/** Long-form label for detail/profile pages. */
+export function getPriceLabelLong(unit) {
   if (!unit) return '';
   if (SUPPRESS.has(unit)) return '';
-  return DISPLAY_MAP[unit] ?? unit;
+  return DISPLAY_MAP[unit] ?? unit.replace(/_/g, ' ');
+}
+
+/** Short-form label for browse cards and compact displays. */
+export function getPriceLabelShort(unit) {
+  if (!unit) return '';
+  if (SUPPRESS.has(unit)) return '';
+  return SHORT_DISPLAY_MAP[unit] ?? unit.replace(/_/g, ' ');
+}
+
+/** @deprecated Use getPriceLabelLong or getPriceLabelShort instead. */
+export function formatPricingUnit(unit) {
+  return getPriceLabelLong(unit);
 }
 
 /** Returns true when the pricing_unit / price_unit value is internal-only

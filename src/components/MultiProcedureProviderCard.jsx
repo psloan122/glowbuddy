@@ -27,7 +27,7 @@ function formatRowLabel(row) {
   return getProcedureLabel(row.procedure_type, row.brand).toUpperCase();
 }
 
-import { formatPricingUnit, isInternalField } from '../utils/formatPricingUnit';
+import { getPriceLabelShort, isInternalField } from '../utils/formatPricingUnit';
 
 const INTERNAL_LABELS = new Set(['range_low', 'range_high', 'hidden']);
 
@@ -35,7 +35,7 @@ function formatPriceLabel(row) {
   const unitLabel = row.price_label || null;
   if (!unitLabel) return null;
   if (INTERNAL_LABELS.has(unitLabel.toLowerCase()) || isInternalField(unitLabel)) return null;
-  return formatPricingUnit(unitLabel) || null;
+  return getPriceLabelShort(unitLabel) || null;
 }
 
 function formatPriceDisplay(row) {

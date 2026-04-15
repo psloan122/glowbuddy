@@ -41,6 +41,14 @@ export default function ProviderPricingSection({ verifiedPricing, priceCompariso
                     {item.treatment_area || formatUnitsIncluded(item.units_or_volume)}
                   </p>
                 )}
+                {normalized.unitSubtext && !item.treatment_area && !formatUnitsIncluded(item.units_or_volume) && (
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {normalized.unitSubtext}
+                    {(item.price_label || '').toLowerCase() === 'flat_package' && (
+                      <span style={{ marginLeft: 4, cursor: 'help' }} title="Fixed price — ask provider what's included (e.g. 20 units, one area)">ⓘ</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="text-right flex items-center gap-2 shrink-0">
                 <div>

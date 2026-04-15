@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, BellOff, Trash2, TrendingDown, Share2 } from "lucide-react";
+import { formatUnitSuffix } from '../utils/formatPricingUnit';
 
 export default function AlertCard({ alert, triggers, onToggle, onDelete, currentAvg }) {
   const [copied, setCopied] = useState(null);
@@ -19,12 +20,7 @@ export default function AlertCard({ alert, triggers, onToggle, onDelete, current
     last_triggered_at,
   } = alert;
 
-  const UNIT_LABELS = {
-    per_unit: '/unit', per_syringe: '/syringe', per_vial: '/vial',
-    per_session: '/session', per_area: '/area', per_cycle: '/cycle',
-    flat_package: '',
-  };
-  const unitSuffix = price_unit ? (UNIT_LABELS[price_unit] || '') : '';
+  const unitSuffix = price_unit ? formatUnitSuffix(price_unit) : '';
 
   // Label: prefer the brand (e.g. "Botox") over the generic category slug
   // (e.g. "neurotoxin") so the user sees what they actually signed up for.

@@ -146,6 +146,7 @@ const UNIT_DISPLAY = {
 const UNIT_SUBTEXT = {
   [UNIT.PER_AREA]:        'per treatment area',
   [UNIT.FLAT_RATE_AREA]:  'per treatment area',
+  [UNIT.FLAT_PACKAGE]:    'package deal',
 };
 
 /**

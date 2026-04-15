@@ -144,7 +144,12 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
           <p className="text-[11px] text-text-secondary mt-0.5 font-light">{formatUnitsIncluded(item.units_or_volume)}</p>
         )}
         {!formatUnitsIncluded(item.units_or_volume) && !item.treatment_area && normalized.unitSubtext && (
-          <p className="text-[11px] text-text-secondary mt-0.5 font-light">{normalized.unitSubtext}</p>
+          <p className="text-[11px] text-text-secondary mt-0.5 font-light">
+            {normalized.unitSubtext}
+            {(item.price_label || '').toLowerCase() === 'flat_package' && (
+              <span style={{ marginLeft: 4, cursor: 'help' }} title="Fixed price — ask provider what's included (e.g. 20 units, one area)">ⓘ</span>
+            )}
+          </p>
         )}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           <BrandChip item={item} perUnitPrice={normalized.comparableValue} />
