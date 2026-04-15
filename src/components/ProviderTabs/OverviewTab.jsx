@@ -6,6 +6,7 @@ import InjectorCard from '../InjectorCard';
 import InjectorDetailModal from '../InjectorDetailModal';
 import ReviewCard from '../ReviewCard';
 import ProcedureCard from '../ProcedureCard';
+import ProviderPriceSummary from '../ProviderPriceSummary';
 
 export default function OverviewTab({
   provider,
@@ -198,6 +199,27 @@ export default function OverviewTab({
               <ReviewCard key={review.id} review={review} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Verified Pricing Summary */}
+      {verifiedPricing.length > 0 && provider?.slug && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-text-primary">
+              Published Prices
+            </h2>
+            <button
+              onClick={() => onSwitchTab?.('Prices')}
+              className="text-sm text-rose-accent hover:text-rose-dark transition-colors font-medium"
+            >
+              See full menu
+            </button>
+          </div>
+          <ProviderPriceSummary
+            verifiedPricing={verifiedPricing}
+            providerSlug={provider.slug}
+          />
         </div>
       )}
 

@@ -25,6 +25,7 @@ import { captureReferralFromUrl, createReferralOnSignup } from './lib/referral';
 const Log = lazy(() => import('./pages/Log'));
 const ProcedureDetail = lazy(() => import('./pages/ProcedureDetail'));
 const ProviderProfile = lazy(() => import('./pages/ProviderProfile'));
+const ProviderPriceHistory = lazy(() => import('./pages/ProviderPriceHistory'));
 const Insights = lazy(() => import('./pages/Insights'));
 const Specials = lazy(() => import('./pages/Specials'));
 const Community = lazy(() => import('./pages/Community'));
@@ -285,6 +286,7 @@ function App() {
               <Route path="/log" element={<Log />} />
               <Route path="/procedure/:slug" element={<ProcedureDetail />} />
               <Route path="/provider/:slug" element={<ProviderProfile />} />
+              <Route path="/provider/:slug/prices" element={<ProviderPriceHistory />} />
               <Route path="/insights" element={<Insights />} />
               <Route path="/specials" element={<Specials />} />
               <Route path="/community" element={<Community />} />

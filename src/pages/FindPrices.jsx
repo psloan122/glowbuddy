@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useContext, useMemo, Component } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Link2, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -65,6 +65,30 @@ import useGeolocation from '../hooks/useGeolocation';
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+class MobileErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(error, info) { console.error('[MobileErrorBoundary]', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 55,
+          background: 'white', padding: 24, overflowY: 'auto',
+        }}>
+          <p style={{ color: 'red', fontWeight: 700, marginBottom: 8 }}>
+            MOBILE CRASH: {this.state.error.message}
+          </p>
+          <pre style={{ fontSize: 11, color: '#555', whiteSpace: 'pre-wrap' }}>
+            {this.state.error.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // sessionStorage key for the most recent /browse filter set. Only used as
@@ -530,8 +554,28 @@ export default function FindPrices() {
     setGateSelectedProviderGroup(null);
   }, []);
 
-  const handleCardHover = useCallback((procedure, isEntering) => {
-    setHoveredProviderId(isEntering ? procedure.provider_id || null : null);
+  const handleCardHover = useCallback((providerOrProc, isEntering) => {
+    const id = providerOrProc.provider_id || providerOrProc.id || null;
+    setHoveredProviderId(isEntering ? id : null);
+  }, []);
+
+  // Pin hover → scroll matching card into view + add highlight ring
+  const handlePinHover = useCallback((providerId, isEntering) => {
+    setHoveredProviderId(isEntering ? providerId : null);
+    if (isEntering) {
+      const el = document.querySelector(`[data-provider-card="${providerId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        el.style.outline = '2px solid #E91E8C';
+        el.style.outlineOffset = '2px';
+        el.style.borderRadius = '10px';
+      }
+    } else {
+      document.querySelectorAll('[data-provider-card]').forEach((el) => {
+        el.style.outline = '';
+        el.style.outlineOffset = '';
+      });
+    }
   }, []);
 
   // ── Viewport callbacks for GlowMap ──
@@ -2742,43 +2786,44 @@ export default function FindPrices() {
           procedure/brand yet. Replaces the gate entirely.
           Hidden on mobile (< md) so the user sees price cards immediately. */}
       {personalizedMode && (
-        <div className="hidden md:block bg-cream" style={{ borderBottom: '1px solid #EDE8E3' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-            <p className="editorial-kicker mb-3" style={{ color: '#E8347A' }}>
-              {(() => {
-                const loc = selectedLoc
-                  ? `${selectedLoc.city}, ${selectedLoc.state}`
-                  : null;
-                return loc ? `Your treatments · ${loc}` : 'Your treatments';
-              })()}
-            </p>
-            <h1
-              className="font-display text-ink"
-              style={{ fontWeight: 900, fontSize: 'clamp(28px, 5vw, 48px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}
+        <div
+          className="hidden md:block bg-white"
+          style={{ borderBottom: '1px solid #EDE8E3' }}
+        >
+          <div
+            className="max-w-7xl mx-auto px-4"
+            style={{
+              paddingTop: 8,
+              paddingBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+              minHeight: 40,
+            }}
+          >
+            {/* Context label */}
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                fontWeight: 500,
+                color: '#B8A89A',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+              }}
             >
-              {(() => {
-                const pillLabels = procedureSlugs
-                  .map((s) => findPillBySlug(s)?.label)
-                  .filter(Boolean);
-                const parts = [...userBrands, ...pillLabels];
-                const unique = [...new Set(parts)];
-                const joined =
-                  unique.length === 0
-                    ? 'Your treatments'
-                    : unique.length === 1
-                    ? unique[0]
-                    : unique.length === 2
-                    ? `${unique[0]} & ${unique[1]}`
-                    : `${unique.slice(0, -1).join(', ')} & ${unique[unique.length - 1]}`;
-                const loc = selectedLoc
-                  ? ` in ${selectedLoc.city}, ${selectedLoc.state}`
-                  : '';
-                return `${joined} prices${loc}.`;
-              })()}
-            </h1>
+              {selectedLoc
+                ? `your treatments · ${selectedLoc.city}, ${selectedLoc.state}`
+                : 'your treatments'}
+            </span>
 
-            {/* Active filter pills — removable per-session */}
-            <div className="mt-5 flex items-center gap-2 flex-wrap">
+            {/* Divider dot */}
+            <span style={{ color: '#DDD', fontSize: 10 }}>·</span>
+
+            {/* Treatment chips */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               {procedureSlugs.map((slug) => {
                 const pill = findPillBySlug(slug);
                 if (!pill) return null;
@@ -2786,21 +2831,25 @@ export default function FindPrices() {
                   <button
                     key={`slug-${slug}`}
                     type="button"
-                    onClick={() => {
-                      // Session-only: pick this pill as the explicit filter
-                      // so the user can drill in without touching saved prefs.
-                      setProcFilter(makeProcedureFilterFromPill(pill));
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white transition-colors"
+                    onClick={() => setProcFilter(makeProcedureFilterFromPill(pill))}
                     style={{
-                      letterSpacing: '0.08em',
-                      borderRadius: '4px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      height: 24,
+                      padding: '0 8px',
+                      borderRadius: 3,
                       background: '#E8347A',
+                      color: '#fff',
                       fontFamily: 'var(--font-body)',
+                      fontWeight: 700,
+                      fontSize: 10,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      border: 'none',
+                      cursor: 'pointer',
                     }}
-                    title={`Drill into ${pill.label}`}
                   >
-                    {pill.label.toUpperCase()}
+                    {pill.label}
                   </button>
                 );
               })}
@@ -2809,56 +2858,85 @@ export default function FindPrices() {
                   key={`brand-${brand}`}
                   type="button"
                   onClick={() => setBrandFilter(brand)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase text-white transition-colors"
                   style={{
-                    letterSpacing: '0.08em',
-                    borderRadius: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    height: 24,
+                    padding: '0 8px',
+                    borderRadius: 3,
                     background: '#E8347A',
+                    color: '#fff',
                     fontFamily: 'var(--font-body)',
+                    fontWeight: 700,
+                    fontSize: 10,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    border: 'none',
+                    cursor: 'pointer',
                   }}
-                  title={`Drill into ${brand}`}
                 >
-                  {brand.toUpperCase()}
+                  {brand}
                 </button>
               ))}
               <Link
                 to="/settings#treatment-preferences"
-                className="inline-flex items-center gap-1 px-3 py-1 text-[10px] font-semibold uppercase transition-colors"
                 style={{
-                  letterSpacing: '0.08em',
-                  borderRadius: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  height: 24,
+                  padding: '0 8px',
+                  borderRadius: 3,
                   border: '1px solid #DDD',
                   background: 'transparent',
-                  color: '#888',
+                  color: '#999',
                   fontFamily: 'var(--font-body)',
+                  fontWeight: 600,
+                  fontSize: 10,
+                  letterSpacing: '0.06em',
+                  textDecoration: 'none',
                 }}
               >
-                + Add
+                + add
               </Link>
             </div>
 
-            <div className="mt-4 flex items-center gap-4 flex-wrap">
-              <Link
-                to="/settings#treatment-preferences"
-                className="text-[11px] font-medium hover:opacity-70 transition-opacity"
-                style={{
-                  color: '#E8347A',
-                  fontFamily: 'var(--font-body)',
-                  borderBottom: '1px solid #E8347A',
-                  paddingBottom: '1px',
-                }}
-              >
-                Edit treatment preferences &rarr;
-              </Link>
-              <button
-                type="button"
-                onClick={() => setPersonalDismissed(true)}
-                className="text-[11px] font-medium text-text-secondary hover:text-ink transition-colors"
-                style={{ fontFamily: 'var(--font-body)' }}
-              >
-                Browse all treatments
-              </button>
-            </div>
+            {/* Divider dot */}
+            <span style={{ color: '#DDD', fontSize: 10 }}>·</span>
+
+            {/* Action links */}
+            <Link
+              to="/settings#treatment-preferences"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                color: '#B8A89A',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#E8347A'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#B8A89A'; }}
+            >
+              edit prefs
+            </Link>
+            <span style={{ color: '#DDD', fontSize: 10 }}>·</span>
+            <button
+              type="button"
+              onClick={() => setPersonalDismissed(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                color: '#B8A89A',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#555'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#B8A89A'; }}
+            >
+              browse all
+            </button>
           </div>
         </div>
       )}
@@ -3389,6 +3467,7 @@ export default function FindPrices() {
             : gateProviders;
 
         return (
+          <MobileErrorBoundary>
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
 
             {/* Layer 1: Map — fills full screen behind everything */}
@@ -3509,6 +3588,7 @@ export default function FindPrices() {
             />
 
           </div>
+          </MobileErrorBoundary>
         );
       })()}
 
@@ -3971,6 +4051,7 @@ export default function FindPrices() {
                 onMapClick={handleMapClick}
                 onBoundsChange={handleBoundsChange}
                 onUserMovedMap={handleUserMovedMap}
+                onPinHover={handlePinHover}
                 showSearchArea={showSearchArea}
                 onSearchAreaClick={handleSearchAreaClick}
               />

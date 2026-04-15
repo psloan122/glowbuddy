@@ -45,10 +45,12 @@
  */
 
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, LocateFixed } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import MapLoadingFallback from '../MapLoadingFallback';
+import { providerProfileUrl } from '../../lib/slugify';
 
 // Debounce helper — returns a function that delays invocation by `ms`.
 function debounce(fn, ms) {
@@ -223,6 +225,7 @@ export default memo(function GlowMap({
   onMapClick,
   onBoundsChange,
   onUserMovedMap,
+  onPinHover,
   showSearchArea,
   onSearchAreaClick,
   mobileLegendTop,
@@ -282,6 +285,15 @@ export default memo(function GlowMap({
   useEffect(() => {
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
+  const onPinHoverRef = useRef(onPinHover);
+  useEffect(() => {
+    onPinHoverRef.current = onPinHover;
+  }, [onPinHover]);
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
   // Has any priced data ever been rendered on the current map? Used
   // to decide whether to show the legend (priced) or the gate hint
   // (no prices yet).
@@ -676,14 +688,28 @@ export default memo(function GlowMap({
           icon,
         });
         marker.__glowKey = g.key;
+        marker.addListener('mouseover', () => {
+          const grp = marker.__glowGroup;
+          if (grp?.provider_id) onPinHoverRef.current?.(grp.provider_id, true);
+        });
+        marker.addListener('mouseout', () => {
+          const grp = marker.__glowGroup;
+          if (grp?.provider_id) onPinHoverRef.current?.(grp.provider_id, false);
+        });
         marker.addListener('click', () => {
           const grp = marker.__glowGroup;
           if (!grp) return;
+          const providerUrl = providerProfileUrl(
+            grp.provider_slug,
+            grp.provider_name,
+            grp.city,
+            grp.state,
+          );
           if (marker.__glowPriced) {
-            // Priced pin — open the full provider card
-            onPinClickRef.current?.(grp);
+            // Priced pin — navigate to provider detail page
+            if (providerUrl) navigateRef.current(providerUrl);
           } else {
-            // No-price pin — show lightweight popup with log CTA
+            // No-price pin — show popup with log CTA + provider link
             if (infoWindowRef.current) infoWindowRef.current.close();
             const logUrl = `/log?${new URLSearchParams({
               ...(grp.provider_id ? { provider_id: grp.provider_id } : {}),
@@ -691,10 +717,16 @@ export default memo(function GlowMap({
               city: grp.city,
               state: grp.state,
             }).toString()}`;
+            const safeName = grp.provider_name.replace(/</g, '&lt;');
+            const safeCity = `${grp.city}${grp.state ? `, ${grp.state}` : ''}`;
             const iw = new window.google.maps.InfoWindow({
-              content: `<div style="font-family:Outfit,Arial,sans-serif;padding:4px 2px;min-width:180px;max-width:220px">
-                <p style="font-weight:600;font-size:13px;color:#111;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${grp.provider_name.replace(/</g, '&lt;')}</p>
-                <p style="font-size:12px;color:#888;margin:0 0 10px">No prices yet — be the first 💅</p>
+              content: `<div style="font-family:Outfit,Arial,sans-serif;padding:4px 2px;min-width:190px;max-width:230px">
+                ${providerUrl ? `<a href="${providerUrl}" style="display:block;text-decoration:none;color:inherit;cursor:pointer;margin-bottom:10px">` : '<div style="margin-bottom:10px">'}
+                  <p style="font-weight:600;font-size:13px;color:#111;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${safeName}</p>
+                  <p style="font-size:11px;color:#888;margin:0 0 6px">${safeCity}</p>
+                  <p style="font-size:12px;color:#888;margin:0 0 6px">No prices yet — be the first 💅</p>
+                  ${providerUrl ? `<span style="font-size:12px;font-weight:600;color:#E8347A">View provider →</span>` : ''}
+                ${providerUrl ? '</a>' : '</div>'}
                 <a href="${logUrl}" style="display:block;background:#E8347A;color:white;text-align:center;padding:8px 16px;border-radius:20px;font-weight:600;font-size:12px;text-decoration:none;letter-spacing:0.04em">+ Add a price</a>
               </div>`,
             });

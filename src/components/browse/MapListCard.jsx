@@ -77,12 +77,16 @@ function MapListCard({
         overflow: 'hidden',
         background: 'white',
         border: selected ? '2px solid #111' : '1px solid #EDE8E3',
-        transition: 'border-color 150ms, transform 150ms',
+        transition: 'border-color 150ms, transform 150ms, box-shadow 150ms',
       }}
       onMouseOver={(e) => {
-        if (!selected) e.currentTarget.style.borderColor = '#D6CFC6';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.10)';
+        if (!selected) e.currentTarget.style.borderColor = '#F8C2D6';
       }}
       onMouseOut={(e) => {
+        e.currentTarget.style.transform = '';
+        e.currentTarget.style.boxShadow = '';
         if (!selected) e.currentTarget.style.borderColor = '#EDE8E3';
       }}
     >
