@@ -1304,17 +1304,6 @@ export default function FindPrices() {
     });
 
     async function fetchProcedures() {
-      // DEBUG: initial load diagnostic — remove before deploying
-      console.log('[FindPrices] fetch triggered:', {
-        procFilter: procFilter?.slug || null,
-        brandFilter,
-        filterProcedureTypes: filterProcedureTypes.length,
-        city: filterCity,
-        state: filterState,
-        selectedLoc: selectedLoc ? `${selectedLoc.city}, ${selectedLoc.state}` : null,
-        mapReady: !!document.querySelector('[data-glow-map]'),
-      });
-
       // Gate: if no procedure has been picked yet, don't fetch anything —
       // the UI shows the ProcedureGate prompt instead. This avoids
       // surfacing apples-to-oranges prices and saves a round-trip.

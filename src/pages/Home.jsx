@@ -36,20 +36,6 @@ const TREATMENT_CHIPS = [
 // `brand` is optional — when set, the browse page applies an additional
 // provider_pricing.brand filter so only that brand's prices show.
 //
-// Each neurotoxin brand is a separate pill so users can compare across
-// Botox / Dysport / Xeomin / Jeuveau / Daxxify without ever seeing them
-// blended into a single bucket.
-const HERO_PROCS = [
-  { label: 'Botox', slug: 'neurotoxin', brand: 'Botox' },
-  { label: 'Dysport', slug: 'neurotoxin', brand: 'Dysport' },
-  { label: 'Xeomin', slug: 'neurotoxin', brand: 'Xeomin' },
-  { label: 'Jeuveau', slug: 'neurotoxin', brand: 'Jeuveau' },
-  { label: 'Daxxify', slug: 'neurotoxin', brand: 'Daxxify' },
-  { label: 'Fillers', slug: 'filler' },
-  { label: 'Laser', slug: 'laser' },
-  { label: 'GLP-1', slug: 'weight-loss' },
-];
-
 // Sample featured prices for hero right column (cream bg, dark cards)
 const HERO_FEATURED = [
   {
@@ -678,26 +664,6 @@ export default function Home() {
               </button>
             </div>
           )}
-
-          {/* Procedure pills — left-aligned. Each pill maps to a real
-              PROCEDURE_PILLS slug via buildBrowseUrl, and carries the
-              user's saved city forward when present. */}
-          <div className="flex md:flex-wrap items-center justify-start gap-1.5 mb-5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-1 px-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-            {HERO_PROCS.map((proc) => (
-              <Link
-                key={proc.label}
-                to={buildBrowseUrl({
-                  city: savedCity || undefined,
-                  state: savedState || undefined,
-                  procedure: proc.slug,
-                  brand: proc.brand,
-                })}
-                className="proc-pill proc-pill-inactive-light shrink-0"
-              >
-                {proc.label}
-              </Link>
-            ))}
-          </div>
 
           {/* Recency / data freshness label */}
           {(providerCountTotal || patientCount) && (

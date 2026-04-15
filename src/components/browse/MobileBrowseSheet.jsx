@@ -1,4 +1,4 @@
-import { useRef, useEffect, memo, useMemo } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Drawer } from 'vaul';
 import MapProviderCard from '../MapProviderCard';
@@ -37,10 +37,17 @@ export default memo(function MobileBrowseSheet({
 }) {
   const listRef = useRef(null);
   const count = providerCount ?? providers.length;
+  const [snap, setSnap] = useState(SNAP_POINTS[1]); // start at half
 
-  // Pin-tap reaction: scroll to the selected provider card
+  // Notify parent on snap change so map padding can update
+  useEffect(() => {
+    onSnapChange?.(snapName(snap));
+  }, [snap, onSnapChange]);
+
+  // Pin-tap reaction: expand to full + scroll to the selected provider card
   useEffect(() => {
     if (selectedProviderId == null) return;
+    setSnap(SNAP_POINTS[2]); // full
     const timer = setTimeout(() => {
       const node = document.querySelector(
         `[data-provider-card="${selectedProviderId}"]`,
@@ -52,10 +59,12 @@ export default memo(function MobileBrowseSheet({
 
   return (
     <Drawer.Root
-      snapPoints={SNAP_POINTS}
-      activeSnapPoint={SNAP_POINTS[1]}
-      setActiveSnapPoint={(snap) => onSnapChange?.(snapName(snap))}
+      open
       modal={false}
+      dismissible={false}
+      snapPoints={SNAP_POINTS}
+      activeSnapPoint={snap}
+      setActiveSnapPoint={setSnap}
       handleOnly
     >
       <Drawer.Portal>
