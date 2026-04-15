@@ -494,9 +494,19 @@ export default function FindPrices() {
       const match = groupedProvidersRef.current.find(
         (g) => g.provider_id && g.provider_id === group.provider_id,
       );
+      const hasPrices = !!match && (match.procedures?.length || 0) > 0;
       const enriched = match
-        ? { ...group, rows: match.procedures }
-        : group;
+        ? { ...group, rows: match.procedures, _unpriced: false }
+        : { ...group, _unpriced: true };
+
+      // Unpriced pin clicked while a procedure is selected — show the
+      // "no prices yet — be the first" bottom sheet instead of the full
+      // priced sheet. Works the same on mobile and desktop.
+      if (!hasPrices) {
+        setGateSelectedProviderGroup(enriched);
+        return;
+      }
+
       setSelectedProviderGroup(enriched);
       // On desktop we don't open a sheet — we just sync the selection
       // so the matching list card lights up. The user can scroll to it.
@@ -3436,6 +3446,16 @@ export default function FindPrices() {
               onSnapChange={setMobileSheetSnap}
             />
 
+            {/* Unpriced provider pin tapped — show "No prices yet" popup */}
+            {gateSelectedProviderGroup && (
+              <ProviderBottomSheet
+                group={gateSelectedProviderGroup}
+                gateMode={!procFilter && !gateSelectedProviderGroup._unpriced}
+                onSelectPill={handleGatePillSelect}
+                onClose={() => setGateSelectedProviderGroup(null)}
+              />
+            )}
+
             {/* Provider profile card — mobile pin click */}
             {hasPricedResults && selectedProviderGroup && (
               <ProviderProfileModal
@@ -3538,6 +3558,7 @@ export default function FindPrices() {
               selectLocation={selectLocation}
               clearLocation={clearLocation}
               selectedLoc={selectedLoc}
+              onUseMyLocation={requestGeoLocation}
             />
 
           </div>
@@ -4007,10 +4028,10 @@ export default function FindPrices() {
                 showSearchArea={showSearchArea}
                 onSearchAreaClick={handleSearchAreaClick}
               />
-              {!procFilter && gateSelectedProviderGroup && (
+              {gateSelectedProviderGroup && (
                 <ProviderBottomSheet
                   group={gateSelectedProviderGroup}
-                  gateMode
+                  gateMode={!procFilter && !gateSelectedProviderGroup._unpriced}
                   onSelectPill={handleGatePillSelect}
                   onClose={() => setGateSelectedProviderGroup(null)}
                 />

@@ -210,10 +210,64 @@ export default memo(function ProviderBottomSheet({
           </button>
         </div>
 
-        {/* Gate mode body: the user hasn't picked a treatment, so instead
-            of showing prices we show a compact pill picker inline so they
-            can refine right here without losing the provider context. */}
-        {gateMode ? (
+        {/* Unpriced pin clicked while a procedure filter is active:
+            user tapped a provider with no prices for their treatment.
+            Show "No prices yet — be the first" CTA with log flow link. */}
+        {group?._unpriced ? (
+          <div
+            style={{
+              borderTop: '1px solid #F0EBE6',
+              paddingTop: 18,
+              paddingBottom: 6,
+              marginBottom: 16,
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 14,
+                color: '#111',
+                margin: '0 0 6px',
+              }}
+            >
+              No prices yet — be the first 💅
+            </p>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 300,
+                fontSize: 12,
+                color: '#888',
+                margin: '0 0 16px',
+              }}
+            >
+              Help others know what to expect before they book.
+            </p>
+            <Link
+              to={`/log?provider_id=${group.provider_id || ''}&provider=${encodeURIComponent(group.provider_name || '')}&city=${encodeURIComponent(group.city || '')}&state=${encodeURIComponent(group.state || '')}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '10px 18px',
+                background: '#E8347A',
+                color: 'white',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                fontSize: 11,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                borderRadius: 2,
+              }}
+            >
+              + Add a price
+              <ArrowRight size={12} />
+            </Link>
+          </div>
+        ) : gateMode ? (
           <div
             style={{
               borderTop: '1px solid #F0EBE6',

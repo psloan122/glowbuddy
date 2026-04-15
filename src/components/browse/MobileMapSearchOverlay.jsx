@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { Search, X, MapPin } from 'lucide-react';
+import { Search, X, MapPin, Crosshair } from 'lucide-react';
 import {
   PROCEDURE_PILLS,
   findPillByLabel,
@@ -33,6 +33,7 @@ export default function MobileMapSearchOverlay({
   selectLocation,
   clearLocation,
   selectedLoc,
+  onUseMyLocation,
 }) {
   const overlayRef = useRef(null);
   const procInputRef = useRef(null);
@@ -126,6 +127,48 @@ export default function MobileMapSearchOverlay({
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 24px' }}>
+        {/* Near me — top action */}
+        {onUseMyLocation && (
+          <button
+            type="button"
+            onClick={() => { onUseMyLocation(); onClose(); }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 14px',
+              marginBottom: 12,
+              background: 'white',
+              border: '1px solid #EDE8E3',
+              borderRadius: 8,
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <span style={{
+              width: 36, height: 36, borderRadius: 18,
+              background: '#EFF6FF', display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Crosshair size={16} style={{ color: '#2563EB' }} />
+            </span>
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
+              }}>
+                Near me
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11, color: '#888',
+              }}>
+                Use your current location
+              </span>
+            </span>
+          </button>
+        )}
+
         {/* Procedure input */}
         <div ref={procRef} className="relative" style={{ marginBottom: 12 }}>
           {procFilter ? (
