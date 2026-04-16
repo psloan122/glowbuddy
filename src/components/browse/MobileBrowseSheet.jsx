@@ -198,7 +198,7 @@ export default memo(function MobileBrowseSheet({
                     key={p.key || p.provider_id || p.id}
                     data-provider-card={p.provider_id || p.id}
                     onClick={() => onProviderSelect?.(p)}
-                    style={{ cursor: onProviderSelect ? 'pointer' : undefined }}
+                    style={{ cursor: onProviderSelect ? 'pointer' : undefined, minWidth: 0, overflow: 'hidden' }}
                   >
                     <MapProviderCard
                       provider={p}

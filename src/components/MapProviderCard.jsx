@@ -62,15 +62,26 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
       {...wrapperProps}
       data-provider-card={provider.provider_id || provider.id || ''}
       className="flex items-center gap-3 p-3 rounded-xl hover:bg-warm-gray transition-colors"
-      style={selected ? {
-        boxShadow: '0 0 0 2px #E8347A',
-        borderRadius: 12,
-      } : undefined}
+      style={{
+        display: 'flex',
+        width: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        ...(selected ? { boxShadow: '0 0 0 2px #E8347A', borderRadius: 12 } : {}),
+      }}
     >
-      <ProviderAvatar name={provider_name} size={44} />
+      <ProviderAvatar name={provider_name} size={44} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <div className="font-semibold text-sm text-text-primary truncate">{provider_name}</div>
-        <p className="text-xs text-gray-400 truncate">
+        <div
+          style={{
+            fontWeight: 600, fontSize: 14, overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}
+        >{provider_name}</div>
+        <p style={{
+          margin: 0, fontSize: 12, color: '#9CA3AF',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
           {[city, state].filter(Boolean).join(', ')}{provider_type ? ` · ${cleanProviderType(provider_type)}` : ''}
         </p>
         {has_submissions ? (
