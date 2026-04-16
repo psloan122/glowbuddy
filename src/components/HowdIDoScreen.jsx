@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Check, ArrowRight, Trophy, Mail, MapPin, Share2, Gift } from 'lucide-react';
+import { ArrowRight, MapPin, Gift } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { getEntryBreakdown } from '../lib/points';
-import { PIONEER_TIERS, getPioneerToastMessage } from '../lib/pioneerLogic';
+import { PIONEER_TIERS } from '../lib/pioneerLogic';
 import EmailConfirmation from './EmailConfirmation';
 import SavingsShareCard from './SavingsShareCard';
 import { getProcedureLabel } from '../lib/procedureLabel';
@@ -13,7 +13,7 @@ const VERIFY_EMAIL = 'verify@knowbeforeyouglow.com';
 
 // Typical units per treatment for savings calculation
 const TYPICAL_UNITS = {
-  'Botox / Dysport / Xeomin': 28, // legacy grouped name — backward compat
+  'Botox / Dysport / Xeomin': 28,
   'Botox': 28,
   'Dysport': 28,
   'Xeomin': 28,
@@ -26,6 +26,54 @@ function getTypicalUnits(procedureType) {
   return TYPICAL_UNITS[procedureType] || 1;
 }
 
+function normalizeProcName(type) {
+  if (!type) return 'Treatment';
+  if (type.includes('/') && /botox|dysport|xeomin/i.test(type)) return 'Neurotoxin';
+  if (type.includes('/') && /juvederm|restylane|sculptra|filler/i.test(type)) return 'Filler';
+  return type;
+}
+
+const CELEBRATIONS = {
+  pioneer: {
+    emoji: '🌟',
+    headline: "You're a Pioneer!",
+    sub: (providerName) => `First price at ${providerName || 'this location'}`,
+  },
+  first_submission: {
+    emoji: '✨',
+    headline: "First one's always special",
+    sub: () => 'Your first price report — thank you!',
+  },
+  returning: {
+    emoji: '💪',
+    headline: 'Another one!',
+    sub: (_, city) => `Thanks for keeping${city ? ` ${city}` : ''} prices fresh`,
+  },
+  hundredth: {
+    emoji: '🏆',
+    headline: '100 submissions!!',
+    sub: () => "You're basically a legend",
+  },
+};
+
+function EntryLine({ label, value, delay, pending }) {
+  return (
+    <div
+      className="entry-line flex items-center justify-between"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <span className={`text-sm ${pending ? 'text-gray-400 italic' : 'text-gray-600'}`}>
+        {label}
+      </span>
+      {!pending && (
+        <span className="text-sm font-bold" style={{ color: '#C94F78' }}>
+          +{value}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Animate a number from 0 to target
 function useCountUp(target, duration = 600, delay = 300) {
   const [value, setValue] = useState(0);
@@ -36,7 +84,6 @@ function useCountUp(target, duration = 600, delay = 300) {
       function tick(now) {
         const elapsed = now - start;
         const progress = Math.min(elapsed / duration, 1);
-        // ease-out quad
         const eased = 1 - (1 - progress) * (1 - progress);
         setValue(Math.round(eased * target));
         if (progress < 1) requestAnimationFrame(tick);
@@ -50,7 +97,7 @@ function useCountUp(target, duration = 600, delay = 300) {
 
 export default function HowdIDoScreen({
   procedure,
-  comparison, // { avg_price, median_price, sample_size, min_price, max_price, percentile, city, state }
+  comparison,
   user,
   outlierFlagged,
   entries = 1,
@@ -61,14 +108,13 @@ export default function HowdIDoScreen({
   hasResultPhoto = false,
   receiptVerified = false,
   pioneerResult = null,
-
-  cheaperProviders = [], // [{ provider_name, avg_price }]
+  cheaperProviders = [],
 }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [verifyCopied, setVerifyCopied] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const barRef = useRef(null);
   const [barAnimated, setBarAnimated] = useState(false);
@@ -77,7 +123,7 @@ export default function HowdIDoScreen({
   const avgPrice = Number(comparison.avg_price);
   const minPrice = Number(comparison.min_price);
   const maxPrice = Number(comparison.max_price);
-  const percentile = comparison.percentile; // 0–100, lower = cheaper
+  const percentile = comparison.percentile;
   const typicalUnits = getTypicalUnits(procedure.procedure_type);
 
   const diff = (avgPrice - userPrice) * typicalUnits;
@@ -97,27 +143,29 @@ export default function HowdIDoScreen({
     pioneerTier
   );
 
-  // Determine unit label
-  const isPerUnit = procedure.procedure_type === 'Botox / Dysport / Xeomin'
-    || procedure.procedure_type === 'Botox'
-    || procedure.procedure_type === 'Dysport'
-    || procedure.procedure_type === 'Xeomin';
+  const isPerUnit = ['Botox / Dysport / Xeomin', 'Botox', 'Dysport', 'Xeomin'].includes(procedure.procedure_type);
   const unitLabel = isPerUnit ? '/unit' : '';
 
-  // Savings count-up animation
   const animatedSavings = useCountUp(Math.round(absDiff), 600, 400);
 
-  // Progress bar animation
   useEffect(() => {
     const timeout = setTimeout(() => setBarAnimated(true), 300);
     return () => clearTimeout(timeout);
   }, []);
 
-  // Position on the bar (0% = min, 100% = max)
   const range = maxPrice - minPrice;
   const barPosition = range > 0
     ? Math.max(0, Math.min(100, ((userPrice - minPrice) / range) * 100))
     : 50;
+
+  // Celebration
+  const celebKey = pioneerResult ? 'pioneer'
+    : (activeCount == null || activeCount === 0) ? 'first_submission'
+    : activeCount === 99 ? 'hundredth'
+    : 'returning';
+  const cel = CELEBRATIONS[celebKey];
+  const procDisplay = normalizeProcName(procedure.procedure_type);
+  const effectiveProviderName = pioneerResult?.provider_name || '';
 
   async function handleCreateAccount(e) {
     e.preventDefault();
@@ -146,61 +194,38 @@ export default function HowdIDoScreen({
   }
 
   return (
-    <div className="max-w-lg mx-auto text-center">
-      {/* Outlier banner */}
+    <div className="max-w-lg mx-auto">
+
+      {/* ── Outlier banner ── */}
       {outlierFlagged && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 mb-6 text-left">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 mb-4 text-left">
           Thanks! Your submission is under review and will appear shortly.
         </div>
       )}
 
-      {/* Checkmark */}
-      <div
-        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-        style={{ backgroundColor: '#C94F78' }}
-      >
-        <Check size={32} className="text-white" />
+      {/* ── Celebration hero ── */}
+      <div className="text-center py-6">
+        <div className="text-5xl mb-3">{cel.emoji}</div>
+        <h2 className="text-2xl font-bold text-text-primary">{cel.headline}</h2>
+        <p className="text-gray-500 mt-1 text-sm">
+          {cel.sub(effectiveProviderName, procedure.city, procDisplay)}
+        </p>
+        {!outlierFlagged && (
+          <p className="text-xs text-gray-400 mt-2">
+            You just helped {comparison?.sample_size || ''} people in{' '}
+            {comparison?.city || comparison?.state || 'your area'} who are researching{' '}
+            {getProcedureLabel(procedure.procedure_type, procedure.brand)} prices.
+          </p>
+        )}
       </div>
-      <h2 className="text-xl font-bold text-text-primary mb-2">Your price is live.</h2>
-      <p className="text-sm text-text-secondary mb-6">
-        You just helped {comparison?.sample_size || ''} people in {comparison?.city || comparison?.state || 'your area'} who are researching {getProcedureLabel(procedure.procedure_type, procedure.brand)} prices.
-      </p>
 
-      {/* Pioneer celebration */}
-      {pioneerResult && (() => {
-        const tier = PIONEER_TIERS[pioneerResult.pioneer_tier] || PIONEER_TIERS.pioneer;
-        return (
-          <div
-            className="rounded-xl p-4 mb-5 text-left"
-            style={{ background: '#FFFBEB', border: '1px solid rgba(251, 191, 36, 0.3)' }}
-          >
-            <div>
-              <p
-                className="text-xs uppercase tracking-wider mb-1"
-                style={{ color: '#B45309', fontWeight: 600 }}
-              >
-                {tier.label}
-              </p>
-              <p className="text-sm font-medium text-text-primary leading-snug">
-                {getPioneerToastMessage(pioneerResult.provider_name, pioneerResult.pioneer_tier)}
-              </p>
-              <p className="text-xs mt-2" style={{ color: '#B45309' }}>
-                You&apos;ve also entered the Pioneer Giveaway ($200/month)
-              </p>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ═══ COMPARISON CARD ═══ */}
+      {/* ── Comparison card ── */}
       <div className="glow-card p-6 text-left mb-6">
-        {/* You paid */}
         <p className="text-sm text-text-secondary mb-1">You paid</p>
         <p className="text-3xl font-bold" style={{ color: '#C94F78' }}>
           ${userPrice.toLocaleString()}{unitLabel}
         </p>
 
-        {/* Avg + range */}
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-text-secondary">
@@ -221,12 +246,10 @@ export default function HowdIDoScreen({
         {/* Progress bar */}
         <div className="mt-5 mb-2">
           <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-            {/* Gradient bar */}
             <div
               className="absolute inset-0 rounded-full"
               style={{ background: 'linear-gradient(90deg, #059669 0%, #FCD34D 50%, #DC2626 100%)' }}
             />
-            {/* User position indicator */}
             <div
               ref={barRef}
               className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-2 shadow-sm transition-all duration-[800ms] ease-out"
@@ -238,14 +261,17 @@ export default function HowdIDoScreen({
           </div>
           <div className="flex justify-between text-[11px] text-text-secondary mt-1.5">
             <span>cheap</span>
-            <span className="font-medium text-text-primary text-xs" style={{ marginLeft: `${Math.max(10, Math.min(80, barPosition - 10))}%` }}>
+            <span
+              className="font-medium text-text-primary text-xs"
+              style={{ marginLeft: `${Math.max(10, Math.min(80, barPosition - 10))}%` }}
+            >
               You&apos;re here
             </span>
             <span>expensive</span>
           </div>
         </div>
 
-        {/* Savings or overpay line */}
+        {/* Savings/overpay line */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           {paidBelow ? (
             <>
@@ -285,17 +311,18 @@ export default function HowdIDoScreen({
           )}
         </div>
 
-        {/* Share button */}
+        {/* Share savings button — opens SavingsShareCard */}
         <button
           onClick={() => setShowShareCard(true)}
-          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors"
-          style={{ backgroundColor: '#C94F78' }}
+          className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm"
+          style={{ background: '#111', color: '#fff' }}
         >
-          <Share2 size={14} />
-          {absDiff > 0 ? 'Share your savings' : 'Share your price'}
+          {absDiff > 0
+            ? `I just ${paidBelow ? 'saved' : 'paid'} ${paidBelow ? '~' : ''}$${Math.round(absDiff).toLocaleString()} ${paidBelow ? 'vs' : 'above'} average 💉`
+            : `I just helped women${procedure.city ? ` in ${procedure.city}` : ''} know ${procDisplay} prices 💉`}
         </button>
 
-        {/* Cheaper providers (only when user paid above avg) */}
+        {/* Cheaper providers */}
         {paidAbove && cheaperProviders.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <p className="text-xs font-medium text-text-secondary mb-2">
@@ -318,70 +345,80 @@ export default function HowdIDoScreen({
         )}
       </div>
 
-      {/* ═══ GIVEAWAY ENTRIES ═══ */}
-      <div className="bg-rose-light/30 rounded-xl p-4 mb-5 text-left">
-        <div className="flex items-center gap-2 mb-2">
-          <Trophy className="w-4 h-4 text-rose-accent" />
-          <p className="text-sm font-semibold text-text-primary">
-            This submission earned you:
-          </p>
-        </div>
-        <div className="space-y-1">
+      {/* ── Entry count card ── */}
+      <div className="rounded-2xl p-5 mb-4" style={{ background: '#FFF0F5' }}>
+        <p className="text-center text-sm text-gray-500 mb-3">Giveaway entries earned</p>
+        <div className="space-y-2">
           {entryLines.map((line, i) => (
-            <p key={i} className={`text-xs ${line.pending ? 'text-text-secondary/60 italic' : 'text-text-secondary'}`}>
-              {line.pending ? (
-                line.label
-              ) : (
-                <>
-                  +{line.value} {line.label}
-                </>
-              )}
-            </p>
+            <EntryLine
+              key={i}
+              label={line.label}
+              value={line.value}
+              delay={i * 150}
+              pending={!!line.pending}
+            />
           ))}
-          {entryLines.length > 1 && (
-            <>
-              <div className="border-t border-rose-accent/10 my-1" />
-              <p className="text-xs font-semibold text-rose-accent">
-                Total: {totalEntries} new {totalEntries === 1 ? 'entry' : 'entries'}
-              </p>
-            </>
-          )}
         </div>
-        {!hasReceipt && (
-          <p className="text-xs text-text-secondary mt-2 pt-2 border-t border-rose-accent/10">
-            Upload a receipt next time to earn 3x more entries
-          </p>
-        )}
-      </div>
-
-      {/* ═══ EMAIL FORWARD CTA ═══ */}
-      <div
-        className="rounded-xl p-4 text-left mb-6"
-        style={{ background: '#FBE8EF', border: '0.5px solid #F4C0D1' }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <Mail size={16} className="text-rose-accent shrink-0" />
-          <p className="text-sm font-medium text-text-primary">
-            Get a Verified badge
-          </p>
-        </div>
-        <p className="text-[13px] text-text-secondary mb-3">
-          Forward your confirmation email to earn +3 entries.
-        </p>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(VERIFY_EMAIL);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
-          className="text-[13px] font-medium text-white rounded-full px-4 py-2 hover:opacity-90 transition"
-          style={{ backgroundColor: '#C94F78' }}
+        <div
+          className="border-t mt-3 pt-3 flex justify-between items-center"
+          style={{ borderColor: '#F4C0D1' }}
         >
-          {copied ? 'Copied!' : `Copy ${VERIFY_EMAIL}`}
-        </button>
+          <span className="font-semibold text-sm text-text-primary">This month&apos;s total</span>
+          <span className="text-2xl font-bold" style={{ color: '#C94F78' }}>
+            {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
+          </span>
+        </div>
       </div>
 
-      {/* ═══ REFERRAL CTA ═══ */}
+      {/* ── Receipt CTA ── */}
+      {!hasReceipt && (
+        <div
+          className="border-2 border-dashed rounded-xl p-4 flex items-center gap-3 mb-4"
+          style={{ borderColor: '#F4C0D1' }}
+        >
+          <span className="text-3xl flex-shrink-0">🧾</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm text-text-primary">Upload your receipt</p>
+            <p className="text-xs text-gray-400">
+              Turn {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'} into {totalEntries * 3} — 3x multiplier
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(user ? '/my-treatments' : '/log')}
+            className="text-sm text-white px-3 py-1.5 rounded-lg shrink-0"
+            style={{ backgroundColor: '#C94F78' }}
+          >
+            Upload
+          </button>
+        </div>
+      )}
+
+      {/* ── Verified badge unlock ── */}
+      <div className="rounded-xl bg-gray-50 p-4 mb-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span>🔵</span>
+          <p className="font-medium text-sm text-text-primary">Unlock Verified badge</p>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Forward your appointment confirmation to get a blue checkmark on your profile
+        </p>
+        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+          <span className="text-xs text-gray-600 flex-1 truncate">{VERIFY_EMAIL}</span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(VERIFY_EMAIL);
+              setVerifyCopied(true);
+              setTimeout(() => setVerifyCopied(false), 2000);
+            }}
+            className="text-xs font-semibold shrink-0"
+            style={{ color: '#C94F78' }}
+          >
+            {verifyCopied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Referral CTA ── */}
       <Link
         to="/refer"
         className="flex items-center gap-3 rounded-xl p-4 text-left mb-6 hover:no-underline transition-colors"
@@ -390,22 +427,24 @@ export default function HowdIDoScreen({
         <Gift size={20} className="text-emerald-600 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-text-primary">Refer a friend, both get $10</p>
-          <p className="text-xs text-text-secondary">Share your link and earn wallet credit when they verify a receipt.</p>
+          <p className="text-xs text-text-secondary">
+            Share your link and earn wallet credit when they verify a receipt.
+          </p>
         </div>
         <ArrowRight size={16} className="text-text-secondary shrink-0 ml-auto" />
       </Link>
 
-      {/* ═══ BOTTOM ACTIONS ═══ */}
-      <div className="border-t border-gray-100 pt-6">
-        {!user ? (
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-text-primary mb-2">
-              Want to track your treatments?
+      {/* ── Email capture (non-auth) OR bottom actions (auth) ── */}
+      {!user ? (
+        <div>
+          <div className="rounded-xl border border-gray-200 p-5 mb-4">
+            <h3 className="text-base font-bold text-text-primary mb-1">
+              Enter the $250 giveaway
             </h3>
-            <p className="text-sm text-text-secondary mb-6">
-              Create a free account to earn badges and enter our monthly $250 treatment giveaway.
+            <p className="text-xs text-gray-500 mb-4">
+              Create a free account to earn badges and track your submissions.
             </p>
-            <form onSubmit={handleCreateAccount} className="space-y-3 mb-4">
+            <form onSubmit={handleCreateAccount} className="space-y-3">
               <input
                 type="email"
                 placeholder="your@email.com"
@@ -426,29 +465,33 @@ export default function HowdIDoScreen({
               </button>
             </form>
           </div>
-        ) : (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-col gap-2">
             <button
               onClick={() => navigate('/browse')}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-white font-semibold rounded-full hover:opacity-90 transition text-sm"
+              className="w-full py-3 rounded-xl font-medium text-white"
               style={{ backgroundColor: '#C94F78' }}
             >
-              Find more providers
-              <ArrowRight size={16} />
-            </button>
-            <button
-              onClick={() => {
-                // Reset the form — navigate to /log
-                navigate('/log');
-                window.location.reload();
-              }}
-              className="text-sm text-text-secondary hover:text-text-primary transition-colors"
-            >
-              Log another treatment
+              Keep Browsing
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => navigate('/browse')}
+            className="w-full py-3 rounded-xl font-medium text-white"
+            style={{ backgroundColor: '#C94F78' }}
+          >
+            Keep Browsing
+          </button>
+          <button
+            onClick={() => navigate('/my-treatments')}
+            className="w-full text-gray-400 text-sm py-2"
+          >
+            View my submission history
+          </button>
+        </div>
+      )}
 
       {/* Share card modal */}
       {showShareCard && (

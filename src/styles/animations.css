@@ -97,12 +97,22 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Entry line stagger: used on post-submission confirmation screens ──
+   Each line fades + slides in with a JS-supplied animationDelay so the
+   giveaway entries "reveal" in sequence rather than all at once. */
+.entry-line {
+  opacity: 0;
+  animation: fadeSlideUp 0.35s ease-out forwards;
+}
+
 /* ── Reduced motion: kill all decorative animation, keep functional only ── */
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .page-enter > *,
-  .map-pin-enter {
+  .map-pin-enter,
+  .entry-line {
     animation: none !important;
+    opacity: 1 !important;
   }
   .proc-pill::before {
     transition: none;
