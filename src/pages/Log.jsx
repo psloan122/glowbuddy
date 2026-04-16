@@ -33,6 +33,26 @@ import { fetchBenchmark } from '../lib/priceBenchmark';
 
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
+// Geocode a provider by name + city + state using the Google Geocoding API.
+// Returns { lat, lng } or null. Non-throwing.
+async function geocodeProvider(name, city, state) {
+  const key = import.meta.env.VITE_GOOGLE_GEOCODING_KEY;
+  if (!key) return null;
+  try {
+    const query = encodeURIComponent(`${name} ${city} ${state}`);
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const loc = data.results?.[0]?.geometry?.location;
+    if (loc?.lat && loc?.lng) return { lat: loc.lat, lng: loc.lng };
+  } catch {
+    // Silent — map visibility is degraded but submission still saved
+  }
+  return null;
+}
+
 const INITIAL_FORM_DATA = {
   procedureType: '',
   treatmentArea: '',
@@ -418,7 +438,7 @@ export default function Log() {
       if (formData.googlePlaceId) {
         const { data: existingProvider } = await supabase
           .from('providers')
-          .select('id')
+          .select('id, lat, lng')
           .eq('google_place_id', formData.googlePlaceId)
           .maybeSingle();
 
@@ -433,8 +453,11 @@ export default function Log() {
           phone: formData.providerPhone || null,
           website: formData.providerWebsite || null,
           google_place_id: formData.googlePlaceId,
-          lat: formData.lat,
-          lng: formData.lng,
+          is_active: true,
+          // Never overwrite existing coords with null — only include lat/lng when the
+          // form actually has them (Google Places returned geometry). If we let null
+          // through here it silently strips coords from providers that already had them.
+          ...(formData.lat && formData.lng ? { lat: formData.lat, lng: formData.lng } : {}),
         };
 
         if (existingProvider) {
@@ -444,6 +467,28 @@ export default function Log() {
             .eq('id', existingProvider.id);
         } else {
           await supabase.from('providers').insert(providerRow);
+        }
+
+        // Geocode if neither the form submission nor the existing DB record has
+        // coordinates — provider would be invisible on the map otherwise.
+        const hasFormCoords = !!(formData.lat && formData.lng);
+        const hasDbCoords = !!(existingProvider?.lat && existingProvider?.lng);
+        if (!hasFormCoords && !hasDbCoords) {
+          try {
+            const coords = await geocodeProvider(
+              formData.providerName,
+              formData.city,
+              formData.state
+            );
+            if (coords) {
+              await supabase
+                .from('providers')
+                .update({ lat: coords.lat, lng: coords.lng })
+                .eq('google_place_id', formData.googlePlaceId);
+            }
+          } catch {
+            // Non-blocking — main submission already saved
+          }
         }
       }
 
