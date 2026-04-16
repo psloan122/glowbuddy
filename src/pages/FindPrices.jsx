@@ -1987,6 +1987,7 @@ export default function FindPrices() {
         ...g,
         procedures: sortedProcs,
         bestPrice: compareValueOf(sortedProcs[0]),
+        bestPriceLabel: sortedProcs[0]?.price_label || null,
       };
     });
 
@@ -3390,6 +3391,7 @@ export default function FindPrices() {
               provider_type: p.provider_type,
               avg_price: top ? Number(top.price) : null,
               bestPrice: top ? Number(top.price) : null,
+              bestPriceLabel: top?.price_label || null,
               submission_count: entry.prices?.length || 0,
               has_submissions: true,
             };
@@ -3415,6 +3417,7 @@ export default function FindPrices() {
               google_rating: primary.google_rating || primary.rating,
               google_review_count: primary.google_review_count,
               bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
+              bestPriceLabel: group.bestPriceLabel || null,
             };
           });
           mobileSelectedId = selectedProviderGroup?.provider_id || null;

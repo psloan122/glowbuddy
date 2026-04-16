@@ -5,7 +5,10 @@ import ProviderAvatar from './ProviderAvatar';
 import { providerProfileUrl } from '../lib/slugify';
 import cleanProviderType from '../utils/cleanProviderType';
 
-function VsAvgBadge({ bestPrice, cityAvg }) {
+function VsAvgBadge({ bestPrice, cityAvg, priceLabel }) {
+  // Only compare like-for-like: flat_package / per_session prices against a
+  // per-unit city benchmark produces nonsense percentages.
+  if (priceLabel !== 'per_unit') return null;
   if (bestPrice == null || !cityAvg || cityAvg <= 0) return null;
   const pct = ((bestPrice - cityAvg) / cityAvg) * 100;
   if (pct < -90 || pct > 500) return null; // mixed pricing units — suppress
@@ -28,7 +31,7 @@ function VsAvgBadge({ bestPrice, cityAvg }) {
   );
 }
 
-export default memo(function MapProviderCard({ provider, selected, cityAvg, bestPrice }) {
+export default memo(function MapProviderCard({ provider, selected, cityAvg, bestPrice, bestPriceLabel }) {
   const {
     provider_name,
     provider_slug,
@@ -85,7 +88,7 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
         )}
         {cityAvg != null && bestPrice != null && (
           <div className="mt-0.5">
-            <VsAvgBadge bestPrice={bestPrice} cityAvg={cityAvg} />
+            <VsAvgBadge bestPrice={bestPrice} cityAvg={cityAvg} priceLabel={bestPriceLabel} />
           </div>
         )}
       </div>

@@ -208,6 +208,7 @@ export default memo(function MobileBrowseSheet({
                       }
                       cityAvg={cityAvg}
                       bestPrice={p.bestPrice ?? p.avg_price}
+                      bestPriceLabel={p.bestPriceLabel ?? null}
                     />
                   </div>
                 ))}
