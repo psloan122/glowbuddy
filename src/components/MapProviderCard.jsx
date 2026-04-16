@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import ProviderAvatar from './ProviderAvatar';
 import { providerProfileUrl } from '../lib/slugify';
 import cleanProviderType from '../utils/cleanProviderType';
+import { getPriceLabelShort } from '../utils/formatPricingUnit';
 
 function VsAvgBadge({ bestPrice, cityAvg, priceLabel }) {
   // Only compare like-for-like: flat_package / per_session prices against a
@@ -50,6 +51,12 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
   const Wrapper = profileUrl ? Link : 'div';
   const wrapperProps = profileUrl ? { to: profileUrl } : {};
 
+  // "from $12/unit" — prefer the lead procedure's bestPrice over the all-time
+  // avg so the unit label is meaningful (avg mixes procedure types).
+  const displayPrice = (bestPrice != null && bestPrice > 0) ? bestPrice : avg_price;
+  const unitShort = bestPriceLabel ? getPriceLabelShort(bestPriceLabel) : '';
+  const unitSuffix = unitShort ? `/${unitShort.replace(/^per /, '')}` : '';
+
   return (
     <Wrapper
       {...wrapperProps}
@@ -92,11 +99,13 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
           </div>
         )}
       </div>
-      {has_submissions && avg_price > 0 ? (
+      {has_submissions && displayPrice > 0 ? (
         <div className="text-right shrink-0 flex items-center gap-1.5">
-          <div>
-            <div className="text-base font-bold text-text-primary">${avg_price}</div>
-            <div className="text-xs text-text-secondary">avg</div>
+          <div
+            className="text-sm font-bold text-text-primary"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            from ${Math.round(displayPrice)}{unitSuffix}
           </div>
           <ChevronRight size={16} color="#CCC" />
         </div>
