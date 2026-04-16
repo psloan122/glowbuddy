@@ -58,7 +58,8 @@ export default function ProcedureDetail() {
         .from('provider_pricing')
         .select('*, providers(*)')
         .eq('procedure_type', procedureName)
-        .eq('display_suppressed', false);
+        .eq('display_suppressed', false)
+        .lt('confidence_tier', 6);
 
       const communityItems = community || [];
       const verifiedItems = verified || [];

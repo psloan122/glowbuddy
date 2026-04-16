@@ -360,6 +360,7 @@ export default function ProviderPriceHistory() {
         .select('id, provider_id, procedure_type, brand, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, confidence_tier, scraped_at, created_at')
         .eq('provider_id', provRow.id)
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .order('created_at', { ascending: false });
 
       setAllPrices(pricing || []);

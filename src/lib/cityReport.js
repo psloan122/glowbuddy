@@ -33,6 +33,7 @@ export async function fetchCityList() {
       .from('provider_pricing')
       .select('providers!inner(city, state)')
       .eq('display_suppressed', false)
+      .lt('confidence_tier', 6)
       .not('providers.city', 'is', null)
       .not('providers.state', 'is', null)
       .limit(50000),
@@ -165,6 +166,7 @@ export async function fetchCityReport(city, state, yearMonth) {
         .from('provider_pricing')
         .select(PROVIDER_PRICING_FIELDS)
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .ilike('providers.city', city)
         .eq('providers.state', state)
         .limit(50000),

@@ -123,6 +123,7 @@ export default function SmartEmptyState({
           'price, price_label, procedure_type, providers!inner(city, state)',
         )
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .eq('is_active', true);
       if (types.length === 1) menuQ = menuQ.eq('procedure_type', types[0]);
       else menuQ = menuQ.in('procedure_type', types);

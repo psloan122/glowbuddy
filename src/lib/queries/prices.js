@@ -55,6 +55,7 @@ async function fetchCityRows(citySlug, procedureType) {
     .from('provider_pricing')
     .select(`${PRICING_FIELDS}, providers!inner(${PROVIDER_FIELDS})`)
     .eq('display_suppressed', false)
+    .lt('confidence_tier', 6)
     .ilike('providers.city', parsed.city)
     .eq('providers.state', parsed.state);
 
@@ -395,17 +396,20 @@ export async function getGlobalPricingSummary() {
         .from('provider_pricing')
         .select('id', { count: 'exact', head: true })
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .eq('source', 'manual')
         .eq('verified', true),
       supabase
         .from('provider_pricing')
         .select('id', { count: 'exact', head: true })
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .eq('source', 'scrape'),
       supabase
         .from('provider_pricing')
         .select('id', { count: 'exact', head: true })
-        .eq('display_suppressed', false),
+        .eq('display_suppressed', false)
+        .lt('confidence_tier', 6),
       supabase
         .from('providers')
         .select('id', { count: 'exact', head: true }),
@@ -416,6 +420,7 @@ export async function getGlobalPricingSummary() {
         .from('provider_pricing')
         .select('providers!inner(city, state)')
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .not('providers.city', 'is', null)
         .not('providers.state', 'is', null),
     ]);
@@ -453,6 +458,7 @@ export async function fetchVerifiedPriceCountsByCity() {
     .from('provider_pricing')
     .select('providers!inner(city, state)')
     .eq('display_suppressed', false)
+    .lt('confidence_tier', 6)
     .eq('source', 'manual')
     .eq('verified', true);
 

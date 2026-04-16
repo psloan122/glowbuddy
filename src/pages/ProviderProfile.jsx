@@ -161,7 +161,8 @@ export default function ProviderProfile() {
               .from('provider_pricing')
               .select('id, provider_id, procedure_type, brand, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at')
               .eq('provider_id', finalProvider.id)
-              .eq('display_suppressed', false),
+              .eq('display_suppressed', false)
+              .lt('confidence_tier', 6),
             supabase
               .from('specials')
               .select('id, provider_id, title, description, procedure_type, discount_type, discount_value, original_price, is_active, expires_at, created_at')

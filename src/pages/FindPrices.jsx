@@ -454,7 +454,8 @@ export default function FindPrices() {
         .from('provider_pricing')
         .select('provider_id, procedure_type, brand')
         .in('provider_id', ids)
-        .eq('display_suppressed', false);
+        .eq('display_suppressed', false)
+        .lt('confidence_tier', 6);
       if (cancelled || error || !data) return;
       setCityPricingRows(data);
       setPillCounts(countProvidersByTreatment(data, PROCEDURE_PILLS));
@@ -1089,7 +1090,8 @@ export default function FindPrices() {
           'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type, owner_user_id, active_special, special_expires_at, lat, lng)'
         )
         .eq('is_active', true)
-        .eq('display_suppressed', false);
+        .eq('display_suppressed', false)
+        .lt('confidence_tier', 6);
 
       // When "Search this area" bounds are set, query by lat/lng instead
       // of city/state so the results match the viewport rectangle.
@@ -1488,6 +1490,7 @@ export default function FindPrices() {
         )
         .eq('is_active', true)
         .eq('display_suppressed', false)
+        .lt('confidence_tier', 6)
         .eq('providers.is_active', true);
 
       if (filterState) query = query.eq('providers.state', filterState);
