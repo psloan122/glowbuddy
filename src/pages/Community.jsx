@@ -7,6 +7,55 @@ import { BADGE_DEFINITIONS, procedureToSlug } from '../lib/constants';
 import { AuthContext } from '../App';
 import PioneerLeaderboard from '../components/PioneerLeaderboard';
 
+const PRICE_LABEL_SUFFIX = {
+  per_unit: '/unit',
+  per_session: '/session',
+  flat_package: ' (pkg)',
+  flat_rate_area: ' (area)',
+};
+
+function normalizeProcedureLabel(type) {
+  if (!type) return type;
+  if (type.includes('/') && /botox|dysport|xeomin/i.test(type)) return 'Neurotoxin';
+  if (type.includes('/') && /juvederm|restylane|sculptra|filler/i.test(type)) return 'Filler';
+  return type;
+}
+
+function glowerHandle(userId) {
+  if (!userId) return 'Anonymous';
+  return `Glower${userId.slice(0, 4).toUpperCase()}`;
+}
+
+function groupSubmissions(submissions) {
+  const result = [];
+  let i = 0;
+  while (i < submissions.length) {
+    const cur = submissions[i];
+    if (!cur.user_id) {
+      result.push(cur);
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (
+      j < submissions.length &&
+      submissions[j].user_id === cur.user_id &&
+      submissions[j].city === cur.city &&
+      submissions[j].procedure_type === cur.procedure_type
+    ) {
+      j++;
+    }
+    const span = j - i;
+    if (span >= 3) {
+      result.push({ ...cur, _grouped: true, _groupCount: span });
+    } else {
+      for (let k = i; k < j; k++) result.push(submissions[k]);
+    }
+    i = j;
+  }
+  return result;
+}
+
 const BADGE_ICONS = {
   glowgetter: {
     gradient: ['#F4A7B9', '#E8818F'],
@@ -88,13 +137,13 @@ export default function Community() {
       // Fetch recent submissions
       const { data: recent } = await supabase
         .from('procedures')
-        .select('id, procedure_type, city, state, price_paid, created_at')
+        .select('id, user_id, procedure_type, city, state, price_paid, price_label, created_at')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10);
-      setRecentSubmissions((recent || []).filter((p) =>
+      setRecentSubmissions(groupSubmissions((recent || []).filter((p) =>
         p.normalized_category !== 'hidden'
-      ));
+      )));
 
       // Fetch all user_badges for badge counts
       const { data: badges } = await supabase
@@ -273,7 +322,7 @@ export default function Community() {
                       #{rank}
                     </span>
                     <span className="text-text-primary font-medium">
-                      Contributor #{rank}
+                      {glowerHandle(contributor.userId)}
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
@@ -305,34 +354,61 @@ export default function Community() {
         </h2>
         {recentSubmissions.length > 0 ? (
           <div className="space-y-3">
-            {recentSubmissions.map((proc) => (
-              <Link
-                key={proc.id}
-                to={`/procedure/${procedureToSlug(proc.procedure_type)}`}
-                className="flex items-center justify-between py-3 px-4 rounded-lg bg-warm-gray hover:bg-rose-light/30 transition group"
-              >
-                <div className="flex-1 min-w-0">
-                  <span className="text-text-primary font-medium group-hover:text-rose-dark transition-colors">
-                    {proc.procedure_type}
-                  </span>
-                  {proc.city && proc.state && (
-                    <span className="text-text-secondary">
-                      {' '}in {proc.city}, {proc.state}
+            {recentSubmissions.map((proc) => {
+              const displayType = normalizeProcedureLabel(proc.procedure_type);
+              const priceSuffix = PRICE_LABEL_SUFFIX[proc.price_label] || '';
+              const timeAgo = proc.created_at
+                ? formatDistanceToNow(new Date(proc.created_at), { addSuffix: true })
+                : '';
+              if (proc._grouped) {
+                return (
+                  <Link
+                    key={proc.id}
+                    to={`/procedure/${procedureToSlug(proc.procedure_type)}`}
+                    className="flex items-center justify-between py-3 px-4 rounded-lg bg-warm-gray hover:bg-rose-light/30 transition"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-text-secondary text-sm">
+                        {glowerHandle(proc.user_id)} shared{' '}
+                        <span className="text-text-primary font-medium">
+                          {proc._groupCount} {displayType} prices
+                        </span>
+                        {proc.city && proc.state && (
+                          <span> in {proc.city}, {proc.state}</span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-xs text-text-secondary ml-4 whitespace-nowrap">
+                      {timeAgo}
                     </span>
-                  )}
-                  <span className="text-text-primary font-semibold">
-                    {' '}&mdash; ${Number(proc.price_paid).toLocaleString()}
+                  </Link>
+                );
+              }
+              return (
+                <Link
+                  key={proc.id}
+                  to={`/procedure/${procedureToSlug(proc.procedure_type)}`}
+                  className="flex items-center justify-between py-3 px-4 rounded-lg bg-warm-gray hover:bg-rose-light/30 transition group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-text-primary font-medium group-hover:text-rose-dark transition-colors">
+                      {displayType}
+                    </span>
+                    {proc.city && proc.state && (
+                      <span className="text-text-secondary">
+                        {' '}in {proc.city}, {proc.state}
+                      </span>
+                    )}
+                    <span className="text-text-primary font-semibold">
+                      {' '}&mdash; ${Number(proc.price_paid).toLocaleString()}{priceSuffix}
+                    </span>
+                  </div>
+                  <span className="text-xs text-text-secondary ml-4 whitespace-nowrap">
+                    {timeAgo}
                   </span>
-                </div>
-                <span className="text-xs text-text-secondary ml-4 whitespace-nowrap">
-                  {proc.created_at
-                    ? formatDistanceToNow(new Date(proc.created_at), {
-                        addSuffix: true,
-                      })
-                    : ''}
-                </span>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <p className="text-text-secondary text-center py-8">

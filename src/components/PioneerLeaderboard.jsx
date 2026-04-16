@@ -95,7 +95,7 @@ export default function PioneerLeaderboard({ userCity, userState }) {
                     #{rank}
                   </span>
                   <span className="text-text-primary font-medium">
-                    {leader.display_name || `Pioneer #${rank}`}
+                    {leader.display_name || `Glower${leader.user_id.slice(0, 4).toUpperCase()}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
