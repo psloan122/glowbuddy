@@ -71,6 +71,8 @@ const INITIAL_FORM_DATA = {
   // Price label (per_unit, per_syringe, per_session, etc.) — set dynamically
   // when user selects a procedure; saved as price_label in procedures table.
   pricingUnit: '',
+  // Total visit spend — only collected for per_unit procedures (optional)
+  totalSpend: '',
 };
 
 export default function Log() {
@@ -563,6 +565,39 @@ export default function Log() {
         );
         setIsSubmitting(false);
         return;
+      }
+
+      // If per_unit pricing and total spend was provided, insert a linked visit record
+      if (
+        formData.pricingUnit === 'per_unit' &&
+        formData.totalSpend &&
+        parseInt(formData.totalSpend, 10) > 0
+      ) {
+        try {
+          await supabase.from('procedures').insert({
+            procedure_type: formData.procedureType,
+            treatment_area: formData.treatmentArea || null,
+            price_paid: parseInt(formData.totalSpend, 10),
+            provider_name: formData.providerName,
+            provider_type: formData.providerType || null,
+            provider_slug: slug,
+            city: formData.city,
+            state: formData.state,
+            zip_code: formData.zipCode || null,
+            date_of_treatment: formData.treatmentDate || null,
+            is_anonymous: formData.anonymous,
+            status,
+            user_id: user?.id || null,
+            google_place_id: formData.googlePlaceId || null,
+            lat: formData.lat || null,
+            lng: formData.lng || null,
+            price_label: 'flat_package',
+            has_receipt: false,
+            receipt_verified: false,
+          });
+        } catch {
+          // Non-blocking — primary submission already succeeded
+        }
       }
 
       // 7. Save to localStorage for claiming after email confirmation

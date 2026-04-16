@@ -69,6 +69,18 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
   const unitsPlaceholder = proc?.unitHint || 'e.g. 1 session';
   // Area options: procedure-specific list when available, fallback to global list
   const areaOptions = proc?.popularAreas?.length ? proc.popularAreas : TREATMENT_AREAS;
+  // Resolved pricing unit (pricingUnit state wins, fallback to procedure default)
+  const activePricingUnit = formData.pricingUnit || proc?.defaultUnit || '';
+  const isPerUnit = activePricingUnit === 'per_unit';
+
+  const PRICE_LABEL_MAP = {
+    per_area: 'Price per area',
+    flat_package: 'Total price paid',
+    per_session: 'Total price paid',
+    per_syringe: 'Price per syringe',
+    per_vial: 'Price per vial',
+    per_cycle: 'Price per cycle',
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -93,8 +105,9 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
       ...prev,
       procedureType: value,
       pricingUnit: selected?.defaultUnit || prev.pricingUnit || '',
-      // Reset treatment area when procedure changes so stale values don't persist
+      // Reset treatment area and total spend when procedure changes
       treatmentArea: '',
+      totalSpend: '',
     }));
     setSearchOpen(false);
   }
@@ -321,40 +334,120 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
           />
         </div>
 
-        {/* Price paid */}
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Price Paid <span className="text-rose-accent">*</span>
-          </label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary font-medium">
-              $
-            </span>
-            <input
-              type="number"
-              placeholder="e.g. 450"
-              min="1"
-              step="1"
-              value={formData.pricePaid}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^\d]/g, '');
-                setFormData((prev) => ({ ...prev, pricePaid: val }));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === '.' || e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              className={`${INPUT_CLASSES} pl-8`}
-            />
+        {/* Price fields — two-field layout for per_unit, single field for others */}
+        {isPerUnit ? (
+          <>
+            {/* Field 1: Unit price — required */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Price per unit <span className="text-rose-accent">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary font-medium">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="e.g. 12"
+                    min="1"
+                    step="0.50"
+                    value={formData.pricePaid}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^\d.]/g, '');
+                      setFormData((prev) => ({ ...prev, pricePaid: val }));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e') e.preventDefault();
+                    }}
+                    className={`${INPUT_CLASSES} pl-8`}
+                  />
+                </div>
+                <span className="text-text-secondary text-sm whitespace-nowrap">/ unit</span>
+              </div>
+              {proc?.avgNational && (
+                <p className="text-xs text-text-secondary mt-1.5">
+                  Avg {proc.label} nationally:{' '}
+                  <span className="font-medium">${proc.avgNational.toLocaleString()}{proc.avgUnit}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Field 2: Total visit spend — optional */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                How much did you spend total?{' '}
+                <span className="font-normal text-text-secondary">(optional)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary font-medium">
+                  $
+                </span>
+                <input
+                  type="number"
+                  placeholder="e.g. 350"
+                  min="1"
+                  step="1"
+                  value={formData.totalSpend}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d]/g, '');
+                    setFormData((prev) => ({ ...prev, totalSpend: val }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === '.' || e.key === '-' || e.key === 'e') {
+                      e.preventDefault();
+                    }
+                  }}
+                  className={`${INPUT_CLASSES} pl-8`}
+                />
+              </div>
+              <p className="text-xs text-text-secondary mt-1.5">
+                Helps others know what a full visit costs. e.g. 28 units × $12 = $336
+              </p>
+              {formData.pricePaid && formData.totalSpend &&
+                Number(formData.pricePaid) > 0 && Number(formData.totalSpend) > 0 && (
+                <p className="text-xs text-emerald-600 mt-1">
+                  ≈ {Math.round(Number(formData.totalSpend) / Number(formData.pricePaid))} units — typical range is 20–50
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              {PRICE_LABEL_MAP[activePricingUnit] || 'Price paid'}{' '}
+              <span className="text-rose-accent">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary font-medium">
+                $
+              </span>
+              <input
+                type="number"
+                placeholder="e.g. 450"
+                min="1"
+                step="1"
+                value={formData.pricePaid}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^\d]/g, '');
+                  setFormData((prev) => ({ ...prev, pricePaid: val }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === '.' || e.key === '-' || e.key === 'e') {
+                    e.preventDefault();
+                  }
+                }}
+                className={`${INPUT_CLASSES} pl-8`}
+              />
+            </div>
+            {proc?.avgNational && getState() && (
+              <p className="text-xs text-text-secondary mt-1.5">
+                Avg {proc.label} nationally:{' '}
+                <span className="font-medium">${proc.avgNational.toLocaleString()}{proc.avgUnit}</span>
+              </p>
+            )}
           </div>
-          {proc?.avgNational && getState() && (
-            <p className="text-xs text-text-secondary mt-1.5">
-              Avg {proc.label} nationally:{' '}
-              <span className="font-medium">${proc.avgNational.toLocaleString()}{proc.avgUnit}</span>
-            </p>
-          )}
-        </div>
+        )}
 
         {/* Discount type */}
         <div>
