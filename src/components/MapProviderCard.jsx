@@ -60,20 +60,15 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
       <ProviderAvatar name={provider_name} size={44} />
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm text-text-primary truncate">{provider_name}</div>
-        <div className="text-xs text-text-secondary truncate">
-          {[city, state].filter(Boolean).join(', ')}
-        </div>
+        <p className="text-xs text-gray-400 truncate">
+          {[city, state].filter(Boolean).join(', ')}{provider_type ? ` · ${cleanProviderType(provider_type)}` : ''}
+        </p>
         {has_submissions ? (
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-text-secondary">
               {submission_count} {submission_count === 1 ? 'price' : 'prices'}
               {verified_count > 0 && ` · ${verified_count} verified`}
             </span>
-            {provider_type && (
-              <span className="text-xs text-text-secondary bg-warm-gray px-1.5 py-0.5 rounded-full truncate max-w-[140px]">
-                {cleanProviderType(provider_type)}
-              </span>
-            )}
           </div>
         ) : (
           <div className="flex items-center gap-2 mt-0.5">
