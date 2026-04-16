@@ -46,7 +46,7 @@
 
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, LocateFixed } from 'lucide-react';
+import { Search, X, LocateFixed } from 'lucide-react';
 import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import MapLoadingFallback from '../MapLoadingFallback';
@@ -231,6 +231,10 @@ export default memo(function GlowMap({
   mobileLegendTop,
   bottomPadding = 0,
   isMobile = false,
+  // Array of providers to enable the "find a provider" search overlay.
+  // Should be the full city provider list (gateProviders). Each entry
+  // needs: { id, name, slug, city, state, lat, lng }.
+  searchableProviders = [],
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -240,6 +244,23 @@ export default memo(function GlowMap({
   const userInteracted = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef = useRef(null);
+
+  // ── Provider search overlay state ────────────────────────────────────
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [provQuery, setProvQuery] = useState('');
+  const searchInputRef = useRef(null);
+
+  const searchResults = useMemo(() => {
+    if (!provQuery) return [];
+    const q = provQuery.toLowerCase();
+    return (searchableProviders || [])
+      .filter((p) => p.lat && p.lng && (p.name || '').toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [searchableProviders, provQuery]);
+
+  useEffect(() => {
+    if (searchExpanded) searchInputRef.current?.focus();
+  }, [searchExpanded]);
 
   // ── Data refs — let the reconciliation effect read current data
   // without depending on array references (which change every render).
@@ -980,6 +1001,197 @@ export default memo(function GlowMap({
             setRetryNonce((n) => n + 1);
           }}
         />
+      )}
+
+      {/* Provider search overlay — top-right, above the zoom controls.
+          Only rendered when the parent passes a non-empty searchableProviders
+          array and the map is ready. */}
+      {searchableProviders.length > 0 && ready && !mapError && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 46,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: 4,
+          }}
+        >
+          {/* Pill button — collapses to icon, expands to input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'white',
+              border: '1px solid #EDE8E3',
+              borderRadius: 999,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              overflow: 'hidden',
+              width: searchExpanded ? 220 : 36,
+              height: 36,
+              transition: 'width 0.2s ease',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (searchExpanded) {
+                  setSearchExpanded(false);
+                  setProvQuery('');
+                } else {
+                  setSearchExpanded(true);
+                }
+              }}
+              aria-label={searchExpanded ? 'Close provider search' : 'Search providers'}
+              style={{
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#555',
+                padding: 0,
+              }}
+            >
+              {searchExpanded ? <X size={15} /> : <Search size={15} />}
+            </button>
+            {searchExpanded && (
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Find a provider…"
+                value={provQuery}
+                onChange={(e) => setProvQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setSearchExpanded(false);
+                    setProvQuery('');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  color: '#111',
+                  paddingRight: 10,
+                  background: 'transparent',
+                  minWidth: 0,
+                }}
+              />
+            )}
+          </div>
+
+          {/* Results dropdown */}
+          {searchExpanded && searchResults.length > 0 && (
+            <div
+              style={{
+                background: 'white',
+                border: '1px solid #EDE8E3',
+                borderRadius: 12,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                overflow: 'hidden',
+                width: 220,
+              }}
+            >
+              {searchResults.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    const map = mapInstanceRef.current;
+                    if (!map || !p.lat || !p.lng) return;
+                    map.panTo({ lat: p.lat, lng: p.lng });
+                    map.setZoom(15);
+                    userInteracted.current = true;
+                    // Notify parent — lets the bottom sheet / profile card open
+                    // just as if the user tapped the pin directly.
+                    onPinClickRef.current?.({
+                      provider_id: p.id,
+                      provider_slug: p.slug,
+                      provider_name: p.name,
+                      city: p.city,
+                      state: p.state,
+                      lat: p.lat,
+                      lng: p.lng,
+                    });
+                    setSearchExpanded(false);
+                    setProvQuery('');
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '8px 12px',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: '1px solid #F5F0EC',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#FFF0F5'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                >
+                  <p
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#111',
+                      margin: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {p.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: '#888',
+                      margin: '2px 0 0',
+                      fontWeight: 300,
+                    }}
+                  >
+                    {p.city}, {p.state}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* No-results state */}
+          {searchExpanded && provQuery.length >= 2 && searchResults.length === 0 && (
+            <div
+              style={{
+                background: 'white',
+                border: '1px solid #EDE8E3',
+                borderRadius: 12,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                padding: '10px 12px',
+                width: 220,
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 12,
+                  color: '#999',
+                  fontFamily: 'var(--font-body)',
+                  margin: 0,
+                  fontStyle: 'italic',
+                }}
+              >
+                No providers found
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Legend — bottom-left so it doesn't collide with the right-side

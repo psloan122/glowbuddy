@@ -3471,6 +3471,7 @@ export default function FindPrices() {
                 mobileLegendTop
                 bottomPadding={mapBottomPadding}
                 isMobile
+                searchableProviders={gateProviders}
               />
             </div>
 
@@ -4035,6 +4036,7 @@ export default function FindPrices() {
                 onPinHover={handlePinHover}
                 showSearchArea={showSearchArea}
                 onSearchAreaClick={handleSearchAreaClick}
+                searchableProviders={gateProviders}
               />
               {gateSelectedProviderGroup && (
                 <ProviderBottomSheet
