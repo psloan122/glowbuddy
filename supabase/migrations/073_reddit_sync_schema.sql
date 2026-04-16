@@ -39,8 +39,10 @@ ON city_price_benchmarks(city, state);
 -- Enable RLS but allow service role full access
 ALTER TABLE city_price_benchmarks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read access" ON city_price_benchmarks;
 CREATE POLICY "Allow public read access" ON city_price_benchmarks
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Allow service role full access" ON city_price_benchmarks;
 CREATE POLICY "Allow service role full access" ON city_price_benchmarks
   FOR ALL USING (auth.role() = 'service_role');

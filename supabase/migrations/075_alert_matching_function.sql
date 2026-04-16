@@ -8,9 +8,10 @@ ALTER TABLE price_alert_triggers
   ADD COLUMN IF NOT EXISTS fired_at timestamptz DEFAULT now();
 
 -- Geo index on providers for ST_DWithin queries
-CREATE INDEX IF NOT EXISTS idx_providers_geo
+DROP INDEX IF EXISTS idx_providers_geo;
+CREATE INDEX idx_providers_geo
   ON providers USING GIST (
-    ST_MakePoint(lng, lat)::geography
+    CAST(ST_MakePoint(lng, lat) AS geography)
   )
   WHERE lat IS NOT NULL AND lng IS NOT NULL;
 

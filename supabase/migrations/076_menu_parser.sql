@@ -33,6 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_menu_items_provider
 ALTER TABLE provider_menus ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items_staging ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Provider owners manage menus" ON provider_menus;
 CREATE POLICY "Provider owners manage menus" ON provider_menus
   FOR ALL USING (
     uploaded_by = auth.uid() OR
@@ -42,12 +43,15 @@ CREATE POLICY "Provider owners manage menus" ON provider_menus
     )
   );
 
+DROP POLICY IF EXISTS "Service role full access menus" ON provider_menus;
 CREATE POLICY "Service role full access menus" ON provider_menus
   FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Anyone reads confirmed menu items" ON menu_items_staging;
 CREATE POLICY "Anyone reads confirmed menu items" ON menu_items_staging
   FOR SELECT USING (is_confirmed = true);
 
+DROP POLICY IF EXISTS "Provider owners manage staging" ON menu_items_staging;
 CREATE POLICY "Provider owners manage staging" ON menu_items_staging
   FOR ALL USING (
     EXISTS (
@@ -56,5 +60,6 @@ CREATE POLICY "Provider owners manage staging" ON menu_items_staging
     )
   );
 
+DROP POLICY IF EXISTS "Service role full access staging" ON menu_items_staging;
 CREATE POLICY "Service role full access staging" ON menu_items_staging
   FOR ALL USING (auth.role() = 'service_role');
