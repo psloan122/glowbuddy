@@ -150,10 +150,26 @@ export default function ProviderProfile() {
         }
       }
 
+      // 4. Provider found but no submissions matched by slug — the submission
+      // may have used the old providerSlug(name, city) format (no state suffix)
+      // or a Google Place ID slug, both of which differ from providers.slug.
+      // Fall back to name + city + state match, same as the browse page.
+      if (finalProvider && finalCommunity.length === 0 && finalProvider.name && finalProvider.city && finalProvider.state) {
+        const { data: byName } = await supabase
+          .from('procedures')
+          .select('id, procedure_type, price_paid, units_or_volume, provider_name, city, state, created_at, receipt_verified, result_photo_url, rating, review_body, provider_slug')
+          .ilike('provider_name', finalProvider.name)
+          .ilike('city', finalProvider.city)
+          .eq('state', finalProvider.state)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+        if (byName?.length) finalCommunity = byName;
+      }
+
       setProvider(finalProvider);
       setCommunityData(finalCommunity);
 
-      // 4. Fetch related data for claimed providers
+      // 5. Fetch related data for claimed providers
       if (finalProvider) {
         const [pricingRes, specialsRes, photosRes, reviewsRes, baRes, injectorsRes] =
           await Promise.all([
