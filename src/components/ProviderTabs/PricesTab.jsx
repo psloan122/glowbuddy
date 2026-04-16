@@ -183,6 +183,11 @@ function PriceRow({ item, cityComp, cityCount, nationalAvg }) {
         >
           {normalized.displayPrice}
         </p>
+        {item.price_label === 'per_unit' && item._visit_price > 0 && (
+          <p className="text-[11px] text-text-secondary font-light" style={{ whiteSpace: 'nowrap' }}>
+            avg visit ${item._visit_price.toLocaleString()}
+          </p>
+        )}
         {vsAvg && vsAvg.pct !== 0 && (
           <span
             className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold uppercase"

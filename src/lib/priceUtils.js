@@ -373,6 +373,16 @@ export function bestPinListing(listings) {
  *     }
  *   }
  */
+// Labels that represent a per-visit / per-treatment total rather than a
+// per-unit rate. When a procedure group has BOTH per-unit rows AND visit rows,
+// the visit price is folded into the unit row as a sub-label so consumers
+// don't see two separate price entries for the same procedure.
+const VISIT_LABELS = new Set([
+  UNIT.PER_SESSION,
+  UNIT.FLAT_PACKAGE,
+  UNIT.FLAT_RATE_AREA,
+]);
+
 export function groupForProviderDisplay(listings) {
   const result = {};
   for (const row of listings || []) {
@@ -382,6 +392,31 @@ export function groupForProviderDisplay(listings) {
     if (!result[proc]) result[proc] = { items: [] };
     result[proc].items.push({ ...row, normalized });
   }
+
+  // For each procedure group: if it contains per_unit rows AND visit-type rows,
+  // attach the avg visit price to each unit row and remove the visit rows from
+  // the display list so they don't render as a duplicate entry.
+  for (const group of Object.values(result)) {
+    const unitItems  = group.items.filter((i) => i.price_label === UNIT.PER_UNIT);
+    const visitItems = group.items.filter((i) => VISIT_LABELS.has(i.price_label));
+
+    if (unitItems.length > 0 && visitItems.length > 0) {
+      const visitPrices = visitItems
+        .map((i) => Number(i.price))
+        .filter((p) => p > 0);
+      if (visitPrices.length > 0) {
+        const avgVisit = Math.round(
+          visitPrices.reduce((a, b) => a + b, 0) / visitPrices.length,
+        );
+        for (const item of unitItems) {
+          item._visit_price = avgVisit;
+        }
+      }
+      // Drop the visit rows — their info is now on the unit rows.
+      group.items = group.items.filter((i) => !VISIT_LABELS.has(i.price_label));
+    }
+  }
+
   return result;
 }
 
