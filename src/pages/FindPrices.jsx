@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useContext, useMemo, Component } from 'react';
+import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, X, ChevronDown, MapPin, SlidersHorizontal, Link2, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -67,29 +67,6 @@ function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
-class MobileErrorBoundary extends Component {
-  state = { error: null };
-  static getDerivedStateFromError(e) { return { error: e }; }
-  componentDidCatch(error, info) { console.error('[MobileErrorBoundary]', error, info); }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 55,
-          background: 'white', padding: 24, overflowY: 'auto',
-        }}>
-          <p style={{ color: 'red', fontWeight: 700, marginBottom: 8 }}>
-            MOBILE CRASH: {this.state.error.message}
-          </p>
-          <pre style={{ fontSize: 11, color: '#555', whiteSpace: 'pre-wrap' }}>
-            {this.state.error.stack}
-          </pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 // sessionStorage key for the most recent /browse filter set. Only used as
 // a fallback when the user lands on /browse with no URL params (e.g.
@@ -3467,7 +3444,6 @@ export default function FindPrices() {
             : gateProviders;
 
         return (
-          <MobileErrorBoundary>
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
 
             {/* Layer 1: Map — fills full screen behind everything */}
@@ -3588,7 +3564,6 @@ export default function FindPrices() {
             />
 
           </div>
-          </MobileErrorBoundary>
         );
       })()}
 

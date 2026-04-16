@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase';
 import { getInterests, getPreferences, getProcedureTags, setPreferences as setLocalPrefs, setProcedureTags as setLocalTags } from '../lib/gating';
 import { INTEREST_TO_PROCEDURES, PROCEDURE_CATEGORIES } from '../lib/constants';
 
+// Stable empty-array sentinels so callers that use these in useEffect dep arrays
+// don't trigger infinite render loops when preferences haven't loaded yet.
+const EMPTY_SLUGS = [];
+const EMPTY_BRANDS = [];
+
 export default function useUserPreferences() {
   const { user } = useContext(AuthContext);
   const [preferences, setPreferences] = useState(null);
@@ -120,8 +125,8 @@ export default function useUserPreferences() {
 
   const procedureSlugs = Array.isArray(preferences?.procedure_slugs)
     ? preferences.procedure_slugs
-    : [];
-  const brands = Array.isArray(preferences?.brands) ? preferences.brands : [];
+    : EMPTY_SLUGS;
+  const brands = Array.isArray(preferences?.brands) ? preferences.brands : EMPTY_BRANDS;
 
   return {
     preferences,
