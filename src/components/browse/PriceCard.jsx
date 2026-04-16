@@ -272,6 +272,9 @@ const S = {
     fontSize: 12,
     color: '#888',
     margin: '2px 0 0 0',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   headerRight: {
     display: 'flex',

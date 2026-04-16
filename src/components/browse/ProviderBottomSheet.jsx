@@ -165,10 +165,19 @@ export default memo(function ProviderBottomSheet({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
+                minWidth: 0,
               }}
             >
               {group.city && group.state && (
-                <span>
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                    flexShrink: 1,
+                  }}
+                >
                   {group.city}, {group.state}
                 </span>
               )}
