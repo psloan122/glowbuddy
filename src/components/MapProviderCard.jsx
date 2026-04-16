@@ -61,7 +61,7 @@ export default memo(function MapProviderCard({ provider, selected, cityAvg, best
       } : undefined}
     >
       <ProviderAvatar name={provider_name} size={44} />
-      <div className="flex-1 min-w-0">
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         <div className="font-semibold text-sm text-text-primary truncate">{provider_name}</div>
         <p className="text-xs text-gray-400 truncate">
           {[city, state].filter(Boolean).join(', ')}{provider_type ? ` · ${cleanProviderType(provider_type)}` : ''}

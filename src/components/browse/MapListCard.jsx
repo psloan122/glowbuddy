@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Star } from 'lucide-react';
 import ProviderAvatar from '../ProviderAvatar';
 import { providerProfileUrl } from '../../lib/slugify';
 import { getPriceLabelShort } from '../../utils/formatPricingUnit';
@@ -150,31 +149,14 @@ function MapListCard({
             fontSize: 11,
             color: '#888',
             margin: '2px 0 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {[provider.city, provider.state].filter(Boolean).join(', ')}
-          </span>
-          {rating && (
-            <>
-              <span style={{ color: '#D6CFC6' }}>·</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#111', fontWeight: 500, flexShrink: 0 }}>
-                <Star size={10} fill="#F5B301" stroke="#F5B301" />
-                {rating.toFixed(1)}
-                {reviewCount ? (
-                  <span style={{ color: '#888', fontWeight: 400, marginLeft: 2 }}>
-                    ({reviewCount})
-                  </span>
-                ) : null}
-              </span>
-            </>
-          )}
+          {[provider.city, provider.state].filter(Boolean).join(', ')}
+          {provider.provider_type ? ` · ${provider.provider_type}` : ''}
+          {rating ? ` · ★ ${rating.toFixed(1)}` : ''}
         </p>
         {priceLine ? (
           <p
