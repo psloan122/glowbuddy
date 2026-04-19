@@ -76,6 +76,11 @@ const BROWSE_FILTERS_KEY = 'glowbuddy.browseFilters.v1';
 const BROWSE_RESULTS_KEY = 'glowbuddy.browseResults.v1';
 const RESULTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Max unpriced providers shown in the "Also in this area" section before
+// the "+N more" disclosure. Keeps the list from becoming a wall of gray
+// cards when a small city has dozens of providers without prices yet.
+const MAX_UNPRICED = 8;
+
 function readPersistedFilters() {
   if (typeof window === 'undefined') return null;
   try {
@@ -3424,7 +3429,7 @@ export default function FindPrices() {
             };
           });
           mobileSelectedId = selectedProviderGroup?.provider_id || null;
-          mobileUnpriced = unpricedProviders;
+          mobileUnpriced = unpricedProviders.slice(0, MAX_UNPRICED);
         } else {
           mobileMode = 'gate';
           mobileProviders = gateProviders.map((p) => ({
@@ -3490,6 +3495,7 @@ export default function FindPrices() {
               activeCategorySlug={procFilter?.slug}
               categoryCounts={categoryCounts}
               unpricedProviders={mobileUnpriced}
+              unpricedTotal={unpricedProviders.length}
               onSnapChange={setMobileSheetSnap}
             />
 
@@ -3978,7 +3984,7 @@ export default function FindPrices() {
                         gap: 16,
                       }}
                     >
-                      {unpricedProviders.map((p) => (
+                      {unpricedProviders.slice(0, MAX_UNPRICED).map((p) => (
                         <div key={p.id} data-provider-card={p.id}>
                           <MapListCard
                             provider={p}
@@ -3989,9 +3995,17 @@ export default function FindPrices() {
                         </div>
                       ))}
                     </div>
+                    {unpricedProviders.length > MAX_UNPRICED && (
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
+                        textAlign: 'center', margin: '8px 0 4px',
+                      }}>
+                        +{unpricedProviders.length - MAX_UNPRICED} more providers nearby — no {brandFilter || procFilter?.label || ''} prices yet
+                      </p>
+                    )}
                     <p style={{
                       fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
-                      textAlign: 'center', margin: '16px 0 4px',
+                      textAlign: 'center', margin: '8px 0 4px',
                     }}>
                       Help women{selectedLoc?.city ? ` in ${selectedLoc.city}` : ''} know what to expect — share what you paid.
                     </p>

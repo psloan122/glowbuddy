@@ -34,6 +34,7 @@ export default memo(function MobileBrowseSheet({
   onSnapChange,
   listingCount,
   unpricedProviders = [],
+  unpricedTotal = 0,
 }) {
   const listRef = useRef(null);
   const count = providerCount ?? providers.length;
@@ -259,6 +260,14 @@ export default memo(function MobileBrowseSheet({
                         </Link>
                       </div>
                     ))}
+                    {unpricedTotal > unpricedProviders.length && (
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A',
+                        textAlign: 'center', margin: '10px 0 4px',
+                      }}>
+                        +{unpricedTotal - unpricedProviders.length} more providers nearby without prices yet
+                      </p>
+                    )}
                     <p style={{
                       fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A',
                       textAlign: 'center', margin: '10px 0 4px',
