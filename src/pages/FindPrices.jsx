@@ -58,7 +58,7 @@ import ProcedureDetailSheet from '../components/ProcedureDetailSheet';
 import DosingCalculatorSheet from '../components/DosingCalculatorSheet';
 import AddExperienceSheet from '../components/AddExperienceSheet';
 import { setPageMeta } from '../lib/seo';
-import { normalizePrice, shouldDisplayPrice } from '../lib/priceUtils';
+import { normalizePrice, shouldDisplayPrice, extractSingleBrandFromType } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
 import useGeolocation from '../hooks/useGeolocation';
@@ -2040,15 +2040,34 @@ export default function FindPrices() {
     }
 
     const groups = [...map.values()].map((g) => {
-      // Deduplicate: same procedure_type + normalized_category + price
-      // keeps only the first (which will be the one with better data).
-      const seen = new Set();
-      const deduped = g.procedures.filter((p) => {
-        const dedupKey = `${p.procedure_type}|${p.normalized_category || ''}|${p.price_paid}`;
-        if (seen.has(dedupKey)) return false;
-        seen.add(dedupKey);
-        return true;
-      });
+      // Deduplicate: keep the lowest-price row per (effective_brand, price_label).
+      // Collapses e.g. three Botox per_unit rows into the single cheapest entry.
+      // Mirrors inferNeurotoxinBrand's brand logic so the dedup bucket matches
+      // what gets displayed on the card.
+      const brandMap = new Map();
+      for (const p of g.procedures) {
+        const b = p.brand;
+        const bLower = b ? b.toLowerCase() : null;
+        let effectiveBrand;
+        if (b && bLower !== 'botox') {
+          effectiveBrand = bLower;                    // explicit non-Botox brand
+        } else {
+          const fromType = extractSingleBrandFromType(p.procedure_type);
+          if (fromType && fromType.toLowerCase() !== 'botox') {
+            effectiveBrand = fromType.toLowerCase();  // e.g. 'xeomin', 'daxxify'
+          } else {
+            const price = Number(p.price_paid ?? 0);
+            effectiveBrand = (price > 0 && price < 10) ? 'dysport_inferred' : (bLower || 'botox');
+          }
+        }
+        const dedupKey = `${effectiveBrand}|${p.normalized_category || ''}`;
+        const existing = brandMap.get(dedupKey);
+        const price = p.price_paid ?? Infinity;
+        if (!existing || price < (existing.price_paid ?? Infinity)) {
+          brandMap.set(dedupKey, p);
+        }
+      }
+      const deduped = [...brandMap.values()];
 
       const sortedProcs = deduped
         .sort((a, b) => compareValueOf(a) - compareValueOf(b));

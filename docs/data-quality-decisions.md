@@ -113,6 +113,29 @@ violating rows into `provider_pricing_quarantine`.
 - **Deletion**: used only when the row has zero valid signal — wrong page type,
   fabricated by scraper misparse (H2a cases). Not recoverable.
 
+## §9 — Scraper patches applied 2026-04-20 (Patches 1–4)
+
+Four patches were applied to `scripts/extract_units.py` and `scripts/import-validated-prices.js`
+following the Botox low-price investigation (docs/botox-low-price-investigation.md §6.3).
+All four were verified by `scripts/test_extract_patches.py` (17/17 tests passing).
+
+| Patch | File(s) | Addresses | Implementation |
+|-------|---------|-----------|----------------|
+| 1 — Per-brand proximity guard | `extract_units.py` | H4: Dysport price captured as Botox | `COMPETING_BRANDS_RE` + `nearest_brand_to_price()`. In the PROC_RE price extraction loop, if a competing neurotoxin brand is textually closer to the price than the matched keyword, the price is skipped for the matched brand. |
+| 2 — Promo-language detection | `extract_units.py` | H1: Promo / membership / new-client pricing | `PROMO_RE` + `has_promo_signal()`. When promo language is found in the ±200-char context, `is_starting_price = True`, `is_deal = True`, `deal_type = 'promotion'` are set on the output record. |
+| 3 — Wrong-page-type URL blocklist | `extract_units.py`, `import-validated-prices.js` | H2a: Wrong page type scraped | `WRONG_PAGE_PATH_RE` / `WRONG_PAGE_RE`. In `extract_units.py` the entire domain is skipped at the top of the domain loop. In `import-validated-prices.js` the row is skipped before provider matching. |
+| 4 — Taxonomy floor | `extract_units.py`, `import-validated-prices.js` | H4+H1: sub-$8 per_unit rows from scrapers | `PRICE_LABEL_FLOORS[('Neurotoxin','per_unit')] = 8`. Companion to migration 084's DB-layer plausibility trigger. Real sub-$8 Botox must enter via `provider_listed` or `community_submitted`. |
+
+**Why `is_deal` and not suppression at extraction time (Patch 2):**
+The scraper cannot distinguish a row that is genuinely a deal (real price, flagged for context)
+from one that is a mismatch (wrong price). Rows with promo signals are marked `is_deal = True`
+so the DB-layer review workflow (`pending_review_rows`) can assess them rather than silently
+dropping them. This preserves auditability.
+
+**GATE (from investigation §6):**
+Do not run these patches against production until the test suite at
+`scripts/test_extract_patches.py` passes in full. Last verified: 2026-04-20, 17/17.
+
 ## §8 — Scraper deduplication (migration 089)
 
 The April 12 2026 scrape run inserted 7–10 copies of each row within milliseconds

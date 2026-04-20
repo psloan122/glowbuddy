@@ -631,6 +631,8 @@ for domain, data in domain_data.items():
                 'pricing_unit': final_unit,
                 'unit_description': None,
                 'is_starting_price': final_starting,
+                'is_deal': is_promo,                           # Patch 2: promo context → deal flag
+                'deal_type': 'promotion' if is_promo else None,
                 'price_notes': None,
                 'typical_range_low': tlo,
                 'typical_range_high': thi,

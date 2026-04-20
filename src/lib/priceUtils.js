@@ -40,6 +40,28 @@ function isNeurotoxin(procedureType) {
   );
 }
 
+// Known single-brand neurotoxin names. Order matters: check more specific
+// brands before Botox so "Botox / Dysport" combos aren't misclassified.
+const SINGLE_BRAND_PATTERNS = [
+  { pattern: /daxxify/i,  label: 'Daxxify' },
+  { pattern: /jeuveau/i,  label: 'Jeuveau' },
+  { pattern: /xeomin/i,   label: 'Xeomin'  },
+  { pattern: /dysport/i,  label: 'Dysport' },
+  { pattern: /botox/i,    label: 'Botox'   },
+];
+
+/**
+ * When procedure_type names exactly one neurotoxin brand, return that brand's
+ * display label. Returns null for multi-brand combos like
+ * "Botox / Dysport / Xeomin" or generic names like "neurotoxin".
+ */
+export function extractSingleBrandFromType(procedureType) {
+  if (!procedureType) return null;
+  const t = String(procedureType);
+  const matched = SINGLE_BRAND_PATTERNS.filter(({ pattern }) => pattern.test(t));
+  return matched.length === 1 ? matched[0].label : null;
+}
+
 function fmtMoney(n) {
   if (n == null || !Number.isFinite(n)) return '--';
   if (Number.isInteger(n)) return `$${n.toLocaleString()}`;
@@ -291,7 +313,7 @@ export function inferNeurotoxinBrand({ procedureType, brand, perUnitPrice }) {
 
   // Price >= threshold or no per-unit price
   return {
-    label: brand || 'Botox',
+    label: brand || extractSingleBrandFromType(procedureType) || 'Botox',
     isInferred: !brand,
     isDysport: false,
     tooltip: brand

@@ -15,9 +15,9 @@ import {
 //      or re-geocode on every navigation within a session)
 //   2. Explicit { city, state } override passed by the caller
 //      (geocoded via the Mapbox Geocoding REST API)
-//   3. `profiles.preferred_lat / preferred_lng` for signed-in users
-//   4. Profile `preferred_city / preferred_state` → geocoded
-//   5. Gating localStorage city/state/zip → geocoded
+//   3. Profile `city / state / zip` for signed-in users → geocoded
+//      (profiles has no lat/lng columns; geocoding is the only path)
+//   4. Gating localStorage city/state/zip → geocoded
 //
 // We do NOT prompt for browser geolocation here — that ship sailed for
 // most users by the time they hit /browse, and asking again would be
@@ -128,33 +128,22 @@ export default function useUserLocation(override) {
 
       setLoading(true);
 
-      // Profile lat/lng for signed-in users.
+      // Profile city/state/zip for signed-in users → geocoded.
+      // profiles has no lat/lng columns; geocoding is the only path.
       if (user?.id) {
         try {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('preferred_lat, preferred_lng, preferred_city, preferred_state, preferred_zip')
-            .eq('id', user.id)
+            .select('city, state, zip')
+            .eq('user_id', user.id)
             .maybeSingle();
 
           if (cancelled) return;
 
-          if (profile?.preferred_lat && profile?.preferred_lng) {
-            const next = {
-              lat: Number(profile.preferred_lat),
-              lng: Number(profile.preferred_lng),
-              source: 'profile',
-            };
-            setLoc(next);
-            writeSessionLoc(next);
-            setLoading(false);
-            return;
-          }
-
           const fallbackQuery =
-            profile?.preferred_zip ||
-            (profile?.preferred_city && profile?.preferred_state
-              ? `${profile.preferred_city}, ${profile.preferred_state}, USA`
+            profile?.zip ||
+            (profile?.city && profile?.state
+              ? `${profile.city}, ${profile.state}, USA`
               : null);
           if (fallbackQuery) {
             const coords = await geocodeViaMapbox(fallbackQuery);
@@ -166,8 +155,12 @@ export default function useUserLocation(override) {
               return;
             }
           }
-        } catch {
-          // Profile fetch failed — continue to the next fallback.
+        } catch (err) {
+          console.warn('[useUserLocation] profile fetch failed', {
+            message: err.message,
+            code: err.code,
+            details: err.details,
+          });
         }
       }
 

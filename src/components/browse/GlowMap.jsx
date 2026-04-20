@@ -219,6 +219,8 @@ export default memo(function GlowMap({
   const [ready, setReady]           = useState(false);
   const [mapError, setMapError]     = useState(null);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [styleUrl, setStyleUrl]               = useState(MAPBOX_STYLE);
+  const [styleFallbackAttempted, setStyleFallbackAttempted] = useState(false);
 
   const userInteracted     = useRef(false);
   const initialCenteredRef = useRef(false);
@@ -369,7 +371,15 @@ export default memo(function GlowMap({
   // ── 20 s load timeout ────────────────────────────────────────────────
   useEffect(() => {
     if (ready || mapError) return;
-    const t = setTimeout(() => setMapError('Map load timed out'), 20_000);
+    const t = setTimeout(() => {
+      console.error('[MAP_DEBUG] 20s timeout — map never loaded', {
+        ready,
+        mapError,
+        mapboxToken: MAPBOX_TOKEN ? MAPBOX_TOKEN.slice(0, 20) + '…' : 'MISSING',
+        mapboxStyle: styleUrl,
+      });
+      setMapError('Map load timed out');
+    }, 20_000);
     return () => clearTimeout(t);
   }, [ready, mapError]);
 
@@ -539,7 +549,7 @@ export default memo(function GlowMap({
           mapboxAccessToken={MAPBOX_TOKEN}
           initialViewState={DEFAULT_VIEW}
           style={{ width: '100%', height: '100%', touchAction: 'none' }}
-          mapStyle={MAPBOX_STYLE}
+          mapStyle={styleUrl}
           // Gesture handling — matches Google Maps gestureHandling:'greedy':
           // single-finger drag pans the map; two-finger pinch zooms.
           dragPan={true}
@@ -567,7 +577,22 @@ export default memo(function GlowMap({
             }
           }}
           onError={(e) => {
-            console.error('[GlowMap]', e?.error);
+            const errStatus = e?.error?.status;
+            const isStyleError = errStatus === 403 || errStatus === 404;
+            if (isStyleError && !styleFallbackAttempted && styleUrl !== 'mapbox://styles/mapbox/light-v11') {
+              console.warn('[GlowMap] custom style failed; falling back to default');
+              setStyleUrl('mapbox://styles/mapbox/light-v11');
+              setStyleFallbackAttempted(true);
+              return;
+            }
+            console.error('[MAP_DEBUG] onError fired', {
+              message:     e?.error?.message,
+              status:      errStatus,
+              url:         e?.error?.url,
+              sourceError: e?.error?.sourceError,
+              stack:       e?.error?.stack,
+              rawEvent:    e,
+            });
             setMapError(e?.error?.message || 'Failed to load map');
           }}
           onMoveEnd={(e) => {
