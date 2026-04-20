@@ -14,7 +14,7 @@ import {
 //   1. Cached `gb_user_location` in sessionStorage (so we don't re-query
 //      or re-geocode on every navigation within a session)
 //   2. Explicit { city, state } override passed by the caller
-//      (geocoded via the Google Maps JS SDK if it's already loaded)
+//      (geocoded via the Mapbox Geocoding REST API)
 //   3. `profiles.preferred_lat / preferred_lng` for signed-in users
 //   4. Profile `preferred_city / preferred_state` → geocoded
 //   5. Gating localStorage city/state/zip → geocoded
@@ -61,24 +61,24 @@ function writeSessionLoc(loc) {
   }
 }
 
-async function geocodeViaGoogle(query) {
-  if (!query) return null;
-  if (typeof window === 'undefined') return null;
-  const geocoder = window.google?.maps?.Geocoder;
-  if (!geocoder) return null;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+// Forward geocode a city/state/zip string → { lat, lng }.
+// Uses the Mapbox Geocoding REST API (no Google Maps SDK required).
+async function geocodeViaMapbox(query) {
+  if (!query || !MAPBOX_TOKEN) return null;
   try {
-    const instance = new geocoder();
-    const result = await new Promise((resolve) => {
-      instance.geocode({ address: query }, (res, status) => {
-        if (status === 'OK' && res && res[0]?.geometry?.location) {
-          resolve(res[0].geometry.location);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-    if (!result) return null;
-    return { lat: result.lat(), lng: result.lng() };
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
+      `${encodeURIComponent(query)}.json` +
+      `?country=US&access_token=${MAPBOX_TOKEN}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data.features?.[0];
+    if (!feature?.center) return null;
+    const [lng, lat] = feature.center;
+    return { lat, lng };
   } catch {
     return null;
   }
@@ -107,7 +107,7 @@ export default function useUserLocation(override) {
         }
         lastOverrideRef.current = overrideKey;
         setLoading(true);
-        const coords = await geocodeViaGoogle(
+        const coords = await geocodeViaMapbox(
           `${override.city}, ${override.state}, USA`,
         );
         if (cancelled) return;
@@ -157,7 +157,7 @@ export default function useUserLocation(override) {
               ? `${profile.preferred_city}, ${profile.preferred_state}, USA`
               : null);
           if (fallbackQuery) {
-            const coords = await geocodeViaGoogle(fallbackQuery);
+            const coords = await geocodeViaMapbox(fallbackQuery);
             if (!cancelled && coords) {
               const next = { ...coords, source: 'profile' };
               setLoc(next);
@@ -181,7 +181,7 @@ export default function useUserLocation(override) {
         savedZip ||
         (savedCity && savedState ? `${savedCity}, ${savedState}, USA` : null);
       if (gatingQuery) {
-        const coords = await geocodeViaGoogle(gatingQuery);
+        const coords = await geocodeViaMapbox(gatingQuery);
         if (!cancelled && coords) {
           const next = { ...coords, source: 'gating' };
           setLoc(next);

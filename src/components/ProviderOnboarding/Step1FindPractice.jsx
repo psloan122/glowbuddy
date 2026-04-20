@@ -279,7 +279,8 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     onComplete(place, null, false);
   }
 
-  const mapsKey = import.meta.env.VITE_GOOGLE_PLACES_KEY;
+  const mapsKey     = import.meta.env.VITE_GOOGLE_PLACES_KEY;
+  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
   const photos = selectedPlace?.googlePhotos || [];
   const hasPhotos = photos.length > 0;
 
@@ -391,10 +392,18 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
               </div>
             </div>
 
-            {/* Google Maps thumbnail */}
-            {selectedPlace.lat && selectedPlace.lng && mapsKey && (
+            {/* Location thumbnail — Mapbox Static API.
+                Mapbox uses lng,lat order (reversed from Google).
+                pin-s+E8347A places a small pink marker at the practice. */}
+            {selectedPlace.lat && selectedPlace.lng && mapboxToken && (
               <img
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${selectedPlace.lat},${selectedPlace.lng}&zoom=15&size=400x200&markers=${selectedPlace.lat},${selectedPlace.lng}&key=${mapsKey}`}
+                src={
+                  `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
+                  `pin-s+E8347A(${selectedPlace.lng},${selectedPlace.lat})/` +
+                  `${selectedPlace.lng},${selectedPlace.lat},15/` +
+                  `400x200@2x` +
+                  `?access_token=${mapboxToken}`
+                }
                 alt="Map"
                 className="w-full h-[140px] object-cover rounded-lg"
                 loading="lazy"

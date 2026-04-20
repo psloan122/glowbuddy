@@ -91,6 +91,47 @@ def is_booking_platform(domain):
     domain = domain.lower()
     return any(p in domain for p in BOOKING_PLATFORM_BLOCKLIST)
 
+
+# ── Post-assignment plausibility guard ────────────────────────────────────────
+# resolve_unit() picks a label from text patterns but has no price awareness.
+# These ranges define what is plausible for each (category, label) pair.
+# Only categories defined here are checked; everything else passes through.
+LABEL_RANGES = {
+    ('Neurotoxin', 'per_unit'):     (5,   50),   # $5–$50: realistic per-unit window
+    ('Neurotoxin', 'per_session'):  (50, 2000),  # $50–$2 000: realistic session window
+    ('Neurotoxin', 'flat_package'): (50, 3000),  # $50–$3 000: realistic package window
+}
+
+# Ordered list of (candidate_label, (min, max)) to try when original is implausible.
+# The per_unit→per_session / per_unit→flat_package split mirrors migration 083:
+#   $50–$300  reads as a small-to-medium session price  → per_session
+#   >$300     reads as a bundle / tiered package price  → flat_package
+RECLASSIFY_CANDIDATES = {
+    ('Neurotoxin', 'per_unit'):     [('per_session', (50, 300)), ('flat_package', (301, 3000))],
+    ('Neurotoxin', 'per_session'):  [('per_unit', (5, 50))],
+    ('Neurotoxin', 'flat_package'): [('per_unit', (5, 50))],
+}
+
+
+def check_label_plausibility(price, label, cat):
+    """
+    Returns (final_label, reclassified).
+    If (cat, label) has a defined range and price falls outside it, tries
+    reclassification candidates in order. Falls back to original label if
+    nothing better is found (floor/ceiling check will still gate the row).
+    """
+    key = (cat, label)
+    if key not in LABEL_RANGES:
+        return label, False
+    lo, hi = LABEL_RANGES[key]
+    if lo <= price <= hi:
+        return label, False
+    for cand_label, (clo, chi) in RECLASSIFY_CANDIDATES.get(key, []):
+        if clo <= price <= chi:
+            return cand_label, True
+    return label, True  # implausible; no better candidate — original label kept
+
+
 # ── Load Cheerio ──────────────────────────────────────────────────────────────
 print("Loading Cheerio files from ~/Downloads/...")
 cheerio_files = sorted(glob.glob(os.path.join(CHEERIO_DIR, "dataset_cheerio-scraper_*.csv")))
@@ -416,12 +457,81 @@ PROC_RE = re.compile(
 )
 print(f"Taxonomy: {len(TAXONOMY)} entries")
 
+# ── Patch 1: Per-brand proximity guard (H4 fix) ───────────────────────────────
+# If a competing neurotoxin brand name appears *closer* to the extracted price
+# than the matched procedure keyword, the price more likely belongs to the
+# competitor (e.g. "$5/unit" next to "Dysport" when we matched "Botox").
+# This is the primary defense against H4 Dysport-price-captured-as-Botox.
+COMPETING_BRANDS_RE = re.compile(
+    r'\b(dysport|xeomin|jeuveau|daxxify|letybo)\b', re.I
+)
+
+
+def nearest_brand_to_price(ctx, price_match_start, proc_match_start_in_ctx):
+    """
+    Returns True if a competing neurotoxin brand is closer to the price
+    than the matched procedure keyword, meaning the price likely belongs
+    to the competitor, not the matched brand.
+    """
+    competing = list(COMPETING_BRANDS_RE.finditer(ctx))
+    if not competing:
+        return False
+    dist_to_proc = abs(price_match_start - proc_match_start_in_ctx)
+    min_dist_to_competitor = min(
+        abs(price_match_start - m.start()) for m in competing
+    )
+    return min_dist_to_competitor < dist_to_proc
+
+
+# ── Patch 2: Promo-language detection (H1 fix) ───────────────────────────────
+# When promo language appears near a price, mark it as a starting/promo price
+# rather than a standard retail per-unit price.
+PROMO_RE = re.compile(
+    r'\b(new\s+client|first\s+visit|intro(?:ductory)?|minimum\s+\d+\s+units?|'
+    r'\d+\s+unit\s+min(?:imum)?|easter|holiday|spring|summer|month\s+only|'
+    r'limited\s+time|while\s+supplies|expires?|members?\s+only|membership|'
+    r'loyalty\s+price|special\s+offer|promo(?:tion)?)\b',
+    re.I
+)
+
+
+def has_promo_signal(ctx):
+    return bool(PROMO_RE.search(ctx))
+
+
+# ── Patch 3: Wrong-page-type URL blocklist (H2a fix) ─────────────────────────
+# Skip source URLs whose path clearly indicates a non-pricing page
+# (weight-loss programs, wholesale portals, provider-only content).
+WRONG_PAGE_PATH_RE = re.compile(
+    r'/(?:weight[-_]?loss|weight[-_]management|wholesale|provider[-_]?portal|'
+    r'staff[-_]?only|b2b|for[-_]?providers?|practitioner)',
+    re.I
+)
+
+
+def is_wrong_page_type(url):
+    if not url:
+        return False
+    return bool(WRONG_PAGE_PATH_RE.search(url))
+
+
+# ── Patch 4: Taxonomy floor per (category, label) pair ───────────────────────
+# Companion to the DB-layer plausibility trigger (migration 084).
+# Rows below these floors are silently skipped at extraction time.
+# Only scraper-side extraction is affected; provider_listed/community rows
+# bypass this file entirely.
+PRICE_LABEL_FLOORS = {
+    ('Neurotoxin', 'per_unit'): 8,     # H4+H1 floor: real sub-$8 Botox must
+                                        # come from provider_listed or community
+}
+
 # ── Extract ───────────────────────────────────────────────────────────────────
 print("\nExtracting prices with unit resolution...")
 new_records = []
 providers_found = set()
 units_from_text = 0
 units_from_taxonomy = 0
+units_reclassified = 0
 
 for domain, data in domain_data.items():
     if domain in existing_price_domains:
@@ -429,6 +539,10 @@ for domain, data in domain_data.items():
     if domain in JUNK_DOMAINS:
         continue
     if is_booking_platform(domain):
+        continue
+
+    source_url_candidate = data.get('url', f'https://{domain}')
+    if is_wrong_page_type(source_url_candidate):   # Patch 3
         continue
 
     combined = data.get('combined', '')
@@ -440,7 +554,7 @@ for domain, data in domain_data.items():
         continue
 
     prov = master_lookup.get(domain, {})
-    source_url = data.get('url', f'https://{domain}')
+    source_url = source_url_candidate
     seen = set()
 
     for match in PROC_RE.finditer(combined):
@@ -455,6 +569,8 @@ for domain, data in domain_data.items():
         start = max(0, match.start() - WINDOW)
         end = min(len(combined), match.end() + WINDOW)
         ctx = combined[start:end]
+        # Offset of proc match within the context window (for proximity calc)
+        proc_start_in_ctx = match.start() - start
 
         resolved_unit, is_starting = resolve_unit(ctx, default_unit)
         if resolved_unit != default_unit:
@@ -462,13 +578,35 @@ for domain, data in domain_data.items():
         else:
             units_from_taxonomy += 1
 
-        for p in PRICE_RE.findall(ctx):
+        # Patch 2: flag promo context
+        is_promo = has_promo_signal(ctx)
+
+        for p_match in PRICE_RE.finditer(ctx):
+            p = p_match.group(1)
             try:
                 price = float(p.replace(',', ''))
             except:
                 continue
             if not (floor <= price <= ceil):
                 continue
+
+            # Patch 1: skip if a competing brand is closer to this price
+            if cat == 'Neurotoxin' and nearest_brand_to_price(
+                ctx, p_match.start(), proc_start_in_ctx
+            ):
+                continue
+
+            # Post-assignment plausibility guard: reclassify if label and
+            # price are inconsistent (e.g. per_unit=$800 → flat_package).
+            final_unit, reclassified = check_label_plausibility(price, resolved_unit, cat)
+            if reclassified:
+                units_reclassified += 1
+
+            # Patch 4: per-(cat, label) floor — skip implausibly cheap rows
+            label_floor = PRICE_LABEL_FLOORS.get((cat, final_unit))
+            if label_floor is not None and price < label_floor:
+                continue
+
             key = (domain, proc_key, price)
             dedup_key = (domain, proc_key.lower(), price)
             if key in seen:
@@ -479,7 +617,8 @@ for domain, data in domain_data.items():
 
             final_starting = (
                 is_starting
-                or (cat == 'Neurotoxin' and resolved_unit == 'per_unit')
+                or is_promo                                          # Patch 2
+                or (cat == 'Neurotoxin' and final_unit == 'per_unit')
             )
 
             new_records.append({
@@ -489,7 +628,7 @@ for domain, data in domain_data.items():
                 'category': cat,
                 'subcategory': subcat,
                 'price': price,
-                'pricing_unit': resolved_unit,
+                'pricing_unit': final_unit,
                 'unit_description': None,
                 'is_starting_price': final_starting,
                 'price_notes': None,
@@ -507,6 +646,7 @@ for domain, data in domain_data.items():
 
 print(f"\nUnits resolved from text:     {units_from_text:,}")
 print(f"Units from taxonomy default:  {units_from_taxonomy:,}")
+print(f"Units reclassified (plausibility guard): {units_reclassified:,}")
 print(f"Net new records extracted:    {len(new_records):,}")
 print(f"Net new priced providers:     {len(providers_found):,}")
 

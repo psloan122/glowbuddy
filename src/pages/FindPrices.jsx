@@ -930,6 +930,11 @@ export default function FindPrices() {
   // brand='Xeomin'` and return nothing. Lowercasing the brand gives the
   // same token the brand-specific pill uses (Xeomin → 'xeomin', etc), so
   // the query stays symmetric with the initial Botox view.
+  // Neurotoxin aggregation decision (docs/data-quality-decisions.md §3):
+  // Each neurotoxin pill has its own fuzzyToken ('botox', 'dysport', etc.),
+  // so city averages are always computed per-brand — never cross-drug. This
+  // is intentional: per-unit potency differs between brands (1 Botox unit ≠
+  // 1 Dysport unit), so a blended cross-brand average would be meaningless.
   const filterFuzzyToken =
     (subTypeFilter && subTypeFilter.split(/[\s/]+/)[0]?.toLowerCase()) ||
     (brandFilter && brandFilter.toLowerCase()) || procFilter?.fuzzyToken || null;
@@ -939,6 +944,15 @@ export default function FindPrices() {
   const filterCity = selectedLoc?.city || '';
   const filterState = selectedLoc?.state || '';
   const filterZip = selectedLoc?.zip || '';
+
+  // Which price_label is "canonical" for the active filter?
+  // Drives map pin bestPrice selection and MapListCard lead price.
+  // null = no label preference (gate state / no proc filter).
+  const activePriceLabel = useMemo(() => {
+    if (procFilter?.slug === 'neurotoxin' || brandFilter) return 'per unit';
+    if (procFilter?.slug === 'filler') return 'per syringe';
+    return null;
+  }, [procFilter, brandFilter]);
 
   // User coordinates used to render the "· X mi" distance badge on browse
   // cards. Resolution priority lives inside the hook: session cache →
@@ -1893,10 +1907,57 @@ export default function FindPrices() {
     });
   }, [displayedProcedures, gateProviders]);
 
-  // City average — ONLY per-unit prices. Per-session ($300), per-syringe,
-  // and flat packages must be excluded or they inflate the average by 10-20x
-  // (e.g. $211/unit instead of ~$15/unit for Botox in NYC).
+  // ── RPC-sourced city price summary ──────────────────────────────────────
+  // get_provider_price_summary runs over the full uncapped dataset and returns
+  // per-provider summaries plus city-level aggregates (10% trimmed mean, p25,
+  // p75, min, max). All three /browse surfaces read from this single source so
+  // they stay consistent even when the 40-row client query sample is skewed.
+  const [priceSummary, setPriceSummary] = useState(null);
+  useEffect(() => {
+    setPriceSummary(null);
+    if (!filterFuzzyToken || !filterCity || !filterState || !activePriceLabel) return undefined;
+    let cancelled = false;
+    supabase
+      .rpc('get_provider_price_summary', {
+        p_procedure_type: filterFuzzyToken,
+        p_city:           filterCity,
+        p_state:          filterState,
+        p_price_label:    activePriceLabel.replace(/\s+/g, '_'),
+      })
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (!data?.length) { setPriceSummary(null); return; }
+        const first = data[0];
+        const cityStats = {
+          sampleSize:   first.city_sample_size  ?? 0,
+          trimmedMean:  first.city_trimmed_mean != null ? Number(first.city_trimmed_mean)  : null,
+          p25:          first.city_p25          != null ? Number(first.city_p25)           : null,
+          p75:          first.city_p75          != null ? Number(first.city_p75)           : null,
+          min:          first.city_min          != null ? Number(first.city_min)           : null,
+          max:          first.city_max          != null ? Number(first.city_max)           : null,
+          isReliable:   first.city_is_reliable  ?? null,
+        };
+        const byProviderId = new Map(
+          data.map((row) => [
+            row.provider_id,
+            {
+              minPrice:    Number(row.min_price),
+              medianPrice: Number(row.median_price),
+              maxPrice:    Number(row.max_price),
+              sampleSize:  row.sample_size,
+            },
+          ]),
+        );
+        if (!cancelled) setPriceSummary({ cityStats, byProviderId });
+      });
+    return () => { cancelled = true; };
+  }, [filterFuzzyToken, filterCity, filterState, activePriceLabel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // City average — prefer the RPC trimmed mean (computed from the full
+  // uncapped dataset); fall back to the client-side per-row average which
+  // covers at most 40 rows and can be skewed by sample composition.
   const cityAvgPrice = useMemo(() => {
+    if (priceSummary?.cityStats?.trimmedMean != null) return priceSummary.cityStats.trimmedMean;
     const vals = (displayedProcedures || [])
       .filter((p) => !p.discount_type)
       .filter((p) =>
@@ -1908,7 +1969,7 @@ export default function FindPrices() {
       .map((p) => Number(p.normalized_compare_value));
     if (vals.length === 0) return null;
     return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }, [displayedProcedures]);
+  }, [displayedProcedures, priceSummary]);
 
   // Best deal = lowest per-unit price in the current result set. We
   // only surface the SavingsCallout when that deal is 20%+ below the
@@ -3477,6 +3538,7 @@ export default function FindPrices() {
                 bottomPadding={mapBottomPadding}
                 isMobile
                 searchableProviders={gateProviders}
+                activePriceLabel={activePriceLabel}
               />
             </div>
 
@@ -3593,6 +3655,7 @@ export default function FindPrices() {
             brandLabel={brandFilter || procFilter?.label}
             city={selectedLoc?.city}
             state={selectedLoc?.state}
+            cityStats={priceSummary?.cityStats ?? null}
           />
           <StickyFilterBar
             sortBy={sortBy}
@@ -3938,12 +4001,23 @@ export default function FindPrices() {
                     const selected =
                       selectedProviderGroup?.provider_id != null &&
                       selectedProviderGroup.provider_id === group.provider_id;
-                    // Lead price = the first procedure (already sorted lowest first)
-                    const leadPrice = primary
+                    // Lead price: when a label filter is active, find the row
+                    // whose normalized_compare_unit matches it (e.g. 'per unit'
+                    // for neurotoxins). Without this guard the card could show
+                    // "from $55/unit" when the $55 row is actually per_session.
+                    const leadRow = activePriceLabel
+                      ? (group.procedures.find(
+                          (p) => p.normalized_compare_unit === activePriceLabel,
+                        ) ?? null)
+                      : primary;
+                    const leadPrice = leadRow
                       ? {
-                          procedure_type: primary.procedure_type,
-                          price_label: primary.price_label || primary.normalized_compare_unit?.replace(/^per /, 'per_') || 'per_unit',
-                          price: primary.normalized_compare_value || primary.price_paid,
+                          procedure_type: leadRow.procedure_type,
+                          price_label:
+                            leadRow.price_label ||
+                            leadRow.normalized_compare_unit?.replace(/^per /, 'per_') ||
+                            null,
+                          price: leadRow.normalized_compare_value || leadRow.price_paid,
                         }
                       : null;
                     return (
@@ -4051,6 +4125,7 @@ export default function FindPrices() {
                 showSearchArea={showSearchArea}
                 onSearchAreaClick={handleSearchAreaClick}
                 searchableProviders={gateProviders}
+                activePriceLabel={activePriceLabel}
               />
               {gateSelectedProviderGroup && (
                 <ProviderBottomSheet

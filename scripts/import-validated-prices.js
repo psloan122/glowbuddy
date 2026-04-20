@@ -181,6 +181,40 @@ function extractUnitsText(rawText, priceValue) {
   return null;
 }
 
+// ── Patch 3: Wrong-page-type URL blocklist ────────────────────────────────────
+// Skip rows whose source URL path indicates a non-pricing page (weight-loss
+// programs, wholesale portals, provider-only content). Mirrors the same guard
+// in extract_units.py. Applied per row so it catches URLs that entered via
+// the validated CSV from a prior scrape.
+const WRONG_PAGE_RE = /\/(weight[-_]?loss|weight[-_]management|wholesale|provider[-_]?portal|staff[-_]?only|b2b)\b/i;
+
+// ── Post-assignment plausibility guard ────────────────────────────────────────
+// The validated CSV assigns price_label from automated classification. For
+// neurotoxins the most common error is assigning per_unit to session-range
+// prices (e.g. $250 labelled per_unit) or per_session to unit-range prices
+// (e.g. $20 labelled per_session). These constants and the function below
+// catch those cases at import time rather than relying on a post-hoc migration.
+const NEUROTOXIN_PER_UNIT_MAX = 50;   // $50/unit is the realistic ceiling
+const NEUROTOXIN_SESSION_MIN  = 50;   // anything under $50 can't be a real session
+const NEUROTOXIN_PER_UNIT_MIN = 8;    // Patch 4: floor for scraper-sourced per_unit rows
+
+function fixNeurotoxinLabel(price, label, procedureType) {
+  if (!procedureType) return label;
+  const t = procedureType.toLowerCase();
+  const isNeurotoxin =
+    t.includes('botox') || t.includes('dysport') || t.includes('xeomin') ||
+    t.includes('jeuveau') || t.includes('daxxify') || t.includes('neurotox');
+  if (!isNeurotoxin) return label;
+
+  if (label === 'per_unit' && price > NEUROTOXIN_PER_UNIT_MAX) {
+    return price > 300 ? 'flat_package' : 'per_session';
+  }
+  if ((label === 'per_session' || label === 'flat_package') && price < NEUROTOXIN_SESSION_MIN) {
+    return 'per_unit';
+  }
+  return label;
+}
+
 // Build a name+city+state key for fuzzy provider matching.
 function buildKey(name, city, state) {
   return `${name}|${city}|${state}`.toLowerCase().trim();
@@ -244,10 +278,16 @@ async function main() {
 
   // 4. Match each CSV row to a provider and build insert payloads.
   const inserts = [];
-  const skipped = { unmatched: 0, badProc: 0, badPrice: 0 };
+  const skipped = { unmatched: 0, badProc: 0, badPrice: 0, wrongPage: 0, belowFloor: 0 };
   const unmatchedSamples = [];
 
   for (const row of validRows) {
+    // Patch 3: skip rows whose source URL indicates a non-pricing page
+    if (WRONG_PAGE_RE.test(row.page_url || '')) {
+      skipped.wrongPage++;
+      continue;
+    }
+
     const procedureType = mapProcedure(row.procedure_guess);
     if (!procedureType) {
       skipped.badProc++;
@@ -280,12 +320,34 @@ async function main() {
     const unitsText = extractUnitsText(row.raw_text, row.price_value);
     const brand = extractBrand(row.raw_text, row.price_value, procedureType);
 
+    const rawLabel = row.new_price_type;
+    const price_label = fixNeurotoxinLabel(Math.round(price), rawLabel, procedureType);
+    if (price_label !== rawLabel) {
+      console.warn(
+        `  RECLASSIFY ${procedureType} $${Math.round(price)}: ` +
+        `${rawLabel} → ${price_label} (${row.business_name}, ${row.city} ${row.state})`,
+      );
+    }
+
+    // Patch 4: per_unit floor — skip scraper rows below the realistic minimum.
+    // Real sub-$8 Botox pricing should enter via provider_listed or community,
+    // not via automated scraper CSV import.
+    const isNeurotoxin =
+      procedureType.toLowerCase().includes('botox') ||
+      procedureType.toLowerCase().includes('dysport') ||
+      procedureType.toLowerCase().includes('xeomin') ||
+      procedureType.toLowerCase().includes('neurotox');
+    if (isNeurotoxin && price_label === 'per_unit' && Math.round(price) < NEUROTOXIN_PER_UNIT_MIN) {
+      skipped.belowFloor++;
+      continue;
+    }
+
     inserts.push({
       provider_id: provider.id,
       procedure_type: procedureType,
       brand,
       price: Math.round(price),
-      price_label: row.new_price_type, // 'per_unit' / 'per_syringe' / 'flat_rate_area' / etc.
+      price_label, // plausibility-corrected label
       treatment_area: treatmentArea,
       units_or_volume: unitsText,
       source: 'scrape',
@@ -304,6 +366,8 @@ async function main() {
   console.log(`Skipped (no provider match): ${skipped.unmatched}`);
   console.log(`Skipped (unknown procedure):  ${skipped.badProc}`);
   console.log(`Skipped (invalid price):      ${skipped.badPrice}`);
+  console.log(`Skipped (wrong page URL):     ${skipped.wrongPage}`);    // Patch 3
+  console.log(`Skipped (below unit floor):   ${skipped.belowFloor}`);  // Patch 4
   if (unmatchedSamples.length > 0) {
     console.log('\nSample unmatched businesses:');
     unmatchedSamples.forEach((s) => console.log(`  - ${s}`));

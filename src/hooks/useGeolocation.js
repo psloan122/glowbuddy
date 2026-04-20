@@ -25,22 +25,30 @@ function writeCache(city, state, lat, lng) {
   } catch { /* quota exceeded — best effort */ }
 }
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+// Mapbox reverse geocoding: lng,lat order (not lat,lng).
+// types=place returns the city-level feature; context[region] gives state.
 async function reverseGeocode(lat, lng) {
-  const key = import.meta.env.VITE_GOOGLE_GEOCODING_KEY;
-  if (!key) throw new Error('Missing geocoding key');
+  if (!MAPBOX_TOKEN) throw new Error('Missing Mapbox token');
 
   const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=locality&key=${key}`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
+    `${lng},${lat}.json` +
+    `?types=place&country=US&access_token=${MAPBOX_TOKEN}`
   );
+  if (!res.ok) throw new Error('Geocoding request failed');
   const data = await res.json();
 
-  if (data.status !== 'OK' || !data.results?.[0]) {
-    throw new Error('Could not determine city from location');
-  }
+  const feature = data.features?.[0];
+  if (!feature) throw new Error('Could not determine city from location');
 
-  const components = data.results[0].address_components;
-  const city = components.find((c) => c.types.includes('locality'))?.long_name || '';
-  const state = components.find((c) => c.types.includes('administrative_area_level_1'))?.short_name || '';
+  // feature.text is the city name (e.g. "San Diego").
+  // The region context entry carries the two-letter state code as
+  // short_code "US-CA" — split on "-" to get "CA".
+  const city = feature.text || '';
+  const regionCtx = feature.context?.find((c) => c.id?.startsWith('region.'));
+  const state = regionCtx?.short_code?.split('-')[1] || '';
 
   if (!city || !state) throw new Error('Could not determine city');
   return { city, state };

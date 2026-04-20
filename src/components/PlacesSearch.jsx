@@ -158,6 +158,10 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
           ) {
             setSuggestions(predictions);
           } else {
+            if (status !== window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+              // eslint-disable-next-line no-console
+              console.warn('[PlacesSearch] getPlacePredictions status:', status);
+            }
             setSuggestions([]);
           }
         }
@@ -226,6 +230,8 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
               const placeData = extractPlaceData(place);
               onSelect(placeData);
             } else {
+              // eslint-disable-next-line no-console
+              console.warn('[PlacesSearch] getDetails status:', status);
               // Fallback: pass what we have from the suggestion
               onSelect(fallbackFromSuggestion(suggestion));
             }

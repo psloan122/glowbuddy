@@ -33,20 +33,26 @@ import { fetchBenchmark } from '../lib/priceBenchmark';
 
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-// Geocode a provider by name + city + state using the Google Geocoding API.
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+// Geocode a provider by name + city + state using the Mapbox Geocoding API.
 // Returns { lat, lng } or null. Non-throwing.
+// Used only to attach a lat/lng to new price submissions so pins appear on
+// the map — degraded gracefully if the token is missing.
 async function geocodeProvider(name, city, state) {
-  const key = import.meta.env.VITE_GOOGLE_GEOCODING_KEY;
-  if (!key) return null;
+  if (!MAPBOX_TOKEN) return null;
   try {
     const query = encodeURIComponent(`${name} ${city} ${state}`);
     const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json` +
+      `?country=US&access_token=${MAPBOX_TOKEN}`
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const loc = data.results?.[0]?.geometry?.location;
-    if (loc?.lat && loc?.lng) return { lat: loc.lat, lng: loc.lng };
+    const feature = data.features?.[0];
+    if (!feature?.center) return null;
+    const [lng, lat] = feature.center;
+    return { lat, lng };
   } catch {
     // Silent — map visibility is degraded but submission still saved
   }
@@ -353,7 +359,7 @@ export default function Log() {
 
   // --- Submit handler ---
 
-  async function handleSubmit() {
+  async function handleSubmit(skipDuplicateCheck = false) {
     if (isSubmitting) return;
     setSubmitError('');
 
@@ -401,7 +407,7 @@ export default function Log() {
     }
 
     // 5. Duplicate detection (only for authenticated users)
-    if (user?.id && !duplicateConfirmed) {
+    if (user?.id && !skipDuplicateCheck && !duplicateConfirmed) {
       const { isDuplicate } = await checkDuplicate(
         user.id,
         formData.providerName,
@@ -948,14 +954,15 @@ export default function Log() {
                 </p>
                 <div className="flex gap-2">
                   <button
+                    disabled={isSubmitting}
                     onClick={() => {
                       setDuplicateWarning(false);
                       setDuplicateConfirmed(true);
-                      handleSubmit();
+                      handleSubmit(true);
                     }}
-                    className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
+                    className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Yes, new visit
+                    {isSubmitting ? 'Sharing...' : 'Yes, new visit'}
                   </button>
                   <button
                     onClick={() => setDuplicateWarning(false)}

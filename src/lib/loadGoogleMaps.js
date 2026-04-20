@@ -52,11 +52,9 @@ export function loadGoogleMaps() {
     }, 10000);
 
     const script = document.createElement('script');
-    // NOTE: Do NOT add `loading=async` here. With that parameter,
-    // `onload` fires when the bootstrap is ready but the Map constructor
-    // may not be available yet (requires importLibrary('maps')). Without
-    // it, `onload` fires after all requested libraries are fully loaded,
-    // which is what our code expects.
+    // Only the Places library is loaded — the Maps JS library is no longer
+    // used; Mapbox GL handles map rendering. Omitting `loading=async`
+    // ensures `onload` fires only after the Places library is fully ready.
     script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
     script.async = true;
     script.defer = true;

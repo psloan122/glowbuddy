@@ -10,14 +10,13 @@ import { setZip, setCity, setState } from './gating';
  *   1. In-memory cache    — same lookup in the same session is free.
  *   2. zippopotam.us      — free, no auth, full US coverage in normal cases.
  *                            Fast and reliable for the common case.
- *   3. Google Geocoding   — fallback when zippopotam returns 404 / 5xx /
+ *   3. Mapbox Geocoding   — fallback when zippopotam returns 404 / 5xx /
  *                            network error / a missing place. Uses
- *                            VITE_GOOGLE_GEOCODING_KEY (already wired into
- *                            the app for the /browse map). Google has the
- *                            most complete US postal index — including
- *                            edge cases like brand-new zips, IRS PO box
- *                            zips (00501), and rural-route consolidations
- *                            that zippopotam occasionally misses.
+ *                            VITE_MAPBOX_TOKEN (already wired into the
+ *                            app for the /browse map). Covers edge cases
+ *                            like brand-new zips, IRS PO box zips (00501),
+ *                            and rural-route consolidations that zippopotam
+ *                            occasionally misses.
  *
  * String-only handling preserves leading zeros (01001 Springfield, 00501
  * Holtsville, 02101 Boston). We never coerce to Number, never use
@@ -64,19 +63,17 @@ export async function lookupZip(zipcode, options = {}) {
     return fromZippopotam;
   }
 
-  // Fall through to Google Geocoding for the long tail. This is what
-  // catches zips that zippopotam doesn't have (or is temporarily down
-  // for). Costs ~$0.005 per request, but only fires when the free path
-  // failed, so total cost is bounded by how often zippopotam misses.
-  const fromGoogle = await tryGoogleGeocoding(zipcode);
-  if (fromGoogle) {
-    cache.set(zipcode, fromGoogle);
+  // Fall through to Mapbox Geocoding for the long tail. Only fires when
+  // zippopotam misses, so API usage is minimal.
+  const fromMapbox = await tryMapboxGeocoding(zipcode);
+  if (fromMapbox) {
+    cache.set(zipcode, fromMapbox);
     if (persist) {
       setZip(zipcode);
-      setCity(fromGoogle.city);
-      setState(fromGoogle.state);
+      setCity(fromMapbox.city);
+      setState(fromMapbox.state);
     }
-    return fromGoogle;
+    return fromMapbox;
   }
 
   // Both upstreams returned nothing — cache the miss so we don't retry
@@ -122,71 +119,42 @@ async function tryZippopotam(zipcode) {
   }
 }
 
-async function tryGoogleGeocoding(zipcode) {
-  const key = import.meta.env.VITE_GOOGLE_GEOCODING_KEY;
-  if (!key) {
-    // Don't spam the console — this is a soft fallback. The primary path
-    // already covers the common case; missing the geocoding key just
-    // means we lose the long-tail coverage.
-    return null;
-  }
+async function tryMapboxGeocoding(zipcode) {
+  const token = import.meta.env.VITE_MAPBOX_TOKEN;
+  if (!token) return null; // soft fallback — primary path already covered
 
   try {
     const url =
-      `https://maps.googleapis.com/maps/api/geocode/json` +
-      `?components=${encodeURIComponent(`postal_code:${zipcode}|country:US`)}` +
-      `&key=${key}`;
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
+      `${encodeURIComponent(zipcode)}.json` +
+      `?types=postcode&country=US&access_token=${token}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.status !== 'OK' || !Array.isArray(data.results) || data.results.length === 0) {
-      return null;
-    }
+    const feature = data.features?.[0];
+    if (!feature) return null;
 
-    const result = data.results[0];
-    const components = Array.isArray(result.address_components)
-      ? result.address_components
-      : [];
-
-    // Pick the city. Prefer locality; fall back to sublocality, then
-    // postal_town, then administrative_area_level_3 — different parts
-    // of the US tag the "city" component differently and Google isn't
-    // consistent. The order below matches what gets shown in Google
-    // Maps' own UI for that postal code.
-    const city =
-      pickComponent(components, 'locality') ||
-      pickComponent(components, 'sublocality_level_1') ||
-      pickComponent(components, 'sublocality') ||
-      pickComponent(components, 'postal_town') ||
-      pickComponent(components, 'neighborhood') ||
-      pickComponent(components, 'administrative_area_level_3') ||
-      '';
-    const state = pickComponent(components, 'administrative_area_level_1', 'short_name') || '';
+    // context entries look like:
+    //   { id: "place.xxx",  text: "Agawam" }
+    //   { id: "region.xxx", text: "Massachusetts", short_code: "US-MA" }
+    const placeCtx  = feature.context?.find((c) => c.id?.startsWith('place.'));
+    const regionCtx = feature.context?.find((c) => c.id?.startsWith('region.'));
+    const city  = placeCtx?.text || '';
+    const state = regionCtx?.short_code?.split('-')[1] || '';
     if (!city || !state) return null;
 
-    const loc = result.geometry?.location || {};
-    const lat = typeof loc.lat === 'number' ? loc.lat : null;
-    const lng = typeof loc.lng === 'number' ? loc.lng : null;
-
+    // center is [lng, lat]
+    const [lng, lat] = feature.center ?? [];
     return {
       city,
       state,
       zip: zipcode,
-      lat,
-      lng,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
     };
   } catch {
     return null;
   }
-}
-
-function pickComponent(components, type, field = 'long_name') {
-  for (const c of components) {
-    if (Array.isArray(c.types) && c.types.includes(type)) {
-      return c[field] || c.long_name || '';
-    }
-  }
-  return '';
 }
 
 // Test-only export so unit tests can clear the cache between runs without
