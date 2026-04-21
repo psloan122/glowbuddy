@@ -94,14 +94,36 @@ export default function ProviderProfile() {
 
   /**
    * Parse slug to extract state code and derive a display name.
-   * Slug format: "provider-name-city-STATE" (from providerSlugFromParts).
+   *
+   * Handles two slug formats:
+   *   Old: "smith-dermatology-chicago-il"         → state "IL"
+   *   New: "smith-dermatology-chicago-il-abc123"  → state "IL" (hash ignored)
+   *
+   * For new-format slugs the last token is a 6-char base-36 hash and the
+   * state code is the second-to-last token.
    */
+  const SLUG_HASH_RE = /^[a-z0-9]{6}$/;
   function parseSlug(s) {
     const parts = s.split('-');
-    const last = parts[parts.length - 1];
+    const last  = parts[parts.length - 1];
+    const penultimate = parts[parts.length - 2];
+
+    // New-format: "...name-city-STATE-hash"
+    if (
+      parts.length >= 4 &&
+      SLUG_HASH_RE.test(last) &&
+      !VALID_STATE_CODES.has(last.toUpperCase()) &&
+      penultimate &&
+      VALID_STATE_CODES.has(penultimate.toUpperCase())
+    ) {
+      return { state: penultimate.toUpperCase(), displayName: slugToDisplayName(s) };
+    }
+
+    // Old-format: "...name-city-STATE"
     if (parts.length >= 3 && VALID_STATE_CODES.has(last.toUpperCase())) {
       return { state: last.toUpperCase(), displayName: slugToDisplayName(s) };
     }
+
     return { state: null, displayName: slugToDisplayName(s) };
   }
 

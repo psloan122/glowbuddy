@@ -60,10 +60,44 @@ export function parseCitySlug(slug) {
   return null;
 }
 
+/**
+ * Convert a provider slug back to a human-readable display name.
+ *
+ * Handles two slug formats:
+ *   New: "{name}-{city}-{STATE}-{hash}"  e.g. "smith-dermatology-chicago-il-abc123"
+ *   Old: "{name}-{city}-{STATE}"         e.g. "smith-dermatology-chicago-il"
+ *
+ * Strips the trailing state code and, for new-format slugs, the 6-char
+ * disambiguation hash that immediately follows it.
+ *
+ * Hash regex /^[a-z0-9]{6}$/ must stay in sync with shortHash() in
+ * scripts/seed-all-providers.js (base-36, .slice(0, 6)).
+ */
 export function slugToDisplayName(slug) {
-  return slug
-    .split('-')
-    .filter((w) => !STATE_CODES.has(w))
+  const parts = slug.split('-');
+  const HASH_RE = /^[a-z0-9]{6}$/; // exactly 6 chars — matches shortHash output
+
+  let end = parts.length;
+
+  // New-format slug: last part is the hash, second-to-last is the state code.
+  if (
+    end >= 4 &&
+    STATE_CODES.has(parts[end - 2]) &&
+    HASH_RE.test(parts[end - 1]) &&
+    !STATE_CODES.has(parts[end - 1])
+  ) {
+    end -= 2; // drop state + hash
+  } else if (STATE_CODES.has(parts[end - 1])) {
+    // Old-format slug: last part is the state code.
+    end -= 1;
+  }
+
+  // Safety rail: stripping must leave at least 2 tokens. If not, render the
+  // whole slug to avoid a blank or single-word heading.
+  if (end < 2) end = parts.length;
+
+  return parts
+    .slice(0, end)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
