@@ -46,6 +46,7 @@ import cleanProviderType from '../utils/cleanProviderType';
 import AddProviderModal from '../components/AddProviderModal';
 import { getGuideUrl } from '../lib/guideMapping';
 import { getProcedureLabel } from '../lib/procedureLabel';
+import { extractSingleBrandFromType } from '../lib/priceUtils';
 import useSavedProviders from '../hooks/useSavedProviders';
 
 import { SkeletonGrid } from '../components/SkeletonCard';
@@ -1030,18 +1031,31 @@ export default function ProviderProfile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {Object.entries(
               communityData.reduce((acc, p) => {
-                const type = p.procedure_type || 'Other';
-                if (!acc[type]) acc[type] = [];
-                acc[type].push(Number(p.price_paid));
+                const rawType = p.procedure_type || 'Other';
+                // For neurotoxin rows, group by the resolved single brand
+                // (e.g. "Botox", "Daxxify") rather than the raw procedure_type
+                // string.  Multi-brand combo types like "Botox / Dysport / Xeomin"
+                // would otherwise collapse into a cross-brand "Neurotoxin" average
+                // which is mathematically meaningless (§3 data-quality-decisions).
+                // Skip rows where the brand can't be resolved to a single product.
+                if (getProcedureLabel(rawType, null) === 'Neurotoxin') {
+                  const brand = extractSingleBrandFromType(rawType);
+                  if (!brand) return acc; // unresolvable multi-brand combo — skip
+                  if (!acc[brand]) acc[brand] = [];
+                  acc[brand].push(Number(p.price_paid));
+                  return acc;
+                }
+                if (!acc[rawType]) acc[rawType] = [];
+                acc[rawType].push(Number(p.price_paid));
                 return acc;
               }, {})
             ).map(([type, prices]) => {
               const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
               const min = Math.min(...prices);
               const max = Math.max(...prices);
-              // Group key is the raw procedure_type ("Botox / Dysport /
-              // Xeomin"). Display label collapses combined strings down
-              // to a clean category name.
+              // For neurotoxin rows the key is the brand name ("Botox",
+              // "Daxxify", …); for all others it is the raw procedure_type.
+              // getProcedureLabel handles both cases correctly.
               const displayLabel = getProcedureLabel(type, null);
               return (
                 <div

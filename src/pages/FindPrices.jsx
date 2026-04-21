@@ -1891,21 +1891,56 @@ export default function FindPrices() {
   // the procedures table and lack provider_id) to the correct map pin.
   // Without this, pins stay as gray initials even when cards show prices.
   const proceduresForMap = useMemo(() => {
-    if (!displayedProcedures?.length || !gateProviders?.length) return displayedProcedures;
-    const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+(llc|inc|med\s*spa|medical\s*spa|aesthetics|medspa|clinic|center|centre)\.?$/i, '').trim();
-    const byKey = new Map();
-    for (const p of gateProviders) {
-      const key = `${normalize(p.name || p.provider_name)}|${(p.city || '').trim().toLowerCase()}|${(p.state || '').trim().toLowerCase()}`;
-      if (key !== '||') byKey.set(key, p);
+    // Base: enrich patient-submitted rows with provider_id resolved from gateProviders.
+    let enriched = displayedProcedures || [];
+    if (displayedProcedures?.length && gateProviders?.length) {
+      const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+(llc|inc|med\s*spa|medical\s*spa|aesthetics|medspa|clinic|center|centre)\.?$/i, '').trim();
+      const byKey = new Map();
+      for (const p of gateProviders) {
+        const key = `${normalize(p.name || p.provider_name)}|${(p.city || '').trim().toLowerCase()}|${(p.state || '').trim().toLowerCase()}`;
+        if (key !== '||') byKey.set(key, p);
+      }
+      enriched = displayedProcedures.map((proc) => {
+        if (proc.provider_id) return proc;
+        const key = `${normalize(proc.provider_name)}|${(proc.city || '').trim().toLowerCase()}|${(proc.state || '').trim().toLowerCase()}`;
+        const match = byKey.get(key);
+        if (!match) return proc;
+        return { ...proc, provider_id: match.id, provider_lat: proc.provider_lat ?? match.lat ?? null, provider_lng: proc.provider_lng ?? match.lng ?? null };
+      });
     }
-    return displayedProcedures.map((proc) => {
-      if (proc.provider_id) return proc;
-      const key = `${normalize(proc.provider_name)}|${(proc.city || '').trim().toLowerCase()}|${(proc.state || '').trim().toLowerCase()}`;
-      const match = byKey.get(key);
-      if (!match) return proc;
-      return { ...proc, provider_id: match.id, provider_lat: proc.provider_lat ?? match.lat ?? null, provider_lng: proc.provider_lng ?? match.lng ?? null };
-    });
-  }, [displayedProcedures, gateProviders]);
+
+    // Augment with synthetic price rows for providers that are in
+    // filteredGateProviders (i.e. they carry the selected treatment) but
+    // didn't make the 40-row card feed cut.  Without this augmentation those
+    // providers inherit a null bestPrice from the map's price index and render
+    // as gray "No prices yet" pins even though they have real prices in the DB.
+    // priceSummary is computed by the get_provider_price_summary RPC against the
+    // full uncapped dataset, so minPrice here is always accurate.
+    if (priceSummary?.byProviderId && filteredGateProviders?.length && activePriceLabel) {
+      const pricedIds = new Set(enriched.filter((r) => r.provider_id).map((r) => r.provider_id));
+      const synthRows = [];
+      for (const p of filteredGateProviders) {
+        if (!p.id || pricedIds.has(p.id)) continue;
+        const summary = priceSummary.byProviderId.get(p.id);
+        if (!summary?.minPrice) continue;
+        synthRows.push({
+          id: `synth_${p.id}`,
+          provider_id: p.id,
+          provider_name: p.name || p.provider_name || '',
+          city: p.city || '',
+          state: p.state || '',
+          provider_lat: p.lat ?? null,
+          provider_lng: p.lng ?? null,
+          price_paid: summary.minPrice,
+          normalized_compare_value: summary.minPrice,
+          normalized_compare_unit: activePriceLabel,
+          _synthetic: true,
+        });
+      }
+      if (synthRows.length > 0) return [...enriched, ...synthRows];
+    }
+    return enriched;
+  }, [displayedProcedures, gateProviders, priceSummary, filteredGateProviders, activePriceLabel]);
 
   // ── RPC-sourced city price summary ──────────────────────────────────────
   // get_provider_price_summary runs over the full uncapped dataset and returns
@@ -4124,7 +4159,7 @@ export default function FindPrices() {
                 allProviders={
                   personalizedMode
                     ? personalProviders.map((entry) => entry.provider)
-                    : gateProviders
+                    : ((procFilter || brandFilter) ? filteredGateProviders : gateProviders)
                 }
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
