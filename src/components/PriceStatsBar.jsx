@@ -49,7 +49,7 @@ export default function PriceStatsBar({ city, state }) {
       .from('procedures')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active')
-      .ilike('city', `%${city}%`)
+      .eq('city', city)
       .eq('state', state)
       .then(({ count }) => setLocalCount(count || 0));
   }, [city, state]);

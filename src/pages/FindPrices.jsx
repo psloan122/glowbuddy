@@ -407,7 +407,7 @@ export default function FindPrices() {
         } else {
           query = query
             .eq('state', selectedLoc.state)
-            .ilike('city', `%${selectedLoc.city}%`);
+            .eq('city', selectedLoc.city);
         }
         query = query.limit(200);
         const { data, error } = await query;
@@ -861,7 +861,7 @@ export default function FindPrices() {
         .from('procedures')
         .select('city, state')
         .eq('status', 'active')
-        .ilike('city', `%${trimmed}%`)
+        .ilike('city', `${trimmed}%`)
         .limit(50);
 
       const seen = new Set();
@@ -992,7 +992,7 @@ export default function FindPrices() {
         query = query.in('procedure_type', filterProcedureTypes);
       }
       if (state) query = query.eq('state', state);
-      if (city) query = query.ilike('city', `%${city}%`);
+      if (city) query = query.eq('city', city);
       if (zip) query = query.eq('zip_code', zip);
       if (filterProviderType) query = query.eq('provider_type', filterProviderType);
       if (priceMin) query = query.gte('price_paid', parseInt(priceMin, 10));
@@ -1070,7 +1070,7 @@ export default function FindPrices() {
         pendingQuery = pendingQuery.in('procedure_type', filterProcedureTypes);
       }
       if (filters.state) pendingQuery = pendingQuery.eq('state', filters.state);
-      if (filters.city) pendingQuery = pendingQuery.ilike('city', `%${filters.city}%`);
+      if (filters.city) pendingQuery = pendingQuery.eq('city', filters.city);
       if (brandFilter) {
         pendingQuery = pendingQuery.ilike('procedure_type', `%${brandFilter}%`);
       }
@@ -1122,7 +1122,7 @@ export default function FindPrices() {
           .lte('providers.lng', bounds.east);
       } else {
         if (state) query = query.eq('providers.state', state);
-        if (city) query = query.ilike('providers.city', `%${city}%`);
+        if (city) query = query.eq('providers.city', city);
       }
       if (filterFuzzyToken) {
         query = query.ilike('procedure_type', `%${filterFuzzyToken}%`);
@@ -1513,7 +1513,7 @@ export default function FindPrices() {
         .eq('providers.is_active', true);
 
       if (filterState) query = query.eq('providers.state', filterState);
-      if (filterCity) query = query.ilike('providers.city', `%${filterCity}%`);
+      if (filterCity) query = query.eq('providers.city', filterCity);
       query = query.or(orClauses.join(','));
       query = query.order('price', { ascending: true }).limit(200);
 
@@ -1600,7 +1600,7 @@ export default function FindPrices() {
             .select('price_paid, discount_type')
             .eq('status', 'active')
             .eq('procedure_type', procType)
-            .ilike('city', `%${filterCity}%`);
+            .eq('city', filterCity);
           const cityFiltered = (cityData || []).filter((r) => !r.discount_type);
           if (cityFiltered.length >= 3) {
             const avg = cityFiltered.reduce((s, r) => s + r.price_paid, 0) / cityFiltered.length;

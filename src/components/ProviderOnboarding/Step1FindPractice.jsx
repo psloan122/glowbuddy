@@ -111,7 +111,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
         .from('providers')
         .select('id, name, city, state, zip_code, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
         .ilike('name', `%${name}%`)
-        .ilike('city', `%${city}%`)
+        .ilike('city', `${city}%`)
         .eq('is_active', true)
         .limit(3)
         .then(({ data }) => {

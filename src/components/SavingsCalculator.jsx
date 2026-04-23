@@ -310,7 +310,7 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
         .from('procedures')
         .select('city, state')
         .eq('status', 'active')
-        .ilike('city', `%${trimmed}%`)
+        .ilike('city', `${trimmed}%`)
         .limit(50);
 
       const seen = new Set();

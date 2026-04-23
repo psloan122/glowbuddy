@@ -52,7 +52,7 @@ export default function Claim() {
       query = query.ilike('name', `%${name.trim()}%`);
     }
     if (city.trim()) {
-      query = query.ilike('city', `%${city.trim()}%`);
+      query = query.ilike('city', `${city.trim()}%`);
     }
 
     query = query.limit(10);
