@@ -85,30 +85,26 @@ export default memo(function MobileBrowseSheet({
             outline: 'none',
           }}
         >
-          {/* Drag handle + summary line */}
+          {/* Drag handle — vaul v1 applies its own CSS (height:5px; width:32px)
+              to [data-vaul-handle], so keep children here minimal. The summary
+              text lives in its own sibling div below to stay in normal flow. */}
           <Drawer.Handle
-            style={{
-              paddingTop: 10,
-              paddingBottom: 4,
-              cursor: 'grab',
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: '#D1D5DB' }} />
-            </div>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
-              margin: 0, padding: '0 16px', textAlign: 'center',
-            }}>
-              {loading ? 'Finding providers\u2026' : `${count} provider${count !== 1 ? 's' : ''}`}
-              {!loading && city && (
-                <span style={{ fontWeight: 400, color: '#888' }}>
-                  {' \u00b7 '}{city}{state ? `, ${state}` : ''}
-                </span>
-              )}
-            </p>
-          </Drawer.Handle>
+            style={{ paddingTop: 10, paddingBottom: 4, cursor: 'grab', flexShrink: 0 }}
+          />
+
+          {/* Summary line — provider count + city, sits below the handle in
+              the flex column so it never overlaps the card list */}
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
+            margin: 0, padding: '0 16px 8px', textAlign: 'center', flexShrink: 0,
+          }}>
+            {loading ? 'Finding providers\u2026' : `${count} provider${count !== 1 ? 's' : ''}`}
+            {!loading && city && (
+              <span style={{ fontWeight: 400, color: '#888' }}>
+                {' \u00b7 '}{city}{state ? `, ${state}` : ''}
+              </span>
+            )}
+          </p>
 
           {/* Category pills strip — gate mode */}
           {mode === 'gate' && CATEGORY_PILLS.length > 0 && (
