@@ -776,7 +776,11 @@ export default memo(function GlowMap({
                 });
                 userInteracted.current = true;
               },
-              () => {},
+              (err) => {
+                // eslint-disable-next-line no-console
+                console.warn('[GlowMap] locate-me failed:', err.message);
+              },
+              { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false },
             );
           }}
           style={{

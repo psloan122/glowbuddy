@@ -3165,10 +3165,14 @@ export default function FindPrices() {
             </p>
 
             {/* Near me button */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 24 }}>
               {geo.status === 'denied' ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#999' }}>
                   Location access denied. Use the search bar above to enter your city.
+                </p>
+              ) : geo.status === 'error' ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#999' }}>
+                  {geo.message || "Couldn't detect your location"} — try searching by city above.
                 </p>
               ) : (
                 <button
@@ -3376,7 +3380,13 @@ export default function FindPrices() {
             </p>
 
             {/* Near me button */}
-            {geo.status !== 'denied' && (
+            {geo.status === 'denied' || geo.status === 'error' ? (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#999', marginBottom: 12 }}>
+                {geo.status === 'denied'
+                  ? 'Location access denied.'
+                  : (geo.message || "Couldn't detect your location") + ' — try searching by city.'}
+              </p>
+            ) : (
               <button
                 type="button"
                 onClick={requestGeoLocation}
@@ -3396,11 +3406,6 @@ export default function FindPrices() {
                   <><MapPin size={16} /> Use my location</>
                 )}
               </button>
-            )}
-            {geo.status === 'denied' && (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#999', marginBottom: 12 }}>
-                Location access denied.
-              </p>
             )}
 
             {/* Divider */}
