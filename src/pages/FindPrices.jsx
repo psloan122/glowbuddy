@@ -50,7 +50,7 @@ import {
   findPillBySlug,
 } from '../lib/constants';
 import GateLeftPanel from '../components/browse/GateLeftPanel';
-import { searchCitiesViaGoogle } from '../lib/places';
+import { searchCitiesViaMapbox } from '../lib/places';
 import { lookupZip } from '../lib/zipLookup';
 import { assignTrustTier } from '../lib/trustTiers';
 import { AuthContext } from '../App';
@@ -177,7 +177,9 @@ export default function FindPrices() {
   const [selectedLoc, setSelectedLoc] = useState(() => {
     const urlCity = searchParams.get('city');
     const urlState = searchParams.get('state');
-    if (urlCity && urlState) return { city: urlCity, state: urlState };
+    // URL city always wins — even without a state — so ?city=San+Diego
+    // can never inherit the wrong state from a prior session.
+    if (urlCity) return { city: urlCity, state: urlState || '' };
     // Persisted filter beats raw gating city when both are present, so
     // the user lands on the same city they were last browsing.
     const persisted = readPersistedFilters();
@@ -405,9 +407,8 @@ export default function FindPrices() {
             .gte('lng', searchAreaBounds.west)
             .lte('lng', searchAreaBounds.east);
         } else {
-          query = query
-            .eq('state', selectedLoc.state)
-            .eq('city', selectedLoc.city);
+          query = query.eq('city', selectedLoc.city);
+          if (selectedLoc.state) query = query.eq('state', selectedLoc.state);
         }
         query = query.limit(200);
         const { data, error } = await query;
@@ -714,10 +715,10 @@ export default function FindPrices() {
       setSubTypeFilter(urlSubType || null);
     }
     if (urlCity !== currentCity || urlState !== currentState) {
-      if (urlCity && urlState) {
-        setSelectedLoc({ city: urlCity, state: urlState });
-        // Mark as URL-sourced so geolocation doesn't overwrite
-        locSourcedFromUrl.current = true;
+      if (urlCity) {
+        // URL city always wins — even city-only links can't inherit wrong state.
+        setSelectedLoc({ city: urlCity, state: urlState || '' });
+        locSourcedFromUrl.current = !!(urlCity && urlState);
       } else if (!urlCity && !urlState && (currentCity || currentState)) {
         // URL cleared city/state — only clear local state if both gone,
         // so partial param edits don't drop the user's location.
@@ -862,23 +863,25 @@ export default function FindPrices() {
         .select('city, state')
         .eq('status', 'active')
         .ilike('city', `${trimmed}%`)
-        .limit(50);
+        .limit(200);
 
-      const seen = new Set();
-      const unique = [];
+      // Count occurrences per city/state — highest count ranks first so
+      // legitimate cities beat stray single-row bad-data outliers.
+      const countMap = new Map();
       for (const row of data || []) {
-        if (!row.city) continue;
+        if (!row.city || !row.state) continue;
         const key = `${row.city}|${row.state}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          unique.push({ city: row.city, state: row.state });
-        }
-        if (unique.length >= 8) break;
+        countMap.set(key, (countMap.get(key) || 0) + 1);
       }
+      const unique = [...countMap.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 8)
+        .map(([key]) => { const [city, state] = key.split('|'); return { city, state }; });
+      const seen = new Set(unique.map((u) => `${u.city}|${u.state}`));
 
       if (unique.length < 3) {
-        const googleResults = await searchCitiesViaGoogle(trimmed);
-        for (const g of googleResults) {
+        const mapboxResults = await searchCitiesViaMapbox(trimmed);
+        for (const g of mapboxResults) {
           const key = `${g.city}|${g.state}`;
           if (!seen.has(key)) {
             seen.add(key);

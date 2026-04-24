@@ -268,8 +268,12 @@ export default function Home() {
       city = parsed.city;
       state = parsed.state;
     }
-    if (!city && savedCity) city = savedCity;
-    if (!state && savedState) state = savedState;
+    if (!city && savedCity) {
+      // Carry saved state only when we're falling back to saved city too.
+      // Never inherit NY from gating when the user explicitly typed "San Diego".
+      city = savedCity;
+      if (!state && savedState) state = savedState;
+    }
 
     // Treatment — chip selection takes precedence over free-text parsing
     let procedure = null, brand = null;

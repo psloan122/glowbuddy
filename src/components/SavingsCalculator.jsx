@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
 import { fetchBenchmark } from '../lib/priceBenchmark';
 import { PROCEDURE_TYPES, PROCEDURE_CATEGORIES } from '../lib/constants';
-import { searchCitiesViaGoogle } from '../lib/places';
+import { searchCitiesViaMapbox } from '../lib/places';
 import { lookupZip } from '../lib/zipLookup';
 import SavingsShareCard from './SavingsShareCard';
 
@@ -311,24 +311,23 @@ export default function SavingsCalculator({ variant = 'full', defaultProcedure =
         .select('city, state')
         .eq('status', 'active')
         .ilike('city', `${trimmed}%`)
-        .limit(50);
+        .limit(200);
 
-      const seen = new Set();
-      const unique = [];
+      const countMap = new Map();
       for (const row of data || []) {
-        if (!row.city) continue;
+        if (!row.city || !row.state) continue;
         const key = `${row.city}|${row.state}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          unique.push({ city: row.city, state: row.state });
-        }
-        if (unique.length >= 6) break;
+        countMap.set(key, (countMap.get(key) || 0) + 1);
       }
+      const unique = [...countMap.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 8)
+        .map(([key]) => { const [city, state] = key.split('|'); return { city, state }; });
+      const seen = new Set(unique.map((u) => `${u.city}|${u.state}`));
 
-      // If few Supabase results, supplement with Google Places
       if (unique.length < 3) {
-        const googleResults = await searchCitiesViaGoogle(trimmed);
-        for (const g of googleResults) {
+        const mapboxResults = await searchCitiesViaMapbox(trimmed);
+        for (const g of mapboxResults) {
           const key = `${g.city}|${g.state}`;
           if (!seen.has(key)) {
             seen.add(key);
