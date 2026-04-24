@@ -13,7 +13,6 @@ export default function MobileSearchSheet({
   open,
   onClose,
   // Procedure search
-  procRef,
   procFilter,
   brandFilter,
   procQuery,
@@ -26,7 +25,6 @@ export default function MobileSearchSheet({
   clearProcedure,
   resolveProcedureFromQuery,
   // Location search
-  locRef,
   locQuery,
   handleLocInput,
   locOpen,
@@ -210,7 +208,7 @@ export default function MobileSearchSheet({
             )}
 
             {/* Free-text search input */}
-            <div ref={procRef} style={{ position: 'relative', marginBottom: 16 }}>
+            <div data-proc-input style={{ position: 'relative', marginBottom: 16 }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, height: 46,
                 padding: '0 12px', borderRadius: 8, border: '1px solid #EDE8E3', background: 'white',
@@ -373,7 +371,7 @@ export default function MobileSearchSheet({
             </button>
 
             {/* City search input */}
-            <div ref={locRef} style={{ position: 'relative', marginBottom: 12 }}>
+            <div data-loc-input style={{ position: 'relative', marginBottom: 12 }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, height: 46,
                 padding: '0 12px', borderRadius: 8, border: '1px solid #EDE8E3', background: 'white',

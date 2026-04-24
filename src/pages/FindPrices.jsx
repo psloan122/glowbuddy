@@ -738,8 +738,8 @@ export default function FindPrices() {
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e) {
-      if (procRef.current && !procRef.current.contains(e.target)) setProcOpen(false);
-      if (locRef.current && !locRef.current.contains(e.target)) setLocOpen(false);
+      if (!e.target.closest('[data-proc-input]')) setProcOpen(false);
+      if (!e.target.closest('[data-loc-input]')) setLocOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -2262,7 +2262,7 @@ export default function FindPrices() {
       <div className="px-3 pt-1.5 pb-2 space-y-1.5">
         {/* Row 1 — Treatment + Location inputs (side by side) */}
         <div className="flex gap-1.5">
-        <div ref={procRef} className="relative" style={{ flex: 1.2 }}>
+        <div ref={procRef} data-proc-input className="relative" style={{ flex: 1.2 }}>
           {procFilter ? (
             <div
               className="flex items-center gap-2 bg-white px-2"
@@ -2347,7 +2347,7 @@ export default function FindPrices() {
         </div>
 
         {/* Location input (side by side with treatment) */}
-        <div ref={locRef} className="relative" style={{ flex: 1 }}>
+        <div ref={locRef} data-loc-input className="relative" style={{ flex: 1 }}>
           <div
             className="flex items-center gap-2 bg-white px-2"
             style={{
@@ -2530,7 +2530,7 @@ export default function FindPrices() {
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex flex-col md:flex-row gap-2">
             {/* Procedure search */}
-            <div ref={procRef} className="relative md:flex-1">
+            <div ref={procRef} data-proc-input className="relative md:flex-1">
               {selectedProc ? (
                 <div
                   className="flex items-center gap-2 px-3 py-2.5 bg-white"
@@ -2656,7 +2656,7 @@ export default function FindPrices() {
             </div>
 
             {/* Location search */}
-            <div ref={locRef} className="relative md:w-[320px]">
+            <div ref={locRef} data-loc-input className="relative md:w-[320px]">
               {selectedLoc ? (
                 <div
                   className="flex items-center gap-2 px-3 py-2.5 bg-white"
@@ -3676,7 +3676,6 @@ export default function FindPrices() {
             <MobileSearchSheet
               open={mobileSearchOpen}
               onClose={() => setMobileSearchOpen(false)}
-              procRef={procRef}
               procFilter={procFilter}
               brandFilter={brandFilter}
               procQuery={procQuery}
@@ -3688,7 +3687,6 @@ export default function FindPrices() {
               selectPill={selectPill}
               clearProcedure={clearProcedure}
               resolveProcedureFromQuery={resolveProcedureFromQuery}
-              locRef={locRef}
               locQuery={locQuery}
               handleLocInput={handleLocInput}
               locOpen={locOpen}
