@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Search, Building2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
+import { parseAddressComponents } from '../../lib/places';
+import { slugify } from '../../lib/slugify';
 
 const INPUT_CLASS =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
@@ -31,9 +33,33 @@ export default function Claim() {
 
   const debounceRef = useRef(null);
 
+  // Tier 2: Google Places fallback (lazy-loaded on demand)
+  const [showGoogleSearch, setShowGoogleSearch] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleQuery, setGoogleQuery] = useState('');
+  const [googleSuggestions, setGoogleSuggestions] = useState([]);
+  const [googleError, setGoogleError] = useState('');
+  const googleServiceRef  = useRef(null);
+  const googleDetailsRef  = useRef(null);
+  const googleTokenRef    = useRef(null);
+  const googleDropdownRef = useRef(null);
+  const googleDebRef      = useRef(null);
+
   useEffect(() => {
     document.title = 'Claim Your Listing | Know Before You Glow';
   }, []);
+
+  // Close Google suggestions on outside click
+  useEffect(() => {
+    if (!googleSuggestions.length) return;
+    function handleClick(e) {
+      if (googleDropdownRef.current && !googleDropdownRef.current.contains(e.target)) {
+        setGoogleSuggestions([]);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [googleSuggestions.length]);
 
   // Debounced search
   const doSearch = useCallback(async (name, city) => {
@@ -132,8 +158,135 @@ export default function Claim() {
     // metaError is non-blocking — role sync below still runs
 
     // Sync role to profiles table for DB-level checks
-    await supabase.from('profiles').update({ role: 'provider' }).eq('id', user.id);
+    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
 
+    setClaiming(false);
+    navigate('/business/dashboard');
+  }
+
+  // Tier 2: lazy-load Google Maps SDK only when user explicitly requests it
+  async function handleGoogleFallback() {
+    setGoogleLoading(true);
+    setGoogleError('');
+    try {
+      const { loadGoogleMaps } = await import('../../lib/loadGoogleMaps');
+      await loadGoogleMaps();
+      const places = window.google?.maps?.places;
+      if (!places?.AutocompleteService) throw new Error('Places unavailable');
+      googleServiceRef.current  = new places.AutocompleteService();
+      const el = document.createElement('div');
+      googleDetailsRef.current  = new places.PlacesService(el);
+      googleTokenRef.current    = new places.AutocompleteSessionToken();
+      setShowGoogleSearch(true);
+    } catch {
+      setGoogleError('Could not load Google Places. Try adding your business manually below.');
+    }
+    setGoogleLoading(false);
+  }
+
+  // Debounced Google Places autocomplete for business names
+  function handleGoogleInput(input) {
+    setGoogleQuery(input);
+    if (googleDebRef.current) clearTimeout(googleDebRef.current);
+    if (input.length < 2 || !googleServiceRef.current) { setGoogleSuggestions([]); return; }
+    googleDebRef.current = setTimeout(() => {
+      googleServiceRef.current.getPlacePredictions(
+        {
+          input,
+          types: ['establishment'],
+          componentRestrictions: { country: 'us' },
+          sessionToken: googleTokenRef.current,
+        },
+        (predictions, status) => {
+          const ok = window.google?.maps?.places?.PlacesServiceStatus?.OK;
+          setGoogleSuggestions(status === ok && predictions ? predictions.slice(0, 6) : []);
+        }
+      );
+    }, 300);
+  }
+
+  // Fetch full place details, check DB, then claim or create
+  async function handleGoogleSelect(prediction) {
+    setGoogleSuggestions([]);
+    setClaiming(true);
+    setClaimError('');
+
+    const placeDetails = await new Promise((resolve) => {
+      googleDetailsRef.current.getDetails(
+        {
+          placeId: prediction.place_id,
+          fields: ['name', 'address_components', 'geometry', 'formatted_address', 'formatted_phone_number', 'website'],
+          sessionToken: googleTokenRef.current,
+        },
+        (place, status) => {
+          const places = window.google?.maps?.places;
+          googleTokenRef.current = new places.AutocompleteSessionToken();
+          resolve(status === places.PlacesServiceStatus.OK ? place : null);
+        }
+      );
+    });
+
+    if (!placeDetails) {
+      setClaimError('Could not load place details. Please try again.');
+      setClaiming(false);
+      return;
+    }
+
+    const parsed = parseAddressComponents(placeDetails.address_components);
+
+    // Check if this Google Place already exists in our DB
+    const { data: existing } = await supabase
+      .from('providers')
+      .select('id, name, city, state, is_claimed')
+      .eq('google_place_id', prediction.place_id)
+      .maybeSingle();
+
+    if (existing?.is_claimed) {
+      setClaimError('This listing has already been claimed. Contact support if this is your practice.');
+      setClaiming(false);
+      return;
+    }
+
+    if (existing) {
+      // Already in DB and unclaimed — use the standard claim flow
+      await handleClaim(existing);
+      return;
+    }
+
+    // Not in DB — create a new provider row from Google data
+    const rawSlug = slugify(`${placeDetails.name || ''} ${parsed.city || ''}`);
+    const slug = rawSlug || `practice-${Date.now()}`;
+    const { error: insertError } = await supabase
+      .from('providers')
+      .insert({
+        name: placeDetails.name,
+        slug,
+        google_place_id: prediction.place_id,
+        city: parsed.city || null,
+        state: parsed.state || null,
+        zip_code: parsed.zipCode || null,
+        address: parsed.address || placeDetails.formatted_address || null,
+        phone: placeDetails.formatted_phone_number || null,
+        website: placeDetails.website || null,
+        lat: placeDetails.geometry?.location?.lat() ?? null,
+        lng: placeDetails.geometry?.location?.lng() ?? null,
+        owner_user_id: user.id,
+        is_claimed: true,
+        is_verified: true,
+        claimed_at: new Date().toISOString(),
+        onboarding_completed: false,
+        source: 'provider_claimed',
+        is_active: true,
+      });
+
+    if (insertError) {
+      setClaimError(insertError.message);
+      setClaiming(false);
+      return;
+    }
+
+    await supabase.auth.updateUser({ data: { user_role: 'provider' } });
+    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
     setClaiming(false);
     navigate('/business/dashboard');
   }
@@ -286,15 +439,61 @@ export default function Claim() {
 
       {!searching && hasSearched && searchResults.length === 0 && (
         <div className="glow-card p-6 text-center mb-8">
-          <p className="text-text-secondary">
-            No matching practices found.{' '}
-            <Link
-              to="/business/add"
-              className="text-rose-accent font-medium hover:text-rose-dark transition"
-            >
-              Don't see your business? Add it free &rarr;
-            </Link>
+          <p className="text-text-secondary mb-4">
+            No matching practices found in our directory.
           </p>
+
+          {/* Tier 2: Google Places fallback — SDK loads only on click */}
+          {!showGoogleSearch ? (
+            <button
+              onClick={handleGoogleFallback}
+              disabled={googleLoading}
+              className="text-rose-accent font-medium hover:text-rose-dark transition disabled:opacity-50"
+            >
+              {googleLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Loading Google Places…
+                </span>
+              ) : (
+                'Search Google for your business \u2192'
+              )}
+            </button>
+          ) : (
+            <div ref={googleDropdownRef} className="relative mt-2 text-left">
+              <input
+                autoFocus
+                type="text"
+                value={googleQuery}
+                onChange={(e) => handleGoogleInput(e.target.value)}
+                placeholder="Type your business name…"
+                className={INPUT_CLASS}
+              />
+              {googleSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {googleSuggestions.map((pred) => (
+                    <button
+                      key={pred.place_id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleGoogleSelect(pred); }}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-warm-gray transition-colors border-b last:border-b-0 border-gray-100"
+                    >
+                      <span className="font-medium text-text-primary block">{pred.structured_formatting?.main_text}</span>
+                      <span className="text-text-secondary text-xs">{pred.structured_formatting?.secondary_text}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {googleError && <p className="text-red-500 text-sm mt-3">{googleError}</p>}
+          {claimError && (
+            <div className="flex items-center gap-2 text-red-500 text-sm mt-3 justify-center">
+              <XCircle size={16} />
+              <span>{claimError}</span>
+            </div>
+          )}
         </div>
       )}
 

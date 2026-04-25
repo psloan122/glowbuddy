@@ -153,7 +153,7 @@ export default function Dashboard() {
       .from('providers')
       .select('*')
       .eq('owner_user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       setProvider(null);
@@ -164,8 +164,8 @@ export default function Dashboard() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, first_name, full_name')
-        .eq('id', user.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (profile) {
         setOwnerFirstName(profile.first_name || (profile.full_name ? profile.full_name.split(' ')[0] : ''));
@@ -173,7 +173,7 @@ export default function Dashboard() {
           await supabase
             .from('profiles')
             .update({ role: 'provider' })
-            .eq('id', user.id);
+            .eq('user_id', user.id);
         }
       }
     }
@@ -670,7 +670,7 @@ export default function Dashboard() {
             dashboard.
           </p>
           <Link
-            to="/business/onboarding"
+            to="/business/claim"
             className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
             Set Up Your Practice
