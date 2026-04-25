@@ -11,8 +11,7 @@ import { setPageMeta } from '../lib/seo';
 import { AuthContext } from '../App';
 import { buildBrowseUrl, parseSearchQuery, parseProcedureFromText } from '../lib/urlParams';
 import { getProcedureLabel } from '../lib/procedureLabel';
-import { loadGoogleMaps } from '../lib/loadGoogleMaps';
-import { parseAddressComponents } from '../lib/places';
+import { searchCitiesViaMapbox } from '../lib/places';
 
 // Quick treatment chips — normalized procedure slugs so URL params
 // are always clean. Free-text entry still falls through to the fuzzy
@@ -162,38 +161,36 @@ export default function Home() {
   // Selected treatment chip — when non-null, URL uses exact slug/brand.
   const [selectedTreatment, setSelectedTreatment] = useState(null);
 
+  const [locSuggestions, setLocSuggestions] = useState([]);
   const locationInputRef = useRef(null);
-  const locationAcRef = useRef(null);
+  const locContainerRef = useRef(null);
 
-  // Initialize Google Places Autocomplete on the location input.
-  // Restricted to US cities so users can't pick a random address.
-  function initLocationAutocomplete(inputEl) {
-    if (!inputEl || locationAcRef.current) return;
-    const places = window.google?.maps?.places;
-    if (!places?.Autocomplete) {
-      loadGoogleMaps().catch(() => {});
-      return;
-    }
-    locationAcRef.current = new places.Autocomplete(inputEl, {
-      types: ['(cities)'],
-      componentRestrictions: { country: 'us' },
-      fields: ['address_components', 'geometry', 'name'],
-    });
-    locationAcRef.current.addListener('place_changed', () => {
-      const place = locationAcRef.current.getPlace();
-      if (!place?.address_components) return;
-      const parsed = parseAddressComponents(place.address_components);
-      if (parsed.city && parsed.state) {
-        setSelectedLocation({ city: parsed.city, state: parsed.state });
-        // Replace input text with the resolved "City, ST" form
-        setLocationQuery(`${parsed.city}, ${parsed.state}`);
+  // Debounced Mapbox city search for hero location input
+  useEffect(() => {
+    const q = locationQuery.trim();
+    if (!q || selectedLocation) { setLocSuggestions([]); return; }
+    const timer = setTimeout(async () => {
+      const results = await searchCitiesViaMapbox(q);
+      setLocSuggestions(results.slice(0, 5));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [locationQuery, selectedLocation]);
+
+  // Close location suggestions on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (locContainerRef.current && !locContainerRef.current.contains(e.target)) {
+        setLocSuggestions([]);
       }
-    });
-  }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   function clearLocation() {
     setSelectedLocation(null);
     setLocationQuery('');
+    setLocSuggestions([]);
     if (locationInputRef.current) locationInputRef.current.focus();
   }
 
@@ -554,39 +551,60 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              {/* Location input — Google Places Autocomplete (US cities) */}
-              <div
-                className="flex-1 flex items-center gap-2 bg-white px-4 py-3.5"
-                style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
-              >
-                <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
-                <input
-                  ref={(el) => {
-                    locationInputRef.current = el;
-                    if (el) initLocationAutocomplete(el);
-                  }}
-                  type="text"
-                  value={locationQuery}
-                  onChange={(e) => {
-                    setLocationQuery(e.target.value);
-                    // Typing clears the structured location — next Places
-                    // selection will replace it, not append.
-                    if (selectedLocation) setSelectedLocation(null);
-                  }}
-                  placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
-                  autoComplete="off"
-                  className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
-                  style={{ fontSize: '16px' }}
-                />
-                {(selectedLocation || locationQuery) && (
-                  <button
-                    type="button"
-                    onClick={clearLocation}
-                    className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
-                    aria-label="Clear location"
+              {/* Location input — Mapbox city search */}
+              <div ref={locContainerRef} className="flex-1 relative">
+                <div
+                  className="flex items-center gap-2 bg-white px-4 py-3.5"
+                  style={{ borderRadius: '2px', border: '1px solid #EDE8E3' }}
+                >
+                  <span className="shrink-0 text-text-secondary" style={{ fontSize: 15 }} aria-hidden="true">&#x1F4CD;</span>
+                  <input
+                    ref={locationInputRef}
+                    type="text"
+                    value={locationQuery}
+                    onChange={(e) => {
+                      setLocationQuery(e.target.value);
+                      if (selectedLocation) setSelectedLocation(null);
+                    }}
+                    placeholder={savedCity ? `${savedCity}, ${savedState}` : 'City or area...'}
+                    autoComplete="off"
+                    className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-text-secondary"
+                    style={{ fontSize: '16px' }}
+                  />
+                  {(selectedLocation || locationQuery) && (
+                    <button
+                      type="button"
+                      onClick={clearLocation}
+                      className="shrink-0 text-text-secondary/60 hover:text-ink p-0.5"
+                      aria-label="Clear location"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {locSuggestions.length > 0 && (
+                  <div
+                    className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-[#EDE8E3] z-50 shadow-sm"
+                    style={{ borderRadius: '2px' }}
                   >
-                    <X size={14} />
-                  </button>
+                    {locSuggestions.map(({ city, state }) => (
+                      <button
+                        key={`${city}-${state}`}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedLocation({ city, state });
+                          setLocationQuery(`${city}, ${state}`);
+                          setLocSuggestions([]);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-[13px] text-ink hover:bg-cream flex items-center gap-2"
+                        style={{ fontFamily: 'var(--font-body)' }}
+                      >
+                        <span style={{ fontSize: 13 }} aria-hidden="true">&#x1F4CD;</span>
+                        {city}, {state}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
