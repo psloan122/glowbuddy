@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   User,
@@ -12,11 +12,14 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   X,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import { getUserAlerts } from '../lib/priceAlerts';
-import { getCity, getState } from '../lib/gating';
+import { getCity, getState, setCity as persistCity, setState as persistState } from '../lib/gating';
+import { searchCitiesViaMapbox } from '../lib/places';
 import { AuthContext } from '../App';
 import { INTEREST_OPTIONS, INTEREST_TO_PROCEDURES, PROCEDURE_PILLS } from '../lib/constants';
 import useUserPreferences from '../hooks/useUserPreferences';
@@ -119,6 +122,16 @@ export default function Account() {
   const [showCreateAlert, setShowCreateAlert] = useState(false);
   const city = getCity();
   const state = getState();
+
+  // Editable city/state in profile card
+  const [profileCity, setProfileCity] = useState(city);
+  const [profileState, setProfileState] = useState(state);
+  const [cityEditing, setCityEditing] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [citySaving, setCitySaving] = useState(false);
+  const [citySaved, setCitySaved] = useState(false);
+  const cityContainerRef = useRef(null);
 
   // Activity
   const [activity, setActivity] = useState(null);
@@ -256,6 +269,32 @@ export default function Account() {
     setSearchParams(searchParams, { replace: true });
   }
 
+  // Debounced Mapbox search while city editor is open
+  useEffect(() => {
+    if (!cityEditing) return;
+    const q = cityQuery.trim();
+    if (!q) { setCitySuggestions([]); return; }
+    const timer = setTimeout(async () => {
+      const results = await searchCitiesViaMapbox(q);
+      setCitySuggestions(results.slice(0, 5));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [cityQuery, cityEditing]);
+
+  // Close city editor on outside click
+  useEffect(() => {
+    if (!cityEditing) return;
+    function handleClick(e) {
+      if (cityContainerRef.current && !cityContainerRef.current.contains(e.target)) {
+        setCityEditing(false);
+        setCityQuery('');
+        setCitySuggestions([]);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [cityEditing]);
+
   // ── Not logged in ──
   if (!user) {
     return (
@@ -381,8 +420,81 @@ export default function Account() {
               {/* Account info */}
               <div className="border-t border-gray-100 pt-3 space-y-2">
                 <p className="text-[12px] text-text-secondary truncate">{user.email}</p>
-                {city && state && (
-                  <p className="text-[11px] text-text-secondary">{city}, {state}</p>
+                {/* Editable city/state */}
+                {cityEditing ? (
+                  <div ref={cityContainerRef} style={{ position: 'relative' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={cityQuery}
+                      onChange={(e) => setCityQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setCityEditing(false);
+                          setCityQuery('');
+                          setCitySuggestions([]);
+                        }
+                      }}
+                      placeholder="Type a city..."
+                      className="w-full px-2 py-1 border border-gray-200 focus:border-rose-accent focus:outline-none transition text-[12px]"
+                      style={{ borderRadius: '2px', fontFamily: 'var(--font-body)', fontSize: '14px' }}
+                    />
+                    {citySaving && (
+                      <span className="text-[11px] text-text-secondary mt-0.5 block">Saving…</span>
+                    )}
+                    {citySuggestions.length > 0 && (
+                      <div
+                        className="absolute top-full left-0 right-0 bg-white border border-[#EDE8E3] z-50 shadow-sm"
+                        style={{ borderRadius: '2px' }}
+                      >
+                        {citySuggestions.map(({ city: c, state: s }) => (
+                          <button
+                            key={`${c}-${s}`}
+                            type="button"
+                            onMouseDown={async (e) => {
+                              e.preventDefault();
+                              setCitySaving(true);
+                              persistCity(c);
+                              persistState(s);
+                              await supabase.from('profiles').update({ city: c, state: s }).eq('user_id', user.id);
+                              setProfileCity(c);
+                              setProfileState(s);
+                              setCitySaving(false);
+                              setCitySaved(true);
+                              setCityEditing(false);
+                              setCityQuery('');
+                              setCitySuggestions([]);
+                              setTimeout(() => setCitySaved(false), 2000);
+                            }}
+                            className="w-full text-left px-3 py-2 text-[12px] hover:bg-cream flex items-center gap-1.5"
+                            style={{ fontFamily: 'var(--font-body)' }}
+                          >
+                            {c}, {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    {(profileCity && profileState) ? (
+                      <span className="text-[11px] text-text-secondary">{profileCity}, {profileState}</span>
+                    ) : (
+                      <span className="text-[11px] text-text-secondary/50">Add your city</span>
+                    )}
+                    {citySaved ? (
+                      <Check size={11} className="text-green-600 shrink-0" />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setCityEditing(true); setCityQuery(''); }}
+                        className="text-text-secondary/40 hover:text-hot-pink transition-colors shrink-0"
+                        aria-label="Edit city"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    )}
+                  </div>
                 )}
                 <p className="text-[10px] text-text-secondary uppercase" style={{ letterSpacing: '0.06em' }}>
                   Member since {memberSince}
@@ -686,8 +798,8 @@ export default function Account() {
               .then((data) => setAlerts(data))
               .catch(() => {});
           }}
-          defaultCity={city}
-          defaultState={state}
+          defaultCity={profileCity}
+          defaultState={profileState}
         />
       )}
         </div>
