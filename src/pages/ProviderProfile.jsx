@@ -637,12 +637,8 @@ export default function ProviderProfile() {
   ].slice(0, 5);
   const hasGooglePhotos = allPhotos.some((p) => p.source === 'google');
 
-  // Claim URL with pre-filled params
-  const claimUrl =
-    `/business/onboarding?name=${encodeURIComponent(providerName || '')}` +
-    `&city=${encodeURIComponent(providerCity || '')}` +
-    `&state=${encodeURIComponent(providerState || '')}` +
-    (googleData?.placeId ? `&place_id=${encodeURIComponent(googleData.placeId)}` : '');
+  // Claim URL — sends owner to the two-tier search/claim page
+  const claimUrl = '/business/claim';
 
   // Back-to-results link — carries the provider's city through to /browse
   // so the user lands back on their city's results, and FindPrices will

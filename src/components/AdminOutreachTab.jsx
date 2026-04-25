@@ -138,7 +138,7 @@ export default function AdminOutreachTab() {
         }
       }
 
-      const claimUrl = `https://knowbeforeyouglow.com/business/onboarding?provider=${provider.slug}&source=email`;
+      const claimUrl = `https://knowbeforeyouglow.com/business/claim?provider=${provider.slug}&source=email`;
       const pageUrl = `https://knowbeforeyouglow.com/provider/${provider.slug}`;
 
       // Use simple HMAC for opt-out (same logic as cron function)

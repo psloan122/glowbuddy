@@ -634,7 +634,7 @@ export default function GlowFund() {
             }}
           >
             <Link
-              to="/business/onboarding"
+              to="/business/claim"
               style={{
                 background: '#fff',
                 color: '#E8347A',

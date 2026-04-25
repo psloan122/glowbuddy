@@ -72,7 +72,10 @@ export default function Claim() {
     setSearching(true);
     setHasSearched(true);
 
-    let query = supabase.from('providers').select('*');
+    let query = supabase
+      .from('providers')
+      .select('id, name, city, state, provider_type, google_place_id, is_claimed')
+      .eq('is_active', true);
 
     if (name.trim()) {
       query = query.ilike('name', `%${name.trim()}%`);

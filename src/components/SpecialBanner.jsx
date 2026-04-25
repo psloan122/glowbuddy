@@ -116,7 +116,7 @@ export function SpecialUpgradeSlot({ className = '' }) {
           Add a special or promotion
         </span>
         <a
-          href="/business/onboarding"
+          href="/business/claim"
           onClick={(e) => e.stopPropagation()}
           className="text-hot-pink hover:text-hot-pink-dark transition-colors shrink-0"
           style={{

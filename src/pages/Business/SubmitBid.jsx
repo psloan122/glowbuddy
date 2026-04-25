@@ -93,7 +93,7 @@ export default function SubmitBid() {
         .maybeSingle();
 
       if (!p) {
-        navigate('/business/onboarding');
+        navigate('/business/claim');
         return;
       }
       setProvider(p);

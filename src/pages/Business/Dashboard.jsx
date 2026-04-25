@@ -139,7 +139,7 @@ export default function Dashboard() {
   // Auth redirect
   useEffect(() => {
     if (!session) {
-      navigate('/business/onboarding');
+      navigate('/business/claim');
     }
   }, [session, navigate]);
 
@@ -153,6 +153,7 @@ export default function Dashboard() {
       .from('providers')
       .select('*')
       .eq('owner_user_id', user.id)
+      .eq('is_claimed', true)
       .maybeSingle();
 
     if (error || !data) {

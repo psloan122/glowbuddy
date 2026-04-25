@@ -101,7 +101,7 @@ export default function OverviewTab({
             </p>
           </div>
           <Link
-            to={`/business/onboarding?place_id=${provider.google_place_id || ''}`}
+            to="/business/claim"
             className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-rose-dark transition shrink-0"
           >
             Claim This Listing

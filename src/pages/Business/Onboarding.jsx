@@ -5,7 +5,6 @@ import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
 import { isEmailVerified } from '../../lib/auth';
 import { slugify } from '../../lib/slugify';
-import Step1FindPractice from '../../components/ProviderOnboarding/Step1FindPractice';
 import Step2VerifyOwnership from '../../components/ProviderOnboarding/Step2VerifyOwnership';
 import Step3PracticeProfile from '../../components/ProviderOnboarding/Step3PracticeProfile';
 import Step4PriceMenu from '../../components/ProviderOnboarding/Step4PriceMenu';
@@ -13,7 +12,7 @@ import Step5ChoosePlan from '../../components/ProviderOnboarding/Step5ChoosePlan
 import WelcomeModal from '../../components/ProviderOnboarding/WelcomeModal';
 import { sendProviderWelcome } from '../../lib/email';
 
-const STEP_COUNT = 5;
+const STEP_COUNT = 4;
 
 export default function Onboarding() {
   const { session, user, openAuthModal } = useContext(AuthContext);
@@ -45,7 +44,6 @@ export default function Onboarding() {
   });
   const [menuItems, setMenuItems] = useState([]);
   const [createdProvider, setCreatedProvider] = useState(null);
-  const [initialSearchQuery, setInitialSearchQuery] = useState('');
 
   // Google photo import state
   const [googlePhotos, setGooglePhotos] = useState([]);
@@ -113,13 +111,32 @@ export default function Onboarding() {
       const { data } = await query.limit(1);
       if (data && data.length > 0) {
         prefillFromProvider(data[0]);
-      } else {
-        // Provider not in DB — seed the search input
-        setInitialSearchQuery(city ? `${name} ${city}` : name);
       }
     }
     findByName();
   }, [searchParams, placeData]);
+
+  // If the user already has a claimed provider and enters Onboarding without
+  // URL params (e.g. from Dashboard "Complete profile" link), pre-fill their
+  // existing provider so Step 5 updates the row instead of creating a duplicate.
+  useEffect(() => {
+    if (!user || placeData) return;
+    const hasUrlParams =
+      searchParams.get('place_id') ||
+      searchParams.get('provider') ||
+      searchParams.get('name');
+    if (hasUrlParams) return;
+
+    supabase
+      .from('providers')
+      .select('*')
+      .eq('owner_user_id', user.id)
+      .eq('is_claimed', true)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) prefillFromProvider(data);
+      });
+  }, [user?.id]);
 
   function prefillFromProvider(data) {
     setExistingProvider(data);
@@ -155,8 +172,8 @@ export default function Onboarding() {
       state: data.state || '',
       zip: data.zip_code || '',
     }));
-    // Skip to step 2 (Profile)
-    setStep(2);
+    // Start at step 1 (Profile — Step1FindPractice removed)
+    setStep(1);
   }
 
   // Require auth
@@ -214,43 +231,22 @@ export default function Onboarding() {
     );
   }
 
-  // Step 1: Find Practice → advance to Profile (step 2)
-  function handleStep1Complete(place, existing, shouldImportPhotos) {
-    setPlaceData(place);
-    setExistingProvider(existing);
-    setGooglePhotos(place.googlePhotos || []);
-    setImportPhotos(shouldImportPhotos || false);
-    // Pre-fill profile from place data
-    setProfileData((prev) => ({
-      ...prev,
-      name: place.name || prev.name,
-      website: place.website || prev.website,
-      phone: place.phone || prev.phone,
-      address: place.address || prev.address,
-      city: place.city || prev.city,
-      state: place.state || prev.state,
-      zip: place.zipCode || prev.zip,
-      hours: place.hoursText || prev.hours,
-    }));
+  // Step 1: Practice Profile → advance to Prices (step 2)
+  function handleProfileComplete(data) {
+    setProfileData(data);
     setStep(2);
   }
 
-  // Step 2: Practice Profile → advance to Prices (step 3)
-  function handleProfileComplete(data) {
-    setProfileData(data);
+  // Step 2: Price Menu → advance to Plan (step 3)
+  function handlePricesComplete(items) {
+    setMenuItems(items);
     setStep(3);
   }
 
-  // Step 3: Price Menu → advance to Plan (step 4)
-  function handlePricesComplete(items) {
-    setMenuItems(items);
-    setStep(4);
-  }
-
-  // Step 4: Choose Plan → store tier, advance to Verify (step 5)
+  // Step 3: Choose Plan → store tier, advance to Verify (step 4)
   async function handlePlanSelected(tier) {
     setSelectedTier(tier);
-    setStep(5);
+    setStep(4);
   }
 
   // Step 5: Verify Ownership → create/claim provider with stored tier
@@ -463,12 +459,9 @@ export default function Onboarding() {
         </div>
       </div>
 
-      {/* Step content — New order: Find → Profile → Prices → Plan → Verify */}
+      {/* Step content — Profile → Prices → Plan → Verify */}
       <div className="max-w-2xl mx-auto px-4 py-8">
         {step === 1 && (
-          <Step1FindPractice onComplete={handleStep1Complete} initialQuery={initialSearchQuery} />
-        )}
-        {step === 2 && (
           <Step3PracticeProfile
             initialData={profileData}
             googleRating={placeData?.googleRating}
@@ -476,20 +469,20 @@ export default function Onboarding() {
             onComplete={handleProfileComplete}
           />
         )}
-        {step === 3 && (
+        {step === 2 && (
           <Step4PriceMenu
             existingItems={menuItems}
             onComplete={handlePricesComplete}
           />
         )}
-        {step === 4 && (
+        {step === 3 && (
           <Step5ChoosePlan
             profileData={profileData}
             menuCount={menuItems.length}
             onComplete={handlePlanSelected}
           />
         )}
-        {step === 5 && (
+        {step === 4 && (
           <>
             {menuError && (
               <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">

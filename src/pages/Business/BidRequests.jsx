@@ -175,7 +175,7 @@ export default function BidRequests() {
               loggedInSecondaryLabel={secondaryLabel}
               blockedMessage={blockedMessage}
               blockedCtaLabel={blockedMessage ? 'Claim your listing' : null}
-              blockedCtaTo={blockedMessage ? '/business/onboarding' : null}
+              blockedCtaTo={blockedMessage ? '/business/claim' : null}
               loginRedirect="/login?redirect=/business/bid-requests"
               placeholder="your@practice.com"
               buttonLabel="NOTIFY ME WHEN THIS LAUNCHES"

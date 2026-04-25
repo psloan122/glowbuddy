@@ -121,7 +121,7 @@ export default function BeforeAfterTab({
             </Link>
           ) : provider && !provider.is_claimed ? (
             <Link
-              to={`/business/onboarding?place_id=${provider.google_place_id || ''}`}
+              to="/business/claim"
               className="text-rose-accent font-medium hover:text-rose-dark transition"
             >
               Claim this listing to upload photos
