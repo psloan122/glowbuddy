@@ -75,26 +75,27 @@ export function parseCitySlug(slug) {
  */
 export function slugToDisplayName(slug) {
   const parts = slug.split('-');
-  const HASH_RE = /^[a-z0-9]{6}$/; // exactly 6 chars — matches shortHash output
-
   let end = parts.length;
 
-  // New-format slug: last part is the hash, second-to-last is the state code.
+  // New slug format: "...name-city-STATE-suffix"
+  // Drop trailing 6-char base-36 hash and the state code before it.
   if (
-    end >= 4 &&
+    parts.length >= 2 &&
     STATE_CODES.has(parts[end - 2]) &&
-    HASH_RE.test(parts[end - 1]) &&
+    /^[a-z0-9]{6}$/.test(parts[end - 1]) &&
     !STATE_CODES.has(parts[end - 1])
   ) {
-    end -= 2; // drop state + hash
+    end -= 2;
   } else if (STATE_CODES.has(parts[end - 1])) {
-    // Old-format slug: last part is the state code.
     end -= 1;
   }
 
-  // Safety rail: stripping must leave at least 2 tokens. If not, render the
-  // whole slug to avoid a blank or single-word heading.
-  if (end < 2) end = parts.length;
+  // Safety: don't return empty string
+  if (end < 2) {
+    return parts
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
 
   return parts
     .slice(0, end)

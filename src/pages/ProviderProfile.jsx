@@ -111,7 +111,7 @@ export default function ProviderProfile() {
 
     // New-format: "...name-city-STATE-hash"
     if (
-      parts.length >= 4 &&
+      parts.length >= 3 &&
       SLUG_HASH_RE.test(last) &&
       !VALID_STATE_CODES.has(last.toUpperCase()) &&
       penultimate &&
