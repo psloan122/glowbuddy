@@ -44,7 +44,10 @@ function AdvertisedPriceRow({ item }) {
   const isStale = age != null && age >= STALE_DAYS;
   const isProviderListed = item.source === 'provider_listed';
   const isVerifiedManual = item.verified === true && item.source === 'manual';
-  const isScrape = item.source === 'scrape' || item.source === 'cheerio_scraper';
+  const isScrape =
+    item.source === 'scrape' ||
+    item.source === 'cheerio_scraper' ||
+    item.source === 'csv_import';
 
   return (
     <div className="flex items-start justify-between gap-2">
@@ -55,7 +58,21 @@ function AdvertisedPriceRow({ item }) {
           <p className="text-[11px] text-text-secondary font-light">{normalized.unitSubtext}</p>
         ) : null}
         <div className="flex flex-wrap gap-1 mt-1">
-          {(isProviderListed || isVerifiedManual) && (
+          {isProviderListed && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase px-1.5 py-0.5"
+              style={{
+                letterSpacing: '0.06em',
+                borderRadius: '3px',
+                background: '#F0FAF5',
+                color: '#1A7A3A',
+                border: '1px solid #1A7A3A',
+              }}
+            >
+              <ShieldCheck size={9} /> Provider listed
+            </span>
+          )}
+          {isVerifiedManual && (
             <span
               className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase px-1.5 py-0.5"
               style={{
@@ -80,7 +97,7 @@ function AdvertisedPriceRow({ item }) {
                 border: '1px dashed #ccc',
               }}
             >
-              <Globe size={9} /> Public menu
+              <Globe size={9} /> Advertised price
             </span>
           )}
           {isStale && (

@@ -41,6 +41,7 @@ export default function useProcedurePrices(providerId) {
         'id, provider_id, procedure_type, brand, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at, confidence_tier, is_starting_price, category, tags'
       )
       .eq('provider_id', providerId)
+      .eq('is_active', true)
       .eq('display_suppressed', false)
       .lt('confidence_tier', 6)
       .then(({ data }) => {

@@ -1113,7 +1113,8 @@ export default function FindPrices() {
         )
         .eq('is_active', true)
         .eq('display_suppressed', false)
-        .lt('confidence_tier', 6);
+        .lt('confidence_tier', 6)
+        .eq('providers.is_active', true);
 
       // When "Search this area" bounds are set, query by lat/lng instead
       // of city/state so the results match the viewport rectangle.
