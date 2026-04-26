@@ -3744,18 +3744,69 @@ export default function FindPrices() {
               />
             )}
 
-            {/* Unified search pill */}
+            {/* Unified search pill — white background fills the safe-area
+                zone so the map never bleeds behind the status bar. The 20px
+                fallback covers non-notch iPhones where env() returns 0 but
+                the status bar still occupies ~20px. */}
             <div style={{
               position: 'absolute',
               top: 0, left: 0, right: 0,
               zIndex: 40,
-              padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 12px 0',
+              backgroundColor: 'white',
+              paddingTop: 'env(safe-area-inset-top, 20px)',
+              paddingLeft: 12,
+              paddingRight: 12,
+              paddingBottom: 8,
             }}>
-              <MobileSearchBar
-                procedureLabel={brandFilter || procFilter?.label}
-                cityLabel={selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
-                onExpand={() => setMobileSearchOpen(true)}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Home link — compact italic "Glow." mark matching the
+                    Navbar wordmark, links back to / without a back-arrow
+                    (navigate(-1) can exit the app if user came from Reddit) */}
+                <Link
+                  to="/"
+                  style={{
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    lineHeight: 1,
+                    textDecoration: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                  aria-label="Home"
+                >
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 8,
+                    fontWeight: 500,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: '#555',
+                    marginBottom: 1,
+                  }}>
+                    Know Before
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-display)',
+                    fontStyle: 'italic',
+                    fontSize: 18,
+                    fontWeight: 900,
+                    lineHeight: 0.9,
+                    color: '#E8347A',
+                  }}>
+                    Glow.
+                  </span>
+                </Link>
+
+                {/* Search pill — flex: 1 so it fills remaining width */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <MobileSearchBar
+                    procedureLabel={brandFilter || procFilter?.label}
+                    cityLabel={selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
+                    onExpand={() => setMobileSearchOpen(true)}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Expandable search sheet */}
