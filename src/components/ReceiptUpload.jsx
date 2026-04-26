@@ -102,7 +102,7 @@ export default function ReceiptUpload({
           <p className="text-sm font-medium text-green-800">
             Receipt uploaded
           </p>
-          <p className="text-xs text-green-600">+3 entries earned</p>
+          <p className="text-xs text-green-600">+3 credits earned</p>
           {parsing && (
             <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
               <Loader2 className="w-3 h-3 animate-spin" />

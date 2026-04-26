@@ -341,7 +341,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             </h2>
             {mode === 'signup' && (
               <p className="text-sm text-text-secondary mt-1">
-                Share prices, earn badges, and enter our monthly $250 giveaway.
+                Share prices, earn badges, and help others save.
               </p>
             )}
           </>
@@ -387,7 +387,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             </div>
             <div className="flex items-center gap-3">
               <Trophy size={18} className="flex-shrink-0 text-rose-accent" />
-              <p className="text-sm text-text-primary">Earn badges and win monthly treatment giveaways</p>
+              <p className="text-sm text-text-primary">Earn badges and track your treatments</p>
             </div>
             <div className="flex items-center gap-3">
               <Lock size={18} className="flex-shrink-0 text-rose-accent" />

@@ -62,8 +62,8 @@ const EMAIL_PREFS = [
   },
   {
     key: 'email_giveaway',
-    label: 'Giveaway Updates',
-    description: 'Monthly giveaway reminders and winner announcements.',
+    label: 'Community Updates',
+    description: 'Community announcements and new features.',
     icon: Gift,
   },
 ];

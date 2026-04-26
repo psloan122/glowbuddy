@@ -392,8 +392,8 @@ export default function Onboarding({ onComplete }) {
                     <Gift size={16} className="text-[#C94F78]" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-text-primary">Monthly giveaway</p>
-                    <p className="text-xs text-text-secondary">Every submission enters you to win</p>
+                    <p className="text-sm font-medium text-text-primary">Build your treatment history</p>
+                    <p className="text-xs text-text-secondary">Track what you've paid and when</p>
                   </div>
                 </div>
               </div>

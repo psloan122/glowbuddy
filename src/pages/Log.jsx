@@ -31,6 +31,8 @@ import VerifyEmailModal from '../components/VerifyEmailModal';
 import { format } from 'date-fns';
 import { fetchBenchmark } from '../lib/priceBenchmark';
 
+const GIVEAWAY_ACTIVE = false; // Enable when official sweepstakes rules are in place
+
 const TURNSTILE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -102,7 +104,7 @@ const INITIAL_FORM_DATA = {
 };
 
 export default function Log() {
-  const { user, openAuthModal } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -363,14 +365,8 @@ export default function Log() {
     if (isSubmitting) return;
     setSubmitError('');
 
-    // Gate: require auth
-    if (!user) {
-      openAuthModal('signup');
-      return;
-    }
-
-    // Gate: require email verification
-    if (!isEmailVerified(user)) {
+    // Gate: require email verification (authenticated users only)
+    if (user && !isEmailVerified(user)) {
       setShowVerifyModal(true);
       return;
     }
@@ -578,6 +574,7 @@ export default function Log() {
         result_photo_url: resultPhotoUrl || null,
         result_photo_consent: formData.resultPhotoConsent,
         // Discount tracking
+        // discount_amount stores percent (0–100) as of 2026-04; previously stored dollar amount
         discount_type: formData.discountType || null,
         discount_amount: formData.discountAmount
           ? parseInt(formData.discountAmount, 10)
@@ -736,8 +733,8 @@ export default function Log() {
         }
       }
 
-      // Giveaway entry from Step 3 email field (if provided)
-      if (formData.giveawayEmail) {
+      // Giveaway entry from Step 3 email field — disabled until sweepstakes rules are in place
+      if (GIVEAWAY_ACTIVE && formData.giveawayEmail) {
         const entries = await calculateEntries(
           user?.id || null,
           hasReceipt,
@@ -866,7 +863,7 @@ export default function Log() {
   const steps = [
     { num: 1, label: 'The basics' },
     { num: 2, label: 'Your experience' },
-    { num: 3, label: 'Verify for bonus entries' },
+    { num: 3, label: 'Verify & review' },
   ];
 
   return (
@@ -1041,6 +1038,7 @@ export default function Log() {
             hasResultPhoto={!!resultPhotoUrl}
             pioneerResult={pioneerResult}
             cheaperProviders={cheaperProviders}
+            giveawayEmail={formData.giveawayEmail}
           />
         ) : (
           <ThankYou
@@ -1056,6 +1054,7 @@ export default function Log() {
             pioneerResult={pioneerResult}
             isNewProvider={!!formData.userSubmittedProviderId}
             providerName={formData.providerName}
+            giveawayEmail={formData.giveawayEmail}
           />
         )
       )}

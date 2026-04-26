@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useMemo, createContext, useCallback, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { isOnboarded, syncProcedureTagsToSupabase } from './lib/gating';
-import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission } from './lib/auth';
+import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission, claimAnonymousSubmission } from './lib/auth';
 import { checkAndAwardBadges } from './lib/badgeLogic';
 
 import Navbar from './components/Navbar';
@@ -161,6 +161,15 @@ function App() {
                 // Navigate to my-treatments and show toast
                 navigate('/my-treatments');
                 showToast('Your submission is now live! Welcome to Know Before You Glow.');
+                return;
+              }
+
+              // Also try to claim an anonymous submission (inline signup flow)
+              const anonId = await claimAnonymousSubmission(userId);
+              if (anonId) {
+                await checkAndAwardBadges(userId);
+                navigate('/my/history');
+                showToast('Submission linked to your new account!');
                 return;
               }
 

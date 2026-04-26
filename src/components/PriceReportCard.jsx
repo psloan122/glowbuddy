@@ -59,7 +59,7 @@ export default function PriceReportCard({ procedure, stateAvg, nationalAvg, stat
         </p>
 
         <p className="text-sm text-text-secondary mb-5">
-          Enter your email to see how your price compares — plus get entered into our monthly $250 giveaway.
+          Enter your email to see how your price compares — and help others know what to expect.
         </p>
 
         <form onSubmit={handleEmailSubmit} className="flex flex-col sm:flex-row gap-3">

@@ -38,7 +38,7 @@ export default function WelcomeUser() {
                 {[
                   { icon: '\u{1F4B0}', title: 'Browse real prices', desc: 'See what others actually pay for Botox, fillers, and more.' },
                   { icon: '\u{1F4CB}', title: 'Share your prices', desc: 'Share what you paid and help others know what to expect.' },
-                  { icon: '\u{1F381}', title: 'Win monthly giveaways', desc: 'Every submission earns you entries into our monthly drawing.' },
+                  { icon: '\u{1F4CA}', title: 'Track your treatments', desc: 'Every submission helps others make informed decisions.' },
                 ].map((item) => (
                   <tr key={item.title}>
                     <td style={{ width: 40, verticalAlign: 'top', fontSize: 20, padding: '12px 0' }}>{item.icon}</td>

@@ -597,7 +597,7 @@ export default function TreatmentTimeline() {
             </div>
             <p className="text-sm text-text-secondary mb-6">
               Remove this treatment from your history? This will also remove it from
-              Know Before You Glow&apos;s price data. Your giveaway entries will be adjusted.
+              Know Before You Glow&apos;s price data.
             </p>
             <div className="flex items-center gap-3">
               <button

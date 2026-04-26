@@ -6,6 +6,8 @@ import { AuthContext } from '../App';
 
 import { format } from 'date-fns';
 
+const GIVEAWAY_ACTIVE = false; // Enable when official sweepstakes rules are in place
+
 export default function ResolveDispute() {
   const { user, openAuthModal } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
@@ -80,19 +82,20 @@ export default function ResolveDispute() {
           })
           .eq('id', procedureId);
 
-        // Award 2 bonus giveaway entries
-        const month = format(new Date(), 'yyyy-MM');
-        await supabase.from('giveaway_entries').insert({
-          email: user.email,
-          procedure_id: procedureId,
-          month,
-          user_id: user.id,
-          entries: 2,
-          has_receipt: false,
-        });
+        if (GIVEAWAY_ACTIVE) {
+          const month = format(new Date(), 'yyyy-MM');
+          await supabase.from('giveaway_entries').insert({
+            email: user.email,
+            procedure_id: procedureId,
+            month,
+            user_id: user.id,
+            entries: 2,
+            has_receipt: false,
+          });
+        }
 
         setStatus('success');
-        setMessage('Your price has been confirmed as accurate. You earned 2 bonus giveaway entries!');
+        setMessage('Your price has been confirmed as accurate. Thanks for helping verify this price!');
       } else if (action === 'removed') {
         await supabase
           .from('procedures')

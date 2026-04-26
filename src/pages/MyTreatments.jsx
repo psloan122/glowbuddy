@@ -160,7 +160,7 @@ export default function MyTreatments() {
                 {staleProcs.length} price{staleProcs.length === 1 ? '' : 's'} may need updating
               </p>
               <p className="text-xs mt-0.5" style={{ color: '#92400E' }}>
-                Confirm or update to help others &mdash; earn bonus giveaway entries!
+                Confirm or update to help others keep prices accurate.
               </p>
             </div>
           </div>

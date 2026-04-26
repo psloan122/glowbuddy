@@ -174,33 +174,17 @@ export default function Step3({
   return (
     <div>
       <h2 className="text-xl font-bold text-text-primary mb-1">
-        Verify for bonus entries
+        Verify your submission
       </h2>
       <p className="text-sm text-text-secondary mb-6">
-        Each detail you add earns more giveaway entries and helps others trust the price.
+        Each detail you add helps others trust the price.
       </p>
 
       <div className="space-y-5">
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Notes
-          </label>
-          <textarea
-            placeholder="How was the experience? Tips for others?"
-            rows={4}
-            value={formData.notes}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, notes: e.target.value }))
-            }
-            className={`${INPUT_CLASSES} resize-none`}
-          />
-        </div>
-
         {/* ===== Rating & Review Section ===== */}
-        <div className="border-t border-gray-100 pt-5">
+        <div>
           <p className="text-sm font-semibold text-text-primary mb-3">
-            How was your experience?
+            Share your experience (optional)
           </p>
 
           {/* Star Rating */}
@@ -248,23 +232,6 @@ export default function Step3({
             </div>
           )}
 
-          {/* Review Title */}
-          <div className="mb-3">
-            <input
-              type="text"
-              value={formData.reviewTitle}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  reviewTitle: e.target.value.slice(0, 60),
-                }))
-              }
-              placeholder="Sum it up in one line..."
-              maxLength={60}
-              className={`${INPUT_CLASSES} text-sm`}
-            />
-          </div>
-
           {/* Review Body */}
           <div className="mb-3">
             <textarea
@@ -275,13 +242,17 @@ export default function Step3({
                   reviewBody: e.target.value.slice(0, 500),
                 }))
               }
-              placeholder="How was the experience? Skill of the injector, results, value for money..."
-              rows={3}
+              placeholder="Tips for others? Skill of the injector, results, value for money..."
+              rows={4}
               className={`${INPUT_CLASSES} text-sm resize-none`}
             />
-            {formData.reviewBody.length > 0 && (
+            {formData.reviewBody.length > 0 ? (
               <p className="text-xs text-text-secondary mt-1 text-right">
                 {formData.reviewBody.length}/500
+              </p>
+            ) : (
+              <p className="text-xs text-text-secondary mt-1">
+                optional · helps others decide
               </p>
             )}
           </div>
@@ -362,7 +333,7 @@ export default function Step3({
                   Add receipt for verified status
                 </p>
                 <p className="text-sm text-rose-dark mb-1">
-                  Verified prices get 3x more visibility and earn you 3 bonus giveaway entries.
+                  Verified prices get 3x more visibility and build trust with other users.
                 </p>
                 <p className="text-xs text-text-secondary">
                   Takes 30 seconds. Your name is never shown.
@@ -395,7 +366,7 @@ export default function Step3({
             Show your results
           </p>
           <p className="text-xs text-text-secondary mb-3">
-            +2 giveaway entries for photo upload
+            Photos add trust to your report
           </p>
 
           {/* Consent checkbox */}
@@ -518,27 +489,29 @@ export default function Step3({
           </button>
         </div>
 
-        {/* Giveaway email */}
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Enter email to be entered in our monthly $250 treatment giveaway
-          </label>
-          <input
-            type="email"
-            placeholder="your@email.com (optional)"
-            value={formData.giveawayEmail}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                giveawayEmail: e.target.value,
-              }))
-            }
-            className={INPUT_CLASSES}
-          />
-          <p className="text-xs text-text-secondary mt-1.5">
-            Optional. We only use this for the giveaway drawing.
-          </p>
-        </div>
+        {/* Email capture — only for unauthenticated users */}
+        {!userId && (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Enter your email to save your submission history
+            </label>
+            <input
+              type="email"
+              placeholder="your@email.com (optional)"
+              value={formData.giveawayEmail}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  giveawayEmail: e.target.value,
+                }))
+              }
+              className={INPUT_CLASSES}
+            />
+            <p className="text-xs text-text-secondary mt-1.5">
+              Optional. We'll only email you about price alerts.
+            </p>
+          </div>
+        )}
 
         {/* Honeypot — hidden from real users, bots fill it */}
         <input

@@ -200,6 +200,33 @@ export async function claimPendingSubmission(userId) {
 }
 
 /**
+ * Claim an anonymous submission after the user signs up inline on the
+ * success screen. Links a user_id=null procedures row to the new account.
+ * Unlike claimPendingSubmission, this works on any status (active/pending).
+ */
+export async function claimAnonymousSubmission(userId) {
+  const submissionId = localStorage.getItem('gb_last_submission_id');
+  if (!submissionId) return null;
+
+  try {
+    const { error } = await supabase
+      .from('procedures')
+      .update({ user_id: userId })
+      .eq('id', submissionId)
+      .is('user_id', null);
+
+    if (!error) {
+      localStorage.removeItem('gb_last_submission_id');
+      localStorage.removeItem('gb_pending_submission');
+    }
+
+    return error ? null : submissionId;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * After sign-up, sync any localStorage personalization data
  * (zip, city, state, interests) to the user's Supabase profile.
  * Silently ignores errors (e.g. if profiles table doesn't exist yet).

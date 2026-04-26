@@ -44,6 +44,7 @@ export default function MobileSearchSheet({
   const [activeTab, setActiveTab] = useState('treatment');
   const procInputRef = useRef(null);
   const locInputRef = useRef(null);
+  const sheetRef = useRef(null);
 
   // Lock body scroll while open
   useEffect(() => {
@@ -59,15 +60,31 @@ export default function MobileSearchSheet({
     if (open) setActiveTab('treatment');
   }, [open]);
 
-  // Auto-focus relevant input when tab changes
+  // Vaul 1.1.2 bug: Drawer.Root passes modal={false} but the underlying
+  // DialogPrimitive.Root defaults to modal=true, activating FocusScope
+  // trapped={true}. After a pill button inside MobileBrowseSheet's portal
+  // receives focus, any focusin on elements outside the portal is redirected
+  // back into the drawer — making our inputs untappable. Fix: stop focusin
+  // from propagating past this sheet to the document-level FocusScope listener.
+  useEffect(() => {
+    if (!open || !sheetRef.current) return;
+    const el = sheetRef.current;
+    const stopFocusRedirect = (e) => { e.stopPropagation(); };
+    el.addEventListener('focusin', stopFocusRedirect);
+    return () => el.removeEventListener('focusin', stopFocusRedirect);
+  }, [open]);
+
+  // Auto-focus relevant input when tab changes.
+  // Always focus the treatment input on the treatment tab (even when procFilter
+  // is set — the text input is always rendered, the chip shows above it).
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => {
-      if (activeTab === 'treatment' && !procFilter) procInputRef.current?.focus();
+      if (activeTab === 'treatment') procInputRef.current?.focus();
       if (activeTab === 'location') locInputRef.current?.focus();
     }, 80);
     return () => clearTimeout(t);
-  }, [open, activeTab, procFilter]);
+  }, [open, activeTab]);
 
   // Pill/procedure selection → advance to location tab
   function handleSelectPill(pill) {
@@ -100,6 +117,7 @@ export default function MobileSearchSheet({
 
   return (
     <div
+      ref={sheetRef}
       style={{
         position: 'fixed',
         inset: 0,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Gift, Award } from 'lucide-react';
+import { Users, Award } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { BADGE_DEFINITIONS, procedureToSlug } from '../lib/constants';
@@ -220,31 +220,31 @@ export default function Community() {
         Know Before You Glow Community
       </h1>
 
-      {/* Monthly Giveaway Banner */}
+      {/* Top Contributors Banner */}
       <div className="glow-card p-6 mb-8 bg-gradient-to-r from-rose-light to-warm-white">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           <div className="flex-shrink-0 bg-rose-accent/10 p-3 rounded-full">
-            <Gift size={32} className="text-rose-accent" />
+            <Users size={32} className="text-rose-accent" />
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-text-primary mb-1">
-              Monthly $250 Treatment Giveaway
+              Top Contributors This Month
             </h2>
             <p className="text-text-secondary">
-              Share what you paid to automatically enter our monthly $250 giveaway.
-              One winner announced the first of each month.
+              Share what you paid to help others make informed decisions.
+              Top contributors earn Pioneer badges.
             </p>
           </div>
           <Link
             to="/log"
             className="inline-block bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition whitespace-nowrap"
           >
-            Share a Price to Enter
+            Share a Price
           </Link>
         </div>
       </div>
 
-      {/* Pioneer Giveaway Banner */}
+      {/* Pioneer Recognition Banner */}
       <div
         className="glow-card p-6 mb-8"
         style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)' }}
@@ -255,10 +255,10 @@ export default function Community() {
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-text-primary mb-1">
-              Pioneer Giveaway &mdash; $200/month
+              Pioneer Recognition
             </h2>
             <p style={{ color: '#92400E' }}>
-              Be the first to share a price at a new location &mdash; every pioneer earns bonus entries.
+              Be the first to share a price at a new location &mdash; earn a Pioneer badge and community recognition.
             </p>
           </div>
           <Link

@@ -1124,7 +1124,7 @@ export default function ProviderProfile() {
                 Had a treatment here? You&apos;d be the first to share what you paid.
               </p>
               <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
-                First to share = Pioneer badge + bonus entries
+                First to share = Pioneer badge
               </p>
               <Link
                 to={`/log?provider_id=${provider.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}

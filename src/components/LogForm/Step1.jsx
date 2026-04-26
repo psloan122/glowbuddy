@@ -488,29 +488,31 @@ export default function Step1({ formData, setFormData, prefilledProvider }) {
           {formData.discountType && (
             <div className="mt-3">
               <label className="block text-xs font-medium text-text-secondary mb-1">
-                Amount saved (optional)
+                Discount received (optional)
               </label>
               <div className="relative w-40">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">
-                  $
-                </span>
                 <input
                   type="number"
-                  placeholder="e.g. 50"
+                  placeholder="e.g. 20"
                   min="0"
+                  max="100"
                   step="1"
                   value={formData.discountAmount}
                   onChange={(e) => {
                     const val = e.target.value.replace(/[^\d]/g, '');
-                    setFormData((prev) => ({ ...prev, discountAmount: val }));
+                    const clamped = val === '' ? '' : String(Math.min(100, parseInt(val, 10)));
+                    setFormData((prev) => ({ ...prev, discountAmount: clamped }));
                   }}
                   onKeyDown={(e) => {
                     if (e.key === '.' || e.key === '-' || e.key === 'e') {
                       e.preventDefault();
                     }
                   }}
-                  className={`${INPUT_CLASSES} pl-7 text-sm`}
+                  className={`${INPUT_CLASSES} pr-7 text-sm`}
                 />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">
+                  %
+                </span>
               </div>
             </div>
           )}

@@ -128,6 +128,7 @@ export default function FindPrices() {
   // --- Procedure search ---
   const [procQuery, setProcQuery] = useState('');
   const [procOpen, setProcOpen] = useState(false);
+  const [providerMatches, setProviderMatches] = useState([]);
   // procFilter is the source of truth for what procedure(s) we filter on.
   // It's null when the gate is open. The legacy `selectedProc` string is
   // derived from procFilter.primary so existing UI / first-timer logic
@@ -229,11 +230,28 @@ export default function FindPrices() {
     !!(searchParams.get('city') && searchParams.get('state'))
   );
 
-  // When geolocation succeeds, auto-select the city — but only if the user
-  // didn't arrive with explicit URL params (Monroe in URL should never be
-  // overwritten by Mandeville from geolocation).
+  // Set to true when the user explicitly taps a "Near me" button so the
+  // geo effect can bypass the !selectedLoc and !locSourcedFromUrl guards.
+  // Without this, tapping "Near me" while a city is already selected does
+  // nothing because the effect only runs for the initial empty-city case.
+  const geoWasExplicitlyRequested = useRef(false);
+
+  const handleRequestGeoLocation = useCallback(() => {
+    geoWasExplicitlyRequested.current = true;
+    requestGeoLocation();
+  }, [requestGeoLocation]);
+
+  // When geolocation succeeds:
+  //   • Explicit "Near me" tap  → always update (overrides URL city too)
+  //   • Background cache restore → only update if no city is set yet
   useEffect(() => {
-    if (geo.status === 'success' && geo.city && geo.state && !selectedLoc && !locSourcedFromUrl.current) {
+    if (geo.status !== 'success' || !geo.city || !geo.state) return;
+
+    if (geoWasExplicitlyRequested.current) {
+      geoWasExplicitlyRequested.current = false;
+      locSourcedFromUrl.current = false;
+      selectLocation({ city: geo.city, state: geo.state });
+    } else if (!selectedLoc && !locSourcedFromUrl.current) {
       selectLocation({ city: geo.city, state: geo.state });
     }
   }, [geo.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -751,6 +769,29 @@ export default function FindPrices() {
         p.toLowerCase().includes(procQuery.trim().toLowerCase())
       )
     : [];
+
+  // ── Provider name search (async, debounced 200 ms) ──
+  useEffect(() => {
+    const q = procQuery.trim();
+    if (q.length < 2) { setProviderMatches([]); return; }
+    const city = selectedLoc?.city || '';
+    const state = selectedLoc?.state || '';
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      let query = supabase
+        .from('providers')
+        .select('id, name, slug, city, state')
+        .ilike('name', `%${q}%`)
+        .eq('is_active', true)
+        .limit(8);
+      if (city && state) {
+        query = query.eq('city', city).eq('state', state);
+      }
+      const { data } = await query;
+      if (!cancelled) setProviderMatches(data || []);
+    }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [procQuery, selectedLoc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function selectProcedure(proc) {
     setProcFilter(makeProcedureFilterFromCanonical(proc));
@@ -2570,7 +2611,7 @@ export default function FindPrices() {
                   />
                   <input
                     type="text"
-                    placeholder="Search treatments (Botox, filler, laser...)"
+                    placeholder="Search treatments or providers..."
                     value={procQuery}
                     onChange={(e) => {
                       setProcQuery(e.target.value);
@@ -2610,45 +2651,85 @@ export default function FindPrices() {
                 >
                   {(() => {
                     const matchedPill = findPillByLabel(procQuery);
+                    const hasProcs = procMatches.length > 0 || matchedPill;
+                    const hasProviders = providerMatches.length > 0;
                     return (
                       <>
-                        {matchedPill && (
-                          <button
-                            key={`pill-${matchedPill.slug}`}
-                            onClick={() => selectPill(matchedPill)}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
-                            style={{ borderBottom: '1px solid #F0F0F0' }}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className="text-[10px] font-semibold uppercase px-2 py-0.5 text-white"
-                                style={{
-                                  background: '#E8347A',
-                                  borderRadius: '2px',
-                                  letterSpacing: '0.08em',
-                                }}
-                              >
-                                {matchedPill.label}
-                              </span>
-                              <span className="text-xs text-text-secondary font-light">all {matchedPill.label.toLowerCase()} procedures</span>
-                            </span>
-                          </button>
-                        )}
-                        {procMatches.length > 0 ? (
-                          procMatches.map((p) => (
-                            <button
-                              key={p}
-                              onClick={() => selectProcedure(p)}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                        {/* ── Treatments section ── */}
+                        {hasProcs && (
+                          <>
+                            <div
+                              className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-text-secondary"
+                              style={{ background: '#FAFAFA', borderBottom: '1px solid #F0F0F0' }}
                             >
-                              {p}
-                            </button>
-                          ))
-                        ) : !matchedPill ? (
+                              Treatments
+                            </div>
+                            {matchedPill && (
+                              <button
+                                key={`pill-${matchedPill.slug}`}
+                                onClick={() => selectPill(matchedPill)}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                                style={{ borderBottom: '1px solid #F0F0F0' }}
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  <span
+                                    className="text-[10px] font-semibold uppercase px-2 py-0.5 text-white"
+                                    style={{
+                                      background: '#E8347A',
+                                      borderRadius: '2px',
+                                      letterSpacing: '0.08em',
+                                    }}
+                                  >
+                                    {matchedPill.label}
+                                  </span>
+                                  <span className="text-xs text-text-secondary font-light">all {matchedPill.label.toLowerCase()} procedures</span>
+                                </span>
+                              </button>
+                            )}
+                            {procMatches.map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => selectProcedure(p)}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </>
+                        )}
+
+                        {/* ── Providers section ── */}
+                        {hasProviders && (
+                          <>
+                            <div
+                              className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-text-secondary"
+                              style={{ background: '#FAFAFA', borderTop: hasProcs ? '1px solid #E8E8E8' : undefined, borderBottom: '1px solid #F0F0F0' }}
+                            >
+                              Providers
+                            </div>
+                            {providerMatches.map((prov) => (
+                              <Link
+                                key={prov.id}
+                                to={`/provider/${prov.slug}`}
+                                onClick={() => { setProcOpen(false); setProcQuery(''); }}
+                                className="w-full flex items-baseline gap-2 px-4 py-2.5 text-sm hover:bg-cream transition-colors text-ink"
+                                style={{ display: 'flex' }}
+                              >
+                                <span className="font-medium truncate">{prov.name}</span>
+                                <span className="text-xs text-text-secondary shrink-0">
+                                  {prov.city}{prov.state ? `, ${prov.state}` : ''}
+                                </span>
+                              </Link>
+                            ))}
+                          </>
+                        )}
+
+                        {/* ── Empty state ── */}
+                        {!hasProcs && !hasProviders && procQuery.trim().length >= 2 && (
                           <div className="px-4 py-3 text-sm text-text-secondary">
-                            No procedures found
+                            No treatments or providers found
                           </div>
-                        ) : null}
+                        )}
                       </>
                     );
                   })()}
@@ -3178,7 +3259,7 @@ export default function FindPrices() {
               ) : (
                 <button
                   type="button"
-                  onClick={requestGeoLocation}
+                  onClick={handleRequestGeoLocation}
                   disabled={geo.status === 'loading'}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -3390,7 +3471,7 @@ export default function FindPrices() {
             ) : (
               <button
                 type="button"
-                onClick={requestGeoLocation}
+                onClick={handleRequestGeoLocation}
                 disabled={geo.status === 'loading'}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -3697,7 +3778,7 @@ export default function FindPrices() {
               selectLocation={selectLocation}
               clearLocation={clearLocation}
               selectedLoc={selectedLoc}
-              onUseMyLocation={requestGeoLocation}
+              onUseMyLocation={handleRequestGeoLocation}
               hasPricesOnly={hasPricesOnly}
               setHasPricesOnly={setHasPricesOnly}
               verifiedOnly={verifiedOnly}
