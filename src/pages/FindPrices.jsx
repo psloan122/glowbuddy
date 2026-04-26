@@ -355,13 +355,17 @@ export default function FindPrices() {
   // ── Mobile sheet ↔ map padding sync ──
   // Track the sheet's snap position so we can tell the map which part
   // of the viewport is covered and shouldn't hold centered pins.
-  const [mobileSheetSnap, setMobileSheetSnap] = useState('half');
+  const [mobileSheetSnap, setMobileSheetSnap] = useState('full_map'); // sheet starts at peek
   const mapBottomPadding = useMemo(() => {
     if (!isMobile || !selectedLoc) return 0;
+    // Values mirror the snap points in MobileBrowseSheet:
+    //   peek  = '120px' → 120 px of sheet visible → pad map by 120 px
+    //   half  = 0.5     → 50 vh visible           → pad map by 50 vh
+    //   full  = 0.93    → capped at 100dvh-60px   → only 60 px of map visible at top
+    if (mobileSheetSnap === 'full_map') return 120;
+    if (mobileSheetSnap === 'full_list') return 60;
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
-    if (mobileSheetSnap === 'full_map') return Math.round(h * 0.12);
-    if (mobileSheetSnap === 'full_list') return Math.round(h * 0.05);
-    return Math.round(h * 0.45); // half (default)
+    return Math.round(h * 0.5); // half
   }, [isMobile, selectedLoc, mobileSheetSnap]);
 
   useEffect(() => {

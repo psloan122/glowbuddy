@@ -1,20 +1,27 @@
-import { useRef, useEffect, useState, memo } from 'react';
+import { useRef, useEffect, useState, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Drawer } from 'vaul';
 import MapProviderCard from '../MapProviderCard';
 import ProviderAvatar from '../ProviderAvatar';
 import { CATEGORY_PILLS } from '../../lib/constants';
 
-// Snap points map to vaul's fractional snap values (0–1):
-//   peek ≈ 25% (handle + summary + pills visible)
-//   half ≈ 55% (3–4 cards visible)
-//   full ≈ 92% (full scrollable list)
-const SNAP_POINTS = [0.25, 0.55, 0.92];
+// Snap points:
+//   peek  = '120px'  — handle + summary + pills + first card peeking. Maximum map.
+//   half  =  0.5     — 50 % of viewport. Shows 3-4 cards; map still visible above.
+//   full  =  0.93    — fills to within 60 px of the top (capped by maxHeight on
+//                       Drawer.Content) so the search bar is always visible.
+//
+// Vaul 1.x treats any string snap point as pixels (parseInt). Fractions are
+// relative to window.innerHeight. The '120px' value is device-independent.
+const SNAP_POINTS = ['120px', 0.5, 0.93];
+const ITEMS_PER_PAGE = 20;
 
-// Map vaul snap fractions back to the names FindPrices expects
-function snapName(fraction) {
-  if (fraction >= 0.85) return 'full_list';
-  if (fraction >= 0.4) return 'half';
+// Translate the active Vaul snap value back to the name FindPrices uses for
+// mapBottomPadding. Peek is a string ('120px'); half/full are numbers.
+function snapName(s) {
+  if (typeof s === 'string') return 'full_map'; // '120px' peek → show most of the map
+  if (s >= 0.85) return 'full_list';
+  if (s >= 0.4) return 'half';
   return 'full_map';
 }
 
@@ -38,14 +45,29 @@ export default memo(function MobileBrowseSheet({
 }) {
   const listRef = useRef(null);
   const count = providerCount ?? providers.length;
-  const [snap, setSnap] = useState(SNAP_POINTS[1]); // start at half
 
-  // Notify parent on snap change so map padding can update
+  // Start at peek so users see most of the map on first open.
+  const [snap, setSnap] = useState(SNAP_POINTS[0]);
+
+  // How many provider cards are rendered. Reset whenever the provider list
+  // identity changes (new city or filter) so stale cards don't persist.
+  const [displayLimit, setDisplayLimit] = useState(ITEMS_PER_PAGE);
+  useEffect(() => {
+    setDisplayLimit(ITEMS_PER_PAGE);
+  }, [providers]);
+
+  const visibleProviders = useMemo(
+    () => providers.slice(0, displayLimit),
+    [providers, displayLimit],
+  );
+  const hasMore = providers.length > displayLimit;
+
+  // Notify parent on snap change so map padding can update.
   useEffect(() => {
     onSnapChange?.(snapName(snap));
   }, [snap, onSnapChange]);
 
-  // Pin-tap reaction: expand to full + scroll to the selected provider card
+  // Pin-tap: expand to full and scroll the selected card into view.
   useEffect(() => {
     if (selectedProviderId == null) return;
     setSnap(SNAP_POINTS[2]); // full
@@ -81,27 +103,27 @@ export default memo(function MobileBrowseSheet({
             boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
             display: 'flex',
             flexDirection: 'column',
-            maxHeight: '92vh',
+            // Cap at (100dvh - 60px) so the full snap always leaves the
+            // search bar visible at the top of the viewport.
+            maxHeight: 'calc(100dvh - 60px)',
             outline: 'none',
           }}
         >
           {/* Drag handle — vaul v1 applies its own CSS (height:5px; width:32px)
-              to [data-vaul-handle], so keep children here minimal. The summary
-              text lives in its own sibling div below to stay in normal flow. */}
+              to [data-vaul-handle]; keep children minimal. */}
           <Drawer.Handle
             style={{ paddingTop: 10, paddingBottom: 4, cursor: 'grab', flexShrink: 0 }}
           />
 
-          {/* Summary line — provider count + city, sits below the handle in
-              the flex column so it never overlaps the card list */}
+          {/* Summary line */}
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: '#111',
             margin: 0, padding: '0 16px 8px', textAlign: 'center', flexShrink: 0,
           }}>
-            {loading ? 'Finding providers\u2026' : `${count} provider${count !== 1 ? 's' : ''}`}
+            {loading ? 'Finding providers…' : `${count} provider${count !== 1 ? 's' : ''}`}
             {!loading && city && (
               <span style={{ fontWeight: 400, color: '#888' }}>
-                {' \u00b7 '}{city}{state ? `, ${state}` : ''}
+                {' · '}{city}{state ? `, ${state}` : ''}
               </span>
             )}
           </p>
@@ -162,7 +184,7 @@ export default memo(function MobileBrowseSheet({
             </div>
           )}
 
-          {/* Scrollable card list */}
+          {/* Scrollable card list — capped at ITEMS_PER_PAGE with "Show more" */}
           <div
             ref={listRef}
             style={{
@@ -179,7 +201,7 @@ export default memo(function MobileBrowseSheet({
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontStyle: 'italic',
                 fontSize: 13, color: '#888', padding: '24px 16px', textAlign: 'center',
               }}>
-                Finding med spas near you\u2026
+                Finding med spas near you…
               </p>
             ) : providers.length === 0 ? (
               <p style={{
@@ -190,7 +212,7 @@ export default memo(function MobileBrowseSheet({
               </p>
             ) : (
               <>
-                {providers.map((p) => (
+                {visibleProviders.map((p) => (
                   <div
                     key={p.key || p.provider_id || p.id}
                     data-provider-card={p.provider_id || p.id}
@@ -209,6 +231,33 @@ export default memo(function MobileBrowseSheet({
                     />
                   </div>
                 ))}
+
+                {/* Load more — avoids rendering 49+ cards at once */}
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setDisplayLimit((l) => l + ITEMS_PER_PAGE)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 0',
+                      marginBottom: 8,
+                      background: 'none',
+                      border: '1px solid #EDE8E3',
+                      borderRadius: 8,
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: '#888',
+                      cursor: 'pointer',
+                      touchAction: 'manipulation',
+                    }}
+                  >
+                    Show {Math.min(ITEMS_PER_PAGE, providers.length - displayLimit)} more
+                    <span style={{ fontWeight: 300 }}>
+                      {' '}({providers.length - displayLimit} remaining)
+                    </span>
+                  </button>
+                )}
 
                 {/* Unpriced providers */}
                 {unpricedProviders.length > 0 && (
@@ -242,7 +291,7 @@ export default memo(function MobileBrowseSheet({
                             {up.name || up.provider_name}
                           </div>
                           <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#999' }}>
-                            {up.google_rating ? `\u2605 ${Number(up.google_rating).toFixed(1)}` : 'No reviews'}
+                            {up.google_rating ? `★ ${Number(up.google_rating).toFixed(1)}` : 'No reviews'}
                           </div>
                         </div>
                         <Link
