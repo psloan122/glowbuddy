@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useContext, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { buildBrowseUrl } from '../lib/urlParams';
 import {
@@ -129,10 +129,18 @@ export default function ProviderProfile() {
     return { state: null, displayName: slugToDisplayName(s) };
   }
 
+  // Reset state synchronously before paint when slug changes to prevent stale-state flash
+  useLayoutEffect(() => {
+    setLoading(true);
+    setProvider(null);
+    setVerifiedPricing([]);
+    setCommunityData([]);
+  }, [slug]);
+
   // Fetch all data
   useEffect(() => {
+    let cancelled = false;
     async function fetchData() {
-      setLoading(true);
 
       // 1. Try claimed provider by slug
       const { data: providerRow } = await supabase
@@ -191,6 +199,7 @@ export default function ProviderProfile() {
         if (byName?.length) finalCommunity = byName;
       }
 
+      if (cancelled) return;
       setProvider(finalProvider);
       setCommunityData(finalCommunity);
 
@@ -235,6 +244,7 @@ export default function ProviderProfile() {
               .eq('is_active', true),
           ]);
 
+        if (cancelled) return;
         setVerifiedPricing(pricingRes.data || []);
         setSpecials(specialsRes.data || []);
         setProviderPhotos(photosRes.data || []);
@@ -254,10 +264,11 @@ export default function ProviderProfile() {
           });
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
 
     fetchData();
+    return () => { cancelled = true; };
   }, [slug]);
 
   // Track page view for analytics
