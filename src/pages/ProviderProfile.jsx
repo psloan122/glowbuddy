@@ -47,7 +47,7 @@ import AddProviderModal from '../components/AddProviderModal';
 import { getGuideUrl } from '../lib/guideMapping';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import { extractSingleBrandFromType } from '../lib/priceUtils';
-import { parseCommunityUnits } from '../utils/formatPricingUnit';
+import { parseCommunityUnits, getPriceLabelShort } from '../utils/formatPricingUnit';
 import useSavedProviders from '../hooks/useSavedProviders';
 
 import { SkeletonGrid } from '../components/SkeletonCard';
@@ -1368,40 +1368,73 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 8. Locked Provider Prices — unclaimed only */}
+      {/* 8. Provider prices — unclaimed only */}
       {!isClaimed && (
-        <div className="glow-card p-6 mb-6 relative overflow-hidden">
-          <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-            <Lock size={28} className="text-gray-400 mb-2" />
-            <p className="text-sm font-semibold text-text-primary mb-1">
-              Official prices from {providerName}
-            </p>
-            <p className="text-xs text-text-secondary mb-3 text-center max-w-xs">
-              Claim your free listing to publish your price menu and attract new patients.
-            </p>
-            <Link
-              to={claimUrl}
-              className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-rose-dark transition"
-            >
-              Claim &amp; Add Prices &rarr;
-            </Link>
-          </div>
-          {/* Placeholder rows behind the blur */}
-          <div className="opacity-40 pointer-events-none" aria-hidden="true">
-            <h2 className="text-lg font-bold text-text-primary mb-4">
-              Published by {providerName}
-            </h2>
-            {['Botox', 'Lip Filler', 'RF Microneedling'].map((name) => (
-              <div
-                key={name}
-                className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
-              >
-                <span className="text-sm text-text-primary">{name}</span>
-                <span className="text-sm font-bold text-text-primary">$---</span>
+        verifiedPricing.length > 0 ? (
+          /* Real scraped prices exist — show them unblurred */
+          <div className="glow-card p-6 mb-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-text-primary">
+                  Prices from {providerName}
+                </h2>
+                <p className="text-xs text-text-secondary mt-0.5">From their website</p>
               </div>
-            ))}
+            </div>
+            {verifiedPricing.map((row) => {
+              const suffix = row.price_label
+                ? `/${getPriceLabelShort(row.price_label).replace(/^per /, '')}`
+                : '';
+              return (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
+                >
+                  <span className="text-sm text-text-primary">
+                    {row.brand || row.procedure_type}
+                    {row.units_or_volume ? ` · ${row.units_or_volume}` : ''}
+                  </span>
+                  <span className="text-sm font-bold text-text-primary">
+                    ${Math.round(Number(row.price))}{suffix}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        ) : (
+          /* No scraped prices — show claim CTA with blurred placeholder */
+          <div className="glow-card p-6 mb-6 relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
+              <Lock size={28} className="text-gray-400 mb-2" />
+              <p className="text-sm font-semibold text-text-primary mb-1">
+                Official prices from {providerName}
+              </p>
+              <p className="text-xs text-text-secondary mb-3 text-center max-w-xs">
+                Claim your free listing to publish your price menu and attract new patients.
+              </p>
+              <Link
+                to={claimUrl}
+                className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-rose-dark transition"
+              >
+                Claim &amp; Add Prices &rarr;
+              </Link>
+            </div>
+            <div className="opacity-40 pointer-events-none" aria-hidden="true">
+              <h2 className="text-lg font-bold text-text-primary mb-4">
+                Published by {providerName}
+              </h2>
+              {['Botox', 'Lip Filler', 'RF Microneedling'].map((name) => (
+                <div
+                  key={name}
+                  className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
+                >
+                  <span className="text-sm text-text-primary">{name}</span>
+                  <span className="text-sm font-bold text-text-primary">$---</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {/* 9. First-Timer Special */}
