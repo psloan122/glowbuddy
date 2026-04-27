@@ -146,3 +146,16 @@ export function formatUnitSuffix(unit) {
   if (!unit) return '';
   return SUFFIX_MAP[unit] ?? `/${unit}`;
 }
+
+/**
+ * Parses a numeric unit count from a freeform units_or_volume string
+ * (community-submitted data from the procedures table). Returns null when
+ * no integer/decimal followed by "unit" is found.
+ *
+ * "20 units" → 20 · "40 Units of Daxxify" → 40 · "1 syringe" → null
+ */
+export function parseCommunityUnits(str) {
+  if (!str) return null;
+  const m = str.match(/(\d+(?:\.\d+)?)\s*unit/i);
+  return m ? parseFloat(m[1]) : null;
+}

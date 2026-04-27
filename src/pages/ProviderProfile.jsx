@@ -47,6 +47,7 @@ import AddProviderModal from '../components/AddProviderModal';
 import { getGuideUrl } from '../lib/guideMapping';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import { extractSingleBrandFromType } from '../lib/priceUtils';
+import { parseCommunityUnits } from '../utils/formatPricingUnit';
 import useSavedProviders from '../hooks/useSavedProviders';
 
 import { SkeletonGrid } from '../components/SkeletonCard';
@@ -1039,21 +1040,32 @@ export default function ProviderProfile() {
                   const brand = extractSingleBrandFromType(rawType);
                   if (!brand) return acc; // unresolvable multi-brand combo — skip
                   if (!acc[brand]) acc[brand] = [];
-                  acc[brand].push(Number(p.price_paid));
+                  acc[brand].push({ price: Number(p.price_paid), units: p.units_or_volume ?? null });
                   return acc;
                 }
                 if (!acc[rawType]) acc[rawType] = [];
-                acc[rawType].push(Number(p.price_paid));
+                acc[rawType].push({ price: Number(p.price_paid), units: p.units_or_volume ?? null });
                 return acc;
               }, {})
-            ).map(([type, prices]) => {
-              const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-              const min = Math.min(...prices);
-              const max = Math.max(...prices);
+            ).map(([type, entries]) => {
+              const count = entries.length;
+              const avg = Math.round(entries.reduce((a, b) => a + b.price, 0) / count);
+              const min = Math.min(...entries.map(e => e.price));
+              const max = Math.max(...entries.map(e => e.price));
               // For neurotoxin rows the key is the brand name ("Botox",
               // "Daxxify", …); for all others it is the raw procedure_type.
               // getProcedureLabel handles both cases correctly.
               const displayLabel = getProcedureLabel(type, null);
+              // Compute per-unit price when entries carry parseable unit counts
+              // (e.g. "20 units" in units_or_volume). Only relevant for neurotoxins
+              // but the logic works generically — non-unit strings return null.
+              const withUnits = entries
+                .map(e => ({ price: e.price, n: parseCommunityUnits(e.units) }))
+                .filter(e => e.n != null && e.n > 0);
+              const avgUnits = withUnits.length > 0
+                ? Math.round(withUnits.reduce((a, b) => a + b.n, 0) / withUnits.length)
+                : null;
+              const perUnit = avgUnits != null ? Math.round(avg / avgUnits) : null;
               return (
                 <div
                   key={type}
@@ -1062,8 +1074,8 @@ export default function ProviderProfile() {
                   <div>
                     <p className="text-sm font-medium text-text-primary">{displayLabel}</p>
                     <p className="text-xs text-text-secondary">
-                      {prices.length} {prices.length === 1 ? 'price' : 'prices'}
-                      {prices.length > 1 && ` · $${min}–$${max}`}
+                      {count} {count === 1 ? 'price' : 'prices'}
+                      {count > 1 && ` · $${min}–$${max}`}
                       {getGuideUrl(type) && (
                         <>
                           {' · '}
@@ -1078,16 +1090,40 @@ export default function ProviderProfile() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <p className="text-lg font-bold text-text-primary">${avg}</p>
-                      <FairPriceBadge
-                        price={avg}
-                        procedureType={type}
-                        state={providerState}
-                        city={providerCity}
-                      />
-                    </div>
-                    <p className="text-xs text-text-secondary">avg</p>
+                    {perUnit != null ? (
+                      <>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <p className="text-lg font-bold text-text-primary">
+                            ${perUnit}<span className="text-sm font-normal text-text-secondary">/unit</span>
+                          </p>
+                          <FairPriceBadge
+                            price={avg}
+                            procedureType={type}
+                            state={providerState}
+                            city={providerCity}
+                          />
+                        </div>
+                        <p className="text-xs text-text-secondary">
+                          {avgUnits} unit{avgUnits !== 1 ? 's' : ''}
+                          {count > 1 ? ` · $${avg} avg total` : ` · $${avg} total`}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <p className="text-lg font-bold text-text-primary">${avg}</p>
+                          <FairPriceBadge
+                            price={avg}
+                            procedureType={type}
+                            state={providerState}
+                            city={providerCity}
+                          />
+                        </div>
+                        <p className="text-xs text-text-secondary">
+                          {count > 1 ? 'avg ' : ''}total visit
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -1242,13 +1278,13 @@ export default function ProviderProfile() {
                 {communityData.length > 0 && (
                   <div>
                     <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
-                    <p className="text-xs text-text-secondary">patients shared prices here</p>
+                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'patient' : 'patients'} shared prices here</p>
                   </div>
                 )}
                 {avgPrice && (
                   <div>
                     <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
-                    <p className="text-xs text-text-secondary">average reported</p>
+                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'reported' : 'average reported'}</p>
                   </div>
                 )}
               </div>
