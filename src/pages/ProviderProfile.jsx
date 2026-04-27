@@ -1144,45 +1144,22 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 3. Empty State — no submissions yet (unclaimed) */}
-      {!loading && communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
+      {/* 3. Empty State — provider not in DB at all */}
+      {!loading && !provider && communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
-          {!provider ? (
-            <>
-              <p className="text-lg font-semibold text-text-primary mb-1">
-                This provider isn&apos;t listed yet.
-              </p>
-              <p className="text-sm text-text-secondary mb-4">
-                Know them? Add their listing so you and others can log prices.
-              </p>
-              <button
-                onClick={() => setShowAddProviderModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-              >
-                <Plus size={18} />
-                Add their listing
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-semibold text-text-primary mb-1">
-                No pricing listed yet for {providerName}.
-              </p>
-              <p className="text-sm text-text-secondary mb-4">
-                Had a treatment here? You&apos;d be the first to share what you paid.
-              </p>
-              <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
-                First to share = Pioneer badge
-              </p>
-              <Link
-                to={`/log?provider_id=${provider.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-              >
-                <Plus size={18} />
-                + Share what I paid here
-              </Link>
-            </>
-          )}
+          <p className="text-lg font-semibold text-text-primary mb-1">
+            This provider isn&apos;t listed yet.
+          </p>
+          <p className="text-sm text-text-secondary mb-4">
+            Know them? Add their listing so you and others can log prices.
+          </p>
+          <button
+            onClick={() => setShowAddProviderModal(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+          >
+            <Plus size={18} />
+            Add their listing
+          </button>
         </div>
       )}
 
@@ -1379,8 +1356,8 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 8. Provider prices — unclaimed only */}
-      {!loading && !isClaimed && (
+      {/* 8. Provider prices — unclaimed only, only when provider row exists */}
+      {!loading && !isClaimed && provider && (
         verifiedPricing.length > 0 ? (
           /* Real scraped prices exist — show them unblurred */
           <div className="glow-card p-6 mb-6">
