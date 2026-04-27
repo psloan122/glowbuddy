@@ -142,13 +142,17 @@ export default function ProviderProfile() {
     let cancelled = false;
     async function fetchData() {
 
-      // 1. Try claimed provider by slug
-      const { data: providerRow } = await supabase
+      // 1. Try claimed provider by slug.
+      // Order by is_active descending so the active row wins when duplicates exist.
+      // Avoid .single() — it returns null for 0 rows, 2+ rows, or any error.
+      const { data: providerRows } = await supabase
         .from('providers')
         .select('id, name, slug, city, state, zip, address, phone, website, lat, lng, google_place_id, google_rating, google_review_count, google_maps_url, google_synced_at, hours_text, is_claimed, is_verified, is_active, owner_user_id, provider_type, instagram, first_timer_friendly, first_timer_special, glow_rewards_enabled, avg_rating, weighted_rating, review_count, verified_review_count, photo_review_count, unverified_review_count, photo_reference, procedure_tags')
         .eq('slug', slug)
-        .eq('is_active', true)
-        .single();
+        .neq('is_active', false)
+        .order('is_active', { ascending: false, nullsFirst: false })
+        .limit(1);
+      const providerRow = providerRows?.[0] ?? null;
 
       // 2. Try procedures by provider_slug (claimed providers)
       const { data: community } = await supabase
