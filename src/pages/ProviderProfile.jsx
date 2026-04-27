@@ -8,7 +8,6 @@ import {
   Phone,
   Plus,
   Star,
-  Lock,
   Clock,
   MapPin,
   ChevronDown,
@@ -75,6 +74,7 @@ export default function ProviderProfile() {
   const [disputeTarget, setDisputeTarget] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followId, setFollowId] = useState(null);
+  const [scrapedExpanded, setScrapedExpanded] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
   const { isSaved, saveProvider, unsaveProvider } = useSavedProviders();
@@ -994,7 +994,7 @@ export default function ProviderProfile() {
       {/* Main content wrapper */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-      {/* 2. Warning Banner — competitors advertising on unclaimed page */}
+      {/* Warning Banner — competitors advertising on unclaimed page */}
       {/* Hidden for regular logged-in patients — only owners, business users, and admins see this */}
       {!isClaimed && competitorCount > 0 && (!user || isProviderOwner || isAdmin) && (
         <div
@@ -1012,7 +1012,7 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 3. Community Prices + Verification Breakdown — trust level 1 (unclaimed) */}
+      {/* 2. Community Prices + Verification Breakdown */}
       {communityData.length > 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6">
           <h2 className="text-lg font-bold text-text-primary mb-1">
@@ -1148,26 +1148,98 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 3. Empty State — provider not in DB at all */}
-      {!loading && !provider && communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
-        <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
-          <p className="text-lg font-semibold text-text-primary mb-1">
-            This provider isn&apos;t listed yet.
-          </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Know them? Add their listing so you and others can log prices.
-          </p>
-          <button
-            onClick={() => setShowAddProviderModal(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            <Plus size={18} />
-            Add their listing
-          </button>
+      {/* 3. Scraped Prices — unblurred, expandable if >5 rows */}
+      {!loading && !isClaimed && provider && verifiedPricing.length > 0 && (
+        <div className="glow-card p-6 mb-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-text-primary">
+                Prices from {providerName}
+              </h2>
+              <p className="text-xs text-text-secondary mt-0.5">Advertised on their website</p>
+            </div>
+          </div>
+          {(scrapedExpanded ? verifiedPricing : verifiedPricing.slice(0, 5)).map((row) => {
+            const suffix = row.price_label
+              ? `/${getPriceLabelShort(row.price_label).replace(/^per /, '')}`
+              : '';
+            return (
+              <div
+                key={row.id}
+                className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
+              >
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="text-sm text-text-primary">
+                    {row.brand || row.procedure_type}
+                    {row.units_or_volume ? ` · ${row.units_or_volume}` : ''}
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: '#F0FAF5', color: '#1A7A3A', border: '1px solid #A7F3D0' }}
+                  >
+                    Advertised
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-text-primary shrink-0 ml-3">
+                  ${Math.round(Number(row.price))}{suffix}
+                </span>
+              </div>
+            );
+          })}
+          {verifiedPricing.length > 5 && (
+            <button
+              onClick={() => setScrapedExpanded(!scrapedExpanded)}
+              className="mt-2 text-sm font-medium text-hot-pink hover:underline transition-colors"
+            >
+              {scrapedExpanded ? 'Show fewer' : `See all ${verifiedPricing.length} prices`}
+            </button>
+          )}
         </div>
       )}
 
-      {/* Add Provider Modal (for non-existent providers) */}
+      {/* 4. Empty State — only when zero data from all sources */}
+      {!loading && communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
+        <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
+          {!provider ? (
+            <>
+              <p className="text-lg font-semibold text-text-primary mb-1">
+                This provider isn&apos;t listed yet.
+              </p>
+              <p className="text-sm text-text-secondary mb-4">
+                Know them? Add their listing so you and others can log prices.
+              </p>
+              <button
+                onClick={() => setShowAddProviderModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+              >
+                <Plus size={18} />
+                Add their listing
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-semibold text-text-primary mb-1">
+                No pricing listed yet for {providerName}.
+              </p>
+              <p className="text-sm text-text-secondary mb-4">
+                Had a treatment here? You&apos;d be the first to share what you paid.
+              </p>
+              <p className="text-xs font-medium mb-4" style={{ color: '#B45309' }}>
+                First to share = Pioneer badge
+              </p>
+              <Link
+                to={`/log?provider_id=${provider.id || ''}&provider=${encodeURIComponent(providerName || '')}&city=${encodeURIComponent(providerCity || '')}&state=${encodeURIComponent(providerState || '')}&place_id=${encodeURIComponent(provider.google_place_id || '')}&slug=${encodeURIComponent(slug)}`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+              >
+                <Plus size={18} />
+                + Share what I paid here
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Add Provider Modal */}
       {showAddProviderModal && (
         <AddProviderModal
           initialName={slugToDisplayName(slug)}
@@ -1179,40 +1251,7 @@ export default function ProviderProfile() {
         />
       )}
 
-      {/* 5. Competitor Ads — unclaimed, mid-page placement */}
-      {!isClaimed && (providerCity || providerState) && (
-        <CompetitorAds
-          providerSlug={slug}
-          providerId={provider?.id}
-          lat={providerLat}
-          lng={providerLng}
-          city={providerCity}
-          state={providerState}
-          procedureTypes={[
-            ...new Set(communityData.map((p) => p.procedure_type).filter(Boolean)),
-          ]}
-          claimUrl={claimUrl}
-          onCompetitorsLoaded={setCompetitorCount}
-        />
-      )}
-
-      {/* 6. Unclaimed — Manage listing (page owner) */}
-      {!isClaimed && isPageOwner && (
-        <div className="mb-6 glow-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-text-primary">You own this listing</p>
-            <p className="text-xs text-text-secondary mt-0.5">Manage your profile, pricing, and specials</p>
-          </div>
-          <Link
-            to="/business/dashboard"
-            className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-dark transition shrink-0"
-          >
-            Manage your listing &rarr;
-          </Link>
-        </div>
-      )}
-
-      {/* 6b. Unclaimed — Patient actions (logged-in regular user) */}
+      {/* 5. Patient Action Bar */}
       {!isClaimed && user && !isPageOwner && !isProviderOwner && !isAdmin && (
         <div className="mb-6 glow-card p-5">
           <p className="text-sm font-medium text-text-primary mb-3">Been here? Help others decide.</p>
@@ -1255,74 +1294,7 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 6c. Unclaimed Banner — claim CTA (not logged in, business owners, admins) */}
-      {!isClaimed && !isPageOwner && (!user || isProviderOwner || isAdmin) && (
-        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
-          {/* Part 1: What's happening — live stats */}
-          {(pageViews > 0 || communityData.length > 0) && (
-            <div className="p-5" style={{ background: '#F9FAFB' }}>
-              <div className="flex flex-wrap gap-8">
-                {pageViews > 0 && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">{pageViews.toLocaleString()}</p>
-                    <p className="text-xs text-text-secondary">viewed this page this week</p>
-                  </div>
-                )}
-                {communityData.length > 0 && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
-                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'patient' : 'patients'} shared prices here</p>
-                  </div>
-                )}
-                {avgPrice && (
-                  <div>
-                    <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
-                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'reported' : 'average reported'}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Part 2: What they're missing */}
-          <div className="p-5">
-            <p className="font-semibold text-text-primary text-[15px] mb-3">Claim your free listing to:</p>
-            <ul className="space-y-2 text-sm text-text-secondary mb-5">
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Remove competitor ads from this page
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Add your official price menu
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Respond to patient submissions
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
-                Post specials and promotions
-              </li>
-            </ul>
-
-            <Link
-              to={claimUrl}
-              className="block w-full sm:w-auto sm:inline-flex items-center justify-center gap-1.5 text-center text-white px-6 py-3 rounded-xl text-sm font-semibold transition"
-              style={{ background: '#C94F78' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
-            >
-              Claim This Listing &mdash; It&rsquo;s Free
-            </Link>
-            <p className="text-xs text-text-secondary mt-2 sm:text-left text-center">
-              Takes 2 minutes. Free forever.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Photo Carousel — visual proof */}
+      {/* 6. Photo Carousel */}
       {allPhotos.length > 0 ? (
         <div className="mb-6">
           <div
@@ -1360,76 +1332,86 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* 8. Provider prices — unclaimed only, only when provider row exists */}
-      {!loading && !isClaimed && provider && (
-        verifiedPricing.length > 0 ? (
-          /* Real scraped prices exist — show them unblurred */
-          <div className="glow-card p-6 mb-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-text-primary">
-                  Prices from {providerName}
-                </h2>
-                <p className="text-xs text-text-secondary mt-0.5">From their website</p>
+      {/* 7. Claim CTA — provider-facing, below all consumer content */}
+      {!isClaimed && !isPageOwner && (!user || isProviderOwner || isAdmin) && (
+        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: '1px solid #E5E7EB' }}>
+          {(pageViews > 0 || communityData.length > 0) && (
+            <div className="p-5" style={{ background: '#F9FAFB' }}>
+              <div className="flex flex-wrap gap-8">
+                {pageViews > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{pageViews.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">viewed this page this week</p>
+                  </div>
+                )}
+                {communityData.length > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">{communityData.length}</p>
+                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'patient' : 'patients'} shared prices here</p>
+                  </div>
+                )}
+                {avgPrice && (
+                  <div>
+                    <p className="text-2xl font-bold text-text-primary">${avgPrice.toLocaleString()}</p>
+                    <p className="text-xs text-text-secondary">{communityData.length === 1 ? 'reported' : 'average reported'}</p>
+                  </div>
+                )}
               </div>
             </div>
-            {verifiedPricing.map((row) => {
-              const suffix = row.price_label
-                ? `/${getPriceLabelShort(row.price_label).replace(/^per /, '')}`
-                : '';
-              return (
-                <div
-                  key={row.id}
-                  className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
-                >
-                  <span className="text-sm text-text-primary">
-                    {row.brand || row.procedure_type}
-                    {row.units_or_volume ? ` · ${row.units_or_volume}` : ''}
-                  </span>
-                  <span className="text-sm font-bold text-text-primary">
-                    ${Math.round(Number(row.price))}{suffix}
-                  </span>
-                </div>
-              );
-            })}
+          )}
+          <div className="p-5">
+            <p className="font-semibold text-text-primary text-[15px] mb-3">Claim your free listing to:</p>
+            <ul className="space-y-2 text-sm text-text-secondary mb-5">
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Remove competitor ads from this page
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Add your official price menu
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Respond to patient submissions
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={15} className="text-verified mt-0.5 shrink-0" />
+                Post specials and promotions
+              </li>
+            </ul>
+            <Link
+              to={claimUrl}
+              className="block w-full sm:w-auto sm:inline-flex items-center justify-center gap-1.5 text-center text-white px-6 py-3 rounded-xl text-sm font-semibold transition"
+              style={{ background: '#C94F78' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#A83D62')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#C94F78')}
+            >
+              Claim This Listing &mdash; It&rsquo;s Free
+            </Link>
+            <p className="text-xs text-text-secondary mt-2 sm:text-left text-center">
+              Takes 2 minutes. Free forever.
+            </p>
           </div>
-        ) : (
-          /* No scraped prices — show claim CTA with blurred placeholder */
-          <div className="glow-card p-6 mb-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-              <Lock size={28} className="text-gray-400 mb-2" />
-              <p className="text-sm font-semibold text-text-primary mb-1">
-                Official prices from {providerName}
-              </p>
-              <p className="text-xs text-text-secondary mb-3 text-center max-w-xs">
-                Claim your free listing to publish your price menu and attract new patients.
-              </p>
-              <Link
-                to={claimUrl}
-                className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-rose-dark transition"
-              >
-                Claim &amp; Add Prices &rarr;
-              </Link>
-            </div>
-            <div className="opacity-40 pointer-events-none" aria-hidden="true">
-              <h2 className="text-lg font-bold text-text-primary mb-4">
-                Published by {providerName}
-              </h2>
-              {['Botox', 'Lip Filler', 'RF Microneedling'].map((name) => (
-                <div
-                  key={name}
-                  className="flex items-center justify-between p-3 mb-2 rounded-lg bg-warm-gray"
-                >
-                  <span className="text-sm text-text-primary">{name}</span>
-                  <span className="text-sm font-bold text-text-primary">$---</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
+        </div>
       )}
 
-      {/* 9. First-Timer Special */}
+      {/* Manage listing — page owner */}
+      {!isClaimed && isPageOwner && (
+        <div className="mb-6 glow-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-text-primary">You own this listing</p>
+            <p className="text-xs text-text-secondary mt-0.5">Manage your profile, pricing, and specials</p>
+          </div>
+          <Link
+            to="/business/dashboard"
+            className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-dark transition shrink-0"
+          >
+            Manage your listing &rarr;
+          </Link>
+        </div>
+      )}
+
+      {/* First-Timer Special */}
       {provider?.first_timer_special && (
         <div className="glow-card p-5 mb-6 border border-sky-200">
           <div className="flex items-center gap-2 mb-2">
@@ -1440,7 +1422,7 @@ export default function ProviderProfile() {
         </div>
       )}
 
-      {/* Tab Navigation — full tabs for claimed, simplified for unclaimed */}
+      {/* Tab Navigation — claimed providers only */}
       {isClaimed && (
         <>
           <div className="border-b border-gray-200 mb-6">
@@ -1554,6 +1536,23 @@ export default function ProviderProfile() {
           </a>
         )}
       </div>
+
+      {/* 8. Competitor Ads — bottom of page */}
+      {!isClaimed && (providerCity || providerState) && (
+        <CompetitorAds
+          providerSlug={slug}
+          providerId={provider?.id}
+          lat={providerLat}
+          lng={providerLng}
+          city={providerCity}
+          state={providerState}
+          procedureTypes={[
+            ...new Set(communityData.map((p) => p.procedure_type).filter(Boolean)),
+          ]}
+          claimUrl={claimUrl}
+          onCompetitorsLoaded={setCompetitorCount}
+        />
+      )}
 
       {/* Dispute Modal */}
       {disputeTarget && (
