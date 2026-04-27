@@ -382,13 +382,18 @@ export default function FindPrices() {
     return () => clearTimeout(t);
   }, [_pinId]);
 
-  // Auto-snap: priced results appear after a treatment is selected → peek → half.
-  const _hasPricedResults = !!(procFilter && !loadingProcedures && (displayedProcedures?.length ?? 0) > 0);
-  const _prevHasPriced = useRef(false);
+  // Auto-snap: treatment data finishes loading → advance from peek to half.
+  // NOTE: displayedProcedures is declared far later in this file (after line 1800),
+  // so we cannot reference it here without a TDZ ReferenceError. Use only the
+  // loadingProcedures + procFilter state variables (declared above) instead.
+  const _prevLoadingProc = useRef(loadingProcedures);
   useEffect(() => {
-    if (_hasPricedResults && !_prevHasPriced.current) sheetRef.current?.snapTo(2); // half
-    _prevHasPriced.current = _hasPricedResults;
-  }, [_hasPricedResults]);
+    const wasLoading = _prevLoadingProc.current;
+    _prevLoadingProc.current = loadingProcedures;
+    if (wasLoading && !loadingProcedures && procFilter) {
+      sheetRef.current?.snapTo(2); // half: results loaded, show the list
+    }
+  }, [loadingProcedures, procFilter]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
