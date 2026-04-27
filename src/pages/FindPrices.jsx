@@ -14,6 +14,7 @@ import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
 import ProviderAvatar from '../components/ProviderAvatar';
 import ProviderProfileModal from '../components/ProviderProfileModal';
 import MobileBrowseSheet from '../components/browse/MobileBrowseSheet';
+import MobileBottomSheet from '../components/browse/MobileBottomSheet';
 import MobileSearchBar from '../components/browse/MobileSearchBar';
 import MobileSearchSheet from '../components/browse/MobileSearchSheet';
 import useSavedProviders from '../hooks/useSavedProviders';
@@ -353,20 +354,41 @@ export default function FindPrices() {
   const [cityPricingRows, setCityPricingRows] = useState([]);
 
   // ── Mobile sheet ↔ map padding sync ──
-  // Track the sheet's snap position so we can tell the map which part
-  // of the viewport is covered and shouldn't hold centered pins.
-  const [mobileSheetSnap, setMobileSheetSnap] = useState('full_map'); // sheet starts at peek
+  // mobileSnapIndex mirrors react-modal-sheet's SNAP_POINTS = [0, 160, 0.5, 1]:
+  //   1 (peek  160px) → pad map by 160
+  //   2 (half  0.5)   → pad map by 50 vh
+  //   3 (full  1)     → pad map by 60 (header gap only)
+  const sheetRef = useRef(null);
+  const [mobileSnapIndex, setMobileSnapIndex] = useState(1); // 1 = peek on mount
   const mapBottomPadding = useMemo(() => {
     if (!isMobile || !selectedLoc) return 0;
-    // Values mirror the snap points in MobileBrowseSheet:
-    //   peek  = '120px' → 120 px of sheet visible → pad map by 120 px
-    //   half  = 0.5     → 50 vh visible           → pad map by 50 vh
-    //   full  = 0.93    → capped at 100dvh-60px   → only 60 px of map visible at top
-    if (mobileSheetSnap === 'full_map') return 120;
-    if (mobileSheetSnap === 'full_list') return 60;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
-    return Math.round(h * 0.5); // half
-  }, [isMobile, selectedLoc, mobileSheetSnap]);
+    if (mobileSnapIndex === 3) return 60;
+    if (mobileSnapIndex === 2) {
+      const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+      return Math.round(h * 0.5);
+    }
+    return 160; // peek (index 1) or closed (index 0, shouldn't happen)
+  }, [isMobile, selectedLoc, mobileSnapIndex]);
+
+  // Auto-snap: map pin tapped → expand sheet to full so the card is visible.
+  const _pinId = selectedProviderGroup?.provider_id ?? gateSelectedProviderGroup?.provider_id ?? null;
+  useEffect(() => {
+    if (_pinId == null) return;
+    sheetRef.current?.snapTo(3); // index 3 = full
+    const t = setTimeout(() => {
+      document.querySelector(`[data-provider-card="${_pinId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [_pinId]);
+
+  // Auto-snap: priced results appear after a treatment is selected → peek → half.
+  const _hasPricedResults = !!(procFilter && !loadingProcedures && (displayedProcedures?.length ?? 0) > 0);
+  const _prevHasPriced = useRef(false);
+  useEffect(() => {
+    if (_hasPricedResults && !_prevHasPriced.current) sheetRef.current?.snapTo(2); // half
+    _prevHasPriced.current = _hasPricedResults;
+  }, [_hasPricedResults]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -2293,17 +2315,19 @@ export default function FindPrices() {
   const renderCompactHeader = () => (
     <>
       <div className="px-3 pt-1.5 pb-0.5">
-        <h1
-          className="font-display text-ink"
-          style={{
-            fontWeight: 900, fontSize: 15, lineHeight: 1.2,
-            letterSpacing: '-0.02em', textTransform: 'uppercase', margin: 0,
-            maxHeight: 32,
-          }}
-        >
-          KNOW BEFORE YOU{' '}
-          <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
-        </h1>
+        <Link to="/" style={{ textDecoration: 'none', WebkitTapHighlightColor: 'transparent' }} aria-label="Home">
+          <h1
+            className="font-display text-ink"
+            style={{
+              fontWeight: 900, fontSize: 15, lineHeight: 1.2,
+              letterSpacing: '-0.02em', textTransform: 'uppercase', margin: 0,
+              maxHeight: 32,
+            }}
+          >
+            KNOW BEFORE YOU{' '}
+            <span className="italic text-hot-pink" style={{ textTransform: 'none' }}>Glow.</span>
+          </h1>
+        </Link>
       </div>
       <div className="px-3 pt-1.5 pb-2 space-y-1.5">
         {/* Row 1 — Treatment + Location inputs (side by side) */}
@@ -3646,7 +3670,7 @@ export default function FindPrices() {
           mobileUnpriced = unpricedProviders.slice(0, MAX_UNPRICED);
         } else {
           mobileMode = 'gate';
-          mobileProviders = gateProviders.map((p) => ({
+          mobileProviders = filteredGateProviders.map((p) => ({
             key: p.id,
             id: p.id,
             provider_id: p.id,
@@ -3662,11 +3686,12 @@ export default function FindPrices() {
         }
 
         // Pin set for the map — mirrors the list. Personalized mode uses
-        // the user's matched providers; otherwise fall back to gateProviders.
+        // the user's matched providers; gate mode uses filteredGateProviders so
+        // map pins match the sheet list when a treatment filter is active.
         const mobileMapProviders =
           personalizedMode && personalProviders.length > 0
             ? personalProviders.map((entry) => entry.provider)
-            : gateProviders;
+            : filteredGateProviders;
 
         return (
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
@@ -3695,24 +3720,27 @@ export default function FindPrices() {
               />
             </div>
 
-            {/* Layer 2: Bottom sheet — single unified render for all user states */}
-            <MobileBrowseSheet
-              providers={mobileProviders}
-              mode={mobileMode}
-              city={selectedLoc.city}
-              state={selectedLoc.state}
-              cityAvg={hasPricedResults ? cityAvgPrice : undefined}
-              selectedProviderId={mobileSelectedId}
-              providerCount={mobileProviders.length}
-              listingCount={hasPricedResults ? displayedProcedures.length : mobileProviders.length}
-              loading={personalizedMode ? personalLoading : (hasPricedResults ? loadingProcedures : gateProvidersLoading)}
-              onSelectCategory={!personalizedMode ? selectPill : undefined}
-              activeCategorySlug={procFilter?.slug}
-              categoryCounts={categoryCounts}
-              unpricedProviders={mobileUnpriced}
-              unpricedTotal={unpricedProviders.length}
-              onSnapChange={setMobileSheetSnap}
-            />
+            {/* Layer 2: Bottom sheet — hidden while search picker is open (one panel at a time) */}
+            {!mobileSearchOpen && (
+              <MobileBottomSheet ref={sheetRef} onSnapChange={setMobileSnapIndex}>
+                <MobileBrowseSheet
+                  providers={mobileProviders}
+                  mode={mobileMode}
+                  city={selectedLoc.city}
+                  state={selectedLoc.state}
+                  cityAvg={hasPricedResults ? cityAvgPrice : undefined}
+                  selectedProviderId={mobileSelectedId}
+                  providerCount={mobileProviders.length}
+                  listingCount={hasPricedResults ? displayedProcedures.length : mobileProviders.length}
+                  loading={personalizedMode ? personalLoading : (hasPricedResults ? loadingProcedures : gateProvidersLoading)}
+                  onSelectCategory={!personalizedMode ? selectPill : undefined}
+                  activeCategorySlug={procFilter?.slug}
+                  categoryCounts={categoryCounts}
+                  unpricedProviders={mobileUnpriced}
+                  unpricedTotal={unpricedProviders.length}
+                />
+              </MobileBottomSheet>
+            )}
 
             {/* Unpriced provider pin tapped — show "No prices yet" popup */}
             {gateSelectedProviderGroup && (
