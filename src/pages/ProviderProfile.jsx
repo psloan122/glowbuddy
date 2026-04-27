@@ -1134,7 +1134,7 @@ export default function ProviderProfile() {
       )}
 
       {/* 3. Empty State — no submissions yet (unclaimed) */}
-      {communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
+      {!loading && communityData.length === 0 && verifiedPricing.length === 0 && !isClaimed && (
         <div className="glow-card p-6 mb-6 text-center border border-dashed border-rose-accent/30">
           {!provider ? (
             <>
@@ -1369,7 +1369,7 @@ export default function ProviderProfile() {
       )}
 
       {/* 8. Provider prices — unclaimed only */}
-      {!isClaimed && (
+      {!loading && !isClaimed && (
         verifiedPricing.length > 0 ? (
           /* Real scraped prices exist — show them unblurred */
           <div className="glow-card p-6 mb-6">
