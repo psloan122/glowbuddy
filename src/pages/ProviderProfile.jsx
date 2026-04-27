@@ -139,6 +139,7 @@ export default function ProviderProfile() {
         .from('providers')
         .select('id, name, slug, city, state, zip, address, phone, website, lat, lng, google_place_id, google_rating, google_review_count, google_maps_url, google_synced_at, hours_text, is_claimed, is_verified, is_active, owner_user_id, provider_type, instagram, first_timer_friendly, first_timer_special, glow_rewards_enabled, avg_rating, weighted_rating, review_count, verified_review_count, photo_review_count, unverified_review_count, photo_reference, procedure_tags')
         .eq('slug', slug)
+        .eq('is_active', true)
         .single();
 
       // 2. Try procedures by provider_slug (claimed providers)
