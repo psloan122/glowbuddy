@@ -147,7 +147,7 @@ export default function ProviderProfile() {
       // Avoid .single() — it returns null for 0 rows, 2+ rows, or any error.
       const { data: providerRows } = await supabase
         .from('providers')
-        .select('id, name, slug, city, state, zip, address, phone, website, lat, lng, google_place_id, google_rating, google_review_count, google_maps_url, google_synced_at, hours_text, is_claimed, is_verified, is_active, owner_user_id, provider_type, instagram, first_timer_friendly, first_timer_special, glow_rewards_enabled, avg_rating, weighted_rating, review_count, verified_review_count, photo_review_count, unverified_review_count, photo_reference, procedure_tags')
+        .select('id, name, slug, city, state, address, phone, website, lat, lng, google_place_id, google_rating, google_review_count, google_maps_url, google_synced_at, hours_text, is_claimed, is_verified, is_active, owner_user_id, provider_type, instagram, first_timer_friendly, first_timer_special, glow_rewards_enabled, avg_rating, weighted_rating, review_count, verified_review_count, photo_review_count, unverified_review_count, photo_reference, procedure_tags')
         .eq('slug', slug)
         .or('is_active.eq.true,is_active.is.null')
         .order('is_active', { ascending: false, nullsFirst: false })
