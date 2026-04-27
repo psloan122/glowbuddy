@@ -472,8 +472,8 @@ export default function ProviderProfile() {
   // SEO
   useEffect(() => {
     const name =
-      googleData?.name ||
       provider?.name ||
+      googleData?.name ||
       (communityData.length > 0 ? communityData[0].provider_name : null) ||
       slugToDisplayName(slug);
     const city =
@@ -601,8 +601,8 @@ export default function ProviderProfile() {
 
   // Resolve display values — prefer Google data, then provider row, then community data, then slug
   const providerName =
-    googleData?.name ||
     provider?.name ||
+    googleData?.name ||
     (communityData.length > 0 ? communityData[0].provider_name : null) ||
     slugToDisplayName(slug);
 
