@@ -518,3 +518,14 @@ h1, h2, h3, h4 {
 .pac-icon { display: none; }
 .pac-item-query { font-weight: 500; color: #111; }
 .pac-matched { color: #E8347A; }
+
+/* Ensure page content is never hidden behind MobileBottomNav on devices
+   with a home indicator (safe-area-inset-bottom ≈ 34px on iPhone 12+).
+   Nav height = 64px inner + env(safe-area-inset-bottom).
+   Specificity (1,1,1) beats Tailwind's pb-[80px] (0,1,0) on mobile only.
+   Fires only at max-width: 767px so the desktop md:pb-0 class is unaffected. */
+@media (max-width: 767px) {
+  main#main-content {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
