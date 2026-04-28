@@ -93,6 +93,11 @@ export default function AuthModal({ mode: initialMode, onClose }) {
   const [loadingText, setLoadingText] = useState('Setting up your experience...');
   const [showEscape, setShowEscape] = useState(false);
 
+  // Provider vs patient role selection (signup only)
+  const [isProvider, setIsProvider] = useState(false);
+  const [businessName, setBusinessName] = useState('');
+  const [businessRole, setBusinessRole] = useState('Owner');
+
   // Inline validation
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false, confirm: false });
@@ -154,6 +159,9 @@ export default function AuthModal({ mode: initialMode, onClose }) {
     setSuccess(false);
     setForgotSent(false);
     setAgreedToTerms(false);
+    setIsProvider(false);
+    setBusinessName('');
+    setBusinessRole('Owner');
     setTouched({ email: false, password: false, confirm: false });
     setFieldErrors({ email: '', password: '', confirm: '' });
   }
@@ -189,12 +197,22 @@ export default function AuthModal({ mode: initialMode, onClose }) {
       const trimmedFirst = firstName.trim();
       const trimmedLast = lastName.trim();
       const fullName = [trimmedFirst, trimmedLast].filter(Boolean).join(' ');
-      const metadata = trimmedFirst
-        ? { first_name: trimmedFirst, full_name: fullName }
-        : undefined;
+      const metadata = {
+        ...(trimmedFirst ? { first_name: trimmedFirst, full_name: fullName } : {}),
+        user_role: isProvider ? 'provider' : 'patient',
+        ...(isProvider ? {
+          business_name: businessName.trim(),
+          business_role: businessRole,
+        } : {}),
+      };
+
+      if (isProvider) {
+        sessionStorage.setItem('gb_pending_action', JSON.stringify({ path: '/business/claim' }));
+      }
 
       const { data, error: authError } = await signUpWithPassword(email, password, metadata);
       if (authError) {
+        if (isProvider) sessionStorage.removeItem('gb_pending_action');
         setError(getAuthErrorMessage(authError));
       } else if (data?.user) {
         if (trimmedFirst) {
@@ -341,7 +359,9 @@ export default function AuthModal({ mode: initialMode, onClose }) {
             </h2>
             {mode === 'signup' && (
               <p className="text-sm text-text-secondary mt-1">
-                Share prices, earn badges, and help others save.
+                {isProvider
+                  ? 'Manage your listing, publish prices, and attract new patients.'
+                  : 'Share prices, earn badges, and help others save.'}
               </p>
             )}
           </>
@@ -371,10 +391,37 @@ export default function AuthModal({ mode: initialMode, onClose }) {
         </>
       )}
 
-      {/* Value props — visible by default, collapse while keyboard is open
-          so inputs stay above the keyboard without needing to scroll.
-          max-h transition requires overflow-hidden to clip cleanly. */}
+      {/* Role toggle — patient vs provider (signup only) */}
       {mode === 'signup' && (
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setIsProvider(false)}
+            className={`flex-1 py-2.5 rounded-full text-sm font-semibold border transition ${
+              !isProvider
+                ? 'bg-rose-accent text-white border-rose-accent'
+                : 'bg-white text-text-secondary border-gray-200 hover:border-rose-accent/50'
+            }`}
+          >
+            I&apos;m a patient
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsProvider(true)}
+            className={`flex-1 py-2.5 rounded-full text-sm font-semibold border transition ${
+              isProvider
+                ? 'bg-rose-accent text-white border-rose-accent'
+                : 'bg-white text-text-secondary border-gray-200 hover:border-rose-accent/50'
+            }`}
+          >
+            I&apos;m a provider
+          </button>
+        </div>
+      )}
+
+      {/* Value props — visible by default, collapse while keyboard is open.
+          Patient props only shown for patient signup. */}
+      {mode === 'signup' && !isProvider && (
         <div
           className={`overflow-hidden transition-all duration-200 ${
             isTyping ? 'max-h-0 opacity-0' : 'max-h-60 opacity-100'
@@ -412,29 +459,57 @@ export default function AuthModal({ mode: initialMode, onClose }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Name fields (signup only) */}
         {mode === 'signup' && (
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              onFocus={onAnyFocus}
-              onBlur={() => handleBlur('firstName')}
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
-              required
-              autoComplete="given-name"
-            />
-            <input
-              type="text"
-              placeholder="Last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              onFocus={onAnyFocus}
-              onBlur={onAnyBlur}
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
-              autoComplete="family-name"
-            />
-          </div>
+          <>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                onFocus={onAnyFocus}
+                onBlur={() => handleBlur('firstName')}
+                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
+                required
+                autoComplete="given-name"
+              />
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                onFocus={onAnyFocus}
+                onBlur={onAnyBlur}
+                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
+                autoComplete="family-name"
+              />
+            </div>
+            {isProvider && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Business name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  onFocus={onAnyFocus}
+                  onBlur={onAnyBlur}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition"
+                  required
+                  autoComplete="organization"
+                />
+                <select
+                  value={businessRole}
+                  onChange={(e) => setBusinessRole(e.target.value)}
+                  onFocus={onAnyFocus}
+                  onBlur={onAnyBlur}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-accent/50 focus:border-rose-accent transition bg-white"
+                >
+                  <option value="Owner">Owner</option>
+                  <option value="Office Manager">Office Manager</option>
+                  <option value="Marketing">Marketing</option>
+                </select>
+              </>
+            )}
+          </>
         )}
 
         {/* Email */}
@@ -598,7 +673,7 @@ export default function AuthModal({ mode: initialMode, onClose }) {
               {mode === 'signup' ? 'Creating account...' : mode === 'forgot' ? 'Sending...' : 'Signing in...'}
             </span>
           ) : mode === 'signup' ? (
-            'Create Account'
+            isProvider ? 'Create Business Account' : 'Create Account'
           ) : mode === 'forgot' ? (
             'Send Reset Link'
           ) : (

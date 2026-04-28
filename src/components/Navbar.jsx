@@ -4,6 +4,7 @@ import { Menu, X, ChevronDown, Heart } from 'lucide-react';
 import { AuthContext } from '../App';
 import { signOut } from '../lib/auth';
 import { getUnreadCount } from '../lib/priceAlerts';
+import { supabase } from '../lib/supabase';
 import NotificationBell from './NotificationBell';
 import {
   getCity as getGatingCity,
@@ -258,6 +259,16 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, [user?.id]);
 
+  const isProviderUser = user?.user_metadata?.user_role === 'provider';
+  const [providerSlug, setProviderSlug] = useState(null);
+
+  // Fetch the provider's slug once for "My Listing" link
+  useEffect(() => {
+    if (!user || !isProviderUser) { setProviderSlug(null); return; }
+    supabase.from('providers').select('slug').eq('owner_user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (data?.slug) setProviderSlug(data.slug); });
+  }, [user?.id, isProviderUser]);
+
   // Check if a dropdown should show active state
   function isDropdownActive(dropdown) {
     const allLinks = dropdown.sections
@@ -410,68 +421,67 @@ export default function Navbar() {
                       style={{ borderTop: '2px solid #111', minWidth: 220 }}
                       role="menu"
                     >
-                      {/* MY GLOWBUDDY section */}
-                      <p
-                        className="px-4 pt-2 pb-1 text-[10px] font-semibold text-hot-pink uppercase"
-                        style={{ letterSpacing: '0.12em' }}
-                      >
-                        My GlowBuddy
-                      </p>
-                      {MY_GLOW_LINKS.map((link) => (
-                        <Link
-                          key={link.to}
-                          to={link.to}
-                          onClick={() => setAvatarOpen(false)}
-                          role="menuitem"
-                          className="block px-4 py-2 hover:bg-cream transition-colors group"
-                        >
-                          <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink group-hover:text-hot-pink">
-                            {link.label}
-                            {link.to === '/alerts' && unreadCount > 0 && (
-                              <span className="inline-block w-2 h-2 bg-hot-pink rounded-full" />
-                            )}
-                          </span>
-                          <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">
-                            {link.sub}
+                      {isProviderUser ? (
+                        <>
+                          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-hot-pink uppercase" style={{ letterSpacing: '0.12em' }}>
+                            My Business
                           </p>
-                        </Link>
-                      ))}
-
-                      {/* Divider */}
-                      <div className="mx-4 my-2 border-t border-rule" />
-
-                      {/* Account links */}
-                      <Link
-                        to="/rewards"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        My Rewards
-                      </Link>
-                      <Link
-                        to="/refer"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] font-medium text-hot-pink hover:bg-cream transition-colors"
-                      >
-                        Refer &amp; Earn $10
-                      </Link>
-                      <Link
-                        to="/account"
-                        onClick={() => setAvatarOpen(false)}
-                        role="menuitem"
-                        className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors"
-                      >
-                        Account Settings
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        role="menuitem"
-                        className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors"
-                      >
-                        Log Out
-                      </button>
+                          <Link to="/business/dashboard" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2 hover:bg-cream transition-colors group">
+                            <span className="text-[13px] font-medium text-ink group-hover:text-hot-pink">Dashboard</span>
+                            <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">Manage pricing, reviews, analytics</p>
+                          </Link>
+                          {providerSlug && (
+                            <Link to={`/provider/${providerSlug}`} onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2 hover:bg-cream transition-colors group">
+                              <span className="text-[13px] font-medium text-ink group-hover:text-hot-pink">My Listing</span>
+                              <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">View your public profile</p>
+                            </Link>
+                          )}
+                          <div className="mx-4 my-2 border-t border-rule" />
+                          <Link to="/account" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors">
+                            Account Settings
+                          </Link>
+                          <button onClick={handleSignOut} role="menuitem" className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors">
+                            Log Out
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* MY GLOWBUDDY section — patient */}
+                          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-hot-pink uppercase" style={{ letterSpacing: '0.12em' }}>
+                            My GlowBuddy
+                          </p>
+                          {MY_GLOW_LINKS.map((link) => (
+                            <Link
+                              key={link.to}
+                              to={link.to}
+                              onClick={() => setAvatarOpen(false)}
+                              role="menuitem"
+                              className="block px-4 py-2 hover:bg-cream transition-colors group"
+                            >
+                              <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink group-hover:text-hot-pink">
+                                {link.label}
+                                {link.to === '/alerts' && unreadCount > 0 && (
+                                  <span className="inline-block w-2 h-2 bg-hot-pink rounded-full" />
+                                )}
+                              </span>
+                              <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">{link.sub}</p>
+                            </Link>
+                          ))}
+                          <div className="mx-4 my-2 border-t border-rule" />
+                          <Link to="/rewards" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors">
+                            My Rewards
+                          </Link>
+                          <Link to="/refer" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2.5 text-[13px] font-medium text-hot-pink hover:bg-cream transition-colors">
+                            Refer &amp; Earn $10
+                          </Link>
+                          <Link to="/account" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors">
+                            Account Settings
+                          </Link>
+                          <button onClick={handleSignOut} role="menuitem" className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors">
+                            Log Out
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -683,50 +693,65 @@ export default function Navbar() {
             <div className="mt-8 pt-6 border-t border-rule">
               {user ? (
                 <div className="flex flex-col gap-1">
-                  {/* MY GLOWBUDDY section */}
-                  <p
-                    className="text-[10px] font-semibold text-hot-pink uppercase mb-1"
-                    style={{ letterSpacing: '0.12em' }}
-                  >
-                    My GlowBuddy
-                  </p>
-                  {MY_GLOW_LINKS.map((link) => {
-                    const active = location.pathname.startsWith(link.to);
-                    return (
-                      <Link
-                        key={link.to}
-                        to={link.to}
-                        className={`flex items-center gap-2 py-2 text-[15px] transition-colors ${
-                          active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
-                        }`}
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        {link.label}
-                        {link.to === '/alerts' && unreadCount > 0 && (
-                          <span className="w-2 h-2 bg-hot-pink rounded-full" />
-                        )}
+                  {isProviderUser ? (
+                    <>
+                      <p className="text-[10px] font-semibold text-hot-pink uppercase mb-1" style={{ letterSpacing: '0.12em' }}>
+                        My Business
+                      </p>
+                      <Link to="/business/dashboard" className="py-2 text-[15px] text-ink hover:text-hot-pink transition-colors" onClick={() => setMobileOpen(false)}>
+                        Dashboard
                       </Link>
-                    );
-                  })}
-
-                  {/* Divider */}
-                  <div className="border-t border-rule my-3" />
-
-                  <Link to="/rewards" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    My Rewards
-                  </Link>
-                  <Link to="/refer" className="py-2 text-[14px] font-medium text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    Refer &amp; Earn $10
-                  </Link>
-                  <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
-                    Account Settings
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink"
-                  >
-                    Log Out
-                  </button>
+                      {providerSlug && (
+                        <Link to={`/provider/${providerSlug}`} className="py-2 text-[15px] text-ink hover:text-hot-pink transition-colors" onClick={() => setMobileOpen(false)}>
+                          My Listing
+                        </Link>
+                      )}
+                      <div className="border-t border-rule my-3" />
+                      <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                        Account Settings
+                      </Link>
+                      <button onClick={handleSignOut} className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink">
+                        Log Out
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-semibold text-hot-pink uppercase mb-1" style={{ letterSpacing: '0.12em' }}>
+                        My GlowBuddy
+                      </p>
+                      {MY_GLOW_LINKS.map((link) => {
+                        const active = location.pathname.startsWith(link.to);
+                        return (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            className={`flex items-center gap-2 py-2 text-[15px] transition-colors ${
+                              active ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                            }`}
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {link.label}
+                            {link.to === '/alerts' && unreadCount > 0 && (
+                              <span className="w-2 h-2 bg-hot-pink rounded-full" />
+                            )}
+                          </Link>
+                        );
+                      })}
+                      <div className="border-t border-rule my-3" />
+                      <Link to="/rewards" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                        My Rewards
+                      </Link>
+                      <Link to="/refer" className="py-2 text-[14px] font-medium text-hot-pink" onClick={() => setMobileOpen(false)}>
+                        Refer &amp; Earn $10
+                      </Link>
+                      <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink" onClick={() => setMobileOpen(false)}>
+                        Account Settings
+                      </Link>
+                      <button onClick={handleSignOut} className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink">
+                        Log Out
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
