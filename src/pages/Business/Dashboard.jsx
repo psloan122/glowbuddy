@@ -548,7 +548,7 @@ export default function Dashboard() {
 
   function PricingFormRow({ onSubmit, onCancel, isEdit }) {
     return (
-      <form onSubmit={onSubmit} className="glow-card p-4 space-y-3">
+      <form onSubmit={onSubmit} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">
@@ -658,7 +658,8 @@ export default function Dashboard() {
           <button
             type="submit"
             disabled={pricingSaving}
-            className="bg-rose-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition disabled:opacity-50"
+            className="text-white px-5 py-2 rounded-md text-[13px] font-semibold transition disabled:opacity-50"
+            style={{ background: 'var(--color-biz-teal)' }}
           >
             {pricingSaving ? 'Saving...' : isEdit ? 'Update' : 'Save'}
           </button>
@@ -996,16 +997,16 @@ export default function Dashboard() {
 
       {/* ===== MENU TAB ===== */}
       {activeTab === 'Menu' && (
-        <div>
+        <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
           {/* AI menu parser — upload PDF/image */}
           {provider?.id && (
-            <div className="glow-card p-5 mb-6" style={{ borderTop: '3px solid #E8347A' }}>
+            <div className="rounded-lg border border-gray-200 bg-white p-5 mb-6" style={{ borderTop: '3px solid var(--color-biz-teal)' }}>
               <MenuUploader providerId={provider.id} />
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-text-primary">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[18px] font-semibold text-text-primary">
               Your Procedure Menu
             </h2>
             {!showAddPricing && !editingPricingId && (
@@ -1014,9 +1015,10 @@ export default function Dashboard() {
                   resetPricingForm();
                   setShowAddPricing(true);
                 }}
-                className="inline-flex items-center gap-1.5 bg-rose-accent text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-rose-dark transition"
+                className="inline-flex items-center gap-1.5 text-white px-4 py-2 rounded-md text-[13px] font-semibold transition"
+                style={{ background: 'var(--color-biz-teal)' }}
               >
-                <Plus size={16} /> Add Procedure
+                <Plus size={15} /> Add Procedure
               </button>
             )}
           </div>
@@ -1037,49 +1039,51 @@ export default function Dashboard() {
 
           {/* Pricing list — split by source */}
           {(() => {
-            const PROVIDER_SOURCES = new Set(['provider_listed', 'cheerio_scraper', 'scrape', 'csv_import', null, undefined]);
             const publishedPrices = pricing.filter(p => p.source !== 'community_submitted');
             const communityPrices = pricing.filter(p => p.source === 'community_submitted');
 
             const sourceLabel = (source) => {
-              if (source === 'provider_listed') return { text: 'You added', bg: '#F0FAF5', color: '#1A7A3A', border: '#A7F3D0' };
-              if (source === 'cheerio_scraper' || source === 'scrape') return { text: 'Scraped from website', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+              if (source === 'provider_listed') return { text: 'You added', bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+              if (source === 'cheerio_scraper' || source === 'scrape') return { text: 'Scraped', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
               if (source === 'csv_import') return { text: 'Imported', bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' };
-              return { text: 'On your menu', bg: '#F9FAFB', color: '#374151', border: '#E5E7EB' };
+              return { text: 'On menu', bg: '#F9FAFB', color: '#374151', border: '#E5E7EB' };
             };
 
             return (
               <>
                 {publishedPrices.length === 0 && !showAddPricing ? (
-                  <div className="glow-card p-8 text-center mb-6">
-                    <p className="text-text-secondary mb-3">No procedures on your menu yet.</p>
+                  <div className="rounded-lg border border-gray-200 bg-white p-8 text-center mb-6">
+                    <p className="text-[13px] text-text-secondary mb-3">No procedures on your menu yet.</p>
                     <button
                       onClick={() => { resetPricingForm(); setShowAddPricing(true); }}
-                      className="text-rose-accent font-medium hover:text-rose-dark transition"
+                      className="text-[13px] font-medium transition"
+                      style={{ color: 'var(--color-biz-teal)' }}
                     >
                       Add your first procedure
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3 mb-6">
-                    {publishedPrices.map((item) =>
+                  <div className="rounded-lg border border-gray-200 bg-white overflow-hidden mb-6">
+                    {publishedPrices.map((item, idx) =>
                       editingPricingId === item.id ? (
-                        <PricingFormRow
-                          key={item.id}
-                          onSubmit={handleSavePricing}
-                          onCancel={cancelEditPricing}
-                          isEdit={true}
-                        />
+                        <div key={item.id} className="p-4 border-b border-gray-100">
+                          <PricingFormRow
+                            onSubmit={handleSavePricing}
+                            onCancel={cancelEditPricing}
+                            isEdit={true}
+                          />
+                        </div>
                       ) : (
                         <div
                           key={item.id}
-                          className="glow-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/50 transition"
+                          style={{ borderBottom: idx < publishedPrices.length - 1 ? '1px solid #F3F4F6' : 'none' }}
                         >
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-text-primary">{item.procedure_type}</span>
+                              <span className="text-[14px] font-semibold text-text-primary">{item.procedure_type}</span>
                               {item.treatment_area && (
-                                <span className="text-xs bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full">
+                                <span className="text-[11px] bg-gray-100 text-text-secondary px-2 py-0.5 rounded">
                                   {item.treatment_area}
                                 </span>
                               )}
@@ -1092,30 +1096,30 @@ export default function Dashboard() {
                                 );
                               })()}
                             </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-lg font-bold text-text-primary">${item.price}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[16px] font-bold text-text-primary">${item.price}</span>
                               {item.price_label && formatPricingUnit(item.price_label) && (
-                                <span className="text-sm text-text-secondary">{formatPricingUnit(item.price_label)}</span>
+                                <span className="text-[12px] text-text-secondary">{formatPricingUnit(item.price_label)}</span>
                               )}
                               {item.units_or_volume && (
-                                <span className="text-sm text-text-secondary">({item.units_or_volume})</span>
+                                <span className="text-[12px] text-text-secondary">({item.units_or_volume})</span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => startEditPricing(item)}
-                              className="p-2 rounded-lg hover:bg-warm-gray text-text-secondary hover:text-text-primary transition"
+                              className="p-1.5 rounded-md hover:bg-gray-100 text-text-secondary hover:text-text-primary transition"
                               title="Edit"
                             >
-                              <Pencil size={16} />
+                              <Pencil size={15} />
                             </button>
                             <button
                               onClick={() => handleDeletePricing(item.id)}
-                              className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
+                              className="p-1.5 rounded-md hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
                               title="Delete"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </div>
@@ -1126,35 +1130,36 @@ export default function Dashboard() {
 
                 {communityPrices.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3" style={{ letterSpacing: '0.08em' }}>
+                    <h3 className="text-[12px] font-semibold text-text-secondary uppercase tracking-wide mb-3">
                       Patient-Reported Prices — Read Only
                     </h3>
-                    <div className="space-y-2">
-                      {communityPrices.map((item) => (
+                    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                      {communityPrices.map((item, idx) => (
                         <div
                           key={item.id}
-                          className="glow-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 opacity-75"
+                          className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 opacity-70"
+                          style={{ borderBottom: idx < communityPrices.length - 1 ? '1px solid #F3F4F6' : 'none' }}
                         >
                           <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-text-primary">{item.procedure_type}</span>
+                              <span className="text-[14px] font-semibold text-text-primary">{item.procedure_type}</span>
                               <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded" style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
                                 Patient-reported
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-lg font-bold text-text-primary">${item.price}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[16px] font-bold text-text-primary">${item.price}</span>
                               {item.price_label && formatPricingUnit(item.price_label) && (
-                                <span className="text-sm text-text-secondary">{formatPricingUnit(item.price_label)}</span>
+                                <span className="text-[12px] text-text-secondary">{formatPricingUnit(item.price_label)}</span>
                               )}
                             </div>
                           </div>
-                          <span className="text-xs text-text-secondary italic shrink-0">Cannot be edited</span>
+                          <span className="text-[11px] text-text-secondary italic shrink-0">Cannot be edited</span>
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-text-secondary mt-2">
-                      To flag an inaccurate patient price, go to the <button className="text-rose-accent hover:underline font-medium" onClick={() => setSearchParams({ tab: 'submissions' }, { replace: true })}>Submissions tab</button>.
+                    <p className="text-[11px] text-text-secondary mt-2">
+                      To flag an inaccurate patient price, go to the <button className="font-medium transition" style={{ color: 'var(--color-biz-teal)' }} onClick={() => setSearchParams({ tab: 'submissions' }, { replace: true })}>Submissions tab</button>.
                     </p>
                   </div>
                 )}
@@ -1163,7 +1168,7 @@ export default function Dashboard() {
           })()}
 
           {/* Upgrade CTA */}
-          <div className="mt-8">
+          <div className="mt-6">
             <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
           </div>
         </div>
