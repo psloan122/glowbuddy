@@ -24,6 +24,7 @@ import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import {
   PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
+  ONBOARDING_PROVIDER_TYPES,
 } from '../../lib/constants';
 import InjectorsTab from '../../components/DashboardTabs/InjectorsTab';
 import DashboardBeforeAfterTab from '../../components/DashboardTabs/BeforeAfterTab';
@@ -668,30 +669,9 @@ export default function Dashboard() {
     );
   }
 
-  if (!provider) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="glow-card p-8">
-          <AlertTriangle
-            size={40}
-            className="text-rose-accent mx-auto mb-4"
-          />
-          <h2 className="text-xl font-bold text-text-primary mb-2">
-            You haven't claimed a listing yet
-          </h2>
-          <p className="text-text-secondary mb-6">
-            Claim or create your practice listing to access the provider
-            dashboard.
-          </p>
-          <Link
-            to="/business/claim"
-            className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
-          >
-            Set Up Your Practice
-          </Link>
-        </div>
-      </div>
-    );
+  if (!provider && !loading) {
+    navigate('/business/claim', { replace: true });
+    return null;
   }
 
   // --- Main Dashboard ---
@@ -1688,6 +1668,44 @@ function BusinessInfoEditor({ provider, setProvider }) {
           placeholder="Tell patients about your practice..."
           className={INPUT_CLASS + ' text-sm'}
         />
+      </div>
+      <div className="mt-4">
+        <label className="block text-xs font-medium text-text-secondary mb-1">
+          Practice Type
+        </label>
+        <select
+          defaultValue={provider.provider_type || ''}
+          onBlur={(e) => {
+            const val = e.target.value;
+            if (val === (provider.provider_type || '')) return;
+            saveField('provider_type', val);
+          }}
+          className={INPUT_CLASS + ' text-sm bg-white'}
+        >
+          <option value="">Select type...</option>
+          {ONBOARDING_PROVIDER_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div className="mt-4">
+        <label className="block text-xs font-medium text-text-secondary mb-1">
+          Hours
+        </label>
+        <textarea
+          defaultValue={provider.hours_text || ''}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val === (provider.hours_text || '')) return;
+            saveField('hours_text', val);
+          }}
+          rows={3}
+          placeholder="Monday: 9am-5pm, Tuesday: 9am-5pm, ..."
+          className={INPUT_CLASS + ' text-sm'}
+        />
+        <p className="text-[11px] text-text-secondary mt-1">
+          Format: Day: hours, Day: hours — e.g. &ldquo;Monday: 9am-6pm, Tuesday: Closed&rdquo;
+        </p>
       </div>
       <p className="text-xs text-text-secondary mt-3">
         Fields save automatically when you click away.
