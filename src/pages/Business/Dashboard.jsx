@@ -348,13 +348,18 @@ export default function Dashboard() {
       units_or_volume: pricingForm.units_or_volume || null,
       price: parseFloat(pricingForm.price),
       price_label: pricingForm.price_label || null,
+      source: 'provider_listed',
+      verified: true,
+      is_active: true,
+      confidence_tier: 1,
     };
 
     if (editingPricingId) {
       const { error: updateError } = await supabase
         .from('provider_pricing')
         .update(payload)
-        .eq('id', editingPricingId);
+        .eq('id', editingPricingId)
+        .neq('source', 'community_submitted');
 
       if (updateError) {
         setPricingError(`Could not save pricing. Please try again. (${updateError.message})`);
@@ -848,85 +853,132 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Pricing list */}
-          {pricing.length === 0 && !showAddPricing ? (
-            <div className="glow-card p-8 text-center">
-              <p className="text-text-secondary mb-3">
-                No procedures on your menu yet.
-              </p>
-              <button
-                onClick={() => {
-                  resetPricingForm();
-                  setShowAddPricing(true);
-                }}
-                className="text-rose-accent font-medium hover:text-rose-dark transition"
-              >
-                Add your first procedure
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {pricing.map((item) =>
-                editingPricingId === item.id ? (
-                  <PricingFormRow
-                    key={item.id}
-                    onSubmit={handleSavePricing}
-                    onCancel={cancelEditPricing}
-                    isEdit={true}
-                  />
-                ) : (
-                  <div
-                    key={item.id}
-                    className="glow-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-text-primary">
-                          {item.procedure_type}
-                        </span>
-                        {item.treatment_area && (
-                          <span className="text-xs bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full">
-                            {item.treatment_area}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-lg font-bold text-text-primary">
-                          ${item.price}
-                        </span>
-                        {item.price_label && formatPricingUnit(item.price_label) && (
-                          <span className="text-sm text-text-secondary">
-                            {formatPricingUnit(item.price_label)}
-                          </span>
-                        )}
-                        {item.units_or_volume && (
-                          <span className="text-sm text-text-secondary">
-                            ({item.units_or_volume})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => startEditPricing(item)}
-                        className="p-2 rounded-lg hover:bg-warm-gray text-text-secondary hover:text-text-primary transition"
-                        title="Edit"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePricing(item.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+          {/* Pricing list — split by source */}
+          {(() => {
+            const PROVIDER_SOURCES = new Set(['provider_listed', 'cheerio_scraper', 'scrape', 'csv_import', null, undefined]);
+            const publishedPrices = pricing.filter(p => p.source !== 'community_submitted');
+            const communityPrices = pricing.filter(p => p.source === 'community_submitted');
+
+            const sourceLabel = (source) => {
+              if (source === 'provider_listed') return { text: 'You added', bg: '#F0FAF5', color: '#1A7A3A', border: '#A7F3D0' };
+              if (source === 'cheerio_scraper' || source === 'scrape') return { text: 'Scraped from website', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+              if (source === 'csv_import') return { text: 'Imported', bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' };
+              return { text: 'On your menu', bg: '#F9FAFB', color: '#374151', border: '#E5E7EB' };
+            };
+
+            return (
+              <>
+                {publishedPrices.length === 0 && !showAddPricing ? (
+                  <div className="glow-card p-8 text-center mb-6">
+                    <p className="text-text-secondary mb-3">No procedures on your menu yet.</p>
+                    <button
+                      onClick={() => { resetPricingForm(); setShowAddPricing(true); }}
+                      className="text-rose-accent font-medium hover:text-rose-dark transition"
+                    >
+                      Add your first procedure
+                    </button>
                   </div>
-                )
-              )}
-            </div>
-          )}
+                ) : (
+                  <div className="space-y-3 mb-6">
+                    {publishedPrices.map((item) =>
+                      editingPricingId === item.id ? (
+                        <PricingFormRow
+                          key={item.id}
+                          onSubmit={handleSavePricing}
+                          onCancel={cancelEditPricing}
+                          isEdit={true}
+                        />
+                      ) : (
+                        <div
+                          key={item.id}
+                          className="glow-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-text-primary">{item.procedure_type}</span>
+                              {item.treatment_area && (
+                                <span className="text-xs bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full">
+                                  {item.treatment_area}
+                                </span>
+                              )}
+                              {(() => {
+                                const lbl = sourceLabel(item.source);
+                                return (
+                                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded" style={{ background: lbl.bg, color: lbl.color, border: `1px solid ${lbl.border}` }}>
+                                    {lbl.text}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-lg font-bold text-text-primary">${item.price}</span>
+                              {item.price_label && formatPricingUnit(item.price_label) && (
+                                <span className="text-sm text-text-secondary">{formatPricingUnit(item.price_label)}</span>
+                              )}
+                              {item.units_or_volume && (
+                                <span className="text-sm text-text-secondary">({item.units_or_volume})</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => startEditPricing(item)}
+                              className="p-2 rounded-lg hover:bg-warm-gray text-text-secondary hover:text-text-primary transition"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePricing(item.id)}
+                              className="p-2 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-500 transition"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {communityPrices.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3" style={{ letterSpacing: '0.08em' }}>
+                      Patient-Reported Prices — Read Only
+                    </h3>
+                    <div className="space-y-2">
+                      {communityPrices.map((item) => (
+                        <div
+                          key={item.id}
+                          className="glow-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 opacity-75"
+                        >
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-text-primary">{item.procedure_type}</span>
+                              <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded" style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
+                                Patient-reported
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-lg font-bold text-text-primary">${item.price}</span>
+                              {item.price_label && formatPricingUnit(item.price_label) && (
+                                <span className="text-sm text-text-secondary">{formatPricingUnit(item.price_label)}</span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-xs text-text-secondary italic shrink-0">Cannot be edited</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-2">
+                      To flag an inaccurate patient price, go to the <button className="text-rose-accent hover:underline font-medium" onClick={() => setSearchParams({ tab: 'submissions' }, { replace: true })}>Submissions tab</button>.
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Upgrade CTA */}
           <div className="mt-8">
