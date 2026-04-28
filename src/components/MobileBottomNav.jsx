@@ -8,8 +8,7 @@ import { buildBrowseUrl } from '../lib/urlParams';
 const HIDDEN_PREFIXES = [
   '/auth',
   '/reset-password',
-  '/business/dashboard',
-  '/business/onboarding',
+  '/business',
   '/admin',
 ];
 

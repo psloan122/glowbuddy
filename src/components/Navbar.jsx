@@ -269,6 +269,7 @@ export default function Navbar() {
   }, [user?.id]);
 
   const isProviderUser = user?.user_metadata?.user_role === 'provider';
+  const isBusinessRoute = location.pathname.startsWith('/business');
   const [providerSlug, setProviderSlug] = useState(null);
 
   // Fetch the provider's slug once for "My Listing" link
@@ -306,6 +307,233 @@ export default function Navbar() {
   if (typeof window !== 'undefined' && window.innerWidth < 768) {
     const sp = new URLSearchParams(location.search);
     if (location.pathname === '/browse' && sp.has('city')) return null;
+  }
+
+  // ── Business nav — swap entire nav on /business/* routes ─────────────
+  if (isBusinessRoute) {
+    const dashboardTab = new URLSearchParams(location.search).get('tab');
+    const BIZ_LINKS = [
+      {
+        label: 'Dashboard',
+        to: '/business/dashboard',
+        isActive: location.pathname === '/business/dashboard' && !dashboardTab,
+      },
+      {
+        label: 'Menu & Prices',
+        to: '/business/dashboard?tab=menu',
+        isActive: location.pathname === '/business/dashboard' && dashboardTab === 'menu',
+      },
+      {
+        label: 'Reviews',
+        to: '/business/dashboard?tab=reviews',
+        isActive: location.pathname === '/business/dashboard' && dashboardTab === 'reviews',
+      },
+      {
+        label: 'Settings',
+        to: '/business/dashboard?tab=settings',
+        isActive: location.pathname === '/business/dashboard' && dashboardTab === 'settings',
+      },
+    ];
+
+    const logoMark = (
+      <>
+        {/* Mobile stacked mark */}
+        <span className="md:hidden flex flex-col leading-none" style={{ fontFamily: 'var(--font-body)' }}>
+          <span className="text-ink" style={{ fontSize: 9, fontWeight: 500, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 2 }}>
+            Know Before You
+          </span>
+          <span className="font-display italic text-hot-pink" style={{ fontSize: 22, fontWeight: 900, lineHeight: 0.95 }}>
+            Glow.
+          </span>
+        </span>
+        {/* Desktop wordmark */}
+        <span className="hidden md:flex items-baseline">
+          <span className="font-display italic text-[26px] text-hot-pink" style={{ fontWeight: 900, lineHeight: 1 }}>Glow</span>
+          <span className="font-display text-[26px] text-ink" style={{ fontWeight: 900, lineHeight: 1 }}>Buddy</span>
+        </span>
+      </>
+    );
+
+    return (
+      <>
+        <nav className="sticky top-0 z-50 bg-white" style={{ borderBottom: '1px solid #EDE8E3' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-[52px] md:h-16">
+
+              {/* Logo → dashboard */}
+              <Link to="/business/dashboard" className="shrink-0 flex items-baseline">
+                {logoMark}
+              </Link>
+
+              {/* Desktop center links */}
+              <div className="hidden md:flex items-center gap-6">
+                {BIZ_LINKS.map(({ label, to, isActive }) => (
+                  <Link
+                    key={label}
+                    to={to}
+                    className={`text-[12px] font-medium uppercase transition-colors ${
+                      isActive ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                    }`}
+                    style={{ letterSpacing: '0.08em' }}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+
+              {/* Desktop right: View Public Page + avatar */}
+              <div className="hidden md:flex items-center gap-3">
+                {providerSlug && (
+                  <a
+                    href={`/provider/${providerSlug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-editorial btn-editorial-secondary"
+                    style={{ fontSize: 11 }}
+                  >
+                    View Public Page ↗
+                  </a>
+                )}
+
+                {user && (
+                  <div ref={avatarRef} className="relative">
+                    <button
+                      onClick={() => setAvatarOpen(!avatarOpen)}
+                      aria-expanded={avatarOpen}
+                      aria-haspopup="true"
+                      className="flex items-center gap-1.5"
+                    >
+                      <div className="w-8 h-8 flex items-center justify-center text-[11px] font-semibold text-white bg-hot-pink rounded-none">
+                        {getInitials()}
+                      </div>
+                      <ChevronDown size={14} className="text-text-secondary" />
+                    </button>
+
+                    {avatarOpen && (
+                      <div
+                        className="absolute right-0 mt-2 bg-white border border-rule rounded-none py-2 z-50"
+                        style={{ borderTop: '2px solid #111', minWidth: 220 }}
+                        role="menu"
+                      >
+                        <p className="px-4 pt-2 pb-1 text-[10px] font-semibold text-hot-pink uppercase" style={{ letterSpacing: '0.12em' }}>
+                          My Business
+                        </p>
+                        <Link to="/business/dashboard" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2 hover:bg-cream transition-colors group">
+                          <span className="text-[13px] font-medium text-ink group-hover:text-hot-pink">Dashboard</span>
+                          <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">Pricing, reviews, analytics</p>
+                        </Link>
+                        {providerSlug && (
+                          <a
+                            href={`/provider/${providerSlug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setAvatarOpen(false)}
+                            role="menuitem"
+                            className="block px-4 py-2 hover:bg-cream transition-colors group"
+                          >
+                            <span className="text-[13px] font-medium text-ink group-hover:text-hot-pink">View Public Page ↗</span>
+                            <p className="text-[11px] text-text-secondary leading-tight font-light mt-0.5">See what patients see</p>
+                          </a>
+                        )}
+                        <div className="mx-4 my-2 border-t border-rule" />
+                        <Link to="/account" onClick={() => setAvatarOpen(false)} role="menuitem" className="block px-4 py-2.5 text-[13px] text-ink hover:bg-cream hover:text-hot-pink transition-colors">
+                          Account Settings
+                        </Link>
+                        <button onClick={handleSignOut} role="menuitem" className="w-full text-left px-4 py-2.5 text-[13px] text-text-secondary hover:text-hot-pink hover:bg-cream transition-colors">
+                          Log Out
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile toggle */}
+              <button
+                className="md:hidden p-1"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? (
+                  <X size={24} className="text-ink" />
+                ) : user ? (
+                  <div
+                    className="flex items-center justify-center text-[11px] font-semibold text-white"
+                    style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#E8347A' }}
+                  >
+                    {getInitials()}
+                  </div>
+                ) : (
+                  <Menu size={24} className="text-ink" />
+                )}
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        {/* Mobile overlay — business */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-[60] bg-cream md:hidden overflow-y-auto"
+            style={{ borderTop: '3px solid #E8347A' }}
+          >
+            <div className="flex items-center justify-between h-[52px] px-4 border-b border-rule">
+              <Link to="/business/dashboard" onClick={() => setMobileOpen(false)} className="flex items-baseline">
+                <span className="flex flex-col leading-none" style={{ fontFamily: 'var(--font-body)' }}>
+                  <span className="text-ink" style={{ fontSize: 9, fontWeight: 500, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 2 }}>Know Before You</span>
+                  <span className="font-display italic text-hot-pink" style={{ fontSize: 22, fontWeight: 900, lineHeight: 0.95 }}>Glow.</span>
+                </span>
+              </Link>
+              <button className="p-2 text-ink" onClick={() => setMobileOpen(false)} aria-label="Close menu">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="px-6 py-8">
+              <p className="text-[10px] font-semibold text-hot-pink uppercase mb-4" style={{ letterSpacing: '0.12em' }}>
+                My Business
+              </p>
+              {BIZ_LINKS.map(({ label, to, isActive }) => (
+                <Link
+                  key={label}
+                  to={to}
+                  className={`block py-3 font-display text-[28px] transition-colors ${
+                    isActive ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
+                  }`}
+                  style={{ fontWeight: 900 }}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {label}
+                </Link>
+              ))}
+
+              {providerSlug && (
+                <a
+                  href={`/provider/${providerSlug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-8 btn-editorial btn-editorial-secondary w-full text-center"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  View Public Page ↗
+                </a>
+              )}
+
+              <div className="mt-8 pt-6 border-t border-rule">
+                <div className="flex flex-col gap-1">
+                  <Link to="/account" className="py-2 text-[14px] text-ink hover:text-hot-pink transition-colors" onClick={() => setMobileOpen(false)}>
+                    Account Settings
+                  </Link>
+                  <button onClick={handleSignOut} className="py-2 text-[14px] text-left text-text-secondary hover:text-hot-pink">
+                    Log Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   return (
