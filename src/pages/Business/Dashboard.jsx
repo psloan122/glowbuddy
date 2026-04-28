@@ -66,13 +66,14 @@ function getGreeting() {
 
 function TabErrorFallback({ reset }) {
   return (
-    <div className="glow-card p-8 text-center">
-      <AlertTriangle size={32} className="text-rose-accent mx-auto mb-3" />
-      <p className="text-text-primary font-medium mb-1">This section ran into a problem.</p>
-      <p className="text-sm text-text-secondary mb-4">Try refreshing, or switch to another tab.</p>
+    <div className="rounded-lg border border-gray-200 bg-white p-8 text-center" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <AlertTriangle size={28} className="mx-auto mb-3" style={{ color: '#D97706' }} />
+      <p className="text-[14px] text-text-primary font-medium mb-1">This section ran into a problem.</p>
+      <p className="text-[13px] text-text-secondary mb-4">Try refreshing, or switch to another tab.</p>
       <button
         onClick={reset}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-accent text-white text-sm font-medium rounded-xl hover:bg-rose-dark transition-colors"
+        className="inline-flex items-center gap-1.5 px-4 py-2 text-white text-[13px] font-medium rounded-md transition-colors"
+        style={{ background: 'var(--color-biz-teal)' }}
       >
         <RefreshCw size={14} />
         Try Again
@@ -1205,80 +1206,70 @@ export default function Dashboard() {
 
       {/* ===== INTEGRATIONS TAB ===== */}
       {activeTab === 'Integrations' && (
-        <div>
-          <h2 className="text-xl font-bold text-text-primary mb-6">Integrations</h2>
+        <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <h2 className="text-[18px] font-semibold text-text-primary mb-6">Integrations</h2>
 
           {/* Vagaro (rich integration) */}
-          <div className="mb-8">
+          <div className="mb-6">
             <VagaroConnectFlow providerId={provider?.id} />
           </div>
 
           {/* Other booking platforms (simple URL connect) */}
-          <div className="mb-8">
+          <div className="mb-6">
             <BookingPlatformConnect provider={provider} setProvider={setProvider} />
           </div>
 
-          {/* Quick links — Google Business Profile, Instagram, Website */}
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-text-primary mb-1">Other connections</h3>
-            <p className="text-xs text-text-secondary mb-4">
+          {/* Quick links */}
+          <div className="mb-6">
+            <h3 className="text-[12px] font-semibold text-text-secondary uppercase tracking-wide mb-1">Other connections</h3>
+            <p className="text-[11px] text-text-secondary mb-4">
               These links appear on your public profile.
             </p>
-            <div className="space-y-3">
-              <div className="glow-card p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.website ? 'bg-verified' : 'bg-gray-300'}`} />
-                  <span className="text-sm font-medium text-text-primary">Website</span>
-                  {provider?.website && (
-                    <span className="text-xs text-verified font-medium">Connected</span>
+            <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+              {[
+                {
+                  label: 'Website',
+                  connected: !!provider?.website,
+                  link: provider?.website,
+                  linkText: provider?.website?.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30),
+                  fallbackAction: () => handleTabChange('Settings'),
+                },
+                {
+                  label: 'Instagram',
+                  connected: !!provider?.instagram,
+                  link: provider?.instagram ? `https://instagram.com/${provider.instagram.replace('@', '')}` : null,
+                  linkText: provider?.instagram ? `@${provider.instagram.replace('@', '')}` : null,
+                  fallbackAction: () => handleTabChange('Settings'),
+                },
+                {
+                  label: 'Google Business Profile',
+                  connected: !!provider?.google_place_id,
+                  link: provider?.google_maps_url,
+                  linkText: 'View on Google',
+                  fallbackText: 'Auto-linked during onboarding',
+                },
+              ].map((item, idx) => (
+                <div key={item.label} className="px-5 py-3.5 flex items-center justify-between" style={{ borderBottom: idx < 2 ? '1px solid #F3F4F6' : 'none' }}>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${item.connected ? 'bg-biz-teal' : 'bg-gray-300'}`} />
+                    <span className="text-[13px] font-medium text-text-primary">{item.label}</span>
+                    {item.connected && (
+                      <span className="text-[11px] font-medium" style={{ color: 'var(--color-biz-teal)' }}>Connected</span>
+                    )}
+                  </div>
+                  {item.link ? (
+                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-[12px] font-medium transition" style={{ color: 'var(--color-biz-teal)' }}>
+                      {item.linkText}
+                    </a>
+                  ) : item.fallbackAction ? (
+                    <button onClick={item.fallbackAction} className="text-[12px] font-medium transition" style={{ color: 'var(--color-biz-teal)' }}>
+                      Add in Settings
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-text-secondary">{item.fallbackText}</span>
                   )}
                 </div>
-                {provider?.website ? (
-                  <a href={provider.website} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
-                    {provider.website.replace(/^https?:\/\/(www\.)?/, '').slice(0, 30)}
-                  </a>
-                ) : (
-                  <button onClick={() => handleTabChange('Settings')} className="text-xs text-rose-accent hover:text-rose-dark transition">
-                    Add in Settings
-                  </button>
-                )}
-              </div>
-
-              <div className="glow-card p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.instagram ? 'bg-verified' : 'bg-gray-300'}`} />
-                  <span className="text-sm font-medium text-text-primary">Instagram</span>
-                  {provider?.instagram && (
-                    <span className="text-xs text-verified font-medium">Connected</span>
-                  )}
-                </div>
-                {provider?.instagram ? (
-                  <a href={`https://instagram.com/${provider.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
-                    @{provider.instagram.replace('@', '')}
-                  </a>
-                ) : (
-                  <button onClick={() => handleTabChange('Settings')} className="text-xs text-rose-accent hover:text-rose-dark transition">
-                    Add in Settings
-                  </button>
-                )}
-              </div>
-
-              <div className="glow-card p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${provider?.google_place_id ? 'bg-verified' : 'bg-gray-300'}`} />
-                  <span className="text-sm font-medium text-text-primary">Google Business Profile</span>
-                  {provider?.google_place_id && (
-                    <span className="text-xs text-verified font-medium">Linked</span>
-                  )}
-                </div>
-                {provider?.google_maps_url ? (
-                  <a href={provider.google_maps_url} target="_blank" rel="noopener noreferrer" className="text-xs text-rose-accent hover:text-rose-dark transition">
-                    View on Google
-                  </a>
-                ) : (
-                  <span className="text-xs text-text-secondary">Auto-linked during onboarding</span>
-                )}
-              </div>
+              ))}
             </div>
           </div>
 
@@ -1302,14 +1293,14 @@ export default function Dashboard() {
       {activeTab === 'Before & Afters' && (
         <ErrorBoundary label="Before & Afters" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
           {/* Listing photos placeholder */}
-          <div className="glow-card p-6 mb-6 text-center">
-            <p className="text-sm font-medium text-text-primary mb-1">Listing photos</p>
-            <p className="text-sm text-text-secondary mb-1">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 mb-6 text-center" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+            <p className="text-[13px] font-medium text-text-primary mb-1">Listing photos</p>
+            <p className="text-[13px] text-text-secondary mb-1">
               Photo management is coming soon.
             </p>
-            <p className="text-xs text-text-secondary">
+            <p className="text-[11px] text-text-secondary">
               Email photos to{' '}
-              <a href="mailto:support@knowbeforeyouglow.com" className="text-rose-accent hover:underline">
+              <a href="mailto:support@knowbeforeyouglow.com" className="font-medium transition" style={{ color: 'var(--color-biz-teal)' }}>
                 support@knowbeforeyouglow.com
               </a>{' '}
               and we&apos;ll add them to your listing within 24 hours.
@@ -1344,23 +1335,20 @@ export default function Dashboard() {
 
       {/* ===== DISPUTES TAB ===== */}
       {activeTab === 'Disputes' && (
-        <div>
-          <h2 className="text-xl font-bold text-text-primary mb-6">
+        <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <h2 className="text-[18px] font-semibold text-text-primary mb-6">
             Flagged Submissions
           </h2>
 
-          {/* Filter bar */}
           {disputes.length > 0 && (
             <div className="flex items-center gap-3 mb-4">
               <select
                 value={disputeFilter}
                 onChange={(e) => setDisputeFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
+                className="px-3 py-2 rounded-md border border-gray-200 text-[13px] text-text-primary focus:border-biz-teal outline-none transition"
               >
                 <option value="all">All ({disputes.length})</option>
-                <option value="pending">
-                  Pending ({disputes.filter((d) => d.status === 'pending').length})
-                </option>
+                <option value="pending">Pending ({disputes.filter((d) => d.status === 'pending').length})</option>
                 <option value="resolved">Resolved</option>
                 <option value="dismissed">Dismissed</option>
               </select>
@@ -1368,8 +1356,8 @@ export default function Dashboard() {
           )}
 
           {disputes.length === 0 ? (
-            <div className="glow-card p-8 text-center">
-              <p className="text-text-secondary">No flagged submissions.</p>
+            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+              <p className="text-[13px] text-text-secondary">No flagged submissions.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1377,101 +1365,73 @@ export default function Dashboard() {
                 .filter((d) => disputeFilter === 'all' || d.status === disputeFilter)
                 .map((dispute) => {
                 const proc = dispute.procedures;
-                const matchingMenu = pricing.find(
-                  (p) => p.procedure_type === proc?.procedure_type
-                );
+                const matchingMenu = pricing.find((p) => p.procedure_type === proc?.procedure_type);
 
-                let statusColor = 'bg-yellow-100 text-yellow-700';
-                if (dispute.status === 'resolved') {
-                  statusColor = 'bg-verified/10 text-verified';
-                } else if (dispute.status === 'dismissed') {
-                  statusColor = 'bg-gray-100 text-text-secondary';
-                }
+                const statusStyles = {
+                  pending: { bg: '#FEF3C7', color: '#92400E' },
+                  resolved: { bg: '#ECFDF5', color: '#065F46' },
+                  dismissed: { bg: '#F3F4F6', color: '#6B7280' },
+                };
+                const st = statusStyles[dispute.status] || statusStyles.pending;
 
                 return (
-                  <div key={dispute.id} className="glow-card p-4">
+                  <div key={dispute.id} className="rounded-lg border border-gray-200 bg-white p-5">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-text-primary">
+                          <span className="text-[14px] font-semibold text-text-primary">
                             {proc?.procedure_type || 'Unknown Procedure'}
                           </span>
                           <span
-                            className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColor}`}
+                            className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded"
+                            style={{ background: st.bg, color: st.color }}
                           >
                             {dispute.status}
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px]">
                           <div>
-                            <span className="text-text-secondary">
-                              Patient reported:
-                            </span>{' '}
-                            <span className="font-medium text-text-primary">
-                              ${proc?.price_paid || '--'}
-                            </span>
+                            <span className="text-text-secondary">Patient reported:</span>{' '}
+                            <span className="font-medium text-text-primary">${proc?.price_paid || '--'}</span>
                           </div>
                           <div>
-                            <span className="text-text-secondary">
-                              Your menu price:
-                            </span>{' '}
+                            <span className="text-text-secondary">Your menu price:</span>{' '}
                             <span className="font-medium text-text-primary">
-                              {matchingMenu
-                                ? `$${matchingMenu.price}`
-                                : 'Not listed'}
+                              {matchingMenu ? `$${matchingMenu.price}` : 'Not listed'}
                             </span>
                           </div>
                           {proc?.created_at && (
                             <div>
-                              <span className="text-text-secondary">
-                                Date:
-                              </span>{' '}
-                              <span className="text-text-primary">
-                                {new Date(
-                                  proc.created_at
-                                ).toLocaleDateString()}
-                              </span>
+                              <span className="text-text-secondary">Date:</span>{' '}
+                              <span className="text-text-primary">{new Date(proc.created_at).toLocaleDateString()}</span>
                             </div>
                           )}
                           {proc?.city && (
                             <div>
-                              <span className="text-text-secondary">
-                                City:
-                              </span>{' '}
-                              <span className="text-text-primary">
-                                {proc.city}
-                              </span>
+                              <span className="text-text-secondary">City:</span>{' '}
+                              <span className="text-text-primary">{proc.city}</span>
                             </div>
                           )}
                         </div>
                         {dispute.reason && (
-                          <div className="mt-2 text-sm">
-                            <span className="text-text-secondary">
-                              Dispute reason:
-                            </span>{' '}
-                            <span className="text-text-primary">
-                              {dispute.reason}
-                            </span>
+                          <div className="mt-2 text-[13px]">
+                            <span className="text-text-secondary">Reason:</span>{' '}
+                            <span className="text-text-primary">{dispute.reason}</span>
                           </div>
                         )}
-
-                        {/* Resolution info for resolved/dismissed disputes */}
                         {(dispute.status === 'resolved' || dispute.status === 'dismissed') && dispute.resolved_at && (
                           <div className="mt-3 pt-3 border-t border-gray-100">
-                            <p className="text-xs text-text-secondary">
+                            <p className="text-[11px] text-text-secondary">
                               {dispute.status === 'resolved' ? 'Resolved' : 'Dismissed'} on{' '}
                               {new Date(dispute.resolved_at).toLocaleDateString()}
                             </p>
                             {dispute.response_note && (
-                              <p className="text-sm text-text-primary mt-1">
-                                {dispute.response_note}
-                              </p>
+                              <p className="text-[13px] text-text-primary mt-1">{dispute.response_note}</p>
                             )}
                           </div>
                         )}
                       </div>
 
-                      {/* Action buttons for pending disputes */}
                       {dispute.status === 'pending' && (
                         <div className="shrink-0">
                           {resolvingDisputeId === dispute.id ? (
@@ -1479,21 +1439,21 @@ export default function Dashboard() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => setDisputeAction('resolved')}
-                                  className={`text-xs px-3 py-1 rounded-sm font-medium transition ${
-                                    disputeAction === 'resolved'
-                                      ? 'bg-rose-light text-rose-accent'
-                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                                  }`}
+                                  className="text-[12px] px-3 py-1 rounded-md font-medium transition"
+                                  style={{
+                                    background: disputeAction === 'resolved' ? 'rgba(13,148,136,0.1)' : '#F3F4F6',
+                                    color: disputeAction === 'resolved' ? 'var(--color-biz-teal)' : '#6B7280',
+                                  }}
                                 >
                                   Resolve
                                 </button>
                                 <button
                                   onClick={() => setDisputeAction('dismissed')}
-                                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${
-                                    disputeAction === 'dismissed'
-                                      ? 'bg-gray-200 text-text-primary'
-                                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                                  }`}
+                                  className="text-[12px] px-3 py-1 rounded-md font-medium transition"
+                                  style={{
+                                    background: disputeAction === 'dismissed' ? '#E5E7EB' : '#F3F4F6',
+                                    color: disputeAction === 'dismissed' ? '#111' : '#6B7280',
+                                  }}
                                 >
                                   Dismiss
                                 </button>
@@ -1503,24 +1463,21 @@ export default function Dashboard() {
                                 onChange={(e) => setDisputeNote(e.target.value)}
                                 placeholder="Optional note..."
                                 rows={2}
-                                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm resize-none"
+                                className="w-full px-3 py-2 rounded-md border border-gray-200 focus:border-biz-teal focus:ring-2 focus:ring-biz-teal/20 outline-none transition text-[13px] resize-none"
                               />
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleResolveDispute(dispute.id, disputeAction)}
                                   disabled={disputeSaving}
-                                  className="bg-rose-accent text-white px-4 py-1.5 rounded-full text-xs font-semibold hover:bg-rose-dark transition disabled:opacity-50 inline-flex items-center gap-1"
+                                  className="text-white px-4 py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-50 inline-flex items-center gap-1"
+                                  style={{ background: 'var(--color-biz-teal)' }}
                                 >
                                   {disputeSaving && <Loader2 size={12} className="animate-spin" />}
                                   Confirm
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    setResolvingDisputeId(null);
-                                    setDisputeAction('resolved');
-                                    setDisputeNote('');
-                                  }}
-                                  className="text-xs text-text-secondary hover:text-text-primary transition"
+                                  onClick={() => { setResolvingDisputeId(null); setDisputeAction('resolved'); setDisputeNote(''); }}
+                                  className="text-[12px] text-text-secondary hover:text-text-primary transition"
                                 >
                                   Cancel
                                 </button>
@@ -1529,22 +1486,15 @@ export default function Dashboard() {
                           ) : (
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => {
-                                  setResolvingDisputeId(dispute.id);
-                                  setDisputeAction('resolved');
-                                  setDisputeNote('');
-                                }}
-                                className="text-xs px-3 py-1.5 rounded-sm font-medium bg-rose-light text-rose-accent hover:bg-rose-accent hover:text-white transition"
+                                onClick={() => { setResolvingDisputeId(dispute.id); setDisputeAction('resolved'); setDisputeNote(''); }}
+                                className="text-[12px] px-3 py-1.5 rounded-md font-medium text-white transition"
+                                style={{ background: 'var(--color-biz-teal)' }}
                               >
                                 Resolve
                               </button>
                               <button
-                                onClick={() => {
-                                  setResolvingDisputeId(dispute.id);
-                                  setDisputeAction('dismissed');
-                                  setDisputeNote('');
-                                }}
-                                className="text-xs px-3 py-1.5 rounded-full font-medium bg-gray-100 text-text-secondary hover:bg-gray-200 transition"
+                                onClick={() => { setResolvingDisputeId(dispute.id); setDisputeAction('dismissed'); setDisputeNote(''); }}
+                                className="text-[12px] px-3 py-1.5 rounded-md font-medium bg-gray-100 text-text-secondary hover:bg-gray-200 transition"
                               >
                                 Dismiss
                               </button>
@@ -1559,8 +1509,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Upgrade CTA */}
-          <div className="mt-8">
+          <div className="mt-6">
             <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
           </div>
         </div>
@@ -1568,8 +1517,8 @@ export default function Dashboard() {
 
       {/* ===== SETTINGS TAB ===== */}
       {activeTab === 'Settings' && (
-        <div>
-          <h2 className="text-xl font-bold text-text-primary mb-6">
+        <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <h2 className="text-[18px] font-semibold text-text-primary mb-6">
             Settings
           </h2>
 
@@ -1578,9 +1527,9 @@ export default function Dashboard() {
 
           {/* Google Places Data */}
           {provider.google_place_id && (
-            <div className="glow-card p-5 mb-6">
-              <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-                <SettingsIcon size={16} className="text-text-secondary" />
+            <div className="rounded-lg border border-gray-200 bg-white p-5 mb-6">
+              <h3 className="text-[14px] font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <SettingsIcon size={15} className="text-text-secondary" />
                 Google Places Data
               </h3>
 
@@ -1609,7 +1558,7 @@ export default function Dashboard() {
                 <button
                   onClick={handleRefreshFromGoogle}
                   disabled={refreshing}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-200 text-text-primary px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                  className="inline-flex items-center gap-2 bg-white border border-gray-200 text-text-primary px-4 py-2 rounded-md text-[13px] font-medium hover:bg-gray-50 transition disabled:opacity-50"
                 >
                   <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                   {refreshing ? 'Refreshing...' : 'Refresh from Google'}
@@ -1623,8 +1572,8 @@ export default function Dashboard() {
           )}
 
           {!provider.google_place_id && (
-            <div className="glow-card p-5">
-              <p className="text-sm text-text-secondary">
+            <div className="rounded-lg border border-gray-200 bg-white p-5">
+              <p className="text-[13px] text-text-secondary">
                 No Google Places data linked to this profile. Google sync is available for practices found via Google search during onboarding.
               </p>
             </div>
@@ -1634,9 +1583,9 @@ export default function Dashboard() {
           <ActiveSpecialEditor provider={provider} setProvider={setProvider} />
 
           {/* First-Timer Settings */}
-          <div className="glow-card p-5 mt-6">
-            <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
-              <Sparkles size={16} className="text-[#0369A1]" />
+          <div className="rounded-lg border border-gray-200 bg-white p-5 mt-6">
+            <h3 className="text-[14px] font-semibold text-text-primary mb-3 flex items-center gap-2">
+              <Sparkles size={15} style={{ color: 'var(--color-biz-teal)' }} />
               First-Timer Settings
             </h3>
             <div className="space-y-4">
@@ -1731,9 +1680,9 @@ function ActiveSpecialEditor({ provider, setProvider }) {
   const overLimit = text.length > MAX_LEN;
 
   return (
-    <div className="glow-card p-5 mt-6">
-      <h3 className="font-semibold text-text-primary mb-1 flex items-center gap-2">
-        <Sparkles size={16} className="text-hot-pink" />
+    <div className="rounded-lg border border-gray-200 bg-white p-5 mt-6">
+      <h3 className="text-[14px] font-semibold text-text-primary mb-1 flex items-center gap-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <Sparkles size={15} style={{ color: 'var(--color-biz-teal)' }} />
         Current Special
       </h3>
       <p className="text-xs text-text-secondary mb-3">
@@ -1825,10 +1774,10 @@ function BusinessInfoEditor({ provider, setProvider }) {
   ];
 
   return (
-    <div className="glow-card p-5 mb-6">
+    <div className="rounded-lg border border-gray-200 bg-white p-5 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-text-primary flex items-center gap-2">
-          <SettingsIcon size={16} className="text-text-secondary" />
+        <h3 className="text-[14px] font-semibold text-text-primary flex items-center gap-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <SettingsIcon size={15} className="text-text-secondary" />
           Business Information
         </h3>
         {saving && <span className="text-xs text-text-secondary">Saving...</span>}

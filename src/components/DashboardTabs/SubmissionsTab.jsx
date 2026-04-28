@@ -4,8 +4,9 @@ import { supabase } from '../../lib/supabase';
 import StarRating from '../StarRating';
 import { getProcedureLabel } from '../../lib/procedureLabel';
 
+const BIZ_FONT = 'system-ui, -apple-system, sans-serif';
+
 export default function SubmissionsTab({ communityProcedures: rawCommunityProcedures, pricing, providerId, onRefresh }) {
-  // Drop rows flagged as hidden by normalizePrice (range_low, range_high, etc.).
   const communityProcedures = (rawCommunityProcedures || []).filter((p) =>
     p.normalized_category !== 'hidden'
   );
@@ -47,13 +48,11 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
   const [filterType, setFilterType] = useState('all');
   const [sort, setSort] = useState('newest');
 
-  // Unique procedure types for filter dropdown
   const procedureTypes = useMemo(() => {
     const types = new Set(communityProcedures.map((p) => p.procedure_type).filter(Boolean));
     return [...types].sort();
   }, [communityProcedures]);
 
-  // Computed stats
   const totalSubmissions = communityProcedures.length;
 
   const avgReportedPrice =
@@ -74,7 +73,6 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
     (p) => p.review_body && p.review_body.trim()
   ).length;
 
-  // Filter + sort
   const filtered = useMemo(() => {
     let list =
       filterType === 'all'
@@ -91,14 +89,13 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
       case 'price_low':
         list = [...list].sort((a, b) => (a.price_paid || 0) - (b.price_paid || 0));
         break;
-      default: // newest
+      default:
         list = [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
 
     return list;
   }, [communityProcedures, filterType, sort]);
 
-  // Find matching menu price for a submission
   function getMenuPrice(proc) {
     const match = pricing.find(
       (p) =>
@@ -110,49 +107,43 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
 
   if (totalSubmissions === 0) {
     return (
-      <div>
-        <h2 className="text-xl font-bold text-text-primary mb-6">
+      <div style={{ fontFamily: BIZ_FONT }}>
+        <h2 className="text-[18px] font-semibold text-text-primary mb-6">
           Patient Submissions
         </h2>
-        <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary">No patient submissions yet.</p>
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+          <p className="text-[13px] text-text-secondary">No patient submissions yet.</p>
         </div>
       </div>
     );
   }
 
+  const KPI_CARDS = [
+    { label: 'Total', value: totalSubmissions, icon: <Users size={16} />, color: '#7C3AED' },
+    { label: 'Avg Price', value: `$${avgReportedPrice}`, icon: <DollarSign size={16} />, color: '#0D9488' },
+    { label: 'Avg Rating', value: avgRating || '--', icon: <Star size={16} />, color: '#D97706' },
+    { label: 'With Reviews', value: withReviews, icon: <MessageSquare size={16} />, color: '#2563EB' },
+  ];
+
   return (
-    <div>
-      <h2 className="text-xl font-bold text-text-primary mb-6">
+    <div style={{ fontFamily: BIZ_FONT }}>
+      <h2 className="text-[18px] font-semibold text-text-primary mb-6">
         Patient Submissions
       </h2>
 
-      {/* Stats summary */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glow-card p-4 text-center">
-          <Users size={20} className="mx-auto mb-2 text-community" />
-          <p className="text-2xl font-bold text-text-primary">{totalSubmissions}</p>
-          <p className="text-xs text-text-secondary">Total Submissions</p>
-        </div>
-        <div className="glow-card p-4 text-center">
-          <DollarSign size={20} className="mx-auto mb-2 text-community" />
-          <p className="text-2xl font-bold text-text-primary">
-            ${avgReportedPrice}
-          </p>
-          <p className="text-xs text-text-secondary">Avg Reported Price</p>
-        </div>
-        <div className="glow-card p-4 text-center">
-          <Star size={20} className="mx-auto mb-2 text-amber-500" />
-          <p className="text-2xl font-bold text-text-primary">
-            {avgRating || '--'}
-          </p>
-          <p className="text-xs text-text-secondary">Avg Rating</p>
-        </div>
-        <div className="glow-card p-4 text-center">
-          <MessageSquare size={20} className="mx-auto mb-2 text-rose-accent" />
-          <p className="text-2xl font-bold text-text-primary">{withReviews}</p>
-          <p className="text-xs text-text-secondary">With Reviews</p>
-        </div>
+        {KPI_CARDS.map(kpi => (
+          <div key={kpi.label} className="rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span style={{ color: kpi.color }}>{kpi.icon}</span>
+              <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wide">{kpi.label}</span>
+            </div>
+            <p className="text-[28px] font-bold text-text-primary leading-none" style={{ fontFamily: BIZ_FONT }}>
+              {kpi.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Filter bar */}
@@ -160,7 +151,7 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
+          className="px-3 py-2 rounded-md border border-gray-200 text-[13px] text-text-primary focus:border-biz-teal outline-none transition"
         >
           <option value="all">All Procedures ({totalSubmissions})</option>
           {procedureTypes.map((type) => (
@@ -172,7 +163,7 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
+          className="px-3 py-2 rounded-md border border-gray-200 text-[13px] text-text-primary focus:border-biz-teal outline-none transition"
         >
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
@@ -181,9 +172,8 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
         </select>
       </div>
 
-      {/* Error banner */}
       {actionError && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+        <div className="mb-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
           {actionError}
         </div>
       )}
@@ -193,31 +183,27 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
         {filtered.map((proc) => {
           const menuPrice = getMenuPrice(proc);
           return (
-            <div key={proc.id} className="glow-card p-4">
+            <div key={proc.id} className="rounded-lg border border-gray-200 bg-white p-5">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="flex-1">
-                  {/* Header */}
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="font-semibold text-text-primary">
+                    <span className="text-[14px] font-semibold text-text-primary">
                       {getProcedureLabel(proc.procedure_type, proc.brand) || 'Unknown'}
                     </span>
                     {proc.treatment_area && (
-                      <span className="text-xs bg-warm-gray text-text-secondary px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] bg-gray-100 text-text-secondary px-2 py-0.5 rounded">
                         {proc.treatment_area}
                       </span>
                     )}
-                    <span className="text-xs bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-gray-100 text-text-secondary px-2 py-0.5 rounded">
                       Anonymous
                     </span>
                   </div>
 
-                  {/* Price + details grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px]">
                     <div>
                       <span className="text-text-secondary">Reported price:</span>{' '}
-                      <span className="font-medium text-text-primary">
-                        ${proc.price_paid || '--'}
-                      </span>
+                      <span className="font-medium text-text-primary">${proc.price_paid || '--'}</span>
                     </div>
                     <div>
                       <span className="text-text-secondary">Your menu price:</span>{' '}
@@ -234,9 +220,7 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
                     {proc.treatment_date && (
                       <div>
                         <span className="text-text-secondary">Treatment date:</span>{' '}
-                        <span className="text-text-primary">
-                          {new Date(proc.treatment_date).toLocaleDateString()}
-                        </span>
+                        <span className="text-text-primary">{new Date(proc.treatment_date).toLocaleDateString()}</span>
                       </div>
                     )}
                     {proc.city && (
@@ -247,40 +231,34 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
                     )}
                   </div>
 
-                  {/* Rating + would return */}
                   {proc.rating && (
                     <div className="flex items-center gap-3 mt-2">
                       <StarRating value={proc.rating} readOnly size={16} />
                       {proc.would_return !== null && proc.would_return !== undefined && (
-                        <span className="text-xs text-text-secondary">
+                        <span className="text-[11px] text-text-secondary">
                           {proc.would_return ? 'Would return' : 'Would not return'}
                         </span>
                       )}
                     </div>
                   )}
 
-                  {/* Review body */}
                   {proc.review_body && proc.review_body.trim() && (
-                    <div className="mt-2 bg-warm-gray/50 rounded-lg px-3 py-2">
-                      <p className="text-sm text-text-primary">{proc.review_body}</p>
+                    <div className="mt-2 bg-gray-50 rounded-md px-3 py-2">
+                      <p className="text-[13px] text-text-primary">{proc.review_body}</p>
                     </div>
                   )}
 
-                  {/* Notes (shown if no review body) */}
                   {(!proc.review_body || !proc.review_body.trim()) && proc.notes && (
-                    <p className="mt-2 text-sm text-text-secondary italic">
-                      {proc.notes}
-                    </p>
+                    <p className="mt-2 text-[13px] text-text-secondary italic">{proc.notes}</p>
                   )}
                 </div>
 
-                {/* Date + Actions */}
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <span className="text-xs text-text-secondary whitespace-nowrap">
+                  <span className="text-[11px] text-text-secondary whitespace-nowrap">
                     {new Date(proc.created_at).toLocaleDateString()}
                   </span>
                   {proc.provider_confirmed ? (
-                    <span className="text-xs text-verified font-medium inline-flex items-center gap-1">
+                    <span className="text-[11px] font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-biz-teal)' }}>
                       <Check size={12} /> Confirmed
                     </span>
                   ) : (
@@ -288,7 +266,7 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
                       <button
                         onClick={() => handleConfirm(proc.id)}
                         disabled={actionLoading === proc.id}
-                        className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 hover:bg-green-100 transition disabled:opacity-50"
+                        className="text-[11px] px-2.5 py-1 rounded-md font-medium bg-green-50 text-green-700 hover:bg-green-100 transition disabled:opacity-50"
                         title="Confirm this price is accurate"
                       >
                         Confirm
@@ -296,7 +274,7 @@ export default function SubmissionsTab({ communityProcedures: rawCommunityProced
                       <button
                         onClick={() => handleFlag(proc.id, proc.procedure_type)}
                         disabled={actionLoading === proc.id}
-                        className="text-xs px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+                        className="text-[11px] px-2.5 py-1 rounded-md font-medium bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"
                         title="Flag as inaccurate"
                       >
                         Flag
