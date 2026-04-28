@@ -119,9 +119,19 @@ export default function Claim() {
     setAuthLoading(true);
     setAuthError('');
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    // Store destination so App.jsx's onAuthStateChange can redirect back
+    // after the magic-link round trip (same tab AND new tab, same origin).
+    sessionStorage.setItem('gb_pending_action', JSON.stringify({ path: '/business/claim' }));
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
 
     if (error) {
+      sessionStorage.removeItem('gb_pending_action');
       setAuthError(error.message);
     } else {
       setMagicLinkSent(true);
