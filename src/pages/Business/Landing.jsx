@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Check, X, Search, FileText, Users, Sparkles } from 'lucide-react';
+import { AuthContext } from '../../App';
+import { supabase } from '../../lib/supabase';
 
 // Four tiers laid out left → right. Each entry carries:
 //   - included: feature lines rendered with a green check
@@ -99,9 +101,42 @@ const STEPS = [
 ];
 
 export default function Landing() {
+  const { user, openAuthModal } = useContext(AuthContext);
+  const navigate = useNavigate();
+
   useEffect(() => {
     document.title = 'For Providers \u2014 Know Before You Glow';
   }, []);
+
+  // Logged-in provider \u2192 skip landing, go straight to dashboard
+  useEffect(() => {
+    if (!user) return;
+    if (user.user_metadata?.user_role === 'provider') {
+      navigate('/business/dashboard', { replace: true });
+      return;
+    }
+    // Fallback for older accounts that predate the user_role metadata field
+    supabase.from('providers').select('id').eq('owner_user_id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data?.id) navigate('/business/dashboard', { replace: true });
+      });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleDashboard() {
+    if (user) {
+      navigate('/business/dashboard');
+    } else {
+      openAuthModal('signin', '/business/dashboard');
+    }
+  }
+
+  function handleClaim(to = '/business/claim') {
+    if (user) {
+      navigate(to);
+    } else {
+      openAuthModal('signup', to);
+    }
+  }
 
   return (
     <div>
@@ -116,18 +151,18 @@ export default function Landing() {
             comparing prices in your area.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              to="/business/claim"
+            <button
+              onClick={() => handleClaim()}
               className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
             >
               Claim Your Listing
-            </Link>
-            <Link
-              to="/business/dashboard"
+            </button>
+            <button
+              onClick={handleDashboard}
               className="inline-block px-8 py-3 rounded-full font-semibold border-2 border-rose-accent text-rose-accent hover:bg-rose-accent hover:text-white transition"
             >
               Sign In to Dashboard
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -146,17 +181,17 @@ export default function Landing() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {TIERS.map((tier) => (
-            <PricingCard key={tier.name} tier={tier} />
+            <PricingCard key={tier.name} tier={tier} onClaim={handleClaim} />
           ))}
         </div>
 
         <div className="text-center mt-10">
-          <Link
-            to="/business/claim"
+          <button
+            onClick={() => handleClaim()}
             className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
             Get Started Free
-          </Link>
+          </button>
           <p className="text-xs text-text-secondary mt-3">
             No credit card required for the Free plan.
           </p>
@@ -213,12 +248,12 @@ export default function Landing() {
             Providers across the country are claiming their listings, sharing
             verified pricing, and connecting with patients who are ready to book.
           </p>
-          <Link
-            to="/business/claim"
+          <button
+            onClick={() => handleClaim()}
             className="inline-block bg-rose-accent text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-dark transition"
           >
             Claim Your Listing
-          </Link>
+          </button>
         </div>
       </section>
     </div>
@@ -231,7 +266,7 @@ export default function Landing() {
 // tiers share the same baseline gray border so they read as a
 // consistent row of four. Each card is column-flex so the CTA always
 // pins to the bottom regardless of how many feature lines a tier has.
-function PricingCard({ tier }) {
+function PricingCard({ tier, onClaim }) {
   const { name, price, period, tagline, included, excluded, cta, featured } = tier;
 
   return (
@@ -292,16 +327,16 @@ function PricingCard({ tier }) {
         </ul>
 
         {/* CTA */}
-        <Link
-          to={cta.to}
-          className={`block text-center px-5 py-2.5 rounded-full font-semibold text-sm transition ${
+        <button
+          onClick={() => onClaim(cta.to)}
+          className={`w-full text-center px-5 py-2.5 rounded-full font-semibold text-sm transition ${
             featured
               ? 'bg-rose-accent text-white hover:bg-rose-dark'
               : 'border-2 border-rose-accent text-rose-accent hover:bg-rose-accent hover:text-white'
           }`}
         >
           {cta.label}
-        </Link>
+        </button>
       </div>
     </div>
   );
