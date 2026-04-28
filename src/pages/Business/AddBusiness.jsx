@@ -312,7 +312,7 @@ export default function AddBusiness() {
           lng: details.lng,
           slug,
           owner_user_id: user.id,
-          is_active: false,
+          is_active: true,
           is_claimed: true,
           tier: 'free',
           verification_method: 'self_submitted',

@@ -389,7 +389,15 @@ export default function Dashboard() {
     if (!window.confirm('Are you sure you want to delete this pricing entry?')) {
       return;
     }
-    await supabase.from('provider_pricing').delete().eq('id', id);
+    const { error } = await supabase
+      .from('provider_pricing')
+      .delete()
+      .eq('id', id)
+      .neq('source', 'community_submitted');
+    if (error) {
+      alert('Cannot delete patient-reported prices.');
+      return;
+    }
     fetchPricing();
   }
 
@@ -1114,6 +1122,20 @@ export default function Dashboard() {
       {/* ===== BEFORE & AFTERS TAB ===== */}
       {activeTab === 'Before & Afters' && (
         <ErrorBoundary label="Before & Afters" fallback={({ reset }) => <TabErrorFallback reset={reset} />}>
+          {/* Listing photos placeholder */}
+          <div className="glow-card p-6 mb-6 text-center">
+            <p className="text-sm font-medium text-text-primary mb-1">Listing photos</p>
+            <p className="text-sm text-text-secondary mb-1">
+              Photo management is coming soon.
+            </p>
+            <p className="text-xs text-text-secondary">
+              Email photos to{' '}
+              <a href="mailto:support@knowbeforeyouglow.com" className="text-rose-accent hover:underline">
+                support@knowbeforeyouglow.com
+              </a>{' '}
+              and we&apos;ll add them to your listing within 24 hours.
+            </p>
+          </div>
           <DashboardBeforeAfterTab
             provider={provider}
             photos={dashBAPhotos}
@@ -1620,7 +1642,6 @@ function BusinessInfoEditor({ provider, setProvider }) {
     { key: 'address', label: 'Address' },
     { key: 'city', label: 'City' },
     { key: 'state', label: 'State' },
-    { key: 'zip_code', label: 'ZIP Code' },
   ];
 
   return (
