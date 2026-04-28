@@ -119,7 +119,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
       try {
         const { data } = await supabase
           .from('providers')
-          .select('id, name, city, state, slug, google_place_id, address, phone, website, lat, lng, zip_code')
+          .select('id, name, city, state, slug, google_place_id, address, phone, website, lat, lng')
           .ilike('name', `%${input}%`)
           .limit(5);
 

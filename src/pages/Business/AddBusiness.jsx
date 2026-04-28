@@ -40,6 +40,7 @@ export default function AddBusiness() {
   const autocompleteRef = useRef(null);
   const placesServiceRef = useRef(null);
   const debounceRef = useRef(null);
+  const submitAttemptedRef = useRef(false);
 
   // Step 2 — Confirm details
   const [details, setDetails] = useState({
@@ -238,9 +239,11 @@ export default function AddBusiness() {
     }
   }
 
-  // Step 4 — auto-submit
+  // Step 4 — auto-submit. submitAttemptedRef prevents re-entry when
+  // setSubmitting(false) on error would otherwise re-trigger this effect.
   useEffect(() => {
-    if (step !== 4 || !user || submitting || submitted) return;
+    if (step !== 4 || !user || submitAttemptedRef.current) return;
+    submitAttemptedRef.current = true;
 
     async function submit() {
       setSubmitting(true);
@@ -313,7 +316,7 @@ export default function AddBusiness() {
     }
 
     submit();
-  }, [step, user, submitting, submitted]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Step indicator ──
   function StepIndicator() {

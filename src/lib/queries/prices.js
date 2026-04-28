@@ -25,7 +25,7 @@ import { normalizePrice, shouldDisplayPrice } from '../priceUtils';
 const STALE_DAYS = 90;
 const MIN_SAMPLES_FOR_VS_AVG = 5;
 
-const PROVIDER_FIELDS = 'id, name, slug, city, state, zip_code';
+const PROVIDER_FIELDS = 'id, name, slug, city, state';
 const PRICING_FIELDS =
   'id, provider_id, procedure_type, price, units_or_volume, treatment_area, price_label, notes, source, verified, source_url, scraped_at, created_at, confidence_tier, is_starting_price, category, brand, tags';
 
@@ -347,7 +347,7 @@ export async function getNeighborhoodBreakdown(citySlug, procedureType) {
   for (const row of rows) {
     const price = Number(row.price);
     if (!(price > 0)) continue;
-    const zip = row.providers?.zip_code;
+    const zip = row.providers?.zip_code; // zip_code not selected — always null, skips all rows
     if (!zip) continue;
     const key = `${zip}|${normLabel(row.price_label)}`;
     if (!byZipBucket.has(key)) {

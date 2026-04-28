@@ -1181,7 +1181,7 @@ export default function FindPrices() {
       let query = supabase
         .from('provider_pricing')
         .select(
-          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, zip_code, provider_type, owner_user_id, active_special, special_expires_at, lat, lng)'
+          'id, provider_id, procedure_type, brand, treatment_area, units_or_volume, price, price_label, notes, source, verified, source_url, scraped_at, created_at, providers!inner(id, name, slug, city, state, provider_type, owner_user_id, active_special, special_expires_at, lat, lng)'
         )
         .eq('is_active', true)
         .eq('display_suppressed', false)
@@ -1265,7 +1265,6 @@ export default function FindPrices() {
           provider_type: provider.provider_type || null,
           city: provider.city || '',
           state: provider.state || '',
-          zip_code: provider.zip_code || null,
           created_at: row.scraped_at || row.created_at,
           rating: null,
           review_body: null,
