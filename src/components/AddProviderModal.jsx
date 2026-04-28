@@ -124,7 +124,7 @@ export default function AddProviderModal({ initialName = '', onSuccess, onClose 
         insertRow.google_rating = placeData.googleRating;
         insertRow.google_review_count = placeData.googleReviewCount;
         insertRow.hours_text = placeData.hoursText || null;
-        insertRow.zip_code = placeData.zipCode || null;
+
       }
 
       const { data: provider, error: insertError } = await supabase

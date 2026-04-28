@@ -81,7 +81,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     if (providerId) {
       supabase
         .from('providers')
-        .select('id, name, city, state, zip_code, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
+        .select('id, name, city, state, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
         .eq('id', providerId)
         .single()
         .then(({ data }) => {
@@ -109,7 +109,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     if (name && city) {
       supabase
         .from('providers')
-        .select('id, name, city, state, zip_code, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
+        .select('id, name, city, state, address, lat, lng, phone, website, google_place_id, is_claimed, owner_user_id')
         .ilike('name', `%${name}%`)
         .ilike('city', `${city}%`)
         .eq('is_active', true)

@@ -142,7 +142,7 @@ export default function Log() {
       if (providerId) {
         const { data } = await supabase
           .from('providers')
-          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .select('id, name, city, state, google_place_id, address, phone, website, lat, lng, slug')
           .eq('id', providerId)
           .maybeSingle();
         providerRow = data;
@@ -150,7 +150,7 @@ export default function Log() {
       if (!providerRow && placeId) {
         const { data } = await supabase
           .from('providers')
-          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .select('id, name, city, state, google_place_id, address, phone, website, lat, lng, slug')
           .eq('google_place_id', placeId)
           .maybeSingle();
         providerRow = data;
@@ -158,7 +158,7 @@ export default function Log() {
       if (!providerRow && providerSlugParam) {
         const { data } = await supabase
           .from('providers')
-          .select('id, name, city, state, zip_code, google_place_id, address, phone, website, lat, lng, slug')
+          .select('id, name, city, state, google_place_id, address, phone, website, lat, lng, slug')
           .eq('slug', providerSlugParam)
           .maybeSingle();
         providerRow = data;
@@ -171,7 +171,7 @@ export default function Log() {
           providerName: providerRow.name || prev.providerName,
           city: providerRow.city || prev.city,
           state: providerRow.state || prev.state,
-          zipCode: providerRow.zip_code || prev.zipCode,
+
           googlePlaceId: providerRow.google_place_id || prev.googlePlaceId,
           providerAddress: providerRow.address || prev.providerAddress,
           providerPhone: providerRow.phone || prev.providerPhone,
@@ -450,7 +450,6 @@ export default function Log() {
           provider_type: formData.providerType || 'Other',
           city: formData.city,
           state: formData.state,
-          zip_code: formData.zipCode || '',
           address: formData.providerAddress || null,
           phone: formData.providerPhone || null,
           website: formData.providerWebsite || null,

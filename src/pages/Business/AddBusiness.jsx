@@ -273,7 +273,6 @@ export default function AddBusiness() {
           address: details.address,
           city: details.city,
           state: details.state,
-          zip: details.zip,
           phone: details.phone || null,
           website: details.website || null,
           google_maps_url: details.googleMapsUrl || null,
