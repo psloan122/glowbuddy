@@ -3365,31 +3365,38 @@ export default function FindPrices() {
         {/* First-Timer Onboarding Prompt — mobile only (desktop renders inside split-view left pane).
             Fixed to the bottom of the viewport on mobile so it isn't clipped
             behind the sticky compact header. */}
-        {isMobile && selectedProc && !firstTimerActive && (
-          <div style={{
-            position: 'fixed',
-            bottom: 80,
-            left: 16,
-            right: 16,
-            zIndex: 40,
-            borderRadius: 16,
-            boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
-            overflow: 'hidden',
-          }}>
-            <FirstTimerOnboardingPrompt
-              key={selectedProc}
-              treatmentName={selectedProc}
-              onActivated={() => {
-                addFirstTimerTreatment(selectedProc);
-                persistFirstTimerMode(true);
-                setFirstTimerActive(true);
-                setGuideSheetTreatment(selectedProc);
-                setShowGuideSheet(true);
-              }}
-              onDismissed={() => {}}
-            />
-          </div>
-        )}
+        {isMobile && selectedProc && !firstTimerActive && (() => {
+          const ftKey = `gb_dismissed_firsttimer_${selectedProc || 'default'}`;
+          const dismissed = (() => { try { return localStorage.getItem(ftKey) === 'true'; } catch { return false; } })();
+          if (dismissed) return null;
+          return (
+            <div style={{
+              position: 'fixed',
+              bottom: 80,
+              left: 16,
+              right: 16,
+              zIndex: 40,
+              borderRadius: 16,
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+              overflow: 'hidden',
+            }}>
+              <FirstTimerOnboardingPrompt
+                key={selectedProc}
+                treatmentName={selectedProc}
+                onActivated={() => {
+                  addFirstTimerTreatment(selectedProc);
+                  persistFirstTimerMode(true);
+                  setFirstTimerActive(true);
+                  setGuideSheetTreatment(selectedProc);
+                  setShowGuideSheet(true);
+                }}
+                onDismissed={() => {
+                  try { localStorage.setItem(ftKey, 'true'); } catch {}
+                }}
+              />
+            </div>
+          );
+        })()}
 
         {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
 
@@ -4207,22 +4214,29 @@ export default function FindPrices() {
                   </button>
                 </div>
                 {/* First-Timer Onboarding Prompt — desktop */}
-                {selectedProc && !firstTimerActive && (
-                  <div style={{ padding: '0 8px' }}>
-                    <FirstTimerOnboardingPrompt
-                      key={selectedProc}
-                      treatmentName={selectedProc}
-                      onActivated={() => {
-                        addFirstTimerTreatment(selectedProc);
-                        persistFirstTimerMode(true);
-                        setFirstTimerActive(true);
-                        setGuideSheetTreatment(selectedProc);
-                        setShowGuideSheet(true);
-                      }}
-                      onDismissed={() => {}}
-                    />
-                  </div>
-                )}
+                {selectedProc && !firstTimerActive && (() => {
+                  const ftKey = `gb_dismissed_firsttimer_${selectedProc || 'default'}`;
+                  const dismissed = (() => { try { return localStorage.getItem(ftKey) === 'true'; } catch { return false; } })();
+                  if (dismissed) return null;
+                  return (
+                    <div style={{ padding: '0 8px' }}>
+                      <FirstTimerOnboardingPrompt
+                        key={selectedProc}
+                        treatmentName={selectedProc}
+                        onActivated={() => {
+                          addFirstTimerTreatment(selectedProc);
+                          persistFirstTimerMode(true);
+                          setFirstTimerActive(true);
+                          setGuideSheetTreatment(selectedProc);
+                          setShowGuideSheet(true);
+                        }}
+                        onDismissed={() => {
+                          try { localStorage.setItem(ftKey, 'true'); } catch {}
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
                 <div
                   style={{
                     display: 'grid',

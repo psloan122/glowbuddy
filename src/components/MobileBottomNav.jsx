@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Heart, Bookmark, Search, Plus, User } from 'lucide-react';
+import { Heart, Bookmark, Search, Plus, User, Lock } from 'lucide-react';
 import { useContext } from 'react';
 import { AuthContext } from '../App';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
@@ -59,7 +59,7 @@ export default function MobileBottomNav() {
           label="My Glow"
           active={path === '/my-treatments' || path.startsWith('/my/')}
           gated={!user}
-          onGatedTap={openAuthModal}
+          onGatedTap={() => openAuthModal('signup', null, { hint: 'Create a free account to track your treatments.' })}
         />
 
         {/* Saved */}
@@ -69,7 +69,7 @@ export default function MobileBottomNav() {
           label="Saved"
           active={path === '/alerts'}
           gated={!user}
-          onGatedTap={openAuthModal}
+          onGatedTap={() => openAuthModal('signup', null, { hint: 'Create a free account to save providers and set price alerts.' })}
         />
 
         {/* Center: FIND PRICES — elevated pink circle */}
@@ -103,14 +103,14 @@ export default function MobileBottomNav() {
           </span>
         </div>
 
-        {/* Log It */}
+        {/* Log a price */}
         <NavTab
           to="/log"
           icon={Plus}
-          label="Log It"
+          label="Log a price"
           active={path === '/log'}
           gated={!user}
-          onGatedTap={openAuthModal}
+          onGatedTap={() => openAuthModal('signup', null, { hint: 'Create a free account to share what you paid and help others.' })}
         />
 
         {/* Account */}
@@ -120,7 +120,7 @@ export default function MobileBottomNav() {
           label="Account"
           active={path === '/settings' || path === '/account' || path === '/rewards'}
           gated={!user}
-          onGatedTap={openAuthModal}
+          onGatedTap={() => openAuthModal('signup')}
         />
       </div>
     </nav>
@@ -144,9 +144,22 @@ function NavTab({ to, icon: Icon, label, active, gated, onGatedTap }) {
         type="button"
         onClick={() => onGatedTap?.()}
         className="flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors"
-        style={{ color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        style={{ color, background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: 0.45 }}
+        aria-label={`${label} — sign in required`}
       >
-        <Icon size={22} />
+        <div style={{ position: 'relative', display: 'inline-flex' }}>
+          <Icon size={22} />
+          <Lock
+            size={8}
+            style={{
+              position: 'absolute',
+              top: -2,
+              right: -4,
+              color: MUTED,
+              strokeWidth: 2.5,
+            }}
+          />
+        </div>
         <span style={labelStyle}>{label}</span>
       </button>
     );

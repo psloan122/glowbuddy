@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Search, Building2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
@@ -12,6 +12,7 @@ const INPUT_CLASS =
 export default function Claim() {
   const { session, user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Auth state
   const [email, setEmail] = useState('');
@@ -19,9 +20,15 @@ export default function Claim() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Search state
-  const [searchName, setSearchName] = useState('');
-  const [searchCity, setSearchCity] = useState('');
+  // URL pre-fill params (from provider profile page claim CTA)
+  const prefillParams = new URLSearchParams(location.search);
+  const prefillId   = prefillParams.get('provider_id') || '';
+  const prefillName = prefillParams.get('name') || '';
+  const prefillCity = prefillParams.get('city') || '';
+
+  // Search state — seed from URL params when present
+  const [searchName, setSearchName] = useState(prefillName);
+  const [searchCity, setSearchCity] = useState(prefillCity);
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -48,6 +55,24 @@ export default function Claim() {
   useEffect(() => {
     document.title = 'Claim Your Listing | Know Before You Glow';
   }, []);
+
+  // When arriving from a provider page with a provider_id param,
+  // fetch that provider directly and show it in results so the user
+  // doesn't have to search manually.
+  useEffect(() => {
+    if (!session || !prefillId) return;
+    supabase
+      .from('providers')
+      .select('id, name, city, state, provider_type, google_place_id, is_claimed')
+      .eq('id', prefillId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSearchResults([data]);
+          setHasSearched(true);
+        }
+      });
+  }, [session, prefillId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close Google suggestions on outside click
   useEffect(() => {

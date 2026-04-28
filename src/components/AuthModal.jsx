@@ -77,7 +77,7 @@ function ModalShell({ onClose, children }) {
   );
 }
 
-export default function AuthModal({ mode: initialMode, providerMode = false, flow = 'default', onClose }) {
+export default function AuthModal({ mode: initialMode, providerMode = false, flow = 'default', hint = null, onClose }) {
   const isBusiness = flow === 'business';
   const [mode, setMode] = useState(initialMode || 'signup'); // signup | signin | forgot
   const [firstName, setFirstName] = useState('');
@@ -367,6 +367,9 @@ export default function AuthModal({ mode: initialMode, providerMode = false, flo
                   ? 'Manage your listing, publish prices, and attract new patients.'
                   : 'Share prices, earn badges, and help others save.'}
               </p>
+            )}
+            {hint && !isBusiness && (
+              <p className="text-sm text-text-secondary mt-2 px-2">{hint}</p>
             )}
           </>
         )}

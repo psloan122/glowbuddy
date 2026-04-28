@@ -1263,7 +1263,7 @@ export default function ProviderProfile() {
               className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-accent text-white text-sm font-semibold rounded-xl hover:bg-rose-dark transition-colors"
             >
               <Plus size={16} />
-              Add a price
+              Log a price
             </Link>
             <PriceAlertButton
               procedureType={communityData.length > 0 ? communityData[0].procedure_type : undefined}

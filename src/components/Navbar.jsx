@@ -396,7 +396,7 @@ export default function Navbar() {
             {/* ═══ Desktop right: CTA + auth ═══ */}
             <div className="hidden md:flex items-center gap-3">
               <Link to="/log" className="btn-editorial btn-editorial-primary">
-                Log a Treatment
+                Log a price
               </Link>
 
               {user && <NotificationBell />}
@@ -686,7 +686,7 @@ export default function Navbar() {
               className="btn-editorial btn-editorial-primary mt-10 w-full"
               onClick={() => setMobileOpen(false)}
             >
-              Log a Treatment
+              Log a price
             </Link>
 
             {/* Auth */}

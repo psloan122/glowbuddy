@@ -272,7 +272,7 @@ export default memo(function ProviderBottomSheet({
                 borderRadius: 2,
               }}
             >
-              + Add a price
+              + Log a price
               <ArrowRight size={12} />
             </Link>
           </div>

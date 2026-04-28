@@ -1119,7 +1119,7 @@ export default function Home() {
                     minHeight: '48px',
                   }}
                 >
-                  Log a Treatment
+                  Log a price
                 </Link>
                 <Link
                   to="/alerts"
