@@ -195,6 +195,15 @@ function App() {
                 return;
               }
 
+              // Provider accounts skip patient onboarding — go to dashboard.
+              // Handles magic-link clicks that open in a new tab or device
+              // where sessionStorage gb_pending_action is unavailable.
+              if (newSession.user?.user_metadata?.user_role === 'provider') {
+                navigate('/business/dashboard');
+                showToast('Welcome back!');
+                return;
+              }
+
               // No pending submission or action — normal post-auth flow
               if (!isOnboarded()) {
                 setShowOnboarding(true);
@@ -206,8 +215,11 @@ function App() {
               handlePostAuth();
             });
           } else {
-            // No user id — normal flow
-            if (!isOnboarded()) {
+            // No user id — check provider role before patient onboarding
+            if (newSession.user?.user_metadata?.user_role === 'provider') {
+              navigate('/business/dashboard');
+              showToast('Welcome back!');
+            } else if (!isOnboarded()) {
               setShowOnboarding(true);
             } else {
               handlePostAuth();
