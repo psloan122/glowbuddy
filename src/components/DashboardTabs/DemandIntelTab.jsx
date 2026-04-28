@@ -12,11 +12,8 @@ import { formatPricingUnit } from '../../utils/formatPricingUnit';
 import { Loader2, Lock, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const HOT_PINK = '#E8347A';
-const CARD_BG = '#FFFCF7';
-const BORDER  = '#EDE8E3';
-const FONT_DISPLAY = 'var(--font-display)';
-const FONT_BODY    = 'var(--font-body)';
+const BIZ_FONT = 'system-ui, -apple-system, sans-serif';
+const TEAL = '#0D9488';
 
 export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial }) {
   const [intel, setIntel] = useState([]);
@@ -63,23 +60,14 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={24} className="animate-spin" style={{ color: HOT_PINK }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: TEAL }} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div
-        style={{
-          background: CARD_BG,
-          border: `1px solid ${BORDER}`,
-          borderRadius: '2px',
-          padding: '24px',
-          fontFamily: FONT_BODY,
-          color: '#666',
-        }}
-      >
+      <div className="rounded-lg border border-gray-200 bg-white p-6 text-[13px] text-text-secondary" style={{ fontFamily: BIZ_FONT }}>
         Demand intel is temporarily unavailable. Try again in a moment.
       </div>
     );
@@ -93,72 +81,28 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
   const hasMenuRows = intel.length > 0;
 
   return (
-    <div>
-      {/* ── Header ─────────────────────────────────────────────── */}
+    <div style={{ fontFamily: BIZ_FONT }}>
+      {/* Header */}
       <div className="mb-6">
-        <h2
-          style={{
-            fontFamily: FONT_DISPLAY,
-            fontWeight: 900,
-            fontSize: '28px',
-            color: '#111',
-            margin: 0,
-          }}
-        >
+        <h2 className="text-[18px] font-semibold text-text-primary" style={{ fontFamily: BIZ_FONT }}>
           Demand Intel
         </h2>
-        <p
-          className="mt-1"
-          style={{ fontFamily: FONT_BODY, color: '#666', fontSize: '14px' }}
-        >
+        <p className="text-[13px] text-text-secondary mt-1">
           See how many patients near you are watching for the procedures on your menu.
         </p>
       </div>
 
-      {/* ── 1. City heatmap (always visible) ───────────────────── */}
-      <div
-        className="mb-8"
-        style={{
-          background: CARD_BG,
-          border: `1px solid ${BORDER}`,
-          borderTop: `3px solid ${HOT_PINK}`,
-          borderRadius: '2px',
-          padding: '24px',
-        }}
-      >
-        <p
-          className="mb-1"
-          style={{
-            fontFamily: FONT_BODY,
-            fontWeight: 700,
-            fontSize: '10px',
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
-            color: '#888',
-          }}
-        >
+      {/* City heatmap */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5 mb-6" style={{ borderTop: `3px solid ${TEAL}` }}>
+        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide mb-1">
           City Heatmap
         </p>
-        <p
-          className="mb-4"
-          style={{
-            fontFamily: FONT_DISPLAY,
-            fontWeight: 900,
-            fontSize: '20px',
-            color: '#111',
-          }}
-        >
+        <p className="text-[16px] font-semibold text-text-primary mb-4" style={{ fontFamily: BIZ_FONT }}>
           Procedures patients near you are watching
         </p>
 
         {heatmapData.length === 0 ? (
-          <p
-            style={{
-              fontFamily: FONT_BODY,
-              color: '#666',
-              fontSize: '14px',
-            }}
-          >
+          <p className="text-[13px] text-text-secondary">
             No active alerts in {provider?.city || 'your city'} yet. Check back as
             patients in the area set up alerts for procedures on your menu.
           </p>
@@ -169,17 +113,17 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
               layout="vertical"
               margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
             >
-              <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+              <XAxis type="number" tick={{ fontSize: 12, fontFamily: BIZ_FONT }} allowDecimals={false} />
               <YAxis
                 type="category"
                 dataKey="label"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fontFamily: BIZ_FONT }}
                 width={140}
               />
-              <Tooltip cursor={{ fill: 'rgba(232,52,122,0.06)' }} />
+              <Tooltip cursor={{ fill: 'rgba(13,148,136,0.06)' }} />
               <Bar
                 dataKey="count"
-                fill={HOT_PINK}
+                fill={TEAL}
                 radius={[0, 4, 4, 0]}
               />
             </BarChart>
@@ -187,65 +131,29 @@ export default function DemandIntelTab({ provider, tierHelpers, onPostSpecial })
         )}
       </div>
 
-      {/* ── 2. Empty state when nothing on the menu matches alerts ── */}
+      {/* Empty state */}
       {!hasMenuRows && (
-        <div
-          style={{
-            background: CARD_BG,
-            border: `1px solid ${BORDER}`,
-            borderRadius: '2px',
-            padding: '32px',
-            textAlign: 'center',
-          }}
-        >
-          <Sparkles
-            size={28}
-            style={{ color: HOT_PINK, margin: '0 auto 12px' }}
-          />
-          <p
-            style={{
-              fontFamily: FONT_DISPLAY,
-              fontWeight: 900,
-              fontSize: '20px',
-              color: '#111',
-              margin: 0,
-            }}
-          >
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+          <Sparkles size={24} style={{ color: TEAL, margin: '0 auto 12px' }} />
+          <p className="text-[16px] font-semibold text-text-primary" style={{ fontFamily: BIZ_FONT }}>
             No alerts in {provider?.city || 'your city'} yet for procedures on your menu
           </p>
-          <p
-            className="mt-2"
-            style={{
-              fontFamily: FONT_BODY,
-              color: '#666',
-              fontSize: '14px',
-            }}
-          >
+          <p className="text-[13px] text-text-secondary mt-2">
             Add prices on the Menu tab to start matching the patients in this city.
           </p>
           <Link
             to="/business/dashboard?tab=menu"
-            className="inline-block mt-4"
-            style={{
-              background: HOT_PINK,
-              color: '#fff',
-              fontFamily: FONT_BODY,
-              fontWeight: 700,
-              fontSize: '12px',
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
-              padding: '10px 18px',
-              borderRadius: '2px',
-            }}
+            className="inline-block mt-4 text-white px-4 py-2 rounded-md text-[13px] font-semibold"
+            style={{ background: TEAL }}
           >
             Go to Menu
           </Link>
         </div>
       )}
 
-      {/* ── 3. Per-procedure cards ─────────────────────────────── */}
+      {/* Per-procedure cards */}
       {hasMenuRows && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {intel.map((row) => (
             <DemandCard
               key={row.procedure_type}
@@ -271,8 +179,6 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
   const alreadyReachable = Number(row.already_reachable || 0);
   const reachable10 = Number(row.reachable_with_10pct || 0);
 
-  // Suggested promo price = avg threshold (rounded), falling back to a
-  // 10%-off-current-price if no alerts have explicit thresholds.
   const suggestedPrice =
     avgThreshold && Number.isFinite(avgThreshold)
       ? Math.round(avgThreshold)
@@ -281,72 +187,41 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
       : null;
 
   return (
-    <div
-      style={{
-        background: CARD_BG,
-        border: `1px solid ${BORDER}`,
-        borderRadius: '2px',
-        padding: '20px',
-      }}
-    >
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
       <div className="flex items-center justify-between mb-2">
-        <p
-          style={{
-            fontFamily: FONT_DISPLAY,
-            fontWeight: 900,
-            fontSize: '18px',
-            color: '#111',
-            margin: 0,
-          }}
-        >
+        <p className="text-[16px] font-semibold text-text-primary" style={{ fontFamily: BIZ_FONT }}>
           {procedureLabel}
         </p>
-        {!isPaid && (
-          <Lock size={14} style={{ color: '#888' }} />
-        )}
+        {!isPaid && <Lock size={14} className="text-text-secondary" />}
       </div>
 
-      <p
-        className="mb-4"
-        style={{
-          fontFamily: FONT_BODY,
-          color: '#333',
-          fontSize: '14px',
-        }}
-      >
-        <span style={{ fontWeight: 700, color: HOT_PINK }}>
+      <p className="text-[13px] text-text-primary mb-4">
+        <span className="font-bold" style={{ color: TEAL }}>
           {alertCount}
         </span>{' '}
         {alertCount === 1 ? 'patient in ' : 'patients in '}
         {cityLabel} have a {procedureLabel} alert
       </p>
 
-      {/* Actionability block — blurred for free tier */}
+      {/* Actionability block */}
       <div style={{ position: 'relative' }}>
         <div
           style={
             !isPaid
-              ? {
-                  filter: 'blur(5px)',
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                }
+              ? { filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none' }
               : undefined
           }
         >
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-            style={{ fontFamily: FONT_BODY, fontSize: '13px', color: '#444' }}
-          >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px]">
             <div>
-              <span style={{ color: '#888' }}>Avg threshold</span>
-              <p style={{ margin: 0, fontWeight: 700, color: '#111' }}>
+              <span className="text-[11px] text-text-secondary uppercase tracking-wide">Avg threshold</span>
+              <p className="font-bold text-text-primary mt-0.5">
                 {avgThreshold !== null ? `$${avgThreshold.toFixed(0)}` : '—'}
               </p>
             </div>
             <div>
-              <span style={{ color: '#888' }}>Your menu price</span>
-              <p style={{ margin: 0, fontWeight: 700, color: '#111' }}>
+              <span className="text-[11px] text-text-secondary uppercase tracking-wide">Your price</span>
+              <p className="font-bold text-text-primary mt-0.5">
                 {currentPrice !== null
                   ? `$${currentPrice.toFixed(0)}${
                       row.current_price_label && formatPricingUnit(row.current_price_label)
@@ -357,14 +232,14 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
               </p>
             </div>
             <div>
-              <span style={{ color: '#888' }}>Already reachable</span>
-              <p style={{ margin: 0, fontWeight: 700, color: '#111' }}>
+              <span className="text-[11px] text-text-secondary uppercase tracking-wide">Reachable now</span>
+              <p className="font-bold text-text-primary mt-0.5">
                 {alreadyReachable} {alreadyReachable === 1 ? 'patient' : 'patients'}
               </p>
             </div>
             <div>
-              <span style={{ color: '#888' }}>Reachable at 10% off</span>
-              <p style={{ margin: 0, fontWeight: 700, color: '#111' }}>
+              <span className="text-[11px] text-text-secondary uppercase tracking-wide">At 10% off</span>
+              <p className="font-bold text-text-primary mt-0.5">
                 +{reachable10} {reachable10 === 1 ? 'patient' : 'patients'}
               </p>
             </div>
@@ -372,8 +247,8 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
         </div>
       </div>
 
-      {/* CTA row */}
-      <div className="mt-5">
+      {/* CTA */}
+      <div className="mt-4">
         {isPaid ? (
           suggestedPrice !== null && (
             <button
@@ -384,19 +259,8 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
                   suggested_price: suggestedPrice,
                 })
               }
-              style={{
-                background: HOT_PINK,
-                color: '#fff',
-                fontFamily: FONT_BODY,
-                fontWeight: 700,
-                fontSize: '12px',
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-                padding: '10px 18px',
-                borderRadius: '2px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
+              className="text-white px-4 py-2 rounded-md text-[13px] font-semibold border-none cursor-pointer"
+              style={{ background: TEAL }}
             >
               Post a ${suggestedPrice} special →
             </button>
@@ -404,14 +268,8 @@ function DemandCard({ row, provider, tierHelpers, onPostSpecial }) {
         ) : (
           <Link
             to="/business/dashboard?tab=settings"
-            style={{
-              color: HOT_PINK,
-              fontFamily: FONT_BODY,
-              fontWeight: 700,
-              fontSize: '13px',
-              letterSpacing: '0.04em',
-              textDecoration: 'none',
-            }}
+            className="text-[13px] font-semibold no-underline"
+            style={{ color: TEAL }}
           >
             Upgrade to reach them →
           </Link>
