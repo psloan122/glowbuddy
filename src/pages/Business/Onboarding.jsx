@@ -290,7 +290,7 @@ export default function Onboarding() {
           address: profileData.address || null,
           city: profileData.city,
           state: profileData.state,
-          zip_code: profileData.zip,
+
           logo_url: profileData.logo_url || null,
           tier,
           trial_ends_at: trialEndsAt,
@@ -328,7 +328,7 @@ export default function Onboarding() {
           address: profileData.address || null,
           city: profileData.city,
           state: profileData.state,
-          zip_code: profileData.zip,
+
           logo_url: profileData.logo_url || null,
           google_place_id: placeData?.placeId || null,
           lat: placeData?.lat || null,
