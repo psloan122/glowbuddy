@@ -134,7 +134,7 @@ export default function Landing() {
     if (user) {
       navigate(to);
     } else {
-      openAuthModal('signup', to);
+      openAuthModal('signup', to, { providerMode: true });
     }
   }
 

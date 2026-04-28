@@ -77,7 +77,7 @@ function ModalShell({ onClose, children }) {
   );
 }
 
-export default function AuthModal({ mode: initialMode, onClose }) {
+export default function AuthModal({ mode: initialMode, providerMode = false, onClose }) {
   const [mode, setMode] = useState(initialMode || 'signup'); // signup | signin | forgot
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -93,8 +93,8 @@ export default function AuthModal({ mode: initialMode, onClose }) {
   const [loadingText, setLoadingText] = useState('Setting up your experience...');
   const [showEscape, setShowEscape] = useState(false);
 
-  // Provider vs patient role selection (signup only)
-  const [isProvider, setIsProvider] = useState(false);
+  // Provider vs patient role selection (signup only); seeded from prop
+  const [isProvider, setIsProvider] = useState(providerMode);
   const [businessName, setBusinessName] = useState('');
   const [businessRole, setBusinessRole] = useState('Owner');
 
