@@ -14,6 +14,11 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Eye,
+  CheckCircle,
+  Circle,
+  ChevronRight,
+  Share2,
+  Copy,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -82,6 +87,7 @@ export default function Dashboard() {
   const [provider, setProvider] = useState(null);
   const [ownerFirstName, setOwnerFirstName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [copySuccess, setCopySuccess] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = tabLabelFromSlug(searchParams.get('tab') || 'overview');
 
@@ -298,6 +304,18 @@ export default function Dashboard() {
   function handleTabChange(tab) {
     if (specialsPrefill) setSpecialsPrefill(null);
     setSearchParams({ tab: tabSlugFromLabel(tab) }, { replace: true });
+  }
+
+  async function copyPublicUrl() {
+    if (!provider?.slug) return;
+    const url = `${window.location.origin}/provider/${provider.slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch {
+      // clipboard not available
+    }
   }
 
   function handlePostSpecialFromDemand({ procedure_type, suggested_price }) {
@@ -678,127 +696,331 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Greeting */}
-      <div className="mb-6">
-        <h1 className="text-[24px] font-medium text-text-primary">
-          {getGreeting()}, {ownerFirstName || 'there'}
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-text-primary">
+          Welcome, {ownerFirstName || 'there'}
         </h1>
         <p className="text-sm text-text-secondary mt-1">
-          Here&rsquo;s what&rsquo;s happening at {provider.name}
+          {provider.name}{provider.city ? ` · ${provider.city}${provider.state ? `, ${provider.state}` : ''}` : ''}
         </p>
       </div>
 
       {/* Tab Content */}
 
       {/* ===== OVERVIEW TAB ===== */}
-      {activeTab === 'Overview' && (
-        <div>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-rose-light flex items-center justify-center">
-                  <Eye size={18} className="text-rose-accent" />
+      {activeTab === 'Overview' && (() => {
+        // ── Checklist ────────────────────────────────────────────────
+        const hasPrices = pricing.some(p => p.source === 'provider_listed');
+        const hasHours  = !!provider.hours_text;
+        const hasPhoto  = dashBAPhotos.length > 0;
+        const isVerified = !!provider.is_verified;
+
+        const checklistItems = [
+          {
+            id: 'claimed',
+            label: 'Claim your listing',
+            description: 'You\'re in — your listing is claimed.',
+            done: true,
+            action: null,
+          },
+          {
+            id: 'prices',
+            label: 'Add your prices',
+            description: 'Help patients know what to expect before they book.',
+            done: hasPrices,
+            action: () => handleTabChange('Menu'),
+          },
+          {
+            id: 'hours',
+            label: 'Add business hours',
+            description: 'Let patients know when you\'re available.',
+            done: hasHours,
+            action: () => handleTabChange('Settings'),
+          },
+          {
+            id: 'photo',
+            label: 'Upload a before & after photo',
+            description: 'Show your work and build trust with new patients.',
+            done: hasPhoto,
+            action: () => handleTabChange('Before & Afters'),
+          },
+          {
+            id: 'verified',
+            label: 'Get verified',
+            description: 'Earn the Verified badge to stand out in search results.',
+            done: isVerified,
+            action: () => handleTabChange('Settings'),
+          },
+        ];
+        const completedCount = checklistItems.filter(i => i.done).length;
+        const onboardingComplete = completedCount === checklistItems.length;
+
+        // ── Activity feed ────────────────────────────────────────────
+        const activities = [
+          ...communityProcedures.slice(0, 10).map(p => ({
+            id: `price-${p.id}`,
+            type: 'price',
+            description: `A patient shared ${p.procedure_type ? `a ${p.procedure_type} price` : 'a price'}${p.price_paid ? ` — $${p.price_paid}` : ''}`,
+            created_at: p.created_at,
+          })),
+          ...dashReviews.slice(0, 10).map(r => ({
+            id: `review-${r.id}`,
+            type: 'review',
+            description: `New ${r.rating ? `${r.rating}-star ` : ''}review${r.title ? `: "${r.title}"` : ''}`,
+            created_at: r.created_at,
+          })),
+        ]
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 5);
+
+        const providerPrices = pricing.filter(p => p.source === 'provider_listed');
+
+        return (
+          <div>
+            {/* ── Section 1: Completion checklist ── */}
+            {!onboardingComplete && (
+              <div className="glow-card p-6 mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-text-primary">Get your listing ready</h2>
+                  <span className="text-sm text-text-secondary">{completedCount}/5 complete</span>
                 </div>
-                <span className="text-sm text-text-secondary">
-                  Profile Views
-                </span>
+                <div className="w-full bg-gray-100 rounded-full h-2 mb-5">
+                  <div
+                    className="bg-rose-accent h-2 rounded-full transition-all"
+                    style={{ width: `${(completedCount / 5) * 100}%` }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  {checklistItems.map(item => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl transition ${item.done ? '' : 'hover:bg-gray-50 cursor-pointer'}`}
+                      onClick={item.done ? undefined : item.action || undefined}
+                    >
+                      {item.done
+                        ? <CheckCircle size={20} className="text-verified shrink-0" />
+                        : <Circle size={20} className="text-gray-300 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${item.done ? 'text-text-secondary line-through' : 'text-text-primary'}`}>
+                          {item.label}
+                        </p>
+                        {!item.done && (
+                          <p className="text-xs text-text-secondary mt-0.5">{item.description}</p>
+                        )}
+                      </div>
+                      {!item.done && item.action && (
+                        <ChevronRight size={16} className="text-text-secondary shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {provider.page_view_count_week || 0}
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                this week &middot; {provider.page_view_count_total || 0} all time
-              </p>
+            )}
+
+            {/* ── Section 2: Stats ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+              <div className="glow-card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-rose-light flex items-center justify-center shrink-0">
+                    <Eye size={16} className="text-rose-accent" />
+                  </div>
+                  <span className="text-xs text-text-secondary leading-tight">Profile Views</span>
+                </div>
+                <p className="text-2xl font-bold text-text-primary">
+                  {provider.page_view_count_week || 0}
+                </p>
+                {(provider.page_view_count_week || 0) === 0 ? (
+                  <p className="text-xs text-text-secondary mt-1 leading-tight">Add prices to appear in search</p>
+                ) : (
+                  <p className="text-xs text-text-secondary mt-1">this week &middot; {provider.page_view_count_total || 0} all time</p>
+                )}
+              </div>
+
+              <div className="glow-card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                    <Star size={16} className="text-amber-500" />
+                  </div>
+                  <span className="text-xs text-text-secondary leading-tight">Rating</span>
+                </div>
+                <p className="text-2xl font-bold text-text-primary">
+                  {provider.avg_rating || '--'}
+                </p>
+                {dashReviews.length === 0 ? (
+                  <button
+                    onClick={copyPublicUrl}
+                    className="text-xs text-rose-accent mt-1 hover:underline text-left leading-tight"
+                  >
+                    Share page to get first review
+                  </button>
+                ) : (
+                  <p className="text-xs text-text-secondary mt-1">{dashReviews.length} review{dashReviews.length !== 1 ? 's' : ''}</p>
+                )}
+              </div>
+
+              <div className="glow-card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-community/10 flex items-center justify-center shrink-0">
+                    <Users size={16} className="text-community" />
+                  </div>
+                  <span className="text-xs text-text-secondary leading-tight">Community Submissions</span>
+                </div>
+                <p className="text-2xl font-bold text-text-primary">{communityProcedures.length}</p>
+                {communityProcedures.length === 0 && (
+                  <p className="text-xs text-text-secondary mt-1 leading-tight">Patients share what they paid</p>
+                )}
+              </div>
+
+              <div className="glow-card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-community/10 flex items-center justify-center shrink-0">
+                    <DollarSign size={16} className="text-community" />
+                  </div>
+                  <span className="text-xs text-text-secondary leading-tight">Avg Patient-Reported</span>
+                </div>
+                <p className="text-2xl font-bold text-text-primary">
+                  {communityAvgPrice !== null ? `$${communityAvgPrice}` : '--'}
+                </p>
+              </div>
+
+              <div className="glow-card p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-verified/10 flex items-center justify-center shrink-0">
+                    <BarChart3 size={16} className="text-verified" />
+                  </div>
+                  <span className="text-xs text-text-secondary leading-tight">Avg Menu Price</span>
+                </div>
+                <p className="text-2xl font-bold text-text-primary">
+                  {menuAvgPrice !== null ? `$${menuAvgPrice}` : '--'}
+                </p>
+              </div>
             </div>
 
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Star size={18} className="text-amber-500" />
-                </div>
-                <span className="text-sm text-text-secondary">
-                  Know Before You Glow Rating
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {provider.avg_rating || '--'}
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                {dashReviews.length} review{dashReviews.length !== 1 ? 's' : ''}
-              </p>
+            {/* ── Section 3: Quick actions ── */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              <button
+                onClick={() => handleTabChange('Menu')}
+                className="glow-card p-4 text-center hover:shadow-md transition group"
+              >
+                <DollarSign size={22} className="mx-auto mb-2 text-rose-accent" />
+                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">
+                  {hasPrices ? 'Edit prices' : 'Add prices'}
+                </p>
+              </button>
+              <button
+                onClick={copyPublicUrl}
+                className="glow-card p-4 text-center hover:shadow-md transition group"
+              >
+                {copySuccess
+                  ? <CheckCircle size={22} className="mx-auto mb-2 text-verified" />
+                  : <Share2 size={22} className="mx-auto mb-2 text-rose-accent" />}
+                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">
+                  {copySuccess ? 'Link copied!' : 'Share your page'}
+                </p>
+              </button>
+              <button
+                onClick={() => handleTabChange('Reviews')}
+                className="glow-card p-4 text-center hover:shadow-md transition group"
+              >
+                <Star size={22} className="mx-auto mb-2 text-rose-accent" />
+                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">View reviews</p>
+              </button>
+              <button
+                onClick={() => handleTabChange('Settings')}
+                className="glow-card p-4 text-center hover:shadow-md transition group"
+              >
+                <SettingsIcon size={22} className="mx-auto mb-2 text-rose-accent" />
+                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">Edit listing</p>
+              </button>
             </div>
 
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-community/10 flex items-center justify-center">
-                  <Users size={18} className="text-community" />
-                </div>
-                <span className="text-sm text-text-secondary">
-                  Community Submissions
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {communityProcedures.length}
-              </p>
-            </div>
-
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-community/10 flex items-center justify-center">
-                  <DollarSign size={18} className="text-community" />
-                </div>
-                <span className="text-sm text-text-secondary">
-                  Avg Patient-Reported
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {communityAvgPrice !== null ? `$${communityAvgPrice}` : '--'}
-              </p>
-            </div>
-
-            <div className="glow-card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-verified/10 flex items-center justify-center">
-                  <BarChart3 size={18} className="text-verified" />
-                </div>
-                <span className="text-sm text-text-secondary">
-                  Avg Menu Price
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-text-primary">
-                {menuAvgPrice !== null ? `$${menuAvgPrice}` : '--'}
-              </p>
-            </div>
-          </div>
-
-          {/* Page Views Weekly Chart */}
-          {!pageViewsLoading && pageViewsByWeek.some((w) => w.calls > 0) && (
+            {/* ── Section 4: Activity feed ── */}
             <div className="glow-card p-6 mb-8">
-              <h3 className="text-sm font-semibold text-text-primary mb-4">Profile Views by Week</h3>
-              <CallVolumeChart data={pageViewsByWeek} chart="bar" />
+              <h2 className="text-lg font-bold text-text-primary mb-4">Recent Activity</h2>
+              {activities.length > 0 ? (
+                <div className="space-y-1">
+                  {activities.map(a => (
+                    <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        a.type === 'price' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        {a.type === 'price' ? <DollarSign size={14} /> : <Star size={14} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-text-primary">{a.description}</p>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text-secondary text-center py-4">
+                  No activity yet. Add prices and share your page to start seeing activity here.
+                </p>
+              )}
             </div>
-          )}
 
-          {/* Quick Comparison */}
-          {communityAvgPrice !== null && menuAvgPrice !== null && (
-            <div className="glow-card p-5 mb-8">
-              <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
-                Quick Comparison
-              </h3>
-              <p className="text-text-primary">
-                Patients report an average of{' '}
-                <span className="font-bold">${communityAvgPrice}</span> vs your
-                menu price of{' '}
-                <span className="font-bold">${menuAvgPrice}</span>.
-              </p>
+            {/* ── Section 5: Prices preview ── */}
+            <div className="glow-card p-6 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-text-primary">Your Prices</h2>
+                <button
+                  onClick={() => handleTabChange('Menu')}
+                  className="text-sm text-rose-accent font-medium hover:text-rose-dark transition-colors"
+                >
+                  {providerPrices.length > 0 ? 'Edit prices →' : 'Add prices →'}
+                </button>
+              </div>
+              {providerPrices.length > 0 ? (
+                <div className="space-y-0">
+                  {providerPrices.slice(0, 5).map(p => (
+                    <div key={p.id} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                      <span className="text-sm text-text-primary">{p.procedure_type}</span>
+                      <span className="text-sm font-bold text-text-primary">
+                        ${Math.round(p.price)}
+                        {p.price_label && (
+                          <span className="font-normal text-text-secondary text-xs ml-1">
+                            /{p.price_label.replace('per_', '')}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                  {providerPrices.length > 5 && (
+                    <p className="text-xs text-text-secondary text-center pt-3">
+                      +{providerPrices.length - 5} more · <button onClick={() => handleTabChange('Menu')} className="text-rose-accent hover:underline">see all</button>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-sm text-text-secondary mb-3">No prices published yet.</p>
+                  <button
+                    onClick={() => handleTabChange('Menu')}
+                    className="px-4 py-2 bg-rose-accent text-white rounded-xl text-sm font-medium hover:bg-rose-dark transition-colors"
+                  >
+                    Add your first price
+                  </button>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Upgrade CTA */}
-          <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
-        </div>
-      )}
+            {/* ── Section 6: Page views chart ── */}
+            {!pageViewsLoading && pageViewsByWeek.some(w => w.calls > 0) && (
+              <div className="glow-card p-6 mb-8">
+                <h3 className="text-sm font-semibold text-text-primary mb-4">Profile Views by Week</h3>
+                <CallVolumeChart data={pageViewsByWeek} chart="bar" />
+              </div>
+            )}
+
+            {/* ── Section 7: Upgrade CTA (bottom) ── */}
+            <UpgradeCTA providerId={provider?.id} tierHelpers={tierHelpers} />
+          </div>
+        );
+      })()}
 
       {/* ===== MENU TAB ===== */}
       {activeTab === 'Menu' && (
