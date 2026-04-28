@@ -569,7 +569,7 @@ export default memo(function GlowMap({
             // Seed viewport so clusters compute before the first moveend
             const m = mapRef.current;
             if (m) {
-              const b = m.getBounds();
+              const b = m.getMap()?.getBounds();
               setViewport({
                 zoom: DEFAULT_VIEW.zoom,
                 bounds: b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null,
@@ -598,7 +598,7 @@ export default memo(function GlowMap({
           onMoveEnd={(e) => {
             const m = mapRef.current;
             if (!m) return;
-            const b = m.getBounds();
+            const b = m.getMap()?.getBounds();
             const rawBounds = b
               ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
               : null;
