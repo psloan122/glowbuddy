@@ -187,7 +187,10 @@ export default function FindPrices() {
     }
     const persisted = readPersistedFilters();
     if (persisted?.city && persisted?.state) {
-      return { city: persisted.city, state: persisted.state };
+      const loc = { city: persisted.city, state: persisted.state };
+      if (Number.isFinite(persisted.lat)) loc.lat = persisted.lat;
+      if (Number.isFinite(persisted.lng)) loc.lng = persisted.lng;
+      return loc;
     }
     const city = getGatingCity();
     const state = getGatingState();
@@ -250,12 +253,13 @@ export default function FindPrices() {
   useEffect(() => {
     if (geo.status !== 'success' || !geo.city || !geo.state) return;
 
+    const geoLoc = { city: geo.city, state: geo.state, lat: geo.lat, lng: geo.lng };
     if (geoWasExplicitlyRequested.current) {
       geoWasExplicitlyRequested.current = false;
       locSourcedFromUrl.current = false;
-      selectLocation({ city: geo.city, state: geo.state });
+      selectLocation(geoLoc);
     } else if (!selectedLoc && !locSourcedFromUrl.current) {
-      selectLocation({ city: geo.city, state: geo.state });
+      selectLocation(geoLoc);
     }
   }, [geo.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -463,14 +467,23 @@ export default function FindPrices() {
             'id, name, slug, city, state, lat, lng, google_rating, google_review_count, provider_type, is_active',
           )
           .or('is_active.eq.true,is_active.is.null');
-        // When "Search this area" bounds are set, query by lat/lng
-        // instead of city/state so pins match the viewport rectangle.
         if (searchAreaBounds) {
           query = query
             .gte('lat', searchAreaBounds.south)
             .lte('lat', searchAreaBounds.north)
             .gte('lng', searchAreaBounds.west)
             .lte('lng', searchAreaBounds.east);
+        } else if (selectedLoc.lat != null && selectedLoc.lng != null) {
+          // Geo-radius: ~25 miles around the city center so suburbs
+          // and neighboring towns appear together.
+          const RADIUS_MI = 25;
+          const latR = RADIUS_MI / 69;
+          const lngR = RADIUS_MI / (69 * Math.cos(selectedLoc.lat * Math.PI / 180));
+          query = query
+            .gte('lat', selectedLoc.lat - latR)
+            .lte('lat', selectedLoc.lat + latR)
+            .gte('lng', selectedLoc.lng - lngR)
+            .lte('lng', selectedLoc.lng + lngR);
         } else {
           query = query.eq('city', selectedLoc.city);
           if (selectedLoc.state) query = query.eq('state', selectedLoc.state);
@@ -505,7 +518,7 @@ export default function FindPrices() {
     return () => {
       cancelled = true;
     };
-  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, searchAreaBounds]);
+  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, selectedLoc?.lat, selectedLoc?.lng, searchAreaBounds]);
 
   // ── Pill provider counts + city pricing rows ──
   // Lightweight query: fetch procedure_type + brand for all providers in
@@ -726,6 +739,8 @@ export default function FindPrices() {
         subType: subTypeFilter || null,
         city: selectedLoc?.city || null,
         state: selectedLoc?.state || null,
+        lat: selectedLoc?.lat ?? null,
+        lng: selectedLoc?.lng ?? null,
         sortBy,
         hasPricesOnly,
         verifiedOnly,
@@ -740,6 +755,8 @@ export default function FindPrices() {
         subType: subTypeFilter || null,
         city: selectedLoc?.city || null,
         state: selectedLoc?.state || null,
+        lat: selectedLoc?.lat ?? null,
+        lng: selectedLoc?.lng ?? null,
         sortBy,
         hasPricesOnly,
         verifiedOnly,
@@ -1223,7 +1240,7 @@ export default function FindPrices() {
       return [...uniquePending, ...activeRows];
     }
 
-    async function fetchProviderPricingRows({ city, state, bounds }) {
+    async function fetchProviderPricingRows({ city, state, bounds, locLat, locLng }) {
       // provider_pricing has no rating column, so honor a min-rating filter
       // by excluding it from this source entirely.
       if (minRating) return [];
@@ -1238,14 +1255,21 @@ export default function FindPrices() {
         .lt('confidence_tier', 6)
         .or('is_active.eq.true,is_active.is.null', { referencedTable: 'providers' });
 
-      // When "Search this area" bounds are set, query by lat/lng instead
-      // of city/state so the results match the viewport rectangle.
       if (bounds) {
         query = query
           .gte('providers.lat', bounds.south)
           .lte('providers.lat', bounds.north)
           .gte('providers.lng', bounds.west)
           .lte('providers.lng', bounds.east);
+      } else if (locLat != null && locLng != null) {
+        const RADIUS_MI = 25;
+        const latR = RADIUS_MI / 69;
+        const lngR = RADIUS_MI / (69 * Math.cos(locLat * Math.PI / 180));
+        query = query
+          .gte('providers.lat', locLat - latR)
+          .lte('providers.lat', locLat + latR)
+          .gte('providers.lng', locLng - lngR)
+          .lte('providers.lng', locLng + lngR);
       } else {
         if (state) query = query.eq('providers.state', state);
         if (city) query = query.eq('providers.city', city);
@@ -1423,6 +1447,8 @@ export default function FindPrices() {
           city: filters.city,
           state: filters.state,
           bounds: searchAreaBounds || null,
+          locLat: selectedLoc?.lat ?? null,
+          locLng: selectedLoc?.lng ?? null,
         }),
       ]);
       return mergeAndSort(proc, prov);
@@ -1637,8 +1663,19 @@ export default function FindPrices() {
         .lt('confidence_tier', 6)
         .or('is_active.eq.true,is_active.is.null', { referencedTable: 'providers' });
 
-      if (filterState) query = query.eq('providers.state', filterState);
-      if (filterCity) query = query.eq('providers.city', filterCity);
+      if (selectedLoc?.lat != null && selectedLoc?.lng != null) {
+        const RADIUS_MI = 25;
+        const latR = RADIUS_MI / 69;
+        const lngR = RADIUS_MI / (69 * Math.cos(selectedLoc.lat * Math.PI / 180));
+        query = query
+          .gte('providers.lat', selectedLoc.lat - latR)
+          .lte('providers.lat', selectedLoc.lat + latR)
+          .gte('providers.lng', selectedLoc.lng - lngR)
+          .lte('providers.lng', selectedLoc.lng + lngR);
+      } else {
+        if (filterState) query = query.eq('providers.state', filterState);
+        if (filterCity) query = query.eq('providers.city', filterCity);
+      }
       query = query.or(orClauses.join(','));
       query = query.order('price', { ascending: true }).limit(200);
 
