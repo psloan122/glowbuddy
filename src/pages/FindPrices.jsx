@@ -262,6 +262,20 @@ export default function FindPrices() {
   const [showGuideSheet, setShowGuideSheet] = useState(false);
   const [guideSheetTreatment, setGuideSheetTreatment] = useState('');
 
+  // One-time "Tap any pin to see prices" hint for first-time map visitors
+  const [showPinHint, setShowPinHint] = useState(() => {
+    try { return !localStorage.getItem('gb_pin_hint_shown'); } catch { return true; }
+  });
+
+  useEffect(() => {
+    if (!showPinHint) return;
+    const timer = setTimeout(() => {
+      setShowPinHint(false);
+      try { localStorage.setItem('gb_pin_hint_shown', 'true'); } catch {}
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [showPinHint]);
+
   // --- Personalized browse (PROMPT 8) ---
   // Logged-in users with saved procedure_slugs / brands in user_preferences
   // bypass the ProcedureGate on /browse and see a personalized feed grouped
@@ -543,6 +557,8 @@ export default function FindPrices() {
 
   const handlePinClick = useCallback(
     (group) => {
+      setShowPinHint(false);
+      try { localStorage.setItem('gb_pin_hint_shown', 'true'); } catch {}
       // Enrich with procedures already loaded in memory so the bottom
       // sheet never has to refetch. Fixes provider_id mismatches where
       // the marker group had empty rows despite the list card showing prices.
@@ -3730,6 +3746,31 @@ export default function FindPrices() {
                 activePriceLabel={activePriceLabel}
               />
             </div>
+
+            {/* Pin tap hint — shown once on first map visit, auto-dismisses after 3s */}
+            {showPinHint && mobileProviders.length > 0 && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 20,
+                  background: 'rgba(17,17,17,0.85)',
+                  color: 'white',
+                  fontSize: 13,
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                Tap any pin to see prices
+              </div>
+            )}
 
             {/* Layer 2: Bottom sheet — hidden while search picker is open (one panel at a time) */}
             {!mobileSearchOpen && (

@@ -140,6 +140,7 @@ export default function Account() {
   // Delete account
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   // Welcome banner dismiss
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
@@ -762,13 +763,18 @@ export default function Account() {
             <div className="flex gap-3">
               <button
                 onClick={async () => {
+                  setDeleteError(null);
                   setDeleting(true);
-                  const { error } = await supabase.rpc('delete_my_account');
-                  if (!error) {
+                  try {
+                    const { error } = await supabase.rpc('delete_my_account');
+                    if (error) throw error;
                     await signOut();
                     navigate('/');
+                  } catch (err) {
+                    setDeleteError(err?.message || 'Deletion failed. Please try again.');
+                  } finally {
+                    setDeleting(false);
                   }
-                  setDeleting(false);
                 }}
                 disabled={deleting}
                 className="text-sm text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
@@ -784,6 +790,14 @@ export default function Account() {
                 Cancel
               </button>
             </div>
+            {deleteError && (
+              <p className="text-sm text-red-600 mt-2">
+                {deleteError}{' '}
+                <a href="mailto:hello@knowbeforeyouglow.com" className="underline">
+                  Contact support
+                </a>
+              </p>
+            )}
           </div>
         )}
       </section>

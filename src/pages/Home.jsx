@@ -165,12 +165,19 @@ export default function Home() {
   // Geolocation — only navigate when the user explicitly clicked the button
   const { geo, requestLocation } = useGeolocation();
   const [locationRequested, setLocationRequested] = useState(false);
+  const [showEntrance, setShowEntrance] = useState(() => {
+    try { return !sessionStorage.getItem('gb_home_visited'); } catch { return true; }
+  });
 
   const [locSuggestions, setLocSuggestions] = useState([]);
   const locationInputRef = useRef(null);
   const locContainerRef = useRef(null);
 
   // Debounced Mapbox city search for hero location input
+  useEffect(() => {
+    try { sessionStorage.setItem('gb_home_visited', 'true'); } catch {}
+  }, []);
+
   useEffect(() => {
     const q = locationQuery.trim();
     if (!q || selectedLocation) { setLocSuggestions([]); return; }
@@ -423,7 +430,7 @@ export default function Home() {
   const displayPromoted = filteredPromoted.length > 0 ? filteredPromoted : promotedSpecials;
 
   return (
-    <div className="bg-cream page-enter">
+    <div className={`bg-cream${showEntrance ? ' page-enter' : ''}`}>
       {/* ═══════════════════════════════════════════════════════
           0. EDITORIAL EYEBROW STRIP — hot pink declaration bar
           ═══════════════════════════════════════════════════════ */}

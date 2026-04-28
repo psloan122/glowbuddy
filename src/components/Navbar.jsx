@@ -241,6 +241,15 @@ export default function Navbar() {
     setAvatarOpen(false);
   }, [location.pathname]);
 
+  // Close desktop dropdowns when window shrinks to mobile width
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth < 768) setOpenKey(null);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Lock body scroll when mobile menu open
   useEffect(() => {
     if (mobileOpen) {

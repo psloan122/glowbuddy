@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Heart, Bookmark, Search, Plus, User, Lock } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, useState, useRef } from 'react';
 import { AuthContext } from '../App';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import { buildBrowseUrl } from '../lib/urlParams';
@@ -127,6 +127,12 @@ export default function MobileBottomNav() {
   );
 }
 
+const GATED_TOOLTIP = {
+  'My Glow': 'Sign in to track treatments',
+  'Saved': 'Sign in to save providers',
+  'Log a price': 'Sign in to share what you paid',
+};
+
 function NavTab({ to, icon: Icon, label, active, gated, onGatedTap }) {
   const color = active ? HOT_PINK : MUTED;
   const labelStyle = {
@@ -138,15 +144,55 @@ function NavTab({ to, icon: Icon, label, active, gated, onGatedTap }) {
     color,
   };
 
+  const [showTooltip, setShowTooltip] = useState(false);
+  const longPressTimer = useRef(null);
+
+  function handleTouchStart() {
+    longPressTimer.current = setTimeout(() => {
+      setShowTooltip(true);
+      setTimeout(() => setShowTooltip(false), 2000);
+    }, 500);
+  }
+
+  function handleTouchEnd() {
+    clearTimeout(longPressTimer.current);
+  }
+
   if (gated) {
     return (
       <button
         type="button"
         onClick={() => onGatedTap?.()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className="flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors"
-        style={{ color, background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: 0.45 }}
+        style={{ color, background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: 0.45, position: 'relative' }}
         aria-label={`${label} — sign in required`}
       >
+        {showTooltip && (
+          <div
+            className="animate-fade-in"
+            style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: 8,
+              background: 'rgba(17,17,17,0.92)',
+              color: 'white',
+              fontSize: 11,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              padding: '6px 10px',
+              borderRadius: 6,
+              whiteSpace: 'nowrap',
+              zIndex: 200,
+              pointerEvents: 'none',
+            }}
+          >
+            {GATED_TOOLTIP[label] || 'Sign in to continue'}
+          </div>
+        )}
         <div style={{ position: 'relative', display: 'inline-flex' }}>
           <Icon size={22} />
           <Lock
