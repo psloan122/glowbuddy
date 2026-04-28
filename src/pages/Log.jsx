@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useBlocker } from 'react-router-dom';
 import { Check, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -188,6 +188,31 @@ export default function Log() {
   const [submissionResult, setSubmissionResult] = useState(null);
   const [outlierFlagged, setOutlierFlagged] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Unsaved-changes guard — fires when user has entered price data and tries to navigate away
+  const hasUnsavedData = currentStep !== 'success' && Boolean(formData.pricePaid);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedData && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      if (window.confirm('Leave without saving your submission?')) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hasUnsavedData) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedData]);
 
   // Bot protection state
   const [honeypot, setHoneypot] = useState('');
@@ -909,6 +934,25 @@ export default function Log() {
             ))}
           </div>
 
+          {/* Sticky compact step counter — stays visible when user scrolls */}
+          <div className="sticky top-16 z-20 bg-white py-2 -mx-4 px-4 border-b border-gray-100 mb-4 text-center">
+            <p className="text-sm font-medium text-text-primary">
+              Step {typeof currentStep === 'number' ? currentStep : 3} of {steps.length}
+            </p>
+            <div className="flex gap-1 mt-1 justify-center">
+              {steps.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1 w-8 rounded-full ${
+                    i + 1 < currentStep ? 'bg-rose-accent'
+                    : i + 1 === currentStep ? 'bg-rose-accent/50'
+                    : 'bg-gray-200'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* Receipt parsed banner */}
           {parsedBanner && (
             <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
@@ -970,10 +1014,27 @@ export default function Log() {
               </div>
             )}
 
-            {/* Validation error */}
+            {/* Validation / submission error */}
             {submitError && (
-              <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                {submitError}
+              <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-red-700">{submitError}</p>
+                  {currentStep === 3 && (
+                    <button
+                      onClick={() => handleSubmit()}
+                      disabled={isSubmitting}
+                      className="shrink-0 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition disabled:opacity-40"
+                    >
+                      Try again
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-red-400 mt-2">
+                  Still not working?{' '}
+                  <a href="mailto:hello@knowbeforeyouglow.com" className="underline">
+                    Contact support
+                  </a>
+                </p>
               </div>
             )}
 

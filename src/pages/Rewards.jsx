@@ -52,18 +52,49 @@ export default function Rewards() {
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="glow-card p-8">
-          <h1 className="text-2xl font-bold text-text-primary mb-2">My Rewards</h1>
-          <p className="text-text-secondary mb-6">
-            Sign in to see your contributions and badges.
-          </p>
-          <button
-            onClick={() => openAuthModal('signup')}
-            className="px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            Sign Up
-          </button>
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-text-primary mb-6">My Rewards</h1>
+        <div className="relative">
+          <div className="opacity-50 pointer-events-none blur-[2px] space-y-4" aria-hidden="true">
+            <div className="glow-card p-6" style={{ background: 'linear-gradient(135deg, #FBE8EF, #FCE7F3)' }}>
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full" style={{ background: 'rgba(201, 79, 120, 0.1)' }}>
+                  <Trophy className="w-8 h-8 text-rose-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-text-secondary mb-1">Your Contributions</p>
+                  <p className="text-3xl font-bold" style={{ color: '#C94F78' }}>7</p>
+                  <p className="text-xs text-text-secondary mt-1">prices shared this month</p>
+                </div>
+              </div>
+            </div>
+            <div className="glow-card p-5">
+              <div className="flex items-center gap-3">
+                <Star className="w-5 h-5 text-rose-accent" />
+                <div>
+                  <p className="font-semibold text-text-primary">Pioneer Badge</p>
+                  <p className="text-xs text-text-secondary">First to report at 2 providers</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.75)' }}>
+            <Trophy className="w-10 h-10 text-rose-accent mb-3" />
+            <p className="text-lg font-bold text-text-primary mb-1 text-center px-4">Earn badges for sharing prices</p>
+            <p className="text-sm text-text-secondary mb-5 text-center px-8">Track your contributions and unlock Pioneer status.</p>
+            <button
+              onClick={() => openAuthModal('signup')}
+              className="px-6 py-3 bg-rose-accent text-white font-semibold rounded-xl hover:bg-rose-dark transition-colors"
+            >
+              Create free account
+            </button>
+            <button
+              onClick={() => openAuthModal('signin')}
+              className="mt-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
         </div>
       </div>
     );

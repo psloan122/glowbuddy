@@ -92,19 +92,45 @@ export default function MyTreatments() {
   }
 
   if (!user) {
+    const mockEntries = [
+      { proc: 'Botox', provider: 'Skin Studio NYC', city: 'New York, NY', price: '$320', date: 'Mar 2026' },
+      { proc: 'Lip Filler', provider: 'Glow Aesthetics', city: 'Austin, TX', price: '$650', date: 'Jan 2026' },
+      { proc: 'RF Microneedling', provider: 'BeautyMD', city: 'Los Angeles, CA', price: '$850', date: 'Nov 2025' },
+    ];
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <div className="glow-card p-8">
-          <h1 className="text-2xl font-bold text-text-primary mb-2">My Treatments</h1>
-          <p className="text-text-secondary mb-6">
-            Sign in to track your treatments and see when you're due for a refresh.
-          </p>
-          <button
-            onClick={() => openAuthModal('signup')}
-            className="px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-          >
-            Sign Up
-          </button>
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-text-primary mb-6">My Treatments</h1>
+        <div className="relative">
+          <div className="opacity-50 pointer-events-none blur-[2px] space-y-3" aria-hidden="true">
+            {mockEntries.map((item, i) => (
+              <div key={i} className="glow-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-text-primary">{item.proc}</p>
+                    <p className="text-sm text-text-secondary">{item.provider} · {item.city}</p>
+                    <p className="text-xs text-text-secondary mt-0.5">{item.date}</p>
+                  </div>
+                  <p className="text-xl font-bold text-rose-accent">{item.price}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.75)' }}>
+            <p className="text-lg font-bold text-text-primary mb-1 text-center px-4">Track every treatment in one place</p>
+            <p className="text-sm text-text-secondary mb-5 text-center px-8">See your history, spending trends, and when you're due for a refresh.</p>
+            <button
+              onClick={() => openAuthModal('signup')}
+              className="px-6 py-3 bg-rose-accent text-white font-semibold rounded-xl hover:bg-rose-dark transition-colors"
+            >
+              Create free account
+            </button>
+            <button
+              onClick={() => openAuthModal('signin')}
+              className="mt-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -211,17 +237,17 @@ export default function MyTreatments() {
 
       {entries.length === 0 ? (
         <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary mb-2">
-            Your price history will live here.
+          <p className="text-xl font-bold text-text-primary mb-2">
+            Your price history starts here
           </p>
-          <p className="text-sm text-text-secondary mb-4">
-            Every treatment you share helps someone in your city know what to expect.
+          <p className="text-sm text-text-secondary mb-6">
+            Every treatment you log helps someone in your city know what to expect before they book.
           </p>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-block px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
+            className="inline-block px-6 py-3 bg-rose-accent text-white font-semibold rounded-xl hover:bg-rose-dark transition-colors"
           >
-            Share your first price
+            Log a price
           </button>
         </div>
       ) : (

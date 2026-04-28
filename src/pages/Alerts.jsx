@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, BellOff, Plus, Sparkles } from 'lucide-react';
 import { AuthContext } from '../App';
 import { getUserAlerts, deleteAlert, toggleAlert, markTriggersRead, fetchCurrentAvg, createAlert } from '../lib/priceAlerts';
@@ -126,19 +127,52 @@ export default function Alerts() {
   const suggestedProcedures = (procedureTags || []).filter((p) => !existingProcedures.has(p));
 
   if (!user) {
+    const mockAlerts = [
+      { proc: 'Botox', city: 'New York, NY', target: '$14/unit', current: '$17/unit' },
+      { proc: 'Lip Filler', city: 'Austin, TX', target: '$550', current: '$680' },
+    ];
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <Bell className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-text-primary mb-2">Price Alerts</h1>
-        <p className="text-text-secondary mb-6">
-          Sign in to set alerts and get notified when prices drop.
-        </p>
-        <button
-          onClick={() => openAuthModal('signup')}
-          className="px-6 py-3 bg-rose-accent text-white font-medium rounded-xl hover:bg-rose-dark transition-colors"
-        >
-          Sign Up to Get Alerts
-        </button>
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-text-primary mb-6 flex items-center gap-2">
+          <Bell size={28} />
+          Price Alerts
+        </h1>
+        <div className="relative">
+          <div className="opacity-50 pointer-events-none blur-[2px] space-y-4" aria-hidden="true">
+            {mockAlerts.map((item, i) => (
+              <div key={i} className="glow-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-text-primary">{item.proc}</p>
+                    <p className="text-sm text-text-secondary">{item.city}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-text-secondary">Alert below</p>
+                    <p className="font-bold text-rose-accent">{item.target}</p>
+                    <p className="text-xs text-text-secondary">Avg: {item.current}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.75)' }}>
+            <Bell className="w-10 h-10 text-rose-accent mb-3" />
+            <p className="text-lg font-bold text-text-primary mb-1 text-center px-4">Get notified when prices drop</p>
+            <p className="text-sm text-text-secondary mb-5 text-center px-8">Set a target price and we'll alert you when it's hit in your city.</p>
+            <button
+              onClick={() => openAuthModal('signup')}
+              className="px-6 py-3 bg-rose-accent text-white font-semibold rounded-xl hover:bg-rose-dark transition-colors"
+            >
+              Create free account
+            </button>
+            <button
+              onClick={() => openAuthModal('signin')}
+              className="mt-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -181,8 +215,12 @@ export default function Alerts() {
       {alerts.length === 0 ? (
         <div className="glow-card p-8 text-center">
           <BellOff className="w-10 h-10 text-text-secondary mx-auto mb-3" />
-          <p className="text-text-secondary mb-4">
-            No alerts yet. Set one on any treatment page to get notified when prices drop.
+          <p className="text-text-secondary mb-2">No alerts yet.</p>
+          <p className="text-sm text-text-secondary mb-5">
+            Get notified when prices drop at providers near you.{' '}
+            <Link to="/browse" className="text-rose-accent font-medium hover:underline">
+              Browse providers →
+            </Link>
           </p>
           <button
             onClick={() => setShowModal(true)}
