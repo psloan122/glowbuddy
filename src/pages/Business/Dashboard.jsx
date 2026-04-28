@@ -714,6 +714,7 @@ export default function Dashboard() {
 
       {/* ===== OVERVIEW TAB ===== */}
       {activeTab === 'Overview' && (() => {
+        const BIZ_FONT = 'system-ui, -apple-system, sans-serif';
         // ── Checklist ────────────────────────────────────────────────
         const hasPrices = pricing.some(p => p.source === 'provider_listed');
         const hasHours  = !!provider.hours_text;
@@ -781,40 +782,40 @@ export default function Dashboard() {
         const providerPrices = pricing.filter(p => p.source === 'provider_listed');
 
         return (
-          <div>
+          <div style={{ fontFamily: BIZ_FONT }}>
             {/* ── Section 1: Completion checklist ── */}
             {!onboardingComplete && (
-              <div className="glow-card p-6 mb-8">
+              <div className="rounded-lg border border-gray-200 bg-white p-6 mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-bold text-text-primary">Get your listing ready</h2>
-                  <span className="text-sm text-text-secondary">{completedCount}/5 complete</span>
+                  <h2 className="text-[15px] font-semibold text-text-primary" style={{ fontFamily: BIZ_FONT }}>Get your listing ready</h2>
+                  <span className="text-xs text-text-secondary font-medium">{completedCount}/5</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-5">
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mb-5">
                   <div
-                    className="bg-rose-accent h-2 rounded-full transition-all"
-                    style={{ width: `${(completedCount / 5) * 100}%` }}
+                    className="h-1.5 rounded-full transition-all"
+                    style={{ width: `${(completedCount / 5) * 100}%`, background: 'var(--color-biz-teal)' }}
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {checklistItems.map(item => (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition ${item.done ? '' : 'hover:bg-gray-50 cursor-pointer'}`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition ${item.done ? '' : 'hover:bg-gray-50 cursor-pointer'}`}
                       onClick={item.done ? undefined : item.action || undefined}
                     >
                       {item.done
-                        ? <CheckCircle size={20} className="text-verified shrink-0" />
-                        : <Circle size={20} className="text-gray-300 shrink-0" />}
+                        ? <CheckCircle size={18} style={{ color: 'var(--color-biz-teal)' }} className="shrink-0" />
+                        : <Circle size={18} className="text-gray-300 shrink-0" />}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium ${item.done ? 'text-text-secondary line-through' : 'text-text-primary'}`}>
+                        <p className={`text-[13px] font-medium ${item.done ? 'text-text-secondary line-through' : 'text-text-primary'}`} style={{ fontFamily: BIZ_FONT }}>
                           {item.label}
                         </p>
                         {!item.done && (
-                          <p className="text-xs text-text-secondary mt-0.5">{item.description}</p>
+                          <p className="text-[11px] text-text-secondary mt-0.5">{item.description}</p>
                         )}
                       </div>
                       {!item.done && item.action && (
-                        <ChevronRight size={16} className="text-text-secondary shrink-0" />
+                        <ChevronRight size={14} className="text-text-secondary shrink-0" />
                       )}
                     </div>
                   ))}
@@ -822,200 +823,167 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* ── Section 2: Stats ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
-              <div className="glow-card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-rose-light flex items-center justify-center shrink-0">
-                    <Eye size={16} className="text-rose-accent" />
+            {/* ── Section 2: KPI cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+              {[
+                {
+                  label: 'Profile Views',
+                  value: provider.page_view_count_week || 0,
+                  sub: (provider.page_view_count_week || 0) === 0
+                    ? 'Add prices to appear in search'
+                    : `this week · ${provider.page_view_count_total || 0} total`,
+                  icon: <Eye size={15} />,
+                  color: '#0D9488',
+                },
+                {
+                  label: 'Rating',
+                  value: provider.avg_rating || '--',
+                  sub: dashReviews.length === 0 ? 'No reviews yet' : `${dashReviews.length} review${dashReviews.length !== 1 ? 's' : ''}`,
+                  icon: <Star size={15} />,
+                  color: '#D97706',
+                },
+                {
+                  label: 'Submissions',
+                  value: communityProcedures.length,
+                  sub: communityProcedures.length === 0 ? 'Patient-reported prices' : 'from patients',
+                  icon: <Users size={15} />,
+                  color: '#7C3AED',
+                },
+                {
+                  label: 'Avg Patient Price',
+                  value: communityAvgPrice !== null ? `$${communityAvgPrice}` : '--',
+                  sub: 'patient-reported avg',
+                  icon: <DollarSign size={15} />,
+                  color: '#0D9488',
+                },
+                {
+                  label: 'Avg Menu Price',
+                  value: menuAvgPrice !== null ? `$${menuAvgPrice}` : '--',
+                  sub: 'your listed avg',
+                  icon: <BarChart3 size={15} />,
+                  color: '#2563EB',
+                },
+              ].map(kpi => (
+                <div key={kpi.label} className="rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span style={{ color: kpi.color }}>{kpi.icon}</span>
+                    <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wide">{kpi.label}</span>
                   </div>
-                  <span className="text-xs text-text-secondary leading-tight">Profile Views</span>
+                  <p className="text-[28px] font-bold text-text-primary leading-none" style={{ fontFamily: BIZ_FONT }}>
+                    {kpi.value}
+                  </p>
+                  <p className="text-[11px] text-text-secondary mt-1.5">{kpi.sub}</p>
                 </div>
-                <p className="text-2xl font-bold text-text-primary">
-                  {provider.page_view_count_week || 0}
-                </p>
-                {(provider.page_view_count_week || 0) === 0 ? (
-                  <p className="text-xs text-text-secondary mt-1 leading-tight">Add prices to appear in search</p>
-                ) : (
-                  <p className="text-xs text-text-secondary mt-1">this week &middot; {provider.page_view_count_total || 0} all time</p>
-                )}
-              </div>
-
-              <div className="glow-card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                    <Star size={16} className="text-amber-500" />
-                  </div>
-                  <span className="text-xs text-text-secondary leading-tight">Rating</span>
-                </div>
-                <p className="text-2xl font-bold text-text-primary">
-                  {provider.avg_rating || '--'}
-                </p>
-                {dashReviews.length === 0 ? (
-                  <button
-                    onClick={copyPublicUrl}
-                    className="text-xs text-rose-accent mt-1 hover:underline text-left leading-tight"
-                  >
-                    Share page to get first review
-                  </button>
-                ) : (
-                  <p className="text-xs text-text-secondary mt-1">{dashReviews.length} review{dashReviews.length !== 1 ? 's' : ''}</p>
-                )}
-              </div>
-
-              <div className="glow-card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-community/10 flex items-center justify-center shrink-0">
-                    <Users size={16} className="text-community" />
-                  </div>
-                  <span className="text-xs text-text-secondary leading-tight">Community Submissions</span>
-                </div>
-                <p className="text-2xl font-bold text-text-primary">{communityProcedures.length}</p>
-                {communityProcedures.length === 0 && (
-                  <p className="text-xs text-text-secondary mt-1 leading-tight">Patients share what they paid</p>
-                )}
-              </div>
-
-              <div className="glow-card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-community/10 flex items-center justify-center shrink-0">
-                    <DollarSign size={16} className="text-community" />
-                  </div>
-                  <span className="text-xs text-text-secondary leading-tight">Avg Patient-Reported</span>
-                </div>
-                <p className="text-2xl font-bold text-text-primary">
-                  {communityAvgPrice !== null ? `$${communityAvgPrice}` : '--'}
-                </p>
-              </div>
-
-              <div className="glow-card p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-verified/10 flex items-center justify-center shrink-0">
-                    <BarChart3 size={16} className="text-verified" />
-                  </div>
-                  <span className="text-xs text-text-secondary leading-tight">Avg Menu Price</span>
-                </div>
-                <p className="text-2xl font-bold text-text-primary">
-                  {menuAvgPrice !== null ? `$${menuAvgPrice}` : '--'}
-                </p>
-              </div>
+              ))}
             </div>
 
             {/* ── Section 3: Quick actions ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-              <button
-                onClick={() => handleTabChange('Menu')}
-                className="glow-card p-4 text-center hover:shadow-md transition group"
-              >
-                <DollarSign size={22} className="mx-auto mb-2 text-rose-accent" />
-                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">
-                  {hasPrices ? 'Edit prices' : 'Add prices'}
-                </p>
-              </button>
-              <button
-                onClick={copyPublicUrl}
-                className="glow-card p-4 text-center hover:shadow-md transition group"
-              >
-                {copySuccess
-                  ? <CheckCircle size={22} className="mx-auto mb-2 text-verified" />
-                  : <Share2 size={22} className="mx-auto mb-2 text-rose-accent" />}
-                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">
-                  {copySuccess ? 'Link copied!' : 'Share your page'}
-                </p>
-              </button>
-              <button
-                onClick={() => handleTabChange('Reviews')}
-                className="glow-card p-4 text-center hover:shadow-md transition group"
-              >
-                <Star size={22} className="mx-auto mb-2 text-rose-accent" />
-                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">View reviews</p>
-              </button>
-              <button
-                onClick={() => handleTabChange('Settings')}
-                className="glow-card p-4 text-center hover:shadow-md transition group"
-              >
-                <SettingsIcon size={22} className="mx-auto mb-2 text-rose-accent" />
-                <p className="text-sm font-medium text-text-primary group-hover:text-rose-accent transition-colors">Edit listing</p>
-              </button>
-            </div>
-
-            {/* ── Section 4: Activity feed ── */}
-            <div className="glow-card p-6 mb-8">
-              <h2 className="text-lg font-bold text-text-primary mb-4">Recent Activity</h2>
-              {activities.length > 0 ? (
-                <div className="space-y-1">
-                  {activities.map(a => (
-                    <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        a.type === 'price' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                      }`}>
-                        {a.type === 'price' ? <DollarSign size={14} /> : <Star size={14} />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm text-text-primary">{a.description}</p>
-                        <p className="text-xs text-text-secondary mt-0.5">
-                          {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-text-secondary text-center py-4">
-                  No activity yet. Add prices and share your page to start seeing activity here.
-                </p>
-              )}
-            </div>
-
-            {/* ── Section 5: Prices preview ── */}
-            <div className="glow-card p-6 mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-text-primary">Your Prices</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: hasPrices ? 'Edit prices' : 'Add prices', icon: <DollarSign size={20} />, action: () => handleTabChange('Menu') },
+                { label: copySuccess ? 'Link copied!' : 'Share your page', icon: copySuccess ? <CheckCircle size={20} /> : <Share2 size={20} />, action: copyPublicUrl },
+                { label: 'View reviews', icon: <Star size={20} />, action: () => handleTabChange('Reviews') },
+                { label: 'Edit listing', icon: <SettingsIcon size={20} />, action: () => handleTabChange('Settings') },
+              ].map(qa => (
                 <button
-                  onClick={() => handleTabChange('Menu')}
-                  className="text-sm text-rose-accent font-medium hover:text-rose-dark transition-colors"
+                  key={qa.label}
+                  onClick={qa.action}
+                  className="rounded-lg border border-gray-200 bg-white p-4 text-center hover:border-biz-teal/40 transition group"
                 >
-                  {providerPrices.length > 0 ? 'Edit prices →' : 'Add prices →'}
+                  <span className="text-text-secondary group-hover:text-biz-teal transition-colors inline-block mb-1.5">{qa.icon}</span>
+                  <p className="text-[13px] font-medium text-text-primary group-hover:text-biz-teal transition-colors" style={{ fontFamily: BIZ_FONT }}>
+                    {qa.label}
+                  </p>
                 </button>
+              ))}
+            </div>
+
+            {/* ── Section 4 + 5: Two-column — Activity feed + Prices preview ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {/* Activity feed */}
+              <div className="rounded-lg border border-gray-200 bg-white p-5">
+                <h3 className="text-[13px] font-semibold text-text-primary uppercase tracking-wide mb-4" style={{ fontFamily: BIZ_FONT }}>Recent Activity</h3>
+                {activities.length > 0 ? (
+                  <div className="space-y-0">
+                    {activities.map(a => (
+                      <div key={a.id} className="flex items-start gap-3 py-2.5 border-b border-gray-100 last:border-0">
+                        <div
+                          className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+                          style={{
+                            background: a.type === 'price' ? '#ECFDF5' : '#FFFBEB',
+                            color: a.type === 'price' ? '#059669' : '#D97706',
+                          }}
+                        >
+                          {a.type === 'price' ? <DollarSign size={13} /> : <Star size={13} />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[13px] text-text-primary leading-snug">{a.description}</p>
+                          <p className="text-[11px] text-text-secondary mt-0.5">
+                            {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-text-secondary text-center py-6">
+                    No activity yet. Add prices and share your page to get started.
+                  </p>
+                )}
               </div>
-              {providerPrices.length > 0 ? (
-                <div className="space-y-0">
-                  {providerPrices.slice(0, 5).map(p => (
-                    <div key={p.id} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
-                      <span className="text-sm text-text-primary">{p.procedure_type}</span>
-                      <span className="text-sm font-bold text-text-primary">
-                        ${Math.round(p.price)}
-                        {p.price_label && (
-                          <span className="font-normal text-text-secondary text-xs ml-1">
-                            /{p.price_label.replace('per_', '')}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                  {providerPrices.length > 5 && (
-                    <p className="text-xs text-text-secondary text-center pt-3">
-                      +{providerPrices.length - 5} more · <button onClick={() => handleTabChange('Menu')} className="text-rose-accent hover:underline">see all</button>
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-sm text-text-secondary mb-3">No prices published yet.</p>
+
+              {/* Prices preview */}
+              <div className="rounded-lg border border-gray-200 bg-white p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[13px] font-semibold text-text-primary uppercase tracking-wide" style={{ fontFamily: BIZ_FONT }}>Your Prices</h3>
                   <button
                     onClick={() => handleTabChange('Menu')}
-                    className="px-4 py-2 bg-rose-accent text-white rounded-xl text-sm font-medium hover:bg-rose-dark transition-colors"
+                    className="text-[12px] font-medium transition-colors"
+                    style={{ color: 'var(--color-biz-teal)' }}
                   >
-                    Add your first price
+                    {providerPrices.length > 0 ? 'View all →' : 'Add prices →'}
                   </button>
                 </div>
-              )}
+                {providerPrices.length > 0 ? (
+                  <div>
+                    {providerPrices.slice(0, 5).map(p => (
+                      <div key={p.id} className="flex justify-between items-center py-2.5 border-b border-gray-100 last:border-0">
+                        <span className="text-[13px] text-text-primary">{p.procedure_type}</span>
+                        <span className="text-[13px] font-bold text-text-primary" style={{ fontFamily: BIZ_FONT }}>
+                          ${Math.round(p.price)}
+                          {p.price_label && (
+                            <span className="font-normal text-text-secondary text-[11px] ml-1">
+                              /{p.price_label.replace('per_', '')}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    {providerPrices.length > 5 && (
+                      <p className="text-[11px] text-text-secondary text-center pt-3">
+                        +{providerPrices.length - 5} more
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-[13px] text-text-secondary mb-3">No prices published yet.</p>
+                    <button
+                      onClick={() => handleTabChange('Menu')}
+                      className="px-4 py-2 text-white rounded-md text-[13px] font-medium transition-colors"
+                      style={{ background: 'var(--color-biz-teal)' }}
+                    >
+                      Add your first price
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── Section 6: Page views chart ── */}
             {!pageViewsLoading && pageViewsByWeek.some(w => w.calls > 0) && (
-              <div className="glow-card p-6 mb-8">
-                <h3 className="text-sm font-semibold text-text-primary mb-4">Profile Views by Week</h3>
+              <div className="rounded-lg border border-gray-200 bg-white p-5 mb-6">
+                <h3 className="text-[13px] font-semibold text-text-primary uppercase tracking-wide mb-4" style={{ fontFamily: BIZ_FONT }}>Profile Views by Week</h3>
                 <CallVolumeChart data={pageViewsByWeek} chart="bar" />
               </div>
             )}
@@ -1971,18 +1939,19 @@ function UpgradeCTA({ providerId, tierHelpers }) {
   }
 
   return (
-    <div className="glow-card p-5 bg-gradient-to-r from-rose-light/40 to-warm-white border border-rose-accent/20">
+    <div className="rounded-lg border border-biz-teal/20 bg-biz-navy/[0.03] p-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="font-semibold text-text-primary">
+          <p className="text-[14px] font-semibold text-text-primary" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             Upgrade to {path.label} for {path.pitch}
           </p>
-          <p className="text-sm text-text-secondary">{path.price}</p>
+          <p className="text-[13px] text-text-secondary">{path.price}</p>
         </div>
         <button
           onClick={handleUpgrade}
           disabled={checking}
-          className="bg-rose-accent text-white px-6 py-2.5 rounded-full font-semibold text-sm hover:bg-rose-dark transition shrink-0 disabled:opacity-50"
+          className="text-white px-5 py-2 rounded-md text-[13px] font-semibold transition shrink-0 disabled:opacity-50"
+          style={{ background: 'var(--color-biz-teal)', fontFamily: 'system-ui, -apple-system, sans-serif' }}
         >
           {checking ? (
             <span className="inline-flex items-center gap-2">
@@ -1995,7 +1964,7 @@ function UpgradeCTA({ providerId, tierHelpers }) {
         </button>
       </div>
       {error && (
-        <p className="text-sm mt-2" style={{ color: '#991B1B' }}>{error}</p>
+        <p className="text-[13px] mt-2" style={{ color: '#991B1B' }}>{error}</p>
       )}
     </div>
   );
