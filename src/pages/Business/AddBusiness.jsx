@@ -72,6 +72,8 @@ export default function AddBusiness() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [duplicateProvider, setDuplicateProvider] = useState(null); // existing match
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     document.title = 'Add Your Business | Know Before You Glow';
@@ -250,6 +252,30 @@ export default function AddBusiness() {
       setSubmitError('');
 
       try {
+        // Check for existing provider by name + city + state before inserting
+        const { data: nameMatch } = await supabase
+          .from('providers')
+          .select('id, name, slug, is_claimed, owner_user_id')
+          .ilike('name', details.name)
+          .ilike('city', details.city)
+          .eq('state', details.state)
+          .limit(1);
+
+        const match = nameMatch?.[0] ?? null;
+
+        if (match) {
+          if (match.owner_user_id === user.id) {
+            // Already owned by this user — go straight to dashboard
+            navigate('/business/dashboard');
+            showToast('Your listing is already set up!');
+            return;
+          }
+          // Let the render layer decide what to show based on is_claimed
+          setDuplicateProvider(match);
+          setSubmitting(false);
+          return;
+        }
+
         // Generate slug
         let slug = providerSlugFromParts(
           details.name,
@@ -257,14 +283,14 @@ export default function AddBusiness() {
           details.state,
         );
 
-        // Check uniqueness
-        const { data: existing } = await supabase
+        // Check slug uniqueness (separate from name+city uniqueness)
+        const { data: slugMatch } = await supabase
           .from('providers')
           .select('id')
           .eq('slug', slug)
           .maybeSingle();
 
-        if (existing) {
+        if (slugMatch) {
           const suffix = Math.random().toString(36).slice(2, 6);
           slug = `${slug}-${suffix}`;
         }
@@ -317,6 +343,34 @@ export default function AddBusiness() {
 
     submit();
   }, [step, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Claim an existing unclaimed provider row found during the duplicate check
+  async function handleClaimExisting() {
+    if (!duplicateProvider || !user) return;
+    setClaiming(true);
+    try {
+      await supabase.from('providers').update({
+        owner_user_id: user.id,
+        is_claimed: true,
+        is_verified: true,
+        claimed_at: new Date().toISOString(),
+        onboarding_completed: false,
+      }).eq('id', duplicateProvider.id);
+
+      await supabase.auth.updateUser({ data: { user_role: 'provider' } });
+      await supabase.from('profiles').upsert(
+        { user_id: user.id, role: 'provider' },
+        { onConflict: 'user_id' },
+      );
+
+      navigate('/business/dashboard');
+      showToast('Listing claimed successfully!');
+    } catch {
+      setClaiming(false);
+      setSubmitError('Could not claim the listing. Please try again.');
+      setDuplicateProvider(null);
+    }
+  }
 
   // ── Step indicator ──
   function StepIndicator() {
@@ -893,7 +947,58 @@ export default function AddBusiness() {
         </div>
       )}
 
-      {submitError && !submitting && (
+      {duplicateProvider && !submitting && (
+        <div className="glow-card p-8 text-center">
+          {duplicateProvider.is_claimed ? (
+            <>
+              <AlertCircle size={40} className="text-amber-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-text-primary mb-2">
+                Already claimed
+              </h2>
+              <p className="text-text-secondary mb-4">
+                <strong>{details.name}</strong> in {details.city} has already been
+                claimed by another account. If you believe this is an error,
+                contact{' '}
+                <a
+                  href="mailto:support@knowbeforeyouglow.com"
+                  className="text-rose-accent hover:underline"
+                >
+                  support@knowbeforeyouglow.com
+                </a>
+                .
+              </p>
+            </>
+          ) : (
+            <>
+              <CheckCircle size={40} className="text-rose-accent mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-text-primary mb-2">
+                This provider already exists
+              </h2>
+              <p className="text-text-secondary mb-6">
+                <strong>{details.name}</strong> in {details.city} is already in our
+                directory but hasn&apos;t been claimed yet. Claim it now to manage
+                your listing.
+              </p>
+              <button
+                onClick={handleClaimExisting}
+                disabled={claiming}
+                className="bg-rose-accent text-white px-6 py-3 rounded-full font-semibold hover:bg-rose-dark transition disabled:opacity-50 mb-3 w-full"
+              >
+                {claiming ? (
+                  <span className="inline-flex items-center gap-2 justify-center">
+                    <Loader2 size={16} className="animate-spin" />
+                    Claiming...
+                  </span>
+                ) : (
+                  'Claim This Listing →'
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {submitError && !submitting && !duplicateProvider && (
         <div className="glow-card p-8 text-center">
           <AlertCircle size={40} className="text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-text-primary mb-2">
