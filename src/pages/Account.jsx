@@ -69,7 +69,7 @@ const EMAIL_PREFS = [
 ];
 
 export default function Account() {
-  const { user, openAuthModal } = useContext(AuthContext);
+  const { user, openAuthModal, showToast } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isWelcome = searchParams.get('welcome') === 'true';
@@ -247,19 +247,19 @@ export default function Account() {
   }, [user?.id]);
 
   async function togglePref(key) {
-    const newValue = !prefs[key];
+    const prevValue = prefs[key];
+    const newValue = !prevValue;
     setPrefs((prev) => ({ ...prev, [key]: newValue }));
-    setSaving(true);
-    setSaved(false);
 
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ [key]: newValue })
       .eq('user_id', user.id);
 
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (error) {
+      setPrefs((prev) => ({ ...prev, [key]: prevValue }));
+      showToast('Couldn\'t save preference — please try again.', 'error');
+    }
   }
 
   function dismissWelcome() {

@@ -39,7 +39,7 @@ export default function Verified() {
           className="inline-block w-full py-3 text-white font-semibold rounded-xl hover:opacity-90 transition text-center"
           style={{ backgroundColor: '#C94F78' }}
         >
-          Share your first price &rarr;
+          Log a price &rarr;
         </Link>
 
         <Link

@@ -1002,7 +1002,7 @@ export default function Home() {
                   className="btn-editorial btn-editorial-primary"
                 >
                   <Search size={12} />
-                  Find Prices
+                  Browse providers near you
                 </Link>
               </div>
             </div>

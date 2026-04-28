@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { PlusCircle, Bell, BarChart3, UserPlus } from 'lucide-react';
 
 const ACTIONS = [
-  { to: '/log', icon: PlusCircle, label: 'Log treatment' },
+  { to: '/log', icon: PlusCircle, label: 'Log a price' },
   { to: '/alerts', icon: Bell, label: 'Set alert' },
   { to: '/prices', icon: BarChart3, label: 'City report' },
   { to: '/refer', icon: UserPlus, label: 'Invite friend' },

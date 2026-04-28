@@ -609,8 +609,33 @@ export default function ProviderProfile() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <SkeletonGrid count={3} />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
+        {/* Hero skeleton */}
+        <div className="bg-white py-10 md:py-14 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-6" style={{ borderBottom: '3px solid #F0EBE6' }}>
+          <div className="h-3 bg-gray-100 rounded w-28 mb-6" />
+          <div className="flex items-start gap-5">
+            <div className="w-[72px] h-[72px] rounded-full bg-gray-100 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="h-7 bg-gray-100 rounded w-2/3 mb-3" />
+              <div className="h-3 bg-gray-100 rounded w-1/3 mb-2" />
+              <div className="h-3 bg-gray-100 rounded w-1/4" />
+            </div>
+          </div>
+        </div>
+        {/* Price card skeleton */}
+        <div className="glow-card p-6 mb-6">
+          <div className="h-5 bg-gray-100 rounded w-1/2 mb-5" />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex justify-between items-center">
+                <div className="h-4 bg-gray-100 rounded w-2/5" />
+                <div className="h-4 bg-gray-100 rounded w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Photo placeholder */}
+        <div className="h-48 bg-gray-100 rounded-xl mb-6" />
       </div>
     );
   }
@@ -673,14 +698,15 @@ export default function ProviderProfile() {
       <div className="bg-white" style={{ borderBottom: '3px solid #E8347A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
           {/* Back to /browse — preserves city and any persisted filters */}
-          <Link
-            to={backToBrowseHref}
-            className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-text-secondary hover:text-hot-pink mb-6 transition-colors"
-            style={{ letterSpacing: '0.10em' }}
-          >
-            <ChevronUp size={12} className="rotate-[-90deg]" />
-            {providerCity ? `Back to ${providerCity} prices` : 'Back to all prices'}
-          </Link>
+          <div className="md:contents sticky top-16 z-10 bg-white border-b border-gray-100 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 md:border-0 md:bg-transparent md:mx-0 md:px-0 md:py-0 mb-4 md:mb-6">
+            <Link
+              to={backToBrowseHref}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-primary hover:text-hot-pink transition-colors py-1"
+            >
+              <ChevronUp size={16} className="rotate-[-90deg]" />
+              {providerCity ? `Back to ${providerCity} prices` : 'Back to all prices'}
+            </Link>
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             <div className="flex items-start gap-5 min-w-0 flex-1">
               <ProviderAvatar name={providerName} size={72} />
@@ -1317,6 +1343,16 @@ export default function ProviderProfile() {
               </div>
             ))}
           </div>
+          {allPhotos.length > 1 && (
+            <div className="flex justify-center items-center gap-1.5 mt-2">
+              {allPhotos.slice(0, 5).map((_, i) => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-rose-accent' : 'bg-gray-300'}`} />
+              ))}
+              {allPhotos.length > 5 && (
+                <span className="text-[10px] text-text-secondary ml-1">+{allPhotos.length - 5}</span>
+              )}
+            </div>
+          )}
           {hasGooglePhotos && (
             <p className="text-[10px] text-gray-400 text-right pr-2 mt-1">
               Photos via Google
