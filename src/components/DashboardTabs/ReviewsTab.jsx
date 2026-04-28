@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import RatingSummary from '../RatingSummary';
 import ReviewCard from '../ReviewCard';
 
+const BIZ_FONT = 'system-ui, -apple-system, sans-serif';
+
 export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
   const [filter, setFilter] = useState('all');
   const [respondingTo, setRespondingTo] = useState(null);
@@ -44,8 +46,8 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
   }
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-text-primary mb-6">
+    <div style={{ fontFamily: BIZ_FONT }}>
+      <h2 className="text-[18px] font-semibold text-text-primary mb-6" style={{ fontFamily: BIZ_FONT }}>
         Patient Reviews
       </h2>
 
@@ -62,7 +64,7 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-text-primary focus:border-rose-accent outline-none transition"
+            className="px-3 py-2 rounded-md border border-gray-200 text-[13px] text-text-primary focus:border-biz-teal outline-none transition"
           >
             <option value="all">All Reviews ({reviews.length})</option>
             <option value="needs_response">
@@ -74,7 +76,7 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
 
       {/* Error banner */}
       {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+        <div className="mb-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-3">
           {error}
         </div>
       )}
@@ -99,16 +101,17 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
                         placeholder="Write a response..."
                         rows={2}
                         maxLength={200}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm resize-none"
+                        className="w-full px-3 py-2 rounded-md border border-gray-200 focus:border-biz-teal focus:ring-2 focus:ring-biz-teal/20 outline-none transition text-[13px] resize-none"
                       />
                       <div className="flex items-center gap-2">
-                        <p className="text-xs text-text-secondary flex-1">
+                        <p className="text-[11px] text-text-secondary flex-1">
                           {responseText.length}/200
                         </p>
                         <button
                           onClick={() => handleSubmitResponse(review.id)}
                           disabled={saving || !responseText.trim()}
-                          className="bg-rose-accent text-white px-4 py-1.5 rounded-full text-xs font-semibold hover:bg-rose-dark transition disabled:opacity-50 inline-flex items-center gap-1"
+                          className="text-white px-4 py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-50 inline-flex items-center gap-1"
+                          style={{ background: 'var(--color-biz-teal)' }}
                         >
                           {saving && <Loader2 size={12} className="animate-spin" />}
                           Post Response
@@ -118,7 +121,7 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
                             setRespondingTo(null);
                             setResponseText('');
                           }}
-                          className="text-xs text-text-secondary hover:text-text-primary transition"
+                          className="text-[12px] text-text-secondary hover:text-text-primary transition"
                         >
                           Cancel
                         </button>
@@ -127,7 +130,8 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
                   ) : (
                     <button
                       onClick={() => setRespondingTo(review.id)}
-                      className="text-xs text-rose-accent hover:text-rose-dark transition font-medium"
+                      className="text-[12px] font-medium transition"
+                      style={{ color: 'var(--color-biz-teal)' }}
                     >
                       Respond to this review
                     </button>
@@ -138,8 +142,8 @@ export default function DashboardReviewsTab({ reviews, provider, onRefresh }) {
           ))}
         </div>
       ) : (
-        <div className="glow-card p-8 text-center">
-          <p className="text-text-secondary">
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+          <p className="text-[13px] text-text-secondary">
             {filter === 'needs_response'
               ? 'All reviews have been responded to.'
               : 'No reviews yet.'}
