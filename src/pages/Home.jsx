@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X } from 'lucide-react';
+import { Search, TrendingDown, Calculator, Calendar, Layers, ArrowRight, X, MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCity as getGatingCity, getState as getGatingState } from '../lib/gating';
 import FounderStory from '../components/FounderStory';
@@ -12,6 +12,7 @@ import { AuthContext } from '../App';
 import { buildBrowseUrl, parseSearchQuery, parseProcedureFromText } from '../lib/urlParams';
 import { getProcedureLabel } from '../lib/procedureLabel';
 import { searchCitiesViaMapbox } from '../lib/places';
+import useGeolocation from '../hooks/useGeolocation';
 
 // Quick treatment chips — normalized procedure slugs so URL params
 // are always clean. Free-text entry still falls through to the fuzzy
@@ -161,6 +162,10 @@ export default function Home() {
   // Selected treatment chip — when non-null, URL uses exact slug/brand.
   const [selectedTreatment, setSelectedTreatment] = useState(null);
 
+  // Geolocation — only navigate when the user explicitly clicked the button
+  const { geo, requestLocation } = useGeolocation();
+  const [locationRequested, setLocationRequested] = useState(false);
+
   const [locSuggestions, setLocSuggestions] = useState([]);
   const locationInputRef = useRef(null);
   const locContainerRef = useRef(null);
@@ -247,6 +252,18 @@ export default function Home() {
   function dismissAlertBanner() {
     setAlertDismissed(true);
     localStorage.setItem('gb_home_alert_dismissed', String(Date.now()));
+  }
+
+  // Navigate when geolocation resolves, but only after an explicit button tap.
+  // locationRequested guards against navigating on cached/background geo updates.
+  useEffect(() => {
+    if (!locationRequested || geo.status !== 'success' || !geo.city || !geo.state) return;
+    navigate(buildBrowseUrl({ city: geo.city, state: geo.state }));
+  }, [locationRequested, geo.status, geo.city, geo.state, navigate]);
+
+  function handleUseLocation() {
+    setLocationRequested(true);
+    requestLocation();
   }
 
   // Parse the two search inputs into structured /browse params.
@@ -640,6 +657,25 @@ export default function Home() {
             <button type="submit" className="btn-editorial btn-editorial-primary w-full sm:w-auto sm:self-start">
               Find Prices
             </button>
+            <button
+              type="button"
+              onClick={handleUseLocation}
+              disabled={geo.status === 'loading' && locationRequested}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white border border-rose-accent text-rose-accent font-semibold rounded-full hover:bg-rose-light transition text-sm w-full sm:w-auto sm:self-start"
+              style={{ opacity: (geo.status === 'loading' && locationRequested) ? 0.7 : 1 }}
+            >
+              {geo.status === 'loading' && locationRequested ? (
+                <><Loader2 size={16} className="animate-spin" /> Finding you...</>
+              ) : (
+                <><MapPin size={16} /> Use my current location</>
+              )}
+            </button>
+            {geo.status === 'denied' && locationRequested && (
+              <p className="text-xs text-text-secondary -mt-1">Location access denied — try typing your city above.</p>
+            )}
+            {geo.status === 'error' && locationRequested && (
+              <p className="text-xs text-text-secondary -mt-1">{geo.message || "Couldn't detect your location"}</p>
+            )}
           </form>
 
           {/* Triggered price alert banner (logged-in, unread triggers) */}
