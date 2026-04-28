@@ -45,9 +45,6 @@ export default function Onboarding() {
   const [menuItems, setMenuItems] = useState([]);
   const [createdProvider, setCreatedProvider] = useState(null);
 
-  // Google photo import state
-  const [googlePhotos, setGooglePhotos] = useState([]);
-  const [importPhotos, setImportPhotos] = useState(false);
   const [menuError, setMenuError] = useState('');
 
   useEffect(() => {
@@ -370,27 +367,6 @@ export default function Onboarding() {
           `Could not save pricing menu. Please try again. (${menuInsertError.message})`
         );
         return;
-      }
-    }
-
-    // Import Google photos (non-blocking)
-    if (importPhotos && googlePhotos.length > 0 && menuProviderId) {
-      try {
-        await fetch('/api/import-google-photos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            providerId: menuProviderId,
-            photos: googlePhotos,
-          }),
-        });
-        // Mark photos as imported
-        await supabase
-          .from('providers')
-          .update({ photos_imported: true })
-          .eq('id', menuProviderId);
-      } catch {
-        // Photo import is non-blocking
       }
     }
 

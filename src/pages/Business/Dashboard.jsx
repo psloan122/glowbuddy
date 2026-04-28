@@ -481,16 +481,18 @@ export default function Dashboard() {
 
       if (data) setProvider(data);
 
-      // Import photos if none exist yet
+      // Import Google photos directly if none exist yet
       if (!provider.photos_imported && placeData.googlePhotos.length > 0) {
         try {
-          await fetch('/api/import-google-photos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              providerId: provider.id,
-              photos: placeData.googlePhotos,
-            }),
+          const photoRows = placeData.googlePhotos.map((p) => ({
+            provider_id: provider.id,
+            url: p.displayUrl,
+            source: 'google',
+            sort_order: p.index,
+          }));
+          await supabase.from('provider_photos').upsert(photoRows, {
+            onConflict: 'provider_id,url',
+            ignoreDuplicates: true,
           });
           await supabase
             .from('providers')

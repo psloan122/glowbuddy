@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
         const mimeType = isPdf ? 'application/pdf' : 'image/jpeg'
 
         const visionRes = await anthropic.messages.create({
-          model: 'claude-sonnet-4-5-20241022',
+          model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
           messages: [{
             role: 'user',
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
 
     // Parse text into structured pricing
     const parseRes = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{
         role: 'user',
