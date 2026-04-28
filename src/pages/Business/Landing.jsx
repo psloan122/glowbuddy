@@ -126,7 +126,7 @@ export default function Landing() {
     if (user) {
       navigate('/business/dashboard');
     } else {
-      openAuthModal('signin', '/business/dashboard');
+      openAuthModal('signin', '/business/dashboard', { flow: 'business' });
     }
   }
 
@@ -134,7 +134,7 @@ export default function Landing() {
     if (user) {
       navigate(to);
     } else {
-      openAuthModal('signup', to, { providerMode: true });
+      openAuthModal('signup', to, { flow: 'business', providerMode: true });
     }
   }
 

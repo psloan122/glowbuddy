@@ -77,7 +77,8 @@ function ModalShell({ onClose, children }) {
   );
 }
 
-export default function AuthModal({ mode: initialMode, providerMode = false, onClose }) {
+export default function AuthModal({ mode: initialMode, providerMode = false, flow = 'default', onClose }) {
+  const isBusiness = flow === 'business';
   const [mode, setMode] = useState(initialMode || 'signup'); // signup | signin | forgot
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -93,8 +94,8 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
   const [loadingText, setLoadingText] = useState('Setting up your experience...');
   const [showEscape, setShowEscape] = useState(false);
 
-  // Provider vs patient role selection (signup only); seeded from prop
-  const [isProvider, setIsProvider] = useState(providerMode);
+  // In business flow, always provider. Otherwise seeded from prop.
+  const [isProvider, setIsProvider] = useState(isBusiness || providerMode);
   const [businessName, setBusinessName] = useState('');
   const [businessRole, setBusinessRole] = useState('Owner');
 
@@ -159,7 +160,8 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
     setSuccess(false);
     setForgotSent(false);
     setAgreedToTerms(false);
-    setIsProvider(false);
+    // Business flow is always provider; default flow resets to patient.
+    setIsProvider(isBusiness);
     setBusinessName('');
     setBusinessRole('Owner');
     setTouched({ email: false, password: false, confirm: false });
@@ -355,11 +357,13 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
               <span className="text-2xl font-bold text-rose-accent">Know Before You Glow</span>
             </div>
             <h2 className="text-xl font-bold text-text-primary">
-              {mode === 'signup' ? 'Join Know Before You Glow' : 'Welcome back'}
+              {mode === 'signup'
+                ? (isBusiness ? 'Create your provider account' : 'Join Know Before You Glow')
+                : (isBusiness ? 'Sign in to your dashboard' : 'Welcome back')}
             </h2>
             {mode === 'signup' && (
               <p className="text-sm text-text-secondary mt-1">
-                {isProvider
+                {isBusiness || isProvider
                   ? 'Manage your listing, publish prices, and attract new patients.'
                   : 'Share prices, earn badges, and help others save.'}
               </p>
@@ -391,8 +395,8 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
         </>
       )}
 
-      {/* Role toggle — patient vs provider (signup only) */}
-      {mode === 'signup' && (
+      {/* Role toggle — patient vs provider (signup only, hidden in business flow) */}
+      {mode === 'signup' && !isBusiness && (
         <div className="flex gap-2 mb-4">
           <button
             type="button"
@@ -419,9 +423,8 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
         </div>
       )}
 
-      {/* Value props — visible by default, collapse while keyboard is open.
-          Patient props only shown for patient signup. */}
-      {mode === 'signup' && !isProvider && (
+      {/* Value props — patient signup only, hidden in business flow */}
+      {mode === 'signup' && !isProvider && !isBusiness && (
         <div
           className={`overflow-hidden transition-all duration-200 ${
             isTyping ? 'max-h-0 opacity-0' : 'max-h-60 opacity-100'
@@ -696,12 +699,12 @@ export default function AuthModal({ mode: initialMode, providerMode = false, onC
           </p>
         ) : mode === 'signin' ? (
           <p className="text-sm text-text-secondary">
-            Don't have an account?{' '}
+            {isBusiness ? 'New to Know Before You Glow?' : "Don't have an account?"}{' '}
             <button
               onClick={() => switchMode('signup')}
               className="text-rose-accent hover:text-rose-dark font-medium transition"
             >
-              Sign up
+              {isBusiness ? 'Create provider account' : 'Sign up'}
             </button>
           </p>
         ) : null}

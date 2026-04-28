@@ -82,7 +82,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   // Auth modal state
-  const [authModal, setAuthModal] = useState({ open: false, mode: 'signup', providerMode: false });
+  const [authModal, setAuthModal] = useState({ open: false, mode: 'signup', providerMode: false, flow: 'default' });
   const pendingRedirectRef = useRef(null);
 
   // Track session in a ref so the onAuthStateChange closure always has the current value
@@ -137,7 +137,7 @@ function App() {
         // User just signed in
         if (wasSignedOut && isNowSignedIn) {
           // Close auth modal
-          setAuthModal({ open: false, mode: 'signup', providerMode: false });
+          setAuthModal({ open: false, mode: 'signup', providerMode: false, flow: 'default' });
 
           const userId = newSession.user?.id;
 
@@ -251,12 +251,17 @@ function App() {
 
   const openAuthModal = useCallback((mode = 'signup', redirectTo = null, options = {}) => {
     pendingRedirectRef.current = redirectTo;
-    setAuthModal({ open: true, mode, providerMode: !!options.providerMode });
+    setAuthModal({
+      open: true,
+      mode,
+      providerMode: !!options.providerMode,
+      flow: options.flow || 'default',
+    });
   }, []);
 
   const closeAuthModal = useCallback(() => {
     pendingRedirectRef.current = null;
-    setAuthModal({ open: false, mode: 'signup', providerMode: false });
+    setAuthModal({ open: false, mode: 'signup', providerMode: false, flow: 'default' });
   }, []);
 
   const authValue = useMemo(() => ({
@@ -372,7 +377,7 @@ function App() {
 
         {/* Auth modal */}
         {authModal.open && (
-          <AuthModal mode={authModal.mode} providerMode={authModal.providerMode} onClose={closeAuthModal} />
+          <AuthModal mode={authModal.mode} providerMode={authModal.providerMode} flow={authModal.flow} onClose={closeAuthModal} />
         )}
 
         {/* Post-signup onboarding */}
