@@ -3266,7 +3266,7 @@ export default function FindPrices() {
             gate takes over with the GateLeftPanel on the left and the
             map on the right. */}
         {!personalizedMode && !procFilter && !brandFilter && !selectedLoc && (
-          <div className="hidden md:block text-center py-12 mb-6">
+          <div className="block text-center py-12 mb-6">
             <p className="editorial-kicker mb-4">Med spa price transparency</p>
             <h1
               className="font-display text-ink mx-auto max-w-3xl"
