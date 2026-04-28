@@ -32,6 +32,7 @@ function pickPhotoUrl(provider) {
 function MapListCard({
   provider,
   leadPrice,
+  subtitle,
   brandLabel,
   photoUrl: photoUrlProp,
   selected,
@@ -172,6 +173,17 @@ function MapListCard({
             }}
           >
             {priceLine}
+          </p>
+        ) : subtitle ? (
+          <p
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 11,
+              color: '#B8A89A',
+              margin: '6px 0 0',
+            }}
+          >
+            {subtitle}
           </p>
         ) : (
           <p

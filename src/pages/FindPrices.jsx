@@ -61,7 +61,7 @@ import AddExperienceSheet from '../components/AddExperienceSheet';
 import { setPageMeta } from '../lib/seo';
 import { normalizePrice, shouldDisplayPrice, extractSingleBrandFromType } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
-import { matchesTreatment, filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
+import { matchesTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
 import useGeolocation from '../hooks/useGeolocation';
 
 function capitalize(s) {
@@ -77,10 +77,6 @@ const BROWSE_FILTERS_KEY = 'glowbuddy.browseFilters.v1';
 const BROWSE_RESULTS_KEY = 'glowbuddy.browseResults.v1';
 const RESULTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Max unpriced providers shown in the "Also in this area" section before
-// the "+N more" disclosure. Keeps the list from becoming a wall of gray
-// cards when a small city has dozens of providers without prices yet.
-const MAX_UNPRICED = 8;
 
 function readPersistedFilters() {
   if (typeof window === 'undefined') return null;
@@ -649,12 +645,9 @@ export default function FindPrices() {
   }, [mapBounds]);
 
   // Reset viewport + pricing state when the user changes city.
-  // Clearing cityPricingRows is critical: without it, filteredGateProviders
-  // tries to match NEW city providers against OLD city pricing rows (zero
-  // provider_id overlap) and returns an empty array — the map shows no pins
-  // until the cityPricingRows fetch catches up. With the clear,
-  // filterProvidersByTreatment's empty-rows fallback returns ALL providers
-  // immediately, then narrows once pricing data arrives.
+  // Clearing cityPricingRows prevents stale OLD city pricing from being
+  // merged with NEW city providers during the brief gap before the pricing
+  // fetch completes.
   useEffect(() => {
     setMapBounds(null);
     setShowSearchArea(false);
@@ -2202,14 +2195,51 @@ export default function FindPrices() {
   // in sync with the current groupedProviders snapshot on every render.
   groupedProvidersRef.current = groupedProviders;
 
-  // Providers that are in the current city but have NO pricing rows for
-  // the selected treatment. Shown as gray pins on the map and in a
-  // separate "no prices yet" section below the priced list.
-  const unpricedProviders = useMemo(() => {
+  // Merged provider list for priced mode: ALL city providers sorted so
+  // those with matching treatment prices come first, then providers with
+  // other prices, then providers with no pricing at all.
+  const allBrowseProviders = useMemo(() => {
     if (!procFilter && !brandFilter) return [];
-    const pricedIds = new Set(groupedProviders.map((g) => g.provider_id).filter(Boolean));
-    return gateProviders.filter((p) => p.id && !pricedIds.has(p.id));
-  }, [procFilter, brandFilter, groupedProviders, gateProviders]);
+    const pricedMap = new Map();
+    for (const g of groupedProviders) {
+      if (g.provider_id) pricedMap.set(g.provider_id, g);
+    }
+
+    // Build a price-count index from cityPricingRows
+    const priceCountById = new Map();
+    for (const row of cityPricingRows || []) {
+      priceCountById.set(row.provider_id, (priceCountById.get(row.provider_id) || 0) + 1);
+    }
+
+    const merged = gateProviders.map((p) => {
+      const group = pricedMap.get(p.id);
+      if (group) {
+        // Has matching prices — carry full group data
+        return { ...group, _tier: 0, _priceCount: priceCountById.get(p.id) || 0, _provider: p };
+      }
+      const count = priceCountById.get(p.id) || 0;
+      return {
+        key: p.id,
+        provider_id: p.id,
+        procedures: [],
+        bestPrice: null,
+        bestPriceLabel: null,
+        _tier: count > 0 ? 1 : 2,
+        _priceCount: count,
+        _provider: p,
+      };
+    });
+
+    merged.sort((a, b) => {
+      if (a._tier !== b._tier) return a._tier - b._tier;
+      if (a._tier === 0) return (a.bestPrice || Infinity) - (b.bestPrice || Infinity);
+      const rc = (b._provider.google_review_count || 0) - (a._provider.google_review_count || 0);
+      if (rc !== 0) return rc;
+      return (b._provider.google_rating || 0) - (a._provider.google_rating || 0);
+    });
+
+    return merged;
+  }, [procFilter, brandFilter, groupedProviders, gateProviders, cityPricingRows]);
 
   // Provider count shown in the gate panel — matches the map exactly.
   // The map renders ALL gateProviders as pins (not filtered by the
@@ -2220,19 +2250,10 @@ export default function FindPrices() {
   // the city-string-fetched provider set.
   const viewportProviderCount = gateProviders.length;
 
-  // When a treatment is selected, filter gateProviders to only those
-  // that have at least one matching pricing row. This way the map only
-  // shows pins for providers that actually offer the selected treatment
-  // instead of showing every provider in the city as gray dots.
-  const filteredGateProviders = useMemo(() => {
-    if (!procFilter && !brandFilter) return gateProviders;
-    // Find the active pill — brandFilter pills have an explicit brand,
-    // otherwise fall back to the procFilter pill object.
-    const activePill = brandFilter
-      ? PROCEDURE_PILLS.find((p) => p.brand && p.brand.toLowerCase() === brandFilter.toLowerCase()) || procFilter
-      : procFilter;
-    return filterProvidersByTreatment(gateProviders, cityPricingRows, activePill);
-  }, [gateProviders, cityPricingRows, procFilter, brandFilter]);
+  // All city providers — used for map pins and card list. When a treatment
+  // is selected, all providers still show (sorted by pricing relevance in
+  // allBrowseProviders); the map colors priced pins via the procedures overlay.
+  const filteredGateProviders = gateProviders;
 
   // Enrich procedures with provider_id resolved from gateProviders so the
   // GlowMap price index can match patient-submitted rows (which come from
@@ -3606,7 +3627,6 @@ export default function FindPrices() {
         let mobileProviders = [];
         let mobileMode = 'gate';
         let mobileSelectedId = null;
-        let mobileUnpriced = [];
 
         if (personalizedMode && personalProviders.length > 0) {
           mobileMode = 'priced';
@@ -3637,31 +3657,30 @@ export default function FindPrices() {
             };
           });
           mobileSelectedId = selectedProviderGroup?.provider_id || null;
-        } else if (hasPricedResults) {
+        } else if (procFilter && allBrowseProviders.length > 0) {
           mobileMode = 'priced';
-          mobileProviders = groupedProviders.map((group) => {
-            const primary = group.procedures[0];
+          mobileProviders = allBrowseProviders.map((entry) => {
+            const p = entry._provider || entry.procedures?.[0] || {};
             return {
-              key: group.key,
-              id: group.provider_id,
-              provider_id: group.provider_id,
-              provider_name: primary.provider_name,
-              provider_slug: primary.provider_slug,
-              city: primary.city,
-              state: primary.state,
-              avg_price: group.bestPrice !== Infinity ? group.bestPrice : null,
-              submission_count: group.procedures.length,
-              verified_count: group.procedures.filter((p) => p.receipt_verified).length,
-              has_submissions: true,
-              provider_type: primary.provider_type,
-              google_rating: primary.google_rating || primary.rating,
-              google_review_count: primary.google_review_count,
-              bestPrice: group.bestPrice !== Infinity ? group.bestPrice : null,
-              bestPriceLabel: group.bestPriceLabel || null,
+              key: entry.key,
+              id: entry.provider_id,
+              provider_id: entry.provider_id,
+              provider_name: p.provider_name || p.name,
+              provider_slug: p.provider_slug || p.slug,
+              city: p.city,
+              state: p.state,
+              avg_price: entry.bestPrice != null && entry.bestPrice !== Infinity ? entry.bestPrice : null,
+              submission_count: entry.procedures?.length || 0,
+              verified_count: entry.procedures?.filter((pr) => pr.receipt_verified).length || 0,
+              has_submissions: entry._tier === 0,
+              provider_type: p.provider_type,
+              google_rating: p.google_rating || p.rating,
+              google_review_count: p.google_review_count,
+              bestPrice: entry.bestPrice != null && entry.bestPrice !== Infinity ? entry.bestPrice : null,
+              bestPriceLabel: entry.bestPriceLabel || null,
             };
           });
           mobileSelectedId = selectedProviderGroup?.provider_id || null;
-          mobileUnpriced = unpricedProviders.slice(0, MAX_UNPRICED);
         } else {
           mobileMode = 'gate';
           mobileProviders = filteredGateProviders.map((p) => ({
@@ -3679,13 +3698,10 @@ export default function FindPrices() {
           mobileSelectedId = gateSelectedProviderGroup?.provider_id || null;
         }
 
-        // Pin set for the map — mirrors the list. Personalized mode uses
-        // the user's matched providers; gate mode uses filteredGateProviders so
-        // map pins match the sheet list when a treatment filter is active.
         const mobileMapProviders =
           personalizedMode && personalProviders.length > 0
             ? personalProviders.map((entry) => entry.provider)
-            : filteredGateProviders;
+            : gateProviders;
 
         return (
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
@@ -3755,8 +3771,8 @@ export default function FindPrices() {
                   onSelectCategory={!personalizedMode ? selectPill : undefined}
                   activeCategorySlug={procFilter?.slug}
                   categoryCounts={categoryCounts}
-                  unpricedProviders={mobileUnpriced}
-                  unpricedTotal={unpricedProviders.length}
+                  unpricedProviders={[]}
+                  unpricedTotal={0}
                 />
               </MobileBottomSheet>
             )}
@@ -4177,11 +4193,11 @@ export default function FindPrices() {
                   treatmentSearch={treatmentSearch}
                   activeCategorySlug={procFilter?.slug}
                 />
-              ) : loadingProcedures ? (
+              ) : loadingProcedures && allBrowseProviders.length === 0 ? (
                 <div style={{ padding: '24px 8px 40px 8px' }}>
                   <SkeletonGrid count={4} />
                 </div>
-              ) : displayedProcedures.length === 0 ? (
+              ) : allBrowseProviders.length === 0 ? (
                 <div style={{ padding: '24px 8px 40px 8px' }}>
                   <SmartEmptyState
                     procedureLabel={procFilter?.label}
@@ -4198,8 +4214,8 @@ export default function FindPrices() {
                 <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 8px 8px', fontFamily: 'var(--font-body)', fontSize: 13, color: '#888' }}>
                   <span>
-                    <strong style={{ fontWeight: 600, color: '#555' }}>{groupedProviders.length + unpricedProviders.length}</strong>
-                    {` ${(groupedProviders.length + unpricedProviders.length) === 1 ? 'provider' : 'providers'} in this area`}
+                    <strong style={{ fontWeight: 600, color: '#555' }}>{allBrowseProviders.length}</strong>
+                    {` ${allBrowseProviders.length === 1 ? 'provider' : 'providers'} in this area`}
                     {groupedProviders.length > 0 && (
                       <span style={{ color: '#B8A89A' }}>
                         {' · '}{groupedProviders.length} with {treatmentSearch
@@ -4253,38 +4269,49 @@ export default function FindPrices() {
                     gap: 16,
                   }}
                 >
-                  {groupedProviders.map((group) => {
-                    const primary = group.procedures[0];
+                  {allBrowseProviders.map((entry) => {
+                    const provider = entry._provider || entry.procedures?.[0] || {};
                     const selected =
                       selectedProviderGroup?.provider_id != null &&
-                      selectedProviderGroup.provider_id === group.provider_id;
-                    // Lead price: when a label filter is active, find the row
-                    // whose normalized_compare_unit matches it (e.g. 'per unit'
-                    // for neurotoxins). Without this guard the card could show
-                    // "from $55/unit" when the $55 row is actually per_session.
-                    const leadRow = activePriceLabel
-                      ? (group.procedures.find(
-                          (p) => p.normalized_compare_unit === activePriceLabel,
-                        ) ?? null)
-                      : primary;
-                    const leadPrice = leadRow
-                      ? {
+                      selectedProviderGroup.provider_id === entry.provider_id;
+
+                    let leadPrice = null;
+                    let subtitle = null;
+
+                    if (entry._tier === 0 && entry.procedures?.length > 0) {
+                      const primary = entry.procedures[0];
+                      const leadRow = activePriceLabel
+                        ? (entry.procedures.find(
+                            (p) => p.normalized_compare_unit === activePriceLabel,
+                          ) ?? null)
+                        : primary;
+                      if (leadRow) {
+                        leadPrice = {
                           procedure_type: leadRow.procedure_type,
                           price_label:
                             leadRow.price_label ||
                             leadRow.normalized_compare_unit?.replace(/^per /, 'per_') ||
                             null,
                           price: leadRow.normalized_compare_value || leadRow.price_paid,
-                        }
-                      : null;
+                        };
+                      }
+                    } else if (entry._tier === 1) {
+                      subtitle = `${entry._priceCount} ${entry._priceCount === 1 ? 'price' : 'prices'} · no ${brandFilter || procFilter?.label || 'treatment'} listed`;
+                    }
+
                     return (
                       <div
-                        key={group.key}
-                        data-provider-card={group.provider_id || ''}
+                        key={entry.key}
+                        data-provider-card={entry.provider_id || ''}
                       >
                         <MapListCard
-                          provider={primary}
+                          provider={{
+                            ...provider,
+                            provider_name: provider.provider_name || provider.name,
+                            provider_slug: provider.provider_slug || provider.slug,
+                          }}
                           leadPrice={leadPrice}
+                          subtitle={subtitle}
                           brandLabel={brandFilter || procFilter?.label}
                           selected={selected}
                           onHoverChange={handleCardHover}
@@ -4293,55 +4320,6 @@ export default function FindPrices() {
                     );
                   })}
                 </div>
-                {/* ── Unpriced providers — "no prices yet" tier ── */}
-                {unpricedProviders.length > 0 && (
-                  <div>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '24px 0 12px', borderTop: '1px dashed #E0D6CE',
-                      marginTop: 16,
-                    }}>
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
-                        letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B8A89A',
-                      }}>
-                        Also in this area — no {brandFilter || procFilter?.label || ''} prices yet
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: 16,
-                      }}
-                    >
-                      {unpricedProviders.slice(0, MAX_UNPRICED).map((p) => (
-                        <div key={p.id} data-provider-card={p.id}>
-                          <MapListCard
-                            provider={p}
-                            leadPrice={null}
-                            brandLabel={brandFilter || procFilter?.label}
-                            onHoverChange={handleCardHover}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    {unpricedProviders.length > MAX_UNPRICED && (
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
-                        textAlign: 'center', margin: '8px 0 4px',
-                      }}>
-                        +{unpricedProviders.length - MAX_UNPRICED} more providers nearby — no {brandFilter || procFilter?.label || ''} prices yet
-                      </p>
-                    )}
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontSize: 12, color: '#B8A89A',
-                      textAlign: 'center', margin: '8px 0 4px',
-                    }}>
-                      Help women{selectedLoc?.city ? ` in ${selectedLoc.city}` : ''} know what to expect — share what you paid.
-                    </p>
-                  </div>
-                )}
                 </>
               )}
             </div>
@@ -4362,7 +4340,7 @@ export default function FindPrices() {
                 allProviders={
                   personalizedMode
                     ? personalProviders.map((entry) => entry.provider)
-                    : ((procFilter || brandFilter) ? filteredGateProviders : gateProviders)
+                    : gateProviders
                 }
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
