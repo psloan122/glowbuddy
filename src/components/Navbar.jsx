@@ -365,21 +365,8 @@ export default function Navbar() {
                 {logoMark}
               </Link>
 
-              {/* Desktop center links */}
-              <div className="hidden md:flex items-center gap-6">
-                {BIZ_LINKS.map(({ label, to, isActive }) => (
-                  <Link
-                    key={label}
-                    to={to}
-                    className={`text-[12px] font-medium uppercase transition-colors ${
-                      isActive ? 'text-hot-pink' : 'text-ink hover:text-hot-pink'
-                    }`}
-                    style={{ letterSpacing: '0.08em' }}
-                  >
-                    {label}
-                  </Link>
-                ))}
-              </div>
+              {/* Desktop center links removed — sidebar handles navigation */}
+              <div className="hidden md:block" />
 
               {/* Desktop right: View Public Page + avatar */}
               <div className="hidden md:flex items-center gap-3">

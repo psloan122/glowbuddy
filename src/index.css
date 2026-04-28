@@ -56,6 +56,12 @@
   --radius-lg: 12px;
   --radius-pill: 20px;
 
+  /* ── Business dashboard palette ── */
+  --color-biz-navy: #111827;
+  --color-biz-navy-light: #1F2937;
+  --color-biz-teal: #0D9488;
+  --color-biz-teal-light: #14B8A6;
+
   /* ── Semantic colors ── */
   --color-taupe: #B8A89A;
   --color-warning-bg: #FFF7ED;

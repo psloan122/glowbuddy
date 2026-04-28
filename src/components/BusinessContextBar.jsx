@@ -48,83 +48,11 @@ export default function BusinessContextBar() {
   return (
     <>
       <div
-        className="sticky top-[52px] md:top-[64px] z-40 bg-white"
+        className="sticky top-[52px] md:hidden z-40 bg-white"
         style={{ borderBottom: '0.5px solid #eee' }}
       >
-        {/* ── Desktop ── */}
-        <div className="hidden md:flex items-center justify-between max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[44px]">
-          {/* Left: identity */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="shrink-0 flex items-center justify-center rounded-full text-[11px] font-bold text-white"
-              style={{ width: 28, height: 28, background: '#E8347A' }}
-            >
-              {initials}
-            </div>
-            <span className="text-[13px] font-semibold text-text-primary truncate max-w-[180px]">
-              {provider.name}
-            </span>
-            {provider.city && provider.state && (
-              <span className="text-[11px] text-text-secondary truncate">
-                {provider.city}, {provider.state}
-              </span>
-            )}
-            <span
-              className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-[1px] rounded-full shrink-0"
-              style={badgeStyle}
-            >
-              {badgeLabel}
-            </span>
-          </div>
-
-          {/* Center: tab pills */}
-          <nav className="flex items-center gap-1">
-            {CONTEXT_BAR_TABS.map(({ slug, label }) => {
-              const isActive = slug === activeSlug;
-              return (
-                <Link
-                  key={slug}
-                  to={`/business/dashboard?tab=${slug}`}
-                  className="px-3 py-1 rounded-full text-[12px] font-medium transition-colors"
-                  style={{
-                    background: isActive ? '#FDE8F0' : 'transparent',
-                    color: isActive ? '#C8005A' : '#666',
-                  }}
-                >
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Right: actions */}
-          <div className="flex items-center gap-3 shrink-0">
-            <Link
-              to={`/provider/${provider.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[12px] font-medium transition-colors inline-flex items-center gap-1"
-              style={{ color: '#888' }}
-            >
-              View public profile <ArrowUpRight size={12} />
-            </Link>
-            {tierHelpers.isFree && (
-              <Link
-                to="/business/dashboard?tab=settings"
-                className="text-[11px] font-bold uppercase tracking-wide px-3 py-1 rounded-full transition-colors"
-                style={{
-                  background: '#E8347A',
-                  color: '#fff',
-                }}
-              >
-                Upgrade
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* ── Mobile ── */}
-        <div className="flex md:hidden items-center justify-between px-4 h-[44px]">
+        {/* ── Mobile only — sidebar handles desktop navigation ── */}
+        <div className="flex items-center justify-between px-4 h-[44px]">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[13px] font-semibold text-text-primary truncate">
               {provider.name}

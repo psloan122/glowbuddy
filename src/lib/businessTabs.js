@@ -25,6 +25,23 @@ export const SLUG_TO_TAB = {
   settings:       'Settings',
 };
 
+// Sidebar navigation items with lucide icon names.
+// Grouped into sections for visual separation in the sidebar.
+export const SIDEBAR_ITEMS = [
+  { slug: 'overview',       label: 'Overview',          icon: 'LayoutDashboard' },
+  { slug: 'demand',         label: 'Demand Intel',      icon: 'TrendingUp' },
+  { slug: 'menu',           label: 'Prices & Menu',     icon: 'DollarSign' },
+  { slug: 'specials',       label: 'Specials',          icon: 'Sparkles' },
+  { slug: 'analytics',      label: 'Analytics',         icon: 'BarChart3' },
+  { slug: 'reviews',        label: 'Reviews',           icon: 'Star' },
+  { slug: 'injectors',      label: 'Team',              icon: 'Users' },
+  { slug: 'before-after',   label: 'Photos',            icon: 'Camera' },
+  { slug: 'submissions',    label: 'Submissions',       icon: 'FileText' },
+  { slug: 'disputes',       label: 'Disputes',          icon: 'AlertTriangle' },
+  { slug: 'integrations',   label: 'Integrations',      icon: 'Plug' },
+  { slug: 'settings',       label: 'Settings',          icon: 'Settings' },
+];
+
 const TAB_TO_SLUG = Object.fromEntries(
   Object.entries(SLUG_TO_TAB).map(([slug, label]) => [label, slug]),
 );

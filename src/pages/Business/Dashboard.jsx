@@ -49,6 +49,7 @@ import FeatureGate from '../../components/FeatureGate';
 import { createSubscriptionCheckout } from '../../lib/stripe';
 import { TIER_BADGE_STYLE, TIER_BADGE_LABEL } from '../../lib/tierBadge';
 import { tabLabelFromSlug, tabSlugFromLabel } from '../../lib/businessTabs';
+import BusinessSidebar from '../../components/business/BusinessSidebar';
 
 
 const INPUT_CLASS =
@@ -695,11 +696,14 @@ export default function Dashboard() {
   // --- Main Dashboard ---
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="flex min-h-[calc(100vh-4rem)]">
+      <BusinessSidebar provider={provider} tierHelpers={tierHelpers} />
+
+      <div className="flex-1 min-w-0 max-w-5xl mx-auto px-4 md:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">
-          Welcome, {ownerFirstName || 'there'}
+        <h1 className="text-2xl font-bold text-text-primary" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          {getGreeting()}, {ownerFirstName || 'there'}
         </h1>
         <p className="text-sm text-text-secondary mt-1">
           {provider.name}{provider.city ? ` · ${provider.city}${provider.state ? `, ${provider.state}` : ''}` : ''}
@@ -1710,6 +1714,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
