@@ -16,7 +16,6 @@ export default defineConfig({
           if (id.includes('node_modules/@react-google-maps') || id.includes('node_modules/@googlemaps')) return 'vendor-map';
           if (id.includes('node_modules/lucide-react')) return 'vendor-ui';
           if (id.includes('node_modules/date-fns')) return 'vendor-ui';
-          if (id.includes('node_modules/html2canvas')) return 'vendor-ui';
         },
       },
     },

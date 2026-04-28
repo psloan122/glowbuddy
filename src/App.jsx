@@ -7,7 +7,7 @@ import { checkAndAwardBadges } from './lib/badgeLogic';
 
 import Navbar from './components/Navbar';
 import AuthModal from './components/AuthModal';
-import Onboarding from './components/Onboarding';
+const Onboarding = lazy(() => import('./components/Onboarding'));
 import ScrollToTop from './components/ScrollToTop';
 import Toast from './components/Toast';
 import Home from './pages/Home';
