@@ -72,7 +72,8 @@ export async function searchCitiesViaMapbox(query) {
       if (!city) continue;
       const regionCtx = feature.context?.find((c) => c.id?.startsWith('region.'));
       const state = regionCtx?.short_code?.split('-')[1] || '';
-      if (city && state) results.push({ city, state });
+      const [lng, lat] = feature.center || [];
+      if (city && state) results.push({ city, state, lat, lng });
     }
     return results;
   } catch {

@@ -280,18 +280,18 @@ export default function Home() {
     if (e) e.preventDefault();
 
     // Location — structured Places result takes precedence; never concatenate
-    let city = '', state = '';
+    let city = '', state = '', lat = null, lng = null;
     if (selectedLocation) {
       city = selectedLocation.city;
       state = selectedLocation.state;
+      lat = selectedLocation.lat;
+      lng = selectedLocation.lng;
     } else if ((locationQuery || '').trim()) {
       const parsed = parseSearchQuery(locationQuery.trim());
       city = parsed.city;
       state = parsed.state;
     }
     if (!city && savedCity) {
-      // Carry saved state only when we're falling back to saved city too.
-      // Never inherit NY from gating when the user explicitly typed "San Diego".
       city = savedCity;
       if (!state && savedState) state = savedState;
     }
@@ -307,7 +307,7 @@ export default function Home() {
       brand = match?.brand || null;
     }
 
-    navigate(buildBrowseUrl({ city, state, procedure, brand }));
+    navigate(buildBrowseUrl({ city, state, procedure, brand, lat, lng }));
   }
 
   // SEO
@@ -611,13 +611,13 @@ export default function Home() {
                     className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-[#EDE8E3] z-50 shadow-sm"
                     style={{ borderRadius: '2px' }}
                   >
-                    {locSuggestions.map(({ city, state }) => (
+                    {locSuggestions.map(({ city, state, lat, lng }) => (
                       <button
                         key={`${city}-${state}`}
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setSelectedLocation({ city, state });
+                          setSelectedLocation({ city, state, lat, lng });
                           setLocationQuery(`${city}, ${state}`);
                           setLocSuggestions([]);
                         }}

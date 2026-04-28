@@ -106,6 +106,13 @@ export default function useUserLocation(override) {
           return;
         }
         lastOverrideRef.current = overrideKey;
+        if (Number.isFinite(override.lat) && Number.isFinite(override.lng)) {
+          const next = { lat: override.lat, lng: override.lng, source: 'override' };
+          setLoc(next);
+          writeSessionLoc(next);
+          setLoading(false);
+          return;
+        }
         setLoading(true);
         const coords = await geocodeViaMapbox(
           `${override.city}, ${override.state}, USA`,

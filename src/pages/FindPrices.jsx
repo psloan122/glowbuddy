@@ -61,7 +61,7 @@ import AddExperienceSheet from '../components/AddExperienceSheet';
 import { setPageMeta } from '../lib/seo';
 import { normalizePrice, shouldDisplayPrice, extractSingleBrandFromType } from '../lib/priceUtils';
 import { SkeletonGrid } from '../components/SkeletonCard';
-import { filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
+import { matchesTreatment, filterProvidersByTreatment, countProvidersByTreatment } from '../utils/matchesTreatment';
 import useGeolocation from '../hooks/useGeolocation';
 
 function capitalize(s) {
@@ -179,11 +179,16 @@ export default function FindPrices() {
   const [selectedLoc, setSelectedLoc] = useState(() => {
     const urlCity = searchParams.get('city');
     const urlState = searchParams.get('state');
-    // URL city always wins — even without a state — so ?city=San+Diego
-    // can never inherit the wrong state from a prior session.
-    if (urlCity) return { city: urlCity, state: urlState || '' };
-    // Persisted filter beats raw gating city when both are present, so
-    // the user lands on the same city they were last browsing.
+    if (urlCity) {
+      const loc = { city: urlCity, state: urlState || '' };
+      const urlLat = parseFloat(searchParams.get('lat'));
+      const urlLng = parseFloat(searchParams.get('lng'));
+      if (Number.isFinite(urlLat) && Number.isFinite(urlLng)) {
+        loc.lat = urlLat;
+        loc.lng = urlLng;
+      }
+      return loc;
+    }
     const persisted = readPersistedFilters();
     if (persisted?.city && persisted?.state) {
       return { city: persisted.city, state: persisted.state };
@@ -216,6 +221,7 @@ export default function FindPrices() {
   const [priceMax, setPriceMax] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchSheetInitialTab, setSearchSheetInitialTab] = useState(null);
   const [mobileSearchFocus, setMobileSearchFocus] = useState('treatment');
   const [detailSheet, setDetailSheet] = useState(null);
   const [experienceSheet, setExperienceSheet] = useState(null);
@@ -460,7 +466,7 @@ export default function FindPrices() {
           .select(
             'id, name, slug, city, state, lat, lng, google_rating, google_review_count, provider_type, is_active',
           )
-          .eq('is_active', true);
+          .or('is_active.eq.true,is_active.is.null');
         // When "Search this area" bounds are set, query by lat/lng
         // instead of city/state so pins match the viewport rectangle.
         if (searchAreaBounds) {
@@ -521,8 +527,9 @@ export default function FindPrices() {
       const ids = gateProviders.map((p) => p.id);
       const { data, error } = await supabase
         .from('provider_pricing')
-        .select('provider_id, procedure_type, brand')
+        .select('provider_id, procedure_type, brand, price, price_label')
         .in('provider_id', ids)
+        .eq('is_active', true)
         .eq('display_suppressed', false)
         .lt('confidence_tier', 6);
       if (cancelled || error || !data) return;
@@ -708,14 +715,32 @@ export default function FindPrices() {
   // values, triggering the URL→state sync effect in a ping-pong loop.
   const mountedRef = useRef(false);
 
+  // Set by the URL→state sync effect to tell the state→URL sync effect
+  // to skip the next cycle. Without this, navigating to /browse with new
+  // URL params (e.g. from the homepage) causes the state→URL sync to
+  // fire first with stale state and overwrite the incoming URL.
+  const syncingFromUrl = useRef(false);
+
   // Sync filters to URL params (SEO-friendly) AND persist to sessionStorage
   // so the user can navigate to a provider profile and click "Find Prices"
   // again without losing their filters.
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
-      // Still persist to sessionStorage on mount so navigating away and
-      // back (without URL params) restores the current filters.
+      writePersistedFilters({
+        procedureSlug: procFilter?.slug || null,
+        brand: brandFilter || null,
+        subType: subTypeFilter || null,
+        city: selectedLoc?.city || null,
+        state: selectedLoc?.state || null,
+        sortBy,
+        hasPricesOnly,
+        verifiedOnly,
+      });
+      return;
+    }
+    if (syncingFromUrl.current) {
+      syncingFromUrl.current = false;
       writePersistedFilters({
         procedureSlug: procFilter?.slug || null,
         brand: brandFilter || null,
@@ -766,27 +791,37 @@ export default function FindPrices() {
     const currentBrand = brandFilter || '';
     const currentCity = selectedLoc?.city || '';
     const currentState = selectedLoc?.state || '';
-    if (urlSlug !== currentSlug || urlBrand !== currentBrand) {
-      // Pass the brand so neurotoxin&brand=Dysport resolves to the
-      // Dysport pill rather than the default Botox one.
+
+    const procChanged = urlSlug !== currentSlug || urlBrand !== currentBrand;
+    const urlSubType = searchParams.get('subtype') || '';
+    const subTypeChanged = urlSubType !== (subTypeFilter || '');
+    const cityChanged = urlCity !== currentCity || urlState !== currentState;
+
+    if (procChanged || subTypeChanged || cityChanged) {
+      syncingFromUrl.current = true;
+    }
+
+    if (procChanged) {
       setProcFilter(resolveProcedureFilter(urlSlug, urlBrand || null));
     }
     if (urlBrand !== currentBrand) {
       setBrandFilter(urlBrand || null);
     }
-    const urlSubType = searchParams.get('subtype') || '';
-    const currentSubType = subTypeFilter || '';
-    if (urlSubType !== currentSubType) {
+    if (subTypeChanged) {
       setSubTypeFilter(urlSubType || null);
     }
-    if (urlCity !== currentCity || urlState !== currentState) {
+    if (cityChanged) {
       if (urlCity) {
-        // URL city always wins — even city-only links can't inherit wrong state.
-        setSelectedLoc({ city: urlCity, state: urlState || '' });
+        const loc = { city: urlCity, state: urlState || '' };
+        const urlLat = parseFloat(searchParams.get('lat'));
+        const urlLng = parseFloat(searchParams.get('lng'));
+        if (Number.isFinite(urlLat) && Number.isFinite(urlLng)) {
+          loc.lat = urlLat;
+          loc.lng = urlLng;
+        }
+        setSelectedLoc(loc);
         locSourcedFromUrl.current = !!(urlCity && urlState);
       } else if (!urlCity && !urlState && (currentCity || currentState)) {
-        // URL cleared city/state — only clear local state if both gone,
-        // so partial param edits don't drop the user's location.
         setSelectedLoc(null);
         locSourcedFromUrl.current = false;
       }
@@ -829,7 +864,7 @@ export default function FindPrices() {
         .from('providers')
         .select('id, name, slug, city, state')
         .ilike('name', `%${q}%`)
-        .eq('is_active', true)
+        .or('is_active.eq.true,is_active.is.null')
         .limit(8);
       if (city && state) {
         query = query.eq('city', city).eq('state', state);
@@ -1007,6 +1042,10 @@ export default function FindPrices() {
   function clearLocation() {
     setSelectedLoc(null);
     setLocQuery('');
+    if (isMobile) {
+      setSearchSheetInitialTab('location');
+      setMobileSearchOpen(true);
+    }
   }
 
   // ── Derive filter values ──
@@ -1050,7 +1089,9 @@ export default function FindPrices() {
   // explicit filter city/state → profile → gating localStorage. The hook
   // does not prompt for browser geolocation — MapView still owns that flow.
   const { lat: userLat, lng: userLng } = useUserLocation(
-    filterCity && filterState ? { city: filterCity, state: filterState } : undefined,
+    filterCity && filterState
+      ? { city: filterCity, state: filterState, lat: selectedLoc?.lat, lng: selectedLoc?.lng }
+      : undefined,
   );
 
   // ── Fetch procedures + provider_pricing with cascading fallback ──
@@ -1202,7 +1243,7 @@ export default function FindPrices() {
         .eq('is_active', true)
         .eq('display_suppressed', false)
         .lt('confidence_tier', 6)
-        .eq('providers.is_active', true);
+        .or('is_active.eq.true,is_active.is.null', { referencedTable: 'providers' });
 
       // When "Search this area" bounds are set, query by lat/lng instead
       // of city/state so the results match the viewport rectangle.
@@ -1601,7 +1642,7 @@ export default function FindPrices() {
         .eq('is_active', true)
         .eq('display_suppressed', false)
         .lt('confidence_tier', 6)
-        .eq('providers.is_active', true);
+        .or('is_active.eq.true,is_active.is.null', { referencedTable: 'providers' });
 
       if (filterState) query = query.eq('providers.state', filterState);
       if (filterCity) query = query.eq('providers.city', filterCity);
@@ -2222,33 +2263,60 @@ export default function FindPrices() {
     // didn't make the 40-row card feed cut.  Without this augmentation those
     // providers inherit a null bestPrice from the map's price index and render
     // as gray "No prices yet" pins even though they have real prices in the DB.
-    // priceSummary is computed by the get_provider_price_summary RPC against the
-    // full uncapped dataset, so minPrice here is always accurate.
-    if (priceSummary?.byProviderId && filteredGateProviders?.length && activePriceLabel) {
+    if (filteredGateProviders?.length) {
       const pricedIds = new Set(enriched.filter((r) => r.provider_id).map((r) => r.provider_id));
       const synthRows = [];
       for (const p of filteredGateProviders) {
         if (!p.id || pricedIds.has(p.id)) continue;
-        const summary = priceSummary.byProviderId.get(p.id);
-        if (!summary?.minPrice) continue;
-        synthRows.push({
-          id: `synth_${p.id}`,
-          provider_id: p.id,
-          provider_name: p.name || p.provider_name || '',
-          city: p.city || '',
-          state: p.state || '',
-          provider_lat: p.lat ?? null,
-          provider_lng: p.lng ?? null,
-          price_paid: summary.minPrice,
-          normalized_compare_value: summary.minPrice,
-          normalized_compare_unit: activePriceLabel,
-          _synthetic: true,
-        });
+        // Prefer the RPC summary (neurotoxin/filler — normalized per-unit).
+        const summary = priceSummary?.byProviderId?.get(p.id);
+        if (summary?.minPrice) {
+          synthRows.push({
+            id: `synth_${p.id}`,
+            provider_id: p.id,
+            provider_name: p.name || p.provider_name || '',
+            city: p.city || '',
+            state: p.state || '',
+            provider_lat: p.lat ?? null,
+            provider_lng: p.lng ?? null,
+            price_paid: summary.minPrice,
+            normalized_compare_value: summary.minPrice,
+            normalized_compare_unit: activePriceLabel,
+            _synthetic: true,
+          });
+          continue;
+        }
+        // Fallback: derive minPrice from cityPricingRows for categories
+        // where the RPC is unavailable (no activePriceLabel).
+        if (cityPricingRows?.length && procFilter) {
+          let minPrice = Infinity;
+          for (const row of cityPricingRows) {
+            if (row.provider_id !== p.id) continue;
+            if (!matchesTreatment(row, procFilter)) continue;
+            const v = Number(row.price);
+            if (Number.isFinite(v) && v > 0 && v < minPrice) minPrice = v;
+          }
+          if (minPrice < Infinity) {
+            synthRows.push({
+              id: `synth_${p.id}`,
+              provider_id: p.id,
+              provider_name: p.name || p.provider_name || '',
+              city: p.city || '',
+              state: p.state || '',
+              provider_lat: p.lat ?? null,
+              provider_lng: p.lng ?? null,
+              price_paid: minPrice,
+              normalized_compare_value: minPrice,
+              normalized_compare_unit: null,
+              _synthetic: true,
+            });
+          }
+        }
       }
       if (synthRows.length > 0) return [...enriched, ...synthRows];
     }
     return enriched;
-  }, [displayedProcedures, gateProviders, priceSummary, filteredGateProviders, activePriceLabel]);
+  }, [displayedProcedures, gateProviders, priceSummary, filteredGateProviders, activePriceLabel, cityPricingRows, procFilter]);
 
   // Filtered count for the map — when a treatment is selected, counts
   // only providers offering that treatment visible in the viewport.
@@ -3493,113 +3561,12 @@ export default function FindPrices() {
           // here, but keep the branch so downstream cases stay correct.
           null
         ) : isMobile && !selectedLoc ? (
-          // Treatment selected but no city — prompt the user to enter a
-          // location instead of showing random results from other cities.
-          <div style={{ textAlign: 'center', padding: '40px 24px' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>📍</div>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 18,
-              fontWeight: 700,
-              color: '#111',
-              marginBottom: 8,
-            }}>
-              Where are you looking?
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              color: '#888',
-              fontWeight: 400,
-              marginBottom: 20,
-            }}>
-              See {procFilter?.description || procFilter?.label || 'treatment'} prices near you.
-            </p>
-
-            {/* Near me button */}
-            {geo.status === 'denied' || geo.status === 'error' ? (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#999', marginBottom: 12 }}>
-                {geo.status === 'denied'
-                  ? 'Location access denied.'
-                  : (geo.message || "Couldn't detect your location") + ' — try searching by city.'}
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleRequestGeoLocation}
-                disabled={geo.status === 'loading'}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: '12px 24px', borderRadius: 999, marginBottom: 16,
-                  background: '#E8347A', color: 'white', border: 'none',
-                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
-                  cursor: geo.status === 'loading' ? 'wait' : 'pointer',
-                  opacity: geo.status === 'loading' ? 0.7 : 1,
-                }}
-              >
-                {geo.status === 'loading' ? (
-                  <><Loader2 size={16} className="animate-spin" /> Finding your location...</>
-                ) : (
-                  <><MapPin size={16} /> Use my location</>
-                )}
-              </button>
-            )}
-
-            {/* Divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 auto 16px', maxWidth: 200 }}>
-              <div style={{ flex: 1, height: 1, background: '#E0D6CE' }} />
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#B8A89A' }}>or</span>
-              <div style={{ flex: 1, height: 1, background: '#E0D6CE' }} />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCityHighlight(true);
-                mobileLocInputRef.current?.focus();
-                mobileLocInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-              }}
-              style={{
-                padding: '10px 24px',
-                borderRadius: 20,
-                border: '2px solid #E8347A',
-                background: 'white',
-                color: '#E8347A',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 700,
-                fontSize: 13,
-                letterSpacing: '0.06em',
-                cursor: 'pointer',
-                marginBottom: 24,
-              }}
-            >
-              Enter your city
-            </button>
-
-            {/* Featured city quick-picks */}
-            <div>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#B8A89A', marginBottom: 8, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
-                Popular cities
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-                {FEATURED_CITIES.slice(0, 8).map(({ city, state }) => (
-                  <button
-                    key={`m-${city}-${state}`}
-                    type="button"
-                    onClick={() => selectLocation({ city, state })}
-                    style={{
-                      padding: '5px 12px', borderRadius: 16,
-                      border: '1.5px solid #E0D6CE', background: 'white',
-                      fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-                      color: '#555', cursor: 'pointer',
-                    }}
-                  >
-                    {city}, {state}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <AutoOpenLocationSheet
+            onOpen={() => {
+              setSearchSheetInitialTab('location');
+              setMobileSearchOpen(true);
+            }}
+          />
         ) : loadingProcedures ? (
           // Loading state is owned by the desktop unified split-view
           // on desktop (so the map stays mounted with gray gate pins
@@ -3883,7 +3850,7 @@ export default function FindPrices() {
                   <MobileSearchBar
                     procedureLabel={brandFilter || procFilter?.label}
                     cityLabel={selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
-                    onExpand={() => setMobileSearchOpen(true)}
+                    onExpand={() => { setSearchSheetInitialTab(null); setMobileSearchOpen(true); }}
                   />
                 </div>
               </div>
@@ -3892,7 +3859,8 @@ export default function FindPrices() {
             {/* Expandable search sheet */}
             <MobileSearchSheet
               open={mobileSearchOpen}
-              onClose={() => setMobileSearchOpen(false)}
+              onClose={() => { setMobileSearchOpen(false); setSearchSheetInitialTab(null); }}
+              initialTab={searchSheetInitialTab}
               procFilter={procFilter}
               brandFilter={brandFilter}
               procQuery={procQuery}
@@ -4515,4 +4483,14 @@ export default function FindPrices() {
       )}
     </div>
   );
+}
+
+function AutoOpenLocationSheet({ onOpen }) {
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+    onOpen();
+  }, []);
+  return null;
 }

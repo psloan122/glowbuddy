@@ -12,6 +12,7 @@ const TAB_LABELS = { treatment: 'Treatment', location: 'Location', filters: 'Fil
 export default function MobileSearchSheet({
   open,
   onClose,
+  initialTab,
   // Procedure search
   procFilter,
   brandFilter,
@@ -55,10 +56,9 @@ export default function MobileSearchSheet({
     }
   }, [open]);
 
-  // Reset to treatment tab when sheet opens
   useEffect(() => {
-    if (open) setActiveTab('treatment');
-  }, [open]);
+    if (open) setActiveTab(initialTab || 'treatment');
+  }, [open, initialTab]);
 
   // Vaul 1.1.2 bug: Drawer.Root passes modal={false} but the underlying
   // DialogPrimitive.Root defaults to modal=true, activating FocusScope

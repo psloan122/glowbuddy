@@ -168,13 +168,17 @@ export function parseSearchQuery(text) {
 
 // Build a /browse URL with stable param ordering. Drops empty values so
 // we never produce ?city=&state=.
-export function buildBrowseUrl({ city, state, procedure, brand, sort } = {}) {
+export function buildBrowseUrl({ city, state, procedure, brand, sort, lat, lng } = {}) {
   const params = new URLSearchParams();
   if (city) params.set('city', city);
   if (state) params.set('state', state);
   if (procedure) params.set('procedure', procedure);
   if (brand) params.set('brand', brand);
   if (sort) params.set('sort', sort);
+  if (lat != null && lng != null) {
+    params.set('lat', String(lat));
+    params.set('lng', String(lng));
+  }
   const qs = params.toString();
   return qs ? `/browse?${qs}` : '/browse';
 }
