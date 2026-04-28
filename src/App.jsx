@@ -14,6 +14,7 @@ import Home from './pages/Home';
 import SoftVerifyBanner from './components/SoftVerifyBanner';
 import BusinessContextBar from './components/BusinessContextBar';
 import MobileBottomNav from './components/MobileBottomNav';
+import BusinessMobileNav from './components/business/BusinessMobileNav';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -375,6 +376,7 @@ function App() {
 
         {/* Mobile bottom nav */}
         <MobileBottomNav />
+        <BusinessMobileNav />
 
         {/* Auth modal */}
         {authModal.open && (
