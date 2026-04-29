@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -15,31 +13,16 @@ import {
 } from 'recharts';
 
 // "The Know Before You Glow Price Report" — editorial data feature.
-//
-// This page is not a dashboard. It's a monthly magazine piece: ticker,
-// kicker, hero headline, then section after section of hot-pink charts
-// with Playfair/Outfit typography and wide whitespace. All data is
-// pulled from the same `procedures` query the old Insights page used;
-// what changed is how we present it.
+// All price stats use provider_pricing filtered by each procedure's
+// primary price_label (per_unit, per_syringe, per_session, etc.).
+// Patient submissions (procedures table) are used only for volume
+// counts and city rankings — never for price calculations.
 
 const dollarFormatter = (value) => `$${Number(value).toLocaleString()}`;
 
 // Hot-pink palette only — no purple, no green. Different shades
 // distinguish lines in the trend chart (STEP CHART 4).
 const PINK_SHADES = ['#E8347A', '#C8001A', '#E8B4C8', '#F06393'];
-
-// Provider-type copy lives alongside the data so the three cards in
-// Chart 2 always read correctly even when the underlying provider
-// naming drifts.
-const PROVIDER_TYPE_COPY = {
-  'Plastic Surgeon': 'Board-certified surgeon. Highest overhead.',
-  'Plastic Surgery': 'Board-certified surgeon. Highest overhead.',
-  'Med Spa': 'Most common. Wide quality range.',
-  'MedSpa': 'Most common. Wide quality range.',
-  'Nurse Injector': 'Often the best value. Look for experience.',
-  'Nurse Practitioner': 'Often the best value. Look for experience.',
-  'Dermatologist': 'Medical expertise at clinical prices.',
-};
 
 // Display-friendly procedure names. The raw `procedures.procedure_type`
 // can read like "Botox / Dysport / Xeomin" — we want "Botox" in the
@@ -51,18 +34,53 @@ function displayProcedureName(raw) {
   return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
 }
 
-function unitLabelFor(raw) {
-  const r = (raw || '').toLowerCase();
-  if (r.includes('botox') || r.includes('dysport') || r.includes('xeomin') || r.includes('jeuveau') || r.includes('daxxify') || r.includes('neurotoxin')) {
-    return 'per unit';
-  }
-  if (r.includes('filler') || r.includes('juvederm') || r.includes('restylane')) return 'per syringe';
-  if (r.includes('laser hair')) return 'per session';
-  if (r.includes('microneedling') || r.includes('rf ')) return 'per session';
-  if (r.includes('coolsculpting')) return 'per cycle';
-  if (r.includes('iv ') || r.includes('drip')) return 'per session';
-  return null;
-}
+const PRIMARY_LABEL = {
+  'Botox': 'per_unit',
+  'Dysport': 'per_unit',
+  'Xeomin': 'per_unit',
+  'Jeuveau': 'per_unit',
+  'Daxxify': 'per_unit',
+  'Botox / Dysport / Xeomin': 'per_unit',
+  'Filler': 'per_syringe',
+  'Lip Filler': 'per_syringe',
+  'Cheek Filler': 'per_syringe',
+  'Juvederm': 'per_syringe',
+  'Restylane': 'per_syringe',
+  'Sculptra': 'per_vial',
+  'Radiesse': 'per_syringe',
+  'Kybella': 'per_session',
+  'RF Microneedling': 'per_session',
+  'Microneedling': 'per_session',
+  'Chemical Peel': 'per_session',
+  'HydraFacial': 'per_session',
+  'IPL/BBL Photofacial': 'per_session',
+  'Laser Hair Removal': 'per_session',
+  'CoolSculpting': 'per_cycle',
+  'Morpheus8': 'per_session',
+};
+
+const LABEL_DISPLAY = {
+  per_unit: 'per unit',
+  per_syringe: 'per syringe',
+  per_session: 'per session',
+  per_vial: 'per vial',
+  per_cycle: 'per cycle',
+};
+
+const LABEL_SUFFIX = {
+  per_unit: '/unit',
+  per_syringe: '/syringe',
+  per_session: '/session',
+  per_vial: '/vial',
+  per_cycle: '/cycle',
+};
+
+const NEUROTOXINS = new Set([
+  'Botox', 'Dysport', 'Xeomin', 'Jeuveau', 'Daxxify', 'Botox / Dysport / Xeomin',
+]);
+
+const MIN_SAMPLE_SIZE = 20;
+const CHART_MIN_ROWS = 100;
 
 const SectionRule = () => (
   <div style={{ borderTop: '1px solid #EDE8E3', marginTop: 80, paddingTop: 48 }} />
@@ -124,10 +142,9 @@ const EditorialTooltip = ({ active, payload, label }) => {
 
 export default function Insights() {
   const [loading, setLoading] = useState(true);
-  const [rawData, setRawData] = useState([]);
+  const [pricingRows, setPricingRows] = useState([]);
   const [avgByProcedure, setAvgByProcedure] = useState([]);
   const [procedureRanges, setProcedureRanges] = useState({});
-  const [avgByProviderType, setAvgByProviderType] = useState([]);
   const [topCities, setTopCities] = useState([]);
   const [mostSubmitted, setMostSubmitted] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
@@ -143,23 +160,30 @@ export default function Insights() {
     async function fetchData() {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from('procedures')
-        .select('procedure_type, provider_type, city, state, price_paid, created_at')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(2000);
+      const [pricingResult, patientResult] = await Promise.all([
+        supabase
+          .from('provider_pricing')
+          .select('procedure_type, price_label, price, created_at')
+          .eq('is_active', true)
+          .eq('display_suppressed', false)
+          .gt('price', 0)
+          .in('procedure_type', Object.keys(PRIMARY_LABEL))
+          .in('price_label', ['per_unit', 'per_syringe', 'per_session', 'per_vial', 'per_cycle'])
+          .order('created_at', { ascending: false })
+          .limit(15000),
+        supabase
+          .from('procedures')
+          .select('procedure_type, city, state, created_at')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
 
-      if (error || !data) {
-        setLoading(false);
-        return;
-      }
+      const pricingData = pricingResult.data || [];
+      const patientData = patientResult.data || [];
+      setPricingRows(pricingData);
 
-      setRawData(data);
-
-      // Report month — use the most recent submission date so the page
-      // always reads as a fresh monthly report.
-      const latest = data
+      const latest = [...pricingData, ...patientData]
         .map((d) => d.created_at)
         .filter(Boolean)
         .sort()
@@ -169,60 +193,54 @@ export default function Insights() {
         setReportMonth(d.toLocaleString('en-US', { month: 'long', year: 'numeric' }));
       }
 
-      // --- Average by Procedure (plus ranges) ---
+      // --- Procedure stats from provider_pricing, filtered by primary label ---
+      // Merge neurotoxin variants into a single "Botox" bucket.
       const procGroups = {};
-      data.forEach((row) => {
-        const key = row.procedure_type;
-        if (!key || !row.price_paid) return;
-        if (!procGroups[key]) procGroups[key] = [];
-        procGroups[key].push(Number(row.price_paid));
+      pricingData.forEach((row) => {
+        const expectedLabel = PRIMARY_LABEL[row.procedure_type];
+        if (!expectedLabel || row.price_label !== expectedLabel) return;
+        const groupName = NEUROTOXINS.has(row.procedure_type) ? 'Botox' : row.procedure_type;
+        if (!procGroups[groupName]) procGroups[groupName] = [];
+        procGroups[groupName].push(Number(row.price));
       });
 
-      const avgByProc = Object.entries(procGroups)
-        .filter(([, prices]) => prices.length >= 2)
-        .map(([name, prices]) => ({
-          name,
-          displayName: displayProcedureName(name),
-          unitLabel: unitLabelFor(name),
-          avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-          min: Math.min(...prices),
-          max: Math.max(...prices),
-          count: prices.length,
-        }))
-        .sort((a, b) => b.avgPrice - a.avgPrice)
+      const allProcStats = Object.entries(procGroups)
+        .filter(([, prices]) => prices.length >= MIN_SAMPLE_SIZE)
+        .map(([name, prices]) => {
+          prices.sort((a, b) => a - b);
+          const p25 = prices[Math.floor(prices.length * 0.25)];
+          const p75 = prices[Math.floor(prices.length * 0.75)];
+          const label = PRIMARY_LABEL[name] || 'per_session';
+          return {
+            name,
+            displayName: displayProcedureName(name),
+            label,
+            unitLabel: LABEL_DISPLAY[label] || '',
+            suffix: LABEL_SUFFIX[label] || '',
+            avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+            p25: Math.round(p25),
+            p75: Math.round(p75),
+            min: Math.min(...prices),
+            max: Math.max(...prices),
+            count: prices.length,
+          };
+        });
+
+      const avgByProc = allProcStats
+        .filter((entry) => entry.count >= CHART_MIN_ROWS)
+        .sort((a, b) => b.count - a.count)
         .slice(0, 8);
       setAvgByProcedure(avgByProc);
 
-      // Keyed map for "What's a fair price?" cards
       const rangeMap = {};
-      avgByProc.forEach((entry) => {
+      allProcStats.forEach((entry) => {
         rangeMap[entry.name] = entry;
       });
       setProcedureRanges(rangeMap);
 
-      // --- Average by Provider Type ---
-      const provGroups = {};
-      data.forEach((row) => {
-        const key = row.provider_type;
-        if (!key || !row.price_paid) return;
-        if (!provGroups[key]) provGroups[key] = [];
-        provGroups[key].push(Number(row.price_paid));
-      });
-      const avgByProv = Object.entries(provGroups)
-        .filter(([, prices]) => prices.length >= 2)
-        .map(([name, prices]) => ({
-          name,
-          avgPrice: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-          count: prices.length,
-          copy: PROVIDER_TYPE_COPY[name] || 'Quality varies widely — compare prices carefully.',
-        }))
-        .sort((a, b) => b.avgPrice - a.avgPrice)
-        .slice(0, 3);
-      setAvgByProviderType(avgByProv);
-
-      // --- Top Cities ---
+      // --- Top Cities (from patient submissions — volume only) ---
       const cityGroups = {};
-      data.forEach((row) => {
+      patientData.forEach((row) => {
         if (!row.city || !row.state) return;
         const key = `${row.city}, ${row.state}`;
         if (!cityGroups[key]) cityGroups[key] = { city: row.city, state: row.state, count: 0 };
@@ -233,9 +251,9 @@ export default function Insights() {
         .slice(0, 8);
       setTopCities(topCitiesArr);
 
-      // --- Most Submitted (ranked bars for Chart 5) ---
+      // --- Most Submitted (from patient submissions — volume only) ---
       const procCounts = {};
-      data.forEach((row) => {
+      patientData.forEach((row) => {
         const key = row.procedure_type;
         if (!key) return;
         procCounts[key] = (procCounts[key] || 0) + 1;
@@ -252,25 +270,26 @@ export default function Insights() {
         .slice(0, 6);
       setMostSubmitted(mostSub);
 
-      // --- Monthly trends (top 3 procedures) ---
-      const top3Procs = mostSub.slice(0, 3).map((p) => p.name);
+      // --- Monthly trends (top 3 by provider_pricing count, label-filtered) ---
+      const top3Procs = avgByProc.slice(0, 3).map((p) => p.name);
       setTrendProcedures(top3Procs);
       setSelectedTrendProc(top3Procs[0] || null);
 
       const monthMap = {};
-      data.forEach((row) => {
-        if (!top3Procs.includes(row.procedure_type)) return;
+      pricingData.forEach((row) => {
+        const groupName = NEUROTOXINS.has(row.procedure_type) ? 'Botox' : row.procedure_type;
+        if (!top3Procs.includes(groupName)) return;
+        const expectedLabel = PRIMARY_LABEL[row.procedure_type];
+        if (!expectedLabel || row.price_label !== expectedLabel) return;
         if (!row.created_at) return;
         const date = new Date(row.created_at);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthMap[monthKey]) monthMap[monthKey] = {};
-        if (!monthMap[monthKey][row.procedure_type]) {
-          monthMap[monthKey][row.procedure_type] = [];
-        }
-        monthMap[monthKey][row.procedure_type].push(Number(row.price_paid));
+        if (!monthMap[monthKey][groupName]) monthMap[monthKey][groupName] = [];
+        monthMap[monthKey][groupName].push(Number(row.price));
       });
 
-      const months = Object.keys(monthMap).sort();
+      const months = Object.keys(monthMap).sort().slice(-6);
       const trendsArr = months.map((month) => {
         const entry = { month };
         top3Procs.forEach((proc) => {
@@ -289,29 +308,24 @@ export default function Insights() {
     fetchData();
   }, []);
 
-  // Compute "Surprising findings" from rawData when it arrives.
   const surprisingFindings = useMemo(() => {
-    const botoxPrices = rawData
-      .filter((r) => {
-        const pt = (r.procedure_type || '').toLowerCase();
-        return (pt.includes('botox') || pt.includes('neurotoxin')) && r.price_paid;
-      })
-      .map((r) => Number(r.price_paid))
+    const botoxPerUnit = pricingRows
+      .filter((r) => NEUROTOXINS.has(r.procedure_type) && r.price_label === 'per_unit')
+      .map((r) => Number(r.price))
       .filter((n) => Number.isFinite(n) && n > 0);
 
-    if (botoxPrices.length < 3) {
-      return null;
-    }
-    const min = Math.min(...botoxPrices);
-    const max = Math.max(...botoxPrices);
-    const spreadPct = Math.round(((max - min) / min) * 100);
+    if (botoxPerUnit.length < MIN_SAMPLE_SIZE) return null;
+
+    const min = Math.min(...botoxPerUnit);
+    const max = Math.max(...botoxPerUnit);
     const multiplier = Math.round((max / min) * 10) / 10;
     return {
-      spreadPct: `${spreadPct}%`,
-      highest: `$${Math.round(max).toLocaleString()}`,
-      multiplier: `${multiplier}\u00D7`,
+      multiplier: `${multiplier}×`,
+      highest: `$${Math.round(max)}/unit`,
+      lowest: `$${Math.round(min)}/unit`,
+      count: botoxPerUnit.length,
     };
-  }, [rawData]);
+  }, [pricingRows]);
 
   // Trend delta annotation for the currently selected procedure.
   const trendDelta = useMemo(() => {
@@ -479,6 +493,16 @@ export default function Insights() {
                           }}
                         >
                           ${entry.avgPrice.toLocaleString()}
+                          <span
+                            style={{
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: 400,
+                              fontSize: '11px',
+                              color: '#888',
+                            }}
+                          >
+                            {entry.suffix}
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -492,77 +516,6 @@ export default function Insights() {
             </p>
           )}
         </section>
-
-        {/* CHART 2 — Where you pay more, and why */}
-        {avgByProviderType.length > 0 && (
-          <section>
-            <SectionRule />
-            <Kicker>By provider type</Kicker>
-            <SectionHeadline>Where you pay more &mdash; and why.</SectionHeadline>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {avgByProviderType.map((entry) => (
-                <div
-                  key={entry.name}
-                  style={{
-                    background: '#fff',
-                    border: '1px solid #EDE8E3',
-                    borderTop: '3px solid #E8347A',
-                    padding: '20px 18px',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 700,
-                      fontSize: '10px',
-                      letterSpacing: '0.10em',
-                      textTransform: 'uppercase',
-                      color: '#E8347A',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    {entry.name}
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-display)',
-                      fontWeight: 900,
-                      fontSize: '36px',
-                      lineHeight: 1,
-                      color: '#111',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    ${entry.avgPrice.toLocaleString()}
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 400,
-                        fontSize: '12px',
-                        color: '#B8A89A',
-                        marginLeft: '6px',
-                      }}
-                    >
-                      avg
-                    </span>
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
-                      fontSize: '13px',
-                      color: '#666',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {entry.copy}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* CHART 3 — Where Know Before You Glow is growing (ranked list) */}
         {topCities.length > 0 && (
@@ -787,9 +740,6 @@ export default function Insights() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {fairPriceCards.map((entry) => {
-                const low = Math.round(entry.avgPrice * 0.75);
-                const high = Math.round(entry.avgPrice * 1.15);
-                const unit = entry.unitLabel || '';
                 const browseUrl = `/browse?procedure=${encodeURIComponent(entry.displayName.toLowerCase())}`;
                 return (
                   <div
@@ -822,8 +772,8 @@ export default function Insights() {
                         marginBottom: '10px',
                       }}
                     >
-                      Fair range: ${low}&ndash;${high}
-                      {unit ? (
+                      Fair range: ${entry.p25.toLocaleString()}&ndash;${entry.p75.toLocaleString()}
+                      {entry.suffix ? (
                         <span
                           style={{
                             fontFamily: 'var(--font-body)',
@@ -833,7 +783,7 @@ export default function Insights() {
                             marginLeft: '4px',
                           }}
                         >
-                          {unit}
+                          {entry.suffix}
                         </span>
                       ) : null}
                     </p>
@@ -848,7 +798,7 @@ export default function Insights() {
                         marginBottom: '14px',
                       }}
                     >
-                      If you're being quoted well above this range, shop around. It's the same product.
+                      Based on {entry.count.toLocaleString()} real provider prices. If you're quoted well above this, shop around.
                     </p>
                     <Link
                       to={browseUrl}
@@ -880,9 +830,9 @@ export default function Insights() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { number: surprisingFindings.spreadPct, label: 'Price spread for the same Botox product' },
-                { number: surprisingFindings.highest, label: 'Highest Botox price we found' },
-                { number: surprisingFindings.multiplier, label: 'Markup from cheapest to most expensive' },
+                { number: surprisingFindings.multiplier, label: 'Price spread for the same Botox product' },
+                { number: surprisingFindings.highest, label: 'Highest per-unit price we found' },
+                { number: surprisingFindings.lowest, label: 'Lowest per-unit price we found' },
               ].map((stat, i) => (
                 <div
                   key={i}
@@ -941,8 +891,9 @@ export default function Insights() {
                 lineHeight: 1.5,
               }}
             >
-              Real prices from real patients. All data is self-reported. Provider-listed
-              prices are submitted by providers and clearly labeled where they appear.
+              Price stats are based on provider-listed prices filtered by the correct
+              unit (per unit, per syringe, per session). Only procedures with 20+
+              data points are shown. Volume and city data comes from patient submissions.
             </p>
           </div>
         </section>
