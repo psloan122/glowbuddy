@@ -48,8 +48,8 @@ export default function BusinessContextBar() {
   return (
     <>
       <div
-        className="sticky top-[52px] md:hidden z-40 bg-white"
-        style={{ borderBottom: '0.5px solid #eee' }}
+        className="sticky md:hidden z-40 bg-white"
+        style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))', borderBottom: '0.5px solid #eee' }}
       >
         {/* ── Mobile only — sidebar handles desktop navigation ── */}
         <div className="flex items-center justify-between px-4 h-[44px]">

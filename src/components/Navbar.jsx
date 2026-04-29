@@ -356,7 +356,7 @@ export default function Navbar() {
 
     return (
       <>
-        <nav className="sticky top-0 z-50 bg-white" style={{ borderBottom: '1px solid #EDE8E3' }}>
+        <nav className="sticky top-0 z-50 bg-white" style={{ borderBottom: '1px solid #EDE8E3', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-[52px] md:h-16">
 
@@ -527,7 +527,7 @@ export default function Navbar() {
     <>
       <nav
         className="sticky top-0 z-50 bg-white"
-        style={{ borderBottom: '1px solid #EDE8E3' }}
+        style={{ borderBottom: '1px solid #EDE8E3', paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-[52px] md:h-16">

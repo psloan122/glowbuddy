@@ -2765,7 +2765,7 @@ export default function FindPrices() {
         className="md:hidden bg-white"
         style={{
           position: 'sticky',
-          top: 52,
+          top: 'calc(52px + env(safe-area-inset-top, 0px))',
           zIndex: 40,
           borderBottom: '1px solid #EDE8E3',
         }}

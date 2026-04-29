@@ -407,7 +407,7 @@ export default function ProviderPriceHistory() {
           borderBottom: `1px solid ${BORDER}`,
           padding: '16px 16px 0',
           position: 'sticky',
-          top: 52,
+          top: 'calc(52px + env(safe-area-inset-top, 0px))',
           zIndex: 20,
         }}
       >
