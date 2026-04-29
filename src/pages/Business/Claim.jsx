@@ -553,7 +553,7 @@ export default function Claim() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)]">
+    <div className="flex min-h-[calc(100dvh-64px)]">
 
       {/* ── Left panel: form ─────────────────────────────────────────── */}
       <div className="flex-1 md:w-1/2 flex flex-col px-6 py-10 md:px-12 md:py-14 max-w-2xl md:max-w-none">

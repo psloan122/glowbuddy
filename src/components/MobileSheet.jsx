@@ -30,7 +30,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
     <div
       className="md:hidden fixed bottom-14 left-0 right-0 bg-white rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.1)] z-30 transition-all duration-300 ease-out"
       style={{
-        height: expanded ? '60vh' : COLLAPSED_HEIGHT,
+        height: expanded ? '60dvh' : COLLAPSED_HEIGHT,
         transform: 'translateZ(0)', // GPU layer
       }}
       onTouchStart={handleTouchStart}
@@ -56,7 +56,7 @@ export default function MobileSheet({ providers, expanded, onToggle }) {
 
       {/* Scrollable list (only when expanded) */}
       {expanded && (
-        <div className="overflow-y-auto px-2 pb-6" style={{ height: 'calc(60vh - 64px)' }}>
+        <div className="overflow-y-auto px-2 pb-6" style={{ height: 'calc(60dvh - 64px)' }}>
           {providers.map((p) => (
             <MapProviderCard key={p.key} provider={p} />
           ))}

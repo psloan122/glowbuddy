@@ -25,7 +25,7 @@ export default function BusinessMobileNav() {
       className="md:hidden fixed left-0 right-0 bg-biz-navy"
       style={{
         bottom: 0,
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
         zIndex: 100,
       }}

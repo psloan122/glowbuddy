@@ -186,7 +186,7 @@ export default function SavingsShareCard({
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-text-primary">Share Your Savings</h3>

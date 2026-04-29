@@ -435,7 +435,7 @@ const DosingCalculatorSheet = memo(function DosingCalculatorSheet({
         position: 'fixed', bottom: 0, left: 0, right: 0,
         zIndex: 9999, background: 'white',
         borderRadius: '16px 16px 0 0',
-        maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+        maxHeight: '92dvh', display: 'flex', flexDirection: 'column',
         animation: 'slideUpSheet 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards',
         boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
       }}>
@@ -504,7 +504,7 @@ const DosingCalculatorSheet = memo(function DosingCalculatorSheet({
         {showNext && (
           <div style={{
             padding: '12px 20px', borderTop: '1px solid #EDE8E3', flexShrink: 0,
-            paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+            paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 36px)',
           }}>
             <button type="button" onClick={nextStep} style={{
               width: '100%', padding: '14px', borderRadius: 12, border: 'none',

@@ -143,7 +143,7 @@ export default function LogTreatmentForm({ onClose, onSaved, editEntry }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <h2 className="text-lg font-semibold text-gray-900">

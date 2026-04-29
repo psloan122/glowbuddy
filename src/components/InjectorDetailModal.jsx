@@ -19,7 +19,7 @@ export default function InjectorDetailModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 mt-16 shadow-xl max-h-[85vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 mt-16 shadow-xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-start gap-4">

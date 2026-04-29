@@ -3117,7 +3117,7 @@ export default function FindPrices() {
           <div
             className="absolute bottom-0 left-0 right-0 bg-white overflow-y-auto animate-slide-up"
             style={{
-              maxHeight: '80vh',
+              maxHeight: '80dvh',
               borderTopLeftRadius: 12,
               borderTopRightRadius: 12,
             }}
@@ -3167,7 +3167,7 @@ export default function FindPrices() {
 
               {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
             </div>
-            <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
+            <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 36px)' }}>
               <button
                 onClick={() => setShowFilters(false)}
                 className="btn-editorial btn-editorial-primary w-full"
@@ -4089,8 +4089,8 @@ export default function FindPrices() {
               // Exact heights: navbar=64 + search bar=52 = 116px base.
               // When results: + PriceContextBar(40) + StickyFilterBar(44) = 200px.
               height: hasResults
-                ? 'calc(100vh - 200px)'
-                : 'calc(100vh - 116px)',
+                ? 'calc(100dvh - 200px)'
+                : 'calc(100dvh - 116px)',
               minHeight: 480,
               overflow: 'hidden',
             }}

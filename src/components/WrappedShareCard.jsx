@@ -162,7 +162,7 @@ export default function WrappedShareCard({ data, onClose }) {
   return (
     <div className="fixed inset-0 z-[80] bg-[#1C1410]/45 flex items-center justify-center p-4">
       <div
-        className="bg-white max-w-md w-full p-5 max-h-[90vh] overflow-y-auto"
+        className="bg-white max-w-md w-full p-5 max-h-[90dvh] overflow-y-auto"
         style={{ borderRadius: '8px', border: '1px solid #EDE8E3', borderTop: '3px solid #E8347A' }}
       >
         <div className="flex items-center justify-between mb-4">

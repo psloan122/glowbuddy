@@ -42,7 +42,7 @@ export default function MobileBottomNav() {
       className="md:hidden fixed left-0 right-0 bg-white"
       style={{
         bottom: 0,
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)',
         borderTop: '0.5px solid #eee',
         zIndex: 100,
         isolation: 'isolate',

@@ -47,7 +47,7 @@ export default function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[70vh] overflow-y-auto">
+        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-[70dvh] overflow-y-auto">
           <NotificationFeed onClose={() => setOpen(false)} onRead={() => setUnread((n) => Math.max(0, n - 1))} />
         </div>
       )}

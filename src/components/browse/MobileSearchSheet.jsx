@@ -620,7 +620,7 @@ export default function MobileSearchSheet({
       {/* Footer: clear all + show results */}
       <div style={{
         padding: '12px 16px',
-        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 36px)',
         borderTop: '1px solid #F0EDE9',
         background: 'white',
         display: 'flex', alignItems: 'center', gap: 12,

@@ -170,7 +170,7 @@ export default function ReviewModal({ provider, onClose, onSubmitted }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 mt-20 shadow-xl max-h-[85vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 mt-20 shadow-xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">

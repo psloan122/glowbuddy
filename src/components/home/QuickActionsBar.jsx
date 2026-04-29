@@ -28,7 +28,7 @@ export default function QuickActionsBar() {
       {/* Mobile: fixed bottom bar */}
       <div
         className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}
       >
         <div className="flex items-center justify-around px-2 h-14">
           {ACTIONS.map(({ to, icon: Icon, label }) => (

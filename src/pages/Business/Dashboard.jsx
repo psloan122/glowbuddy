@@ -686,7 +686,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[calc(100dvh-4rem)]">
         <div className="flex-1 min-w-0 max-w-5xl mx-auto px-4 md:px-8 py-8 animate-pulse">
           <div className="h-7 bg-gray-100 rounded w-48 mb-2" />
           <div className="h-4 bg-gray-100 rounded w-32 mb-8" />
@@ -712,7 +712,7 @@ export default function Dashboard() {
   // --- Main Dashboard ---
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex min-h-[calc(100dvh-4rem)]">
       <BusinessSidebar provider={provider} tierHelpers={tierHelpers} />
 
       <div className="flex-1 min-w-0 max-w-5xl mx-auto px-4 md:px-8 py-8">

@@ -46,7 +46,7 @@ export default function BusinessSidebar({ provider, tierHelpers }) {
   const badgeLabel = TIER_BADGE_LABEL[tierHelpers?.tier] || 'Free';
 
   return (
-    <aside className="hidden md:flex flex-col w-[240px] shrink-0 bg-biz-navy text-white sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+    <aside className="hidden md:flex flex-col w-[240px] shrink-0 bg-biz-navy text-white sticky top-16 h-[calc(100dvh-4rem)] overflow-y-auto">
       {/* Provider identity */}
       <div className="px-5 pt-6 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-3">

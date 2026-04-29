@@ -86,7 +86,7 @@ export default function BusinessContextBar() {
           {/* Sheet */}
           <div
             className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl pt-3 px-4"
-            style={{ zIndex: 80, maxHeight: '70vh', overflowY: 'auto', paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}
+            style={{ zIndex: 80, maxHeight: '70dvh', overflowY: 'auto', paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}
           >
             {/* Handle + close */}
             <div className="flex items-center justify-between mb-4">
