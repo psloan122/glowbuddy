@@ -108,8 +108,6 @@ export default function MobileBottomNav() {
           icon={Plus}
           label="Log a price"
           active={path === '/log'}
-          gated={!user}
-          onGatedTap={() => openAuthModal('signup', null, { hint: 'Create a free account to share what you paid and help others.' })}
         />
 
         {/* Account */}
@@ -118,8 +116,6 @@ export default function MobileBottomNav() {
           icon={User}
           label="Account"
           active={path === '/settings' || path === '/account' || path === '/rewards'}
-          gated={!user}
-          onGatedTap={() => openAuthModal('signup')}
         />
       </div>
     </nav>
@@ -129,7 +125,6 @@ export default function MobileBottomNav() {
 const GATED_TOOLTIP = {
   'My Glow': 'Sign in to track treatments',
   'Saved': 'Sign in to save providers',
-  'Log a price': 'Sign in to share what you paid',
 };
 
 function NavTab({ to, icon: Icon, label, active, gated, onGatedTap }) {
