@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal } from 'lucide-react';
 export default function MobileSearchBar({
   procedureLabel,
   cityLabel,
+  onPillTap,
   onTreatmentTap,
   onLocationTap,
   onFilterTap,
@@ -12,6 +13,9 @@ export default function MobileSearchBar({
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       {/* Search pill */}
       <div
+        role="button"
+        tabIndex={0}
+        onClick={onPillTap}
         style={{
           flex: 1,
           minWidth: 0,
@@ -32,7 +36,7 @@ export default function MobileSearchBar({
 
         {/* Treatment half */}
         <div
-          onClick={onTreatmentTap}
+          onClick={(e) => { e.stopPropagation(); onTreatmentTap(); }}
           style={{
             maxWidth: 100,
             fontFamily: 'var(--font-body)',
@@ -53,7 +57,7 @@ export default function MobileSearchBar({
 
         {/* Location half */}
         <div
-          onClick={onLocationTap}
+          onClick={(e) => { e.stopPropagation(); onLocationTap(); }}
           style={{
             flex: 1,
             minWidth: 0,

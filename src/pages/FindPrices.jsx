@@ -221,6 +221,7 @@ export default function FindPrices() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchSheetInitialTab, setSearchSheetInitialTab] = useState(null);
   const [mobileSearchFocus, setMobileSearchFocus] = useState('treatment');
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const [detailSheet, setDetailSheet] = useState(null);
   const [experienceSheet, setExperienceSheet] = useState(null);
   const [dosingSheet, setDosingSheet] = useState(null);
@@ -261,6 +262,12 @@ export default function FindPrices() {
       selectLocation(geoLoc);
     }
   }, [geo.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onScroll = () => setHeaderScrolled(window.scrollY > 0);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // First-timer state
   const [firstTimerActive, setFirstTimerActive] = useState(() => isFirstTimerMode());
@@ -3595,6 +3602,8 @@ export default function FindPrices() {
               gap: 10,
               height: 56,
               boxSizing: 'content-box',
+              boxShadow: headerScrolled ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+              transition: 'box-shadow 200ms',
             }}>
               {/* Logo */}
               <Link
@@ -3623,6 +3632,11 @@ export default function FindPrices() {
                 <MobileSearchBar
                   procedureLabel={brandFilter || procFilter?.label}
                   cityLabel={!pendingClear && selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
+                  onPillTap={() => {
+                    const tab = !selectedLoc || pendingClear ? 'location' : 'treatment';
+                    setSearchSheetInitialTab(tab);
+                    setMobileSearchOpen(true);
+                  }}
                   onTreatmentTap={() => { setSearchSheetInitialTab('treatment'); setMobileSearchOpen(true); }}
                   onLocationTap={() => { setSearchSheetInitialTab('location'); setMobileSearchOpen(true); }}
                   onFilterTap={() => { setSearchSheetInitialTab('filters'); setMobileSearchOpen(true); }}
