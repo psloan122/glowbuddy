@@ -190,6 +190,8 @@ export default function Onboarding({ onComplete }) {
       style={{
         backgroundColor: '#FDF6F0',
         WebkitOverflowScrolling: 'touch',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       <div className="min-h-full flex items-center justify-center px-4 py-8">

@@ -74,6 +74,13 @@
   --tracking-wide-xl: 0.2em;
 }
 
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-height: 52px;
+  --bottom-nav-height: 64px;
+}
+
 body {
   margin: 0;
   background-color: var(--color-cream);
@@ -525,6 +532,20 @@ h1, h2, h3, h4 {
 .pac-icon { display: none; }
 .pac-item-query { font-weight: 500; color: #111; }
 .pac-matched { color: #E8347A; }
+
+.sticky-below-header {
+  top: calc(52px + env(safe-area-inset-top, 0px));
+}
+@media (min-width: 768px) {
+  .sticky-below-header { top: 64px; }
+}
+
+.safe-bottom-above-nav {
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .safe-bottom-above-nav { bottom: 24px; }
+}
 
 /* Ensure page content is never hidden behind MobileBottomNav on devices
    with a home indicator (safe-area-inset-bottom ≈ 34px on iPhone 12+).

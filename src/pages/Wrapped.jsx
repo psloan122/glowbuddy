@@ -184,6 +184,7 @@ export default function Wrapped() {
     <>
       <div
         className="fixed inset-0 z-50 bg-[#1A1A2E] flex flex-col select-none"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         onClick={goNext}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}

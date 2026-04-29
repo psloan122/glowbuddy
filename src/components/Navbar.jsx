@@ -462,7 +462,7 @@ export default function Navbar() {
         {mobileOpen && (
           <div
             className="fixed inset-0 z-[60] bg-cream md:hidden overflow-y-auto"
-            style={{ borderTop: '3px solid #E8347A' }}
+            style={{ borderTop: '3px solid #E8347A', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             <div className="flex items-center justify-between h-[52px] px-4 border-b border-rule">
               <Link to="/business/dashboard" onClick={() => setMobileOpen(false)} className="flex items-baseline">
@@ -768,7 +768,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div
           className="fixed inset-0 z-[60] bg-cream md:hidden overflow-y-auto"
-          style={{ borderTop: '3px solid #E8347A' }}
+          style={{ borderTop: '3px solid #E8347A', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="flex items-center justify-between h-[52px] px-4 border-b border-rule">
             <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-baseline">

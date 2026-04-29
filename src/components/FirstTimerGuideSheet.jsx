@@ -41,7 +41,7 @@ export default function FirstTimerGuideSheet({ treatmentName, onClose, onActivat
       />
 
       {/* Panel: bottom sheet on mobile, side panel on desktop */}
-      <div className="fixed z-[85] bottom-0 left-0 right-0 max-h-[85vh] rounded-t-2xl bg-white overflow-y-auto md:left-auto md:right-0 md:top-0 md:bottom-0 md:w-[440px] md:max-h-full md:rounded-t-none md:rounded-l-2xl shadow-2xl">
+      <div className="fixed z-[85] bottom-0 left-0 right-0 max-h-[85vh] rounded-t-2xl bg-white overflow-y-auto md:left-auto md:right-0 md:top-0 md:bottom-0 md:w-[440px] md:max-h-full md:rounded-t-none md:rounded-l-2xl shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {/* Mobile handle */}
         <div className="md:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-300" />

@@ -704,7 +704,7 @@ export default function ProviderProfile() {
       <div className="bg-white" style={{ borderBottom: '3px solid #E8347A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
           {/* Back to /browse — preserves city and any persisted filters */}
-          <div className="md:contents sticky top-16 z-10 bg-white border-b border-gray-100 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 md:border-0 md:bg-transparent md:mx-0 md:px-0 md:py-0 mb-4 md:mb-6">
+          <div className="md:contents sticky z-10 bg-white border-b border-gray-100 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 md:border-0 md:bg-transparent md:mx-0 md:px-0 md:py-0 mb-4 md:mb-6" style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))' }}>
             <Link
               to={backToBrowseHref}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-text-primary hover:text-hot-pink transition-colors py-1"

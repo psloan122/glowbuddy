@@ -935,7 +935,7 @@ export default function Log() {
           </div>
 
           {/* Sticky compact step counter — stays visible when user scrolls */}
-          <div className="sticky top-16 z-20 bg-white py-2 -mx-4 px-4 border-b border-gray-100 mb-4 text-center">
+          <div className="sticky z-20 bg-white py-2 -mx-4 px-4 border-b border-gray-100 mb-4 text-center sticky-below-header">
             <p className="text-sm font-medium text-text-primary">
               Step {typeof currentStep === 'number' ? currentStep : 3} of {steps.length}
             </p>

@@ -101,9 +101,9 @@ export default memo(function StickyFilterBar({
       <style>{`
         .sticky-filter-bar { top: ${topOffset}px; }
         @media (max-width: 767px) {
-          .sticky-filter-bar { top: ${mobileTopOffset}px; padding: 8px 12px !important; }
+          .sticky-filter-bar { top: calc(${mobileTopOffset}px + env(safe-area-inset-top, 0px)); padding: 8px 12px !important; }
           .sticky-filter-bar-inner { gap: 6px !important; }
-          .sfb-estimate-dropdown { position: fixed !important; top: auto !important; bottom: 64px !important; left: 0 !important; right: 0 !important; width: auto !important; max-width: 100vw !important; border-radius: 16px 16px 0 0 !important; }
+          .sfb-estimate-dropdown { position: fixed !important; top: auto !important; bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; left: 0 !important; right: 0 !important; width: auto !important; max-width: 100vw !important; border-radius: 16px 16px 0 0 !important; }
         }
         .sticky-filter-bar-inner::-webkit-scrollbar { display: none; }
         .sfb-chip-scroll::-webkit-scrollbar { display: none; }

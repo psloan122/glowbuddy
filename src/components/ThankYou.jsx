@@ -412,7 +412,7 @@ export default function ThankYou({
       )}
 
       {skipToast && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3">
+        <div className="fixed safe-bottom-above-nav left-1/2 -translate-x-1/2 z-[100] bg-white rounded-xl shadow-lg border border-gray-100 px-6 py-4 flex items-center gap-3">
           <span className="text-lg">✓</span>
           <p className="text-sm text-text-primary">Price submitted!</p>
         </div>

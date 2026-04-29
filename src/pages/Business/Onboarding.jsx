@@ -411,7 +411,7 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-warm-white overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-warm-white overflow-y-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Progress bar */}
       <div className="sticky top-0 z-10 bg-warm-white">
         <div className="h-1 bg-gray-100">

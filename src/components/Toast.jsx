@@ -36,7 +36,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 5
   const { Icon } = style;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-fade-in">
+    <div className="fixed left-1/2 -translate-x-1/2 z-[100] animate-fade-in" style={{ top: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
       <div
         className="flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg max-w-md"
         style={{ backgroundColor: style.bg, border: `1px solid ${style.border}` }}
