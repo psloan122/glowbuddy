@@ -474,7 +474,7 @@ export default function Home() {
           ═══════════════════════════════════════════════════════ */}
       <section
         className="bg-cream"
-        style={{ borderBottom: '3px solid #E8347A' }}
+        style={{ borderBottom: '3px solid #E8347A', minHeight: '60vh' }}
       >
         <div
           className="pt-16 md:pt-24 pb-14 md:pb-20 text-left"
@@ -815,8 +815,8 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════════
           2. BIG NUMBERS BAR — editorial stats
           ═══════════════════════════════════════════════════════ */}
-      {statItems.length > 0 && (
-        <section className="bg-white" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8' }}>
+      <section className="bg-white" style={{ borderTop: '1px solid #E8E8E8', borderBottom: '1px solid #E8E8E8', minHeight: 120 }}>
+        {statItems.length > 0 && (
           <div className="max-w-5xl mx-auto px-4 py-10 overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             <div
               className="flex md:grid gap-0"
@@ -868,8 +868,8 @@ export default function Home() {
               })}
             </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* ═══════════════════════════════════════════════════════
           3. HOW IT WORKS — editorial

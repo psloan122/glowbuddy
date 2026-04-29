@@ -686,8 +686,20 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={24} className="animate-spin text-rose-accent" />
+      <div className="flex min-h-[calc(100vh-4rem)]">
+        <div className="flex-1 min-w-0 max-w-5xl mx-auto px-4 md:px-8 py-8 animate-pulse">
+          <div className="h-7 bg-gray-100 rounded w-48 mb-2" />
+          <div className="h-4 bg-gray-100 rounded w-32 mb-8" />
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 min-h-[100px]">
+                <div className="h-3 bg-gray-100 rounded w-20 mb-4" />
+                <div className="h-7 bg-gray-100 rounded w-16 mb-2" />
+                <div className="h-2.5 bg-gray-100 rounded w-24" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -868,7 +880,7 @@ export default function Dashboard() {
                   color: '#2563EB',
                 },
               ].map(kpi => (
-                <div key={kpi.label} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div key={kpi.label} className="rounded-lg border border-gray-200 bg-white p-4 min-h-[100px]">
                   <div className="flex items-center gap-2 mb-3">
                     <span style={{ color: kpi.color }}>{kpi.icon}</span>
                     <span className="text-[11px] font-medium text-text-secondary uppercase tracking-wide">{kpi.label}</span>

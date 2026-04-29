@@ -315,8 +315,27 @@ export default function Account() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <Loader2 className="w-8 h-8 text-rose-accent mx-auto animate-spin" />
+      <div className="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8 animate-pulse">
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="md:w-72 shrink-0">
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <div className="w-16 h-16 rounded-full bg-gray-100 mx-auto mb-4" />
+              <div className="h-5 bg-gray-100 rounded w-2/3 mx-auto mb-2" />
+              <div className="h-3 bg-gray-100 rounded w-1/2 mx-auto" />
+            </div>
+          </div>
+          <div className="flex-1 space-y-6">
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <div className="h-5 bg-gray-100 rounded w-1/3 mb-4" />
+              <div className="h-10 bg-gray-100 rounded w-full mb-3" />
+              <div className="h-10 bg-gray-100 rounded w-full" />
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <div className="h-5 bg-gray-100 rounded w-1/4 mb-4" />
+              <div className="h-10 bg-gray-100 rounded w-full" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
