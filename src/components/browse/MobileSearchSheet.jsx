@@ -130,7 +130,7 @@ export default function MobileSearchSheet({
         background: 'white',
         transform: open ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 0.3s ease',
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
         display: 'flex',
         flexDirection: 'column',
         willChange: 'transform',
@@ -620,7 +620,7 @@ export default function MobileSearchSheet({
       {/* Footer: clear all + show results */}
       <div style={{
         padding: '12px 16px',
-        paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         borderTop: '1px solid #F0EDE9',
         background: 'white',
         display: 'flex', alignItems: 'center', gap: 12,

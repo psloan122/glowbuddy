@@ -3167,7 +3167,7 @@ export default function FindPrices() {
 
               {/* Dosing estimator moved to StickyFilterBar ESTIMATE pill */}
             </div>
-            <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3' }}>
+            <div className="sticky bottom-0 bg-white p-4" style={{ borderTop: '1px solid #EDE8E3', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
               <button
                 onClick={() => setShowFilters(false)}
                 className="btn-editorial btn-editorial-primary w-full"
