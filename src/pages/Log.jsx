@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import { useSearchParams, useBlocker } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Check, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from '../App';
@@ -191,21 +191,6 @@ export default function Log() {
 
   // Unsaved-changes guard — fires when user has entered price data and tries to navigate away
   const hasUnsavedData = currentStep !== 'success' && Boolean(formData.pricePaid);
-
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasUnsavedData && currentLocation.pathname !== nextLocation.pathname
-  );
-
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      if (window.confirm('Leave without saving your submission?')) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    }
-  }, [blocker.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!hasUnsavedData) return;
