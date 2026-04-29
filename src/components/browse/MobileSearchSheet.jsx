@@ -13,6 +13,7 @@ export default function MobileSearchSheet({
   open,
   onClose,
   initialTab,
+  pendingClear,
   // Procedure search
   procFilter,
   brandFilter,
@@ -43,6 +44,7 @@ export default function MobileSearchSheet({
   setVerifiedOnly,
 }) {
   const [activeTab, setActiveTab] = useState('treatment');
+  const [sheetLocEditing, setSheetLocEditing] = useState(false);
   const procInputRef = useRef(null);
   const locInputRef = useRef(null);
   const sheetRef = useRef(null);
@@ -57,7 +59,10 @@ export default function MobileSearchSheet({
   }, [open]);
 
   useEffect(() => {
-    if (open) setActiveTab(initialTab || 'treatment');
+    if (open) {
+      setActiveTab(initialTab || 'treatment');
+      setSheetLocEditing(false);
+    }
   }, [open, initialTab]);
 
   // Vaul 1.1.2 bug: Drawer.Root passes modal={false} but the underlying
@@ -398,13 +403,20 @@ export default function MobileSearchSheet({
                 <input
                   ref={locInputRef}
                   type="text"
-                  value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
+                  value={sheetLocEditing
+                    ? locQuery
+                    : ((!pendingClear && selectedLoc) ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : locQuery)}
                   onChange={(e) => handleLocInput(e.target.value)}
                   onFocus={() => {
-                    if (selectedLoc && !locQuery) {
+                    setSheetLocEditing(true);
+                    if (selectedLoc && !pendingClear && !locQuery) {
                       handleLocInput(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
                     }
                     if (locQuery.trim()) setLocOpen(true);
+                    locInputRef.current?.select();
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setSheetLocEditing(false), 200);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
@@ -418,7 +430,7 @@ export default function MobileSearchSheet({
                     fontFamily: 'var(--font-body)', fontSize: 16, color: '#111',
                   }}
                 />
-                {selectedLoc && (
+                {selectedLoc && !pendingClear && (
                   <button
                     type="button"
                     onClick={clearLocation}
@@ -481,7 +493,7 @@ export default function MobileSearchSheet({
             </div>
 
             {/* Selected location chip */}
-            {selectedLoc && (
+            {selectedLoc && !pendingClear && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 14px', borderRadius: 8,

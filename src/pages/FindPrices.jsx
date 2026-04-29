@@ -201,6 +201,8 @@ export default function FindPrices() {
   const mobileLocInputRef = useRef(null);
   const locDebounce = useRef(null);
   const [cityHighlight, setCityHighlight] = useState(false);
+  const [locEditing, setLocEditing] = useState(false);
+  const [pendingClear, setPendingClear] = useState(false);
 
   // Late-bound reference to groupedProviders so early callbacks
   // (handlePinClick) can read the latest value without hoisting
@@ -436,13 +438,13 @@ export default function FindPrices() {
   // page behind doesn't scroll. Always return a cleanup so overflow is
   // restored on unmount regardless of which branch was active.
   useEffect(() => {
-    if (isMobile && selectedLoc) {
+    if (isMobile && (selectedLoc || pendingClear)) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [isMobile, selectedLoc]);
+  }, [isMobile, selectedLoc, pendingClear]);
 
   // Fetch every active provider in the city. Runs whenever there's a
   // city — including when a procedure/brand filter is active — so the
@@ -454,7 +456,7 @@ export default function FindPrices() {
   // own provider feed) or when there's no city.
   useEffect(() => {
     if (personalizedMode || !selectedLoc) {
-      setGateProviders([]);
+      if (!pendingClear) setGateProviders([]);
       return undefined;
     }
     let cancelled = false;
@@ -652,9 +654,28 @@ export default function FindPrices() {
     setShowSearchArea(true);
   }, []);
 
-  const handleSearchAreaClick = useCallback(() => {
+  const handleSearchAreaClick = useCallback(async () => {
     setSearchAreaBounds(mapBounds);
     setShowSearchArea(false);
+    if (mapBounds) {
+      const centerLng = (mapBounds.west + mapBounds.east) / 2;
+      const centerLat = (mapBounds.south + mapBounds.north) / 2;
+      try {
+        const token = import.meta.env.VITE_MAPBOX_TOKEN;
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${centerLng},${centerLat}.json?types=place&access_token=${token}`,
+        );
+        const data = await res.json();
+        const place = data.features?.[0];
+        if (place) {
+          const city = place.text;
+          const state = place.context?.find((c) => c.id.startsWith('region'))?.short_code?.replace('US-', '') || '';
+          setSelectedLoc((prev) => prev ? { ...prev, city, state, lat: centerLat, lng: centerLng } : prev);
+        }
+      } catch {
+        // Display label is cosmetic — silently fail
+      }
+    }
   }, [mapBounds]);
 
   // Reset viewport + pricing state when the user changes city.
@@ -1041,6 +1062,7 @@ export default function FindPrices() {
 
   function selectLocation(loc) {
     setSelectedLoc(loc);
+    setPendingClear(false);
     setLocQuery('');
     setLocOpen(false);
     setCityHighlight(false);
@@ -1050,11 +1072,15 @@ export default function FindPrices() {
   }
 
   function clearLocation() {
-    setSelectedLoc(null);
-    setLocQuery('');
     if (isMobile) {
+      setPendingClear(true);
+      setLocQuery('');
       setSearchSheetInitialTab('location');
       setMobileSearchOpen(true);
+      setTimeout(() => mobileLocInputRef.current?.focus(), 300);
+    } else {
+      setSelectedLoc(null);
+      setLocQuery('');
     }
   }
 
@@ -2577,14 +2603,21 @@ export default function FindPrices() {
             <input
               ref={mobileLocInputRef}
               type="text"
-              value={locQuery || (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : '')}
+              value={locEditing
+                ? locQuery
+                : (selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : locQuery)}
               onChange={(e) => { setCityHighlight(false); handleLocInput(e.target.value); }}
               onFocus={() => {
                 setCityHighlight(false);
+                setLocEditing(true);
                 if (selectedLoc && !locQuery) {
                   setLocQuery(`${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}`);
                 }
                 if (locQuery.trim()) setLocOpen(true);
+                mobileLocInputRef.current?.select();
+              }}
+              onBlur={() => {
+                setTimeout(() => setLocEditing(false), 200);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && locResults.length > 0 && !locResults[0].kind) {
@@ -2727,7 +2760,7 @@ export default function FindPrices() {
   return (
     <div className="min-h-screen bg-cream page-enter">
       {/* ─── Mobile search + filter bar (< md) — pre-city sticky mode only ─── */}
-      {!(isMobile && selectedLoc) && (
+      {!(isMobile && (selectedLoc || pendingClear)) && (
       <div
         className="md:hidden bg-white"
         style={{
@@ -3654,7 +3687,7 @@ export default function FindPrices() {
       {/* ─── Mobile full-screen map container ───
           Single fixed container holding map + sheet + header as siblings.
           z-55 covers the global Navbar (z-50); MobileBottomNav (z-100) still above. */}
-      {isMobile && selectedLoc && (() => {
+      {isMobile && (selectedLoc || pendingClear) && (() => {
         const hasPricedResults = procFilter && !loadingProcedures && displayedProcedures?.length > 0;
 
         // Unified mobile provider list — works for ALL user states:
@@ -3902,7 +3935,7 @@ export default function FindPrices() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <MobileSearchBar
                     procedureLabel={brandFilter || procFilter?.label}
-                    cityLabel={selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
+                    cityLabel={!pendingClear && selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
                     onExpand={() => { setSearchSheetInitialTab(null); setMobileSearchOpen(true); }}
                   />
                 </div>
@@ -3912,8 +3945,16 @@ export default function FindPrices() {
             {/* Expandable search sheet */}
             <MobileSearchSheet
               open={mobileSearchOpen}
-              onClose={() => { setMobileSearchOpen(false); setSearchSheetInitialTab(null); }}
+              onClose={() => {
+                setMobileSearchOpen(false);
+                setSearchSheetInitialTab(null);
+                if (pendingClear) {
+                  setSelectedLoc(null);
+                  setPendingClear(false);
+                }
+              }}
               initialTab={searchSheetInitialTab}
+              pendingClear={pendingClear}
               procFilter={procFilter}
               brandFilter={brandFilter}
               procQuery={procQuery}
