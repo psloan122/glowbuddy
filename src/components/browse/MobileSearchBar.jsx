@@ -1,89 +1,121 @@
 import { Search, SlidersHorizontal } from 'lucide-react';
 
-export default function MobileSearchBar({ procedureLabel, cityLabel, onExpand }) {
-  const hasSearch = procedureLabel || cityLabel;
-
+export default function MobileSearchBar({
+  procedureLabel,
+  cityLabel,
+  onTreatmentTap,
+  onLocationTap,
+  onFilterTap,
+  activeFilterCount,
+}) {
   return (
-    <button
-      type="button"
-      onClick={onExpand}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        height: 52,
-        padding: '0 14px',
-        background: 'white',
-        border: 'none',
-        borderRadius: 26,
-        boxShadow: '0 2px 10px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
-        cursor: 'pointer',
-        WebkitTapHighlightColor: 'transparent',
-        touchAction: 'manipulation',
-      }}
-    >
-      {/* Left: search icon + context */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <Search size={16} style={{ color: '#888', flexShrink: 0 }} />
-        <div style={{ minWidth: 0 }}>
-          {hasSearch ? (
-            <>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 600,
-                fontSize: 13,
-                color: '#111',
-                margin: 0,
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {procedureLabel || 'Any treatment'}
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: 11,
-                color: '#888',
-                margin: 0,
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {cityLabel || 'Any location'}
-              </p>
-            </>
-          ) : (
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 13,
-              color: '#888',
-              margin: 0,
-            }}>
-              What are you looking for?
-            </p>
-          )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Search pill */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          height: 40,
+          padding: '0 14px',
+          background: '#F7F7F7',
+          border: '1px solid #EBEBEB',
+          borderRadius: 24,
+          cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+        }}
+      >
+        <Search size={16} style={{ color: '#999', flexShrink: 0 }} />
+
+        {/* Treatment half */}
+        <div
+          onClick={onTreatmentTap}
+          style={{
+            maxWidth: 100,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 600,
+            fontSize: 14,
+            color: procedureLabel ? '#1A1A1A' : '#999',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            cursor: 'pointer',
+          }}
+        >
+          {procedureLabel || 'Treatment'}
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 18, background: '#DEDEDE', flexShrink: 0 }} />
+
+        {/* Location half */}
+        <div
+          onClick={onLocationTap}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize: 13,
+            color: cityLabel ? '#666' : '#999',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            cursor: 'pointer',
+          }}
+        >
+          {cityLabel || 'Location'}
         </div>
       </div>
 
-      {/* Right: filter icon circle */}
-      <div style={{
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        border: '1px solid #DDD',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        marginLeft: 8,
-      }}>
-        <SlidersHorizontal size={13} style={{ color: '#555' }} />
-      </div>
-    </button>
+      {/* Filter button */}
+      <button
+        type="button"
+        onClick={onFilterTap}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          border: '1px solid #EBEBEB',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          cursor: 'pointer',
+          position: 'relative',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          padding: 0,
+        }}
+        aria-label="Filters"
+      >
+        <SlidersHorizontal size={18} style={{ color: '#1A1A1A' }} />
+        {activeFilterCount > 0 && (
+          <span style={{
+            position: 'absolute',
+            top: -2,
+            right: -2,
+            width: 18,
+            height: 18,
+            background: '#E91E8C',
+            borderRadius: 9,
+            fontSize: 10,
+            fontWeight: 700,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'monospace',
+            border: '2px solid white',
+          }}>
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+    </div>
   );
 }

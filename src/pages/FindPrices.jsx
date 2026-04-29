@@ -3877,68 +3877,60 @@ export default function FindPrices() {
               />
             )}
 
-            {/* Unified search pill — white background fills the safe-area
-                zone so the map never bleeds behind the status bar. The 20px
-                fallback covers non-notch iPhones where env() returns 0 but
-                the status bar still occupies ~20px. */}
+            {/* Unified search header — logo left, pill center, filter right */}
             <div style={{
               position: 'absolute',
               top: 0, left: 0, right: 0,
               zIndex: 40,
               backgroundColor: 'white',
-              paddingTop: 'env(safe-area-inset-top, 20px)',
-              paddingLeft: 12,
-              paddingRight: 12,
+              paddingTop: 'max(12px, env(safe-area-inset-top, 20px))',
+              paddingLeft: 16,
+              paddingRight: 16,
               paddingBottom: 8,
+              borderBottom: '1px solid #F0F0F0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              height: 56,
+              boxSizing: 'content-box',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* Home link — compact italic "Glow." mark matching the
-                    Navbar wordmark, links back to / without a back-arrow
-                    (navigate(-1) can exit the app if user came from Reddit) */}
-                <Link
-                  to="/"
-                  style={{
-                    flexShrink: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    lineHeight: 1,
-                    textDecoration: 'none',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                  aria-label="Home"
-                >
-                  <span style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 8,
-                    fontWeight: 500,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    color: '#555',
-                    marginBottom: 1,
-                  }}>
-                    Know Before
-                  </span>
-                  <span style={{
-                    fontFamily: 'var(--font-display)',
-                    fontStyle: 'italic',
-                    fontSize: 18,
-                    fontWeight: 900,
-                    lineHeight: 0.9,
-                    color: '#E8347A',
-                  }}>
-                    Glow.
-                  </span>
-                </Link>
+              {/* Logo */}
+              <Link
+                to="/"
+                style={{
+                  flexShrink: 0,
+                  textDecoration: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+                aria-label="Home"
+              >
+                <span style={{
+                  fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic',
+                  fontSize: 22,
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  color: '#E8347A',
+                }}>
+                  Glow.
+                </span>
+              </Link>
 
-                {/* Search pill — flex: 1 so it fills remaining width */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <MobileSearchBar
-                    procedureLabel={brandFilter || procFilter?.label}
-                    cityLabel={!pendingClear && selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
-                    onExpand={() => { setSearchSheetInitialTab(null); setMobileSearchOpen(true); }}
-                  />
-                </div>
+              {/* Search pill + filter button */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <MobileSearchBar
+                  procedureLabel={brandFilter || procFilter?.label}
+                  cityLabel={!pendingClear && selectedLoc ? `${selectedLoc.city}${selectedLoc.state ? `, ${selectedLoc.state}` : ''}` : ''}
+                  onTreatmentTap={() => { setSearchSheetInitialTab('treatment'); setMobileSearchOpen(true); }}
+                  onLocationTap={() => { setSearchSheetInitialTab('location'); setMobileSearchOpen(true); }}
+                  onFilterTap={() => { setSearchSheetInitialTab('filters'); setMobileSearchOpen(true); }}
+                  activeFilterCount={
+                    (hasPricesOnly ? 1 : 0) +
+                    (verifiedOnly ? 1 : 0) +
+                    (filterProviderType ? 1 : 0) +
+                    (minRating ? 1 : 0)
+                  }
+                />
               </div>
             </div>
 
