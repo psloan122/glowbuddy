@@ -745,7 +745,7 @@ export default memo(function GlowMap({
           onClick={() => onSearchAreaClick?.()}
           style={{
             position: 'absolute',
-            top: isMobile ? 'calc(env(safe-area-inset-top, 0px) + 60px)' : 12,
+            top: isMobile ? 'calc(max(12px, env(safe-area-inset-top, 20px)) + 72px)' : 12,
             left: '50%', transform: 'translateX(-50%)', zIndex: 45,
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', background: '#fff', border: '1px solid #EDE8E3',
