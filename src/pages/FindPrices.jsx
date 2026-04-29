@@ -449,10 +449,9 @@ export default function FindPrices() {
   // priced overlay is a separate query (`procedures`) that the map
   // applies on top of these base pins; pins never disappear on
   // procedure selection because they're driven by this list, not
-  // the priced query. Skips only in personalized mode (which has its
-  // own provider feed) or when there's no city.
+  // the priced query. Skips only when there's no city.
   useEffect(() => {
-    if (personalizedMode || !selectedLoc) {
+    if (!selectedLoc) {
       if (!pendingClear) setGateProviders([]);
       return undefined;
     }
@@ -517,7 +516,7 @@ export default function FindPrices() {
     return () => {
       cancelled = true;
     };
-  }, [personalizedMode, selectedLoc?.city, selectedLoc?.state, selectedLoc?.lat, selectedLoc?.lng, searchAreaBounds]);
+  }, [selectedLoc?.city, selectedLoc?.state, selectedLoc?.lat, selectedLoc?.lng, searchAreaBounds]);
 
   // ── Pill provider counts + city pricing rows ──
   // Lightweight query: fetch procedure_type + brand for all providers in
@@ -3474,10 +3473,7 @@ export default function FindPrices() {
           mobileSelectedId = gateSelectedProviderGroup?.provider_id || null;
         }
 
-        const mobileMapProviders =
-          personalizedMode && personalProviders.length > 0
-            ? personalProviders.map((entry) => entry.provider)
-            : gateProviders;
+        const mobileMapProviders = gateProviders;
 
         return (
           <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 55 }}>
@@ -4113,11 +4109,7 @@ export default function FindPrices() {
               }}
             >
               <GlowMap
-                allProviders={
-                  personalizedMode
-                    ? personalProviders.map((entry) => entry.provider)
-                    : gateProviders
-                }
+                allProviders={gateProviders}
                 procedures={procFilter ? proceduresForMap : []}
                 cityAvg={procFilter ? cityAvgPrice : null}
                 city={selectedLoc.city}
