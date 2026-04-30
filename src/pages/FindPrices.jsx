@@ -10,6 +10,7 @@ import CompareTray from '../components/browse/CompareTray';
 import SavingsCallout from '../components/browse/SavingsCallout';
 import SmartEmptyState from '../components/browse/SmartEmptyState';
 import GlowMap from '../components/browse/GlowMap';
+import MapMarkerCard from '../components/browse/MapMarkerCard';
 import ProviderBottomSheet from '../components/browse/ProviderBottomSheet';
 import ProviderAvatar from '../components/ProviderAvatar';
 import ProviderProfileModal from '../components/ProviderProfileModal';
@@ -371,6 +372,7 @@ export default function FindPrices() {
   const [gateProviders, setGateProviders] = useState([]);
   const [gateProvidersLoading, setGateProvidersLoading] = useState(false);
   const [gateSelectedProviderGroup, setGateSelectedProviderGroup] = useState(null);
+  const [selectedMarkerProvider, setSelectedMarkerProvider] = useState(null);
 
   // Per-pill provider counts + raw pricing rows for filtering.
   // Computed from a lightweight provider_pricing query keyed off gateProviders.
@@ -434,7 +436,13 @@ export default function FindPrices() {
   // Switching from map → list (or unmounting the map for any reason)
   // should clear any open bottom sheet so it doesn't reopen on return.
   useEffect(() => {
-    if (!isMobile) setSelectedProviderGroup(null);
+    if (!isMobile) {
+      setSelectedProviderGroup(null);
+    } else {
+      setSelectedProviderGroup(null);
+      setGateSelectedProviderGroup(null);
+      setSelectedMarkerProvider(null);
+    }
   }, [isMobile]);
 
   // Body scroll lock: when mobile has a city selected, the map fills the
@@ -559,11 +567,16 @@ export default function FindPrices() {
   // the user changes cities or picks a treatment.
   useEffect(() => {
     setGateSelectedProviderGroup(null);
+    setSelectedMarkerProvider(null);
   }, [personalizedMode, procFilter, brandFilter, selectedLoc?.city, selectedLoc?.state]);
 
   const handleGatePinClick = useCallback((group) => {
-    setGateSelectedProviderGroup(group);
-  }, []);
+    if (isMobile) {
+      setSelectedMarkerProvider(group);
+    } else {
+      setGateSelectedProviderGroup(group);
+    }
+  }, [isMobile]);
 
   const handleGatePillSelect = useCallback(
     (pill) => {
@@ -594,17 +607,17 @@ export default function FindPrices() {
         ? { ...group, rows: match.procedures, _unpriced: false }
         : { ...group, _unpriced: true };
 
-      // Unpriced pin clicked while a procedure is selected — show the
-      // "no prices yet — be the first" bottom sheet instead of the full
-      // priced sheet. Works the same on mobile and desktop.
+      if (isMobile) {
+        setSelectedMarkerProvider(enriched);
+        return;
+      }
+
       if (!hasPrices) {
         setGateSelectedProviderGroup(enriched);
         return;
       }
 
       setSelectedProviderGroup(enriched);
-      // On desktop we don't open a sheet — we just sync the selection
-      // so the matching list card lights up. The user can scroll to it.
       if (!isMobile) {
         // Try to scroll the list card into view smoothly.
         if (group?.provider_id != null && typeof document !== 'undefined') {
@@ -622,6 +635,7 @@ export default function FindPrices() {
   const handleMapClick = useCallback(() => {
     setSelectedProviderGroup(null);
     setGateSelectedProviderGroup(null);
+    setSelectedMarkerProvider(null);
   }, []);
 
   const handleCardHover = useCallback((providerOrProc, isEntering) => {
@@ -3438,7 +3452,7 @@ export default function FindPrices() {
               has_submissions: true,
             };
           });
-          mobileSelectedId = selectedProviderGroup?.provider_id || null;
+          mobileSelectedId = selectedMarkerProvider?.provider_id || selectedProviderGroup?.provider_id || null;
         } else if (procFilter && allBrowseProviders.length > 0) {
           mobileMode = 'priced';
           mobileProviders = allBrowseProviders.map((entry) => {
@@ -3462,7 +3476,7 @@ export default function FindPrices() {
               bestPriceLabel: entry.bestPriceLabel || null,
             };
           });
-          mobileSelectedId = selectedProviderGroup?.provider_id || null;
+          mobileSelectedId = selectedMarkerProvider?.provider_id || selectedProviderGroup?.provider_id || null;
         } else {
           mobileMode = 'gate';
           mobileProviders = filteredGateProviders.map((p) => ({
@@ -3477,7 +3491,7 @@ export default function FindPrices() {
             google_review_count: p.google_review_count,
             has_submissions: false,
           }));
-          mobileSelectedId = gateSelectedProviderGroup?.provider_id || null;
+          mobileSelectedId = selectedMarkerProvider?.provider_id || gateSelectedProviderGroup?.provider_id || null;
         }
 
         const mobileMapProviders = gateProviders;
@@ -3534,9 +3548,9 @@ export default function FindPrices() {
               </div>
             )}
 
-            {/* Layer 2: Bottom sheet — hidden while search picker is open (one panel at a time) */}
+            {/* Layer 2: Bottom sheet — hidden while search/card is active */}
             {!mobileSearchOpen && (
-              <MobileBottomSheet ref={sheetRef} onSnapChange={setMobileSnapIndex}>
+              <MobileBottomSheet ref={sheetRef} onSnapChange={setMobileSnapIndex} isOpen={!selectedMarkerProvider}>
                 <MobileBrowseSheet
                   providers={mobileProviders}
                   mode={mobileMode}
@@ -3566,7 +3580,7 @@ export default function FindPrices() {
               />
             )}
 
-            {/* Provider profile card — mobile pin click */}
+            {/* Provider profile card — mobile pin click (opened via card CTA) */}
             {hasPricedResults && selectedProviderGroup && (
               <ProviderProfileModal
                 group={selectedProviderGroup}
@@ -3583,6 +3597,14 @@ export default function FindPrices() {
                     dosingKey: (row.brand || 'botox').toLowerCase(),
                   });
                 }}
+              />
+            )}
+
+            {/* Compact map preview card — mobile marker tap */}
+            {selectedMarkerProvider && (
+              <MapMarkerCard
+                provider={selectedMarkerProvider}
+                onClose={() => setSelectedMarkerProvider(null)}
               />
             )}
 

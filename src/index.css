@@ -510,6 +510,23 @@ h1, h2, h3, h4 {
   animation: slideUp 0.3s ease-out;
 }
 
+/* Mapbox popup — clean card styling */
+.mapboxgl-popup-content {
+  padding: 14px 16px;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+}
+.mapboxgl-popup-close-button {
+  font-size: 18px;
+  padding: 4px 8px;
+  color: #888;
+  line-height: 1;
+}
+.mapboxgl-popup-close-button:hover { color: #333; }
+.mapboxgl-popup-tip {
+  border-top-color: white;
+}
+
 /* Google Places autocomplete dropdown */
 .pac-container {
   border-radius: 12px;

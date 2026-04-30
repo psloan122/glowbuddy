@@ -12,9 +12,11 @@
 
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import Supercluster from 'supercluster';
-import MapGL, { Marker, NavigationControl } from 'react-map-gl/mapbox';
+import MapGL, { Marker, NavigationControl, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Search, X, LocateFixed } from 'lucide-react';
+import { Search, X, LocateFixed, Star } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { providerProfileUrl } from '../../lib/slugify';
 import MapLoadingFallback from '../MapLoadingFallback';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -52,6 +54,24 @@ function fmtShortPrice(n) {
   if (n >= 1000) return `$${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   if (Number.isInteger(n)) return `$${n}`;
   return `$${n.toFixed(0)}`;
+}
+
+const POPUP_LABEL_UNIT = {
+  per_unit: '/unit', per_syringe: '/syringe', per_session: '/session',
+  per_vial: '/vial', per_cycle: '/cycle',
+};
+
+function fmtPopupPrice(n) {
+  const v = Number(n) || 0;
+  if (v >= 100 || Number.isInteger(v)) return `$${Math.round(v).toLocaleString()}`;
+  return `$${v.toFixed(2)}`;
+}
+
+function providerInitials(name) {
+  if (!name) return '?';
+  const words = name.replace(/^(Dr\.?|Prof\.?)\s+/i, '').trim().split(/\s+/);
+  if (words.length === 1) return words[0].charAt(0).toUpperCase();
+  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 }
 
 function debounce(fn, ms) {
@@ -473,9 +493,13 @@ export default memo(function GlowMap({
         state:  p.state  || '',
         lat,
         lng,
+        google_rating:       p.google_rating ?? null,
+        google_review_count: p.google_review_count ?? null,
+        provider_type:       p.provider_type ?? null,
         rows:      priced?.rows     || [],
         bestRow:   priced?.bestRow  || null,
         bestPrice: priced?.bestPrice ?? null,
+        bestPriceLabel: priced?.bestRow?.normalized_compare_unit || priced?.bestRow?.price_label || null,
       });
     }
 
@@ -641,14 +665,16 @@ export default memo(function GlowMap({
 
             // ── Individual pin ──────────────────────────────────────
             const g = feature.properties;
+            const isSelected = g.provider_id != null && g.provider_id === selectedId;
             const isHighlighted =
               g.provider_id != null &&
-              (g.provider_id === highlightedId || g.provider_id === selectedId);
+              (g.provider_id === highlightedId || isSelected);
             const isPriced = g.bestPrice != null;
             const color    = isHighlighted
               ? PRICE_COLORS.highlight
               : colorForGroup(g, cityAvgRef.current);
             const zIndex   = isHighlighted ? 1000 : (isPriced ? 100 : 50);
+            const dimmed = selectedId != null && !isSelected;
 
             return (
               <Marker
@@ -656,7 +682,13 @@ export default memo(function GlowMap({
                 longitude={longitude}
                 latitude={latitude}
                 anchor="bottom"
-                style={{ zIndex, cursor: 'pointer' }}
+                style={{
+                  zIndex,
+                  cursor: 'pointer',
+                  opacity: dimmed ? 0.5 : 1,
+                  transform: isSelected ? 'scale(1.1)' : undefined,
+                  transition: 'opacity 200ms, transform 200ms',
+                }}
                 onClick={(e) => {
                   e.originalEvent?.stopPropagation();
                   onPinClickRef.current?.(g);
@@ -688,6 +720,95 @@ export default memo(function GlowMap({
               </Marker>
             );
           })}
+
+          {/* ── Desktop popup — anchored to the selected pin ───── */}
+          {!isMobile && selectedId != null && (() => {
+            const sel = groups.find((g) => g.provider_id === selectedId);
+            if (!sel?.lat || !sel?.lng) return null;
+            const hasPrice = sel.bestPrice != null && sel.bestPrice > 0;
+            const unit = POPUP_LABEL_UNIT[sel.bestPriceLabel] || '';
+            const profileUrl = providerProfileUrl(sel.provider_slug, sel.provider_name, sel.city, sel.state);
+            return (
+              <Popup
+                longitude={sel.lng}
+                latitude={sel.lat}
+                anchor="bottom"
+                offset={[0, -10]}
+                closeOnClick={false}
+                onClose={() => onMapClickRef.current?.()}
+                style={{ zIndex: 1100 }}
+                maxWidth="none"
+              >
+                <div style={{ width: 280, fontFamily: 'var(--font-body)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%', background: '#E91E8C',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: 700, fontSize: 14, flexShrink: 0, userSelect: 'none',
+                    }}>
+                      {providerInitials(sel.provider_name)}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontWeight: 700, fontSize: 14, color: '#1A1A1A', lineHeight: 1.3,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {sel.provider_name}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {sel.provider_type || 'Med Spa'}
+                        {sel.google_rating != null && (
+                          <>
+                            <span style={{ color: '#ccc' }}>&middot;</span>
+                            <Star size={11} fill="#1A1A1A" stroke="#1A1A1A" style={{ marginTop: -1 }} />
+                            <span style={{ fontWeight: 600, color: '#1A1A1A' }}>
+                              {Number(sel.google_rating).toFixed(1)}
+                            </span>
+                            {sel.google_review_count != null && (
+                              <span style={{ color: '#999' }}>({sel.google_review_count})</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {hasPrice ? (
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A', marginBottom: 10 }}>
+                      From {fmtPopupPrice(sel.bestPrice)}{unit && <span style={{ fontWeight: 400, color: '#666' }}>{unit}</span>}
+                      {sel.rows?.length > 0 && (
+                        <span style={{ fontWeight: 400, color: '#888', marginLeft: 4 }}>
+                          &middot; {sel.rows.length} {sel.rows.length === 1 ? 'price' : 'prices'}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: '#E91E8C', fontWeight: 500, fontStyle: 'italic', marginBottom: 10 }}>
+                      No prices yet &middot; Be first &rarr;
+                    </div>
+                  )}
+                  {profileUrl ? (
+                    <Link
+                      to={profileUrl}
+                      style={{
+                        display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 700,
+                        color: 'white', background: '#E91E8C', borderRadius: 8, padding: '8px 0',
+                        textDecoration: 'none', letterSpacing: '0.02em',
+                      }}
+                    >
+                      View Profile &rarr;
+                    </Link>
+                  ) : (
+                    <div style={{
+                      textAlign: 'center', fontSize: 13, fontWeight: 600,
+                      color: '#888', background: '#F5F0EC', borderRadius: 8, padding: '8px 0',
+                    }}>
+                      No profile yet
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            );
+          })()}
 
           {/* ── Zoom control — top-right, compass hidden ─────────── */}
           {/* Mapbox only accepts corner positions; "right-center" is  */}
