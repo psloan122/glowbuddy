@@ -37,19 +37,20 @@ export default memo(function MapMarkerCard({ provider, onClose }) {
   const card = (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        background: 'white', borderRadius: 14, padding: 12,
+        display: 'flex', alignItems: 'center', gap: 14,
+        background: 'white', borderRadius: 16, padding: '18px 20px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.14)',
         border: '1px solid rgba(0,0,0,0.06)',
         pointerEvents: 'auto',
         WebkitTapHighlightColor: 'transparent',
+        minHeight: 320,
       }}
     >
       {/* Avatar */}
       <div style={{
-        width: 56, height: 56, borderRadius: 12, flexShrink: 0,
+        width: 88, height: 88, borderRadius: 16, flexShrink: 0,
         background: '#E91E8C', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'white', fontWeight: 700, fontSize: 18, userSelect: 'none',
+        color: 'white', fontWeight: 700, fontSize: 28, userSelect: 'none',
       }}>
         {initials(provider.provider_name)}
       </div>
@@ -57,22 +58,22 @@ export default memo(function MapMarkerCard({ provider, onClose }) {
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-body)' }}>
         <div style={{
-          fontWeight: 700, fontSize: 14, color: '#1A1A1A', lineHeight: 1.3,
+          fontWeight: 700, fontSize: 18, color: '#1A1A1A', lineHeight: 1.3,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {provider.provider_name}
         </div>
         <div style={{
-          fontSize: 12, color: '#666', marginTop: 2,
+          fontSize: 13, color: '#666', marginTop: 3,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {provider.provider_type || 'Med Spa'}
           {provider.city && <> &middot; {provider.city}{provider.state ? `, ${provider.state}` : ''}</>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
           {provider.google_rating != null && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#666' }}>
-              <Star size={10} fill="#F5B301" stroke="#F5B301" />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, color: '#666' }}>
+              <Star size={11} fill="#F5B301" stroke="#F5B301" />
               <span style={{ fontWeight: 600, color: '#1A1A1A' }}>{Number(provider.google_rating).toFixed(1)}</span>
               {provider.google_review_count != null && (
                 <span>({provider.google_review_count})</span>
@@ -80,7 +81,7 @@ export default memo(function MapMarkerCard({ provider, onClose }) {
             </span>
           )}
           {priceCount > 0 && (
-            <span style={{ fontSize: 11, color: '#888' }}>
+            <span style={{ fontSize: 12, color: '#888' }}>
               &middot; {priceCount} {priceCount === 1 ? 'price' : 'prices'}
             </span>
           )}
@@ -91,19 +92,19 @@ export default memo(function MapMarkerCard({ provider, onClose }) {
       <div style={{ flexShrink: 0, textAlign: 'right', fontFamily: 'var(--font-body)' }}>
         {hasPrice ? (
           <div>
-            <span style={{ fontWeight: 700, fontSize: 15, color: '#1A1A1A' }}>
+            <span style={{ fontWeight: 700, fontSize: 20, color: '#1A1A1A' }}>
               {fmtPrice(provider.bestPrice)}
             </span>
             {unit && (
-              <span style={{ fontSize: 11, fontWeight: 400, color: '#888' }}>{unit}</span>
+              <span style={{ fontSize: 12, fontWeight: 400, color: '#888' }}>{unit}</span>
             )}
           </div>
         ) : (
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#E91E8C' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#E91E8C' }}>
             Be first &rarr;
           </span>
         )}
-        <ChevronRight size={16} style={{ color: '#ccc', marginTop: 2, marginLeft: 'auto' }} />
+        <ChevronRight size={18} style={{ color: '#ccc', marginTop: 2, marginLeft: 'auto' }} />
       </div>
     </div>
   );
@@ -126,15 +127,15 @@ export default memo(function MapMarkerCard({ provider, onClose }) {
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose?.(); }}
         aria-label="Dismiss"
         style={{
-          position: 'absolute', top: -8, right: -4, zIndex: 2,
-          width: 24, height: 24, borderRadius: '50%',
+          position: 'absolute', top: -10, right: -6, zIndex: 2,
+          width: 36, height: 36, borderRadius: '50%',
           background: 'white', border: '1px solid #e5e5e5',
           boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', padding: 0, pointerEvents: 'auto',
         }}
       >
-        <X size={12} color="#666" />
+        <X size={16} color="#666" />
       </button>
 
       {profileUrl ? (
