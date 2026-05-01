@@ -1,18 +1,13 @@
 /*
  * GlowMap — Mapbox GL map component (react-map-gl v8).
  *
- * Declarative <Marker> components — React handles reconciliation;
- * highlight is just a re-render of the affected pin.
- *
- * Supercluster clustering:
- *   - pins loaded into a supercluster index keyed on pinnedGroups
- *   - clusters form at zoom ≤ 12; individual pins at zoom 13+
- *   - cluster click → flyTo expansion zoom
+ * Native GeoJSON source with GPU-rendered circle/symbol layers.
+ * Clustering is handled by the Mapbox GL source (clusterMaxZoom: 12).
+ * No DOM markers — all rendering is WebGL, supporting 1000+ pins at 60fps.
  */
 
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
-import Supercluster from 'supercluster';
-import MapGL, { Marker, NavigationControl, Popup } from 'react-map-gl/mapbox';
+import MapGL, { Source, Layer, NavigationControl, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Search, X, LocateFixed, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -20,24 +15,19 @@ import { providerProfileUrl } from '../../lib/slugify';
 import MapLoadingFallback from '../MapLoadingFallback';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-// Custom style from VITE_MAPBOX_STYLE; falls back to Mapbox light-v11 so
-// the map always renders even without a configured style URL.
 const MAPBOX_STYLE =
   import.meta.env.VITE_MAPBOX_STYLE || 'mapbox://styles/mapbox/light-v11';
 
 const DEFAULT_VIEW = { longitude: -98.35, latitude: 39.5, zoom: 4 };
 
-// Cap on gray "no prices yet" pins rendered to the map.
-// Priced pins are always shown; unpriced are capped to avoid
-// cluttering low-data cities and hurting Marker reconciliation perf.
 const MAX_UNPRICED_PINS = 50;
 
 const PRICE_COLORS = {
-  great:     '#1D9E75', // > 20% below city avg — green
-  good:      '#E8347A', // at or near avg       — hot pink
-  high:      '#C8001A', // > 20% above avg       — red
-  noPrice:   '#B8A89A', // no price yet          — gray
-  highlight: '#111111', // hovered / selected    — black
+  great:     '#1D9E75',
+  good:      '#E8347A',
+  high:      '#C8001A',
+  noPrice:   '#B8A89A',
+  highlight: '#111111',
 };
 
 function colorForGroup(group, cityAvg) {
@@ -81,138 +71,6 @@ function debounce(fn, ms) {
   return d;
 }
 
-// ── Price pill pin — SVG matching GlowMap's buildPinIcon exactly ──────────
-// Rendered as inline React SVG so there are no data-URI encoding overheads
-// and no SVG <filter id> collisions between markers on the same page.
-// Drop-shadow is applied via CSS filter on the wrapper div.
-const PricePin = memo(function PricePin({
-  color, label, highlighted, onMouseEnter, onMouseLeave,
-}) {
-  const w     = highlighted ? 64 : 56;
-  const h     = highlighted ? 30 : 26;
-  const stroke = highlighted ? '#111111' : '#FFFFFF';
-  const strokeW = highlighted ? 2.5 : 2;
-  const fontSize = highlighted ? 13 : 11;
-  const text = label.length > 7 ? `${label.slice(0, 6)}\u2026` : label;
-  return (
-    <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{ filter: 'drop-shadow(0 1px 1.2px rgba(0,0,0,0.25))' }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={w}
-        height={h}
-        viewBox={`0 0 ${w} ${h}`}
-        style={{ display: 'block' }}
-      >
-        <rect
-          x="1" y="1"
-          rx={h / 2} ry={h / 2}
-          width={w - 2} height={h - 2}
-          fill={color}
-          stroke={stroke}
-          strokeWidth={strokeW}
-        />
-        <text
-          x={w / 2} y={h / 2 + 4}
-          textAnchor="middle"
-          fill="#ffffff"
-          fontFamily="Outfit, Arial, sans-serif"
-          fontWeight="700"
-          fontSize={fontSize}
-        >
-          {text}
-        </text>
-      </svg>
-    </div>
-  );
-});
-
-// ── No-price pill — SVG matching GlowMap's buildNoPricePinIcon ───────────
-const NoPricePin = memo(function NoPricePin({
-  highlighted, onMouseEnter, onMouseLeave,
-}) {
-  const w          = highlighted ? 96 : 88;
-  const h          = highlighted ? 26 : 24;
-  const textColor  = highlighted ? '#ffffff' : '#6B7280';
-  const bgColor    = highlighted ? '#111111' : '#ffffff';
-  const borderColor = highlighted ? '#111111' : '#D1D5DB';
-  const fontSize   = highlighted ? 12 : 11;
-  return (
-    <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))' }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={w}
-        height={h}
-        viewBox={`0 0 ${w} ${h}`}
-        style={{ display: 'block' }}
-      >
-        <rect
-          x="1" y="1"
-          rx={h / 2} ry={h / 2}
-          width={w - 2} height={h - 2}
-          fill={bgColor}
-          stroke={borderColor}
-          strokeWidth="1.5"
-        />
-        <text
-          x={w / 2} y={h / 2 + fontSize / 2 - 1}
-          textAnchor="middle"
-          fill={textColor}
-          fontFamily="Outfit, Arial, sans-serif"
-          fontWeight="500"
-          fontSize={fontSize}
-        >
-          No prices yet
-        </text>
-      </svg>
-    </div>
-  );
-});
-
-// ── Cluster bubble — pink circle with white count, matching GlowMap ──────
-const ClusterPin = memo(function ClusterPin({ count }) {
-  const size     = count >= 100 ? 48 : count >= 10 ? 40 : 34;
-  const fontSize = count >= 100 ? 13 : 12;
-  const label    = count > 999 ? '999+' : String(count);
-  // Clusters with fewer than 5 providers render at 70% opacity to signal
-  // lower confidence — same N >= 5 threshold as city_benchmarks.is_reliable.
-  // No text prefix: the count itself is already self-explanatory.
-  const isLowN   = count < 5;
-  return (
-    <div style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))', opacity: isLowN ? 0.7 : 1 }}>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        style={{ display: 'block' }}
-      >
-        <circle
-          cx={size / 2} cy={size / 2} r={size / 2 - 2}
-          fill="#E8347A" stroke="#fff" strokeWidth="2"
-        />
-        <text
-          x={size / 2} y={size / 2 + fontSize / 2 - 1}
-          textAnchor="middle"
-          fill="#fff"
-          fontFamily="Outfit, Arial, sans-serif"
-          fontWeight="700"
-          fontSize={fontSize}
-        >
-          {label}
-        </text>
-      </svg>
-    </div>
-  );
-});
-
 // ── Main component ────────────────────────────────────────────────────────
 export default memo(function GlowMap({
   allProviders = [],
@@ -241,10 +99,12 @@ export default memo(function GlowMap({
   const [retryNonce, setRetryNonce] = useState(0);
   const [styleUrl, setStyleUrl]               = useState(MAPBOX_STYLE);
   const [styleFallbackAttempted, setStyleFallbackAttempted] = useState(false);
+  const [cursor, setCursor] = useState('');
 
   const userInteracted     = useRef(false);
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef     = useRef(null);
+  const hoveredPinRef      = useRef(null);
 
   // ── Data refs — updated every render so memo/effects always have
   // fresh data without depending on array-reference equality.
@@ -298,16 +158,9 @@ export default memo(function GlowMap({
   useEffect(() => { onPinClickRef.current     = onPinClick;     }, [onPinClick]);
   useEffect(() => { onPinHoverRef.current     = onPinHover;     }, [onPinHover]);
 
-  // ── Debounced moveEnd → viewport update + bounds report ─────────────
-  // Triggered by onMoveEnd (replaces onIdle).
-  // Bounds are captured at event time and passed as params so the debounce
-  // always fires with the latest snapshot — not stale ref values.
+  // ── Debounced moveEnd → bounds report ──────────────────────────────
   const debouncedMoveEndRef = useRef(
-    debounce((zoom, rawBounds) => {
-      // 1. Update supercluster viewport so clusters recompute.
-      setViewport({ zoom, bounds: rawBounds });
-
-      // 2. Report bounds to parent (guarded: only after initial geocoding).
+    debounce((_zoom, rawBounds) => {
       if (!initialCenteredRef.current) return;
       if (!rawBounds) return;
       const [west, south, east, north] = rawBounds;
@@ -355,9 +208,6 @@ export default memo(function GlowMap({
   }, [ready, city, state]);
 
   // ── Bottom padding (mobile sheet) ────────────────────────────────────
-  // Mapbox easeTo with padding reframes the camera so the usable viewport
-  // area (above the sheet) stays centered — equivalent to Google Maps'
-  // setOptions({ padding }) + panTo(center).
   useEffect(() => {
     if (!ready) return;
     mapRef.current?.getMap()?.easeTo({
@@ -367,14 +217,8 @@ export default memo(function GlowMap({
   }, [ready, bottomPadding]);
 
   // ── Fly to selected provider ──────────────────────────────────────────
-  // When a pin is tapped and selectedId changes, smoothly center the map
-  // on that provider at zoom ≥ 14 so the pin sits in the visible area
-  // above the bottom sheet (GlowMap just highlighted in place; this is
-  // better UX for mobile).
   useEffect(() => {
     if (!ready || !selectedId) return;
-    // groups is read from the current closure — fresh from the last render
-    // that triggered this effect (when selectedId changed).
     const group = groups.find((g) => g.provider_id === selectedId);
     if (!group?.lat || !group?.lng) return;
     const currentZoom = mapRef.current?.getMap()?.getZoom() ?? 0;
@@ -383,8 +227,6 @@ export default memo(function GlowMap({
       zoom:     Math.max(currentZoom, 14),
       duration: 800,
     });
-    // Intentionally NOT setting userInteracted — this is a programmatic
-    // fly triggered by a pin tap, not user exploration of the map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, ready]);
 
@@ -404,16 +246,10 @@ export default memo(function GlowMap({
   }, [ready, mapError]);
 
   // ── Build provider groups (one per provider, price merged in) ────────
-  //
-  // Mirrors the reconciliation logic in GlowMap's marker useEffect.
-  // Runs only when providerFingerprint or procedureFingerprint changes,
-  // not on every parent re-render. Data is read from refs so we always
-  // have the latest values that produced those fingerprints.
   const groups = useMemo(() => {
     const currentProviders  = allProvidersRef.current;
     const currentProcedures = proceduresRef.current;
 
-    // Index providers by composite key for name-based procedure matching.
     const providerByComposite = new Map();
     for (const p of Array.isArray(currentProviders) ? currentProviders : []) {
       if (!p) continue;
@@ -424,7 +260,6 @@ export default memo(function GlowMap({
       if (k !== '||') providerByComposite.set(k, p);
     }
 
-    // Build price index keyed by provider_id.
     const priceByProviderId = new Map();
     for (const r of currentProcedures || []) {
       let pid = r.provider_id || null;
@@ -440,9 +275,6 @@ export default memo(function GlowMap({
       if (!priceByProviderId.has(pid)) priceByProviderId.set(pid, { rows: [], bestRow: null });
       const entry = priceByProviderId.get(pid);
       entry.rows.push(r);
-      // Only rows matching the active price label count toward bestPrice.
-      // Without this guard a $55/session row would produce a "$55" map pin
-      // that sits alongside a $9/unit city average — a category error.
       if (!activePriceLabel || r.normalized_compare_unit === activePriceLabel) {
         const v = Number(
           r.normalized_compare_value != null &&
@@ -477,7 +309,6 @@ export default memo(function GlowMap({
 
     const nextGroups = new Map();
 
-    // Primary: one group per provider in allProviders.
     for (const p of Array.isArray(currentProviders) ? currentProviders : []) {
       const lat = Number(p.lat);
       const lng = Number(p.lng);
@@ -503,7 +334,6 @@ export default memo(function GlowMap({
       });
     }
 
-    // Synthetic pins for procedures whose provider isn't in allProviders.
     for (const [pid, entry] of priceByProviderId.entries()) {
       if (!pid || nextGroups.has(pid)) continue;
       const r = entry.bestRow || entry.rows[0];
@@ -537,29 +367,36 @@ export default memo(function GlowMap({
     return [...priced, ...unpriced];
   }, [groups]);
 
-  // ── Supercluster ─────────────────────────────────────────────────────
-  // The index is rebuilt only when pinnedGroups changes.
-  // getClusters() is cheap — called on every viewport change.
-  const [scIndex, setScIndex] = useState(null);
-  const [viewport, setViewport] = useState({ zoom: DEFAULT_VIEW.zoom, bounds: null });
+  // ── GeoJSON for native Source+Layer rendering ────────────────────────
+  const geojson = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: pinnedGroups.map((g) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [g.lng, g.lat] },
+      properties: {
+        key: g.key,
+        provider_id: g.provider_id,
+        provider_slug: g.provider_slug,
+        provider_name: g.provider_name,
+        city: g.city,
+        state: g.state,
+        google_rating: g.google_rating,
+        google_review_count: g.google_review_count,
+        provider_type: g.provider_type,
+        bestPrice: g.bestPrice,
+        bestPriceLabel: g.bestPriceLabel,
+        rowCount: g.rows?.length || 0,
+        color: colorForGroup(g, cityAvg),
+        isPriced: g.bestPrice != null,
+        label: g.bestPrice != null ? fmtShortPrice(g.bestPrice) : '',
+      },
+    })),
+  }), [pinnedGroups, cityAvg]);
 
-  useEffect(() => {
-    if (!pinnedGroups.length) { setScIndex(null); return; }
-    const sc = new Supercluster({ radius: 60, maxZoom: 12, minPoints: 2 });
-    sc.load(
-      pinnedGroups.map((g) => ({
-        type: 'Feature',
-        properties: g,
-        geometry: { type: 'Point', coordinates: [g.lng, g.lat] },
-      })),
-    );
-    setScIndex(sc);
-  }, [pinnedGroups]);
-
-  const clusters = useMemo(() => {
-    if (!scIndex || !viewport.bounds) return [];
-    return scIndex.getClusters(viewport.bounds, Math.floor(viewport.zoom));
-  }, [scIndex, viewport]);
+  // ── Highlight / selection helpers ────────────────────────────────────
+  const activeId = selectedId || highlightedId || null;
+  const activeIdStr = activeId != null ? String(activeId) : '';
+  const selectedIdStr = selectedId != null ? String(selectedId) : '';
 
   // ────────────────────────────────────────────────────────────────────
   return (
@@ -574,31 +411,36 @@ export default memo(function GlowMap({
           initialViewState={DEFAULT_VIEW}
           style={{ width: '100%', height: '100%', touchAction: 'none' }}
           mapStyle={styleUrl}
-          // Gesture handling — matches Google Maps gestureHandling:'greedy':
-          // single-finger drag pans the map; two-finger pinch zooms.
           dragPan={true}
           scrollZoom={true}
           touchZoomRotate={true}
-          // Rotation + pitch disabled — keeps the map locked to 2-D top-down.
           dragRotate={false}
           touchPitch={false}
           pitchWithRotate={false}
-          // Keyboard shortcuts off — matches GlowMap keyboardShortcuts:false.
           keyboard={false}
-          // Attribution hidden; NavigationControl rendered manually below.
           attributionControl={false}
+          interactiveLayerIds={ready ? ['clusters', 'provider-pins'] : []}
+          cursor={cursor}
+          onMouseEnter={() => setCursor('pointer')}
+          onMouseLeave={() => {
+            setCursor('');
+            if (hoveredPinRef.current) {
+              onPinHoverRef.current?.(hoveredPinRef.current, false);
+              hoveredPinRef.current = null;
+            }
+          }}
+          onMouseMove={(e) => {
+            const pin = e.features?.find((f) => f.layer?.id === 'provider-pins');
+            const id = pin?.properties?.provider_id ?? null;
+            if (id !== hoveredPinRef.current) {
+              if (hoveredPinRef.current) onPinHoverRef.current?.(hoveredPinRef.current, false);
+              hoveredPinRef.current = id;
+              if (id) onPinHoverRef.current?.(id, true);
+            }
+          }}
           onLoad={() => {
             setReady(true);
             setMapError(null);
-            // Seed viewport so clusters compute before the first moveend
-            const m = mapRef.current;
-            if (m) {
-              const b = m.getMap()?.getBounds();
-              setViewport({
-                zoom: DEFAULT_VIEW.zoom,
-                bounds: b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null,
-              });
-            }
           }}
           onError={(e) => {
             const errStatus = e?.error?.status;
@@ -630,96 +472,156 @@ export default memo(function GlowMap({
           }}
           onDragStart={() => { userInteracted.current = true; }}
           onZoom={() => { if (initialCenteredRef.current) userInteracted.current = true; }}
-          onClick={() => onMapClickRef.current?.()}
-        >
-          {/* ── Clustered pins ─────────────────────────────────────── */}
-          {ready && clusters.map((feature) => {
-            const [longitude, latitude] = feature.geometry.coordinates;
-
-            // ── Cluster bubble ──────────────────────────────────────
-            if (feature.properties.cluster) {
-              const { cluster_id, point_count } = feature.properties;
-              return (
-                <Marker
-                  key={`cluster-${cluster_id}`}
-                  longitude={longitude}
-                  latitude={latitude}
-                  anchor="center"
-                  style={{ zIndex: 200, cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.originalEvent?.stopPropagation();
-                    const expansion = scIndex?.getClusterExpansionZoom(cluster_id);
-                    if (expansion != null) {
-                      mapRef.current?.flyTo({
-                        center: [longitude, latitude],
-                        zoom: expansion,
-                        duration: 500,
-                      });
-                    }
-                  }}
-                >
-                  <ClusterPin count={point_count} />
-                </Marker>
-              );
+          onClick={(e) => {
+            const feature = e.features?.[0];
+            if (!feature) {
+              onMapClickRef.current?.();
+              return;
             }
-
-            // ── Individual pin ──────────────────────────────────────
-            const g = feature.properties;
-            const isSelected = g.provider_id != null && g.provider_id === selectedId;
-            const isHighlighted =
-              g.provider_id != null &&
-              (g.provider_id === highlightedId || isSelected);
-            const isPriced = g.bestPrice != null;
-            const color    = isHighlighted
-              ? PRICE_COLORS.highlight
-              : colorForGroup(g, cityAvgRef.current);
-            const zIndex   = isHighlighted ? 1000 : (isPriced ? 100 : 50);
-            const dimmed = selectedId != null && !isSelected;
-
-            return (
-              <Marker
-                key={g.key}
-                longitude={longitude}
-                latitude={latitude}
-                anchor="bottom"
-                style={{
-                  zIndex,
-                  cursor: 'pointer',
-                  opacity: dimmed ? 0.5 : 1,
-                  transform: isSelected ? 'scale(1.1)' : undefined,
-                  transition: 'opacity 200ms, transform 200ms',
+            if (feature.layer.id === 'clusters') {
+              e.originalEvent?.stopPropagation();
+              const map = mapRef.current?.getMap();
+              const source = map?.getSource('providers');
+              if (source && feature.properties.cluster_id != null) {
+                source.getClusterExpansionZoom(feature.properties.cluster_id, (err, zoom) => {
+                  if (!err) {
+                    mapRef.current?.flyTo({
+                      center: feature.geometry.coordinates,
+                      zoom,
+                      duration: 500,
+                    });
+                  }
+                });
+              }
+            } else if (feature.layer.id === 'provider-pins') {
+              e.originalEvent?.stopPropagation();
+              const id = feature.properties.provider_id;
+              const group = id ? pinnedGroups.find((g) => g.provider_id === id) : null;
+              if (group) {
+                onPinClickRef.current?.(group);
+              } else {
+                const p = feature.properties;
+                onPinClickRef.current?.({
+                  key: p.key,
+                  provider_id: p.provider_id,
+                  provider_slug: p.provider_slug,
+                  provider_name: p.provider_name,
+                  city: p.city,
+                  state: p.state,
+                  lat: feature.geometry.coordinates[1],
+                  lng: feature.geometry.coordinates[0],
+                  bestPrice: p.bestPrice,
+                  bestPriceLabel: p.bestPriceLabel,
+                  google_rating: p.google_rating,
+                  google_review_count: p.google_review_count,
+                  provider_type: p.provider_type,
+                  rows: [],
+                });
+              }
+            }
+          }}
+        >
+          {/* ── GeoJSON source with built-in clustering ───────────── */}
+          {ready && (
+            <Source
+              id="providers"
+              type="geojson"
+              data={geojson}
+              cluster={true}
+              clusterMaxZoom={12}
+              clusterRadius={60}
+            >
+              {/* Cluster circles */}
+              <Layer
+                id="clusters"
+                type="circle"
+                filter={['has', 'point_count']}
+                paint={{
+                  'circle-color': '#E8347A',
+                  'circle-radius': [
+                    'step', ['get', 'point_count'],
+                    20, 10, 25, 50, 30,
+                  ],
+                  'circle-opacity': [
+                    'case',
+                    ['<', ['get', 'point_count'], 5], 0.7,
+                    0.85,
+                  ],
+                  'circle-stroke-width': 2,
+                  'circle-stroke-color': '#fff',
                 }}
-                onClick={(e) => {
-                  e.originalEvent?.stopPropagation();
-                  onPinClickRef.current?.(g);
+              />
+
+              {/* Cluster count label */}
+              <Layer
+                id="cluster-count"
+                type="symbol"
+                filter={['has', 'point_count']}
+                layout={{
+                  'text-field': '{point_count_abbreviated}',
+                  'text-size': 12,
+                  'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
                 }}
-              >
-                {isPriced ? (
-                  <PricePin
-                    color={color}
-                    label={fmtShortPrice(g.bestPrice)}
-                    highlighted={isHighlighted}
-                    onMouseEnter={() => {
-                      if (g.provider_id) onPinHoverRef.current?.(g.provider_id, true);
-                    }}
-                    onMouseLeave={() => {
-                      if (g.provider_id) onPinHoverRef.current?.(g.provider_id, false);
-                    }}
-                  />
-                ) : (
-                  <NoPricePin
-                    highlighted={isHighlighted}
-                    onMouseEnter={() => {
-                      if (g.provider_id) onPinHoverRef.current?.(g.provider_id, true);
-                    }}
-                    onMouseLeave={() => {
-                      if (g.provider_id) onPinHoverRef.current?.(g.provider_id, false);
-                    }}
-                  />
-                )}
-              </Marker>
-            );
-          })}
+                paint={{ 'text-color': '#fff' }}
+              />
+
+              {/* Individual provider pins */}
+              <Layer
+                id="provider-pins"
+                type="circle"
+                filter={['!', ['has', 'point_count']]}
+                paint={{
+                  'circle-color': activeIdStr
+                    ? [
+                        'case',
+                        ['==', ['to-string', ['get', 'provider_id']], activeIdStr],
+                        PRICE_COLORS.highlight,
+                        ['get', 'color'],
+                      ]
+                    : ['get', 'color'],
+                  'circle-radius': activeIdStr
+                    ? [
+                        'case',
+                        ['==', ['to-string', ['get', 'provider_id']], activeIdStr],
+                        10, 8,
+                      ]
+                    : 8,
+                  'circle-stroke-width': 2,
+                  'circle-stroke-color': '#fff',
+                  'circle-opacity': selectedIdStr
+                    ? [
+                        'case',
+                        ['==', ['to-string', ['get', 'provider_id']], selectedIdStr],
+                        1, 0.5,
+                      ]
+                    : 1,
+                }}
+              />
+
+              {/* Price labels — visible at zoom 13+ when pins uncluster */}
+              <Layer
+                id="provider-prices"
+                type="symbol"
+                filter={['all',
+                  ['!', ['has', 'point_count']],
+                  ['==', ['get', 'isPriced'], true],
+                ]}
+                minzoom={13}
+                layout={{
+                  'text-field': ['get', 'label'],
+                  'text-size': 11,
+                  'text-offset': [0, -1.5],
+                  'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+                  'text-allow-overlap': false,
+                }}
+                paint={{
+                  'text-color': '#111',
+                  'text-halo-color': '#fff',
+                  'text-halo-width': 1.5,
+                }}
+              />
+            </Source>
+          )}
 
           {/* ── Desktop popup — anchored to the selected pin ───── */}
           {!isMobile && selectedId != null && (() => {
@@ -811,9 +713,6 @@ export default memo(function GlowMap({
           })()}
 
           {/* ── Zoom control — top-right, compass hidden ─────────── */}
-          {/* Mapbox only accepts corner positions; "right-center" is  */}
-          {/* a Google Maps ControlPosition and would crash addControl. */}
-          {/* showCompass={false}: rotation is disabled.               */}
           <NavigationControl
             position="top-right"
             showCompass={false}
