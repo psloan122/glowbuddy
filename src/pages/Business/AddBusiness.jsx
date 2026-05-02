@@ -14,8 +14,6 @@ import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
 import { PROVIDER_TYPES, US_STATES } from '../../lib/constants';
 import { providerSlugFromParts } from '../../lib/slugify';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
-import { extractPlaceData } from '../../lib/places';
 import {
   signUpWithPassword,
   signInWithPassword,
@@ -32,13 +30,11 @@ export default function AddBusiness() {
 
   const [step, setStep] = useState(1);
 
-  // Step 1 — Google Places search
+  // Step 1 — Provider search
   const [query, setQuery] = useState('');
-  const [predictions, setPredictions] = useState([]);
+  const [dbResults, setDbResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const autocompleteRef = useRef(null);
-  const placesServiceRef = useRef(null);
   const debounceRef = useRef(null);
   const submitAttemptedRef = useRef(false);
 
@@ -79,16 +75,6 @@ export default function AddBusiness() {
     document.title = 'Add Your Business | Know Before You Glow';
   }, []);
 
-  // Load Google Maps on mount
-  useEffect(() => {
-    loadGoogleMaps()
-      .then(() => {
-        const mapDiv = document.createElement('div');
-        placesServiceRef.current = new window.google.maps.places.PlacesService(mapDiv);
-        autocompleteRef.current = new window.google.maps.places.AutocompleteService();
-      })
-      .catch(() => {});
-  }, []);
 
   // Auto-advance to step 4 if user logs in during step 3
   useEffect(() => {
@@ -97,90 +83,52 @@ export default function AddBusiness() {
     }
   }, [user, step]);
 
-  // Debounced Google Places autocomplete
-  const searchPlaces = useCallback((input) => {
-    if (!input.trim() || !autocompleteRef.current) {
-      setPredictions([]);
+  // Debounced provider DB search
+  const searchProviders = useCallback((input) => {
+    if (!input.trim()) {
+      setDbResults([]);
       return;
     }
 
     setSearching(true);
-    autocompleteRef.current.getPlacePredictions(
-      {
-        input,
-        types: ['establishment'],
-        componentRestrictions: { country: 'us' },
-      },
-      (results, status) => {
+    supabase
+      .from('providers')
+      .select('id, name, city, state, address, phone, website, google_place_id, google_rating, google_review_count, google_maps_url, lat, lng')
+      .ilike('name', `%${input.trim()}%`)
+      .eq('is_active', true)
+      .limit(8)
+      .then(({ data }) => {
+        setDbResults(data || []);
         setSearching(false);
-        if (
-          status === window.google.maps.places.PlacesServiceStatus.OK &&
-          results
-        ) {
-          setPredictions(results);
-        } else {
-          setPredictions([]);
-        }
-      },
-    );
+      });
   }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => searchPlaces(query), 300);
+    debounceRef.current = setTimeout(() => searchProviders(query), 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, searchPlaces]);
+  }, [query, searchProviders]);
 
-  // Select a Places prediction → get full details
-  function handleSelectPlace(prediction) {
-    if (!placesServiceRef.current) return;
-
-    placesServiceRef.current.getDetails(
-      {
-        placeId: prediction.place_id,
-        fields: [
-          'name',
-          'formatted_address',
-          'address_components',
-          'formatted_phone_number',
-          'website',
-          'geometry',
-          'rating',
-          'user_ratings_total',
-          'url',
-          'place_id',
-          'types',
-        ],
-      },
-      (place, status) => {
-        if (
-          status !== window.google.maps.places.PlacesServiceStatus.OK ||
-          !place
-        )
-          return;
-
-        const data = extractPlaceData(place);
-        setDetails({
-          name: data.name,
-          provider_type: 'Med Spa (Physician-Owned)',
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip: data.zipCode,
-          phone: data.phone,
-          website: data.website,
-          googleMapsUrl: data.googleMapsUrl || '',
-          placeId: data.placeId,
-          googleRating: data.googleRating,
-          googleReviewCount: data.googleReviewCount,
-          lat: data.lat,
-          lng: data.lng,
-        });
-        setStep(2);
-      },
-    );
+  function handleSelectProvider(provider) {
+    setDetails({
+      name: provider.name,
+      provider_type: 'Med Spa (Physician-Owned)',
+      address: provider.address || '',
+      city: provider.city || '',
+      state: provider.state || '',
+      zip: '',
+      phone: provider.phone || '',
+      website: provider.website || '',
+      googleMapsUrl: provider.google_maps_url || '',
+      placeId: provider.google_place_id || '',
+      googleRating: provider.google_rating,
+      googleReviewCount: provider.google_review_count,
+      lat: provider.lat,
+      lng: provider.lng,
+    });
+    setStep(2);
   }
 
   // Manual entry → advance to step 2
@@ -414,8 +362,7 @@ export default function AddBusiness() {
             Add Your Business
           </h1>
           <p className="text-text-secondary">
-            Search for your business to get started. We'll pre-fill your details
-            from Google.
+            Search for your business to get started.
           </p>
         </div>
 
@@ -442,12 +389,12 @@ export default function AddBusiness() {
               )}
             </div>
 
-            {predictions.length > 0 && (
+            {dbResults.length > 0 && (
               <div className="space-y-2 mb-6">
-                {predictions.map((p) => (
+                {dbResults.map((p) => (
                   <button
-                    key={p.place_id}
-                    onClick={() => handleSelectPlace(p)}
+                    key={p.id}
+                    onClick={() => handleSelectProvider(p)}
                     className="w-full text-left glow-card p-4 hover:border-rose-accent/40 hover:shadow-sm transition cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
@@ -457,10 +404,10 @@ export default function AddBusiness() {
                       />
                       <div>
                         <p className="font-semibold text-text-primary">
-                          {p.structured_formatting?.main_text}
+                          {p.name}
                         </p>
                         <p className="text-sm text-text-secondary">
-                          {p.structured_formatting?.secondary_text}
+                          {[p.city, p.state].filter(Boolean).join(', ')}
                         </p>
                       </div>
                     </div>

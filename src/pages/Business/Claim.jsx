@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
-import { parseAddressComponents } from '../../lib/places';
 import { slugify } from '../../lib/slugify';
 import ProviderAvatar from '../../components/ProviderAvatar';
 import { ONBOARDING_PROVIDER_TYPES } from '../../lib/constants';
@@ -209,18 +208,6 @@ export default function Claim() {
 
   const debounceRef = useRef(null);
 
-  // ── Google Places fallback ────────────────────────────────────────────────
-  const [showGoogleSearch, setShowGoogleSearch] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleQuery, setGoogleQuery] = useState('');
-  const [googleSuggestions, setGoogleSuggestions] = useState([]);
-  const [googleError, setGoogleError] = useState('');
-  const googleServiceRef  = useRef(null);
-  const googleDetailsRef  = useRef(null);
-  const googleTokenRef    = useRef(null);
-  const googleDropdownRef = useRef(null);
-  const googleDebRef      = useRef(null);
-
   useEffect(() => {
     document.title = 'Claim Your Listing | Know Before You Glow';
   }, []);
@@ -240,18 +227,6 @@ export default function Claim() {
         }
       });
   }, [prefillId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Close Google suggestions on outside click
-  useEffect(() => {
-    if (!googleSuggestions.length) return;
-    function handleClick(e) {
-      if (googleDropdownRef.current && !googleDropdownRef.current.contains(e.target)) {
-        setGoogleSuggestions([]);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [googleSuggestions.length]);
 
   // Debounced search
   const doSearch = useCallback(async (name, city) => {
@@ -406,126 +381,6 @@ export default function Claim() {
     await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
 
     setNewBizSaving(false);
-    setClaimedProvider(inserted);
-    setStep(4);
-  }
-
-  // ── Google Places fallback ────────────────────────────────────────────────
-  async function handleGoogleFallback() {
-    setGoogleLoading(true);
-    setGoogleError('');
-    try {
-      const { loadGoogleMaps } = await import('../../lib/loadGoogleMaps');
-      await loadGoogleMaps();
-      const places = window.google?.maps?.places;
-      if (!places?.AutocompleteService) throw new Error('Places unavailable');
-      googleServiceRef.current = new places.AutocompleteService();
-      const el = document.createElement('div');
-      googleDetailsRef.current = new places.PlacesService(el);
-      googleTokenRef.current   = new places.AutocompleteSessionToken();
-      setShowGoogleSearch(true);
-    } catch {
-      setGoogleError('Could not load Google Places. Try adding your business manually.');
-    }
-    setGoogleLoading(false);
-  }
-
-  function handleGoogleInput(input) {
-    setGoogleQuery(input);
-    clearTimeout(googleDebRef.current);
-    if (input.length < 2 || !googleServiceRef.current) { setGoogleSuggestions([]); return; }
-    googleDebRef.current = setTimeout(() => {
-      googleServiceRef.current.getPlacePredictions(
-        { input, types: ['establishment'], componentRestrictions: { country: 'us' }, sessionToken: googleTokenRef.current },
-        (predictions, status) => {
-          const ok = window.google?.maps?.places?.PlacesServiceStatus?.OK;
-          setGoogleSuggestions(status === ok && predictions ? predictions.slice(0, 6) : []);
-        }
-      );
-    }, 300);
-  }
-
-  async function handleGoogleSelect(prediction) {
-    setGoogleSuggestions([]);
-    setClaiming(true);
-    setClaimError('');
-
-    const placeDetails = await new Promise((resolve) => {
-      googleDetailsRef.current.getDetails(
-        {
-          placeId: prediction.place_id,
-          fields: ['name', 'address_components', 'geometry', 'formatted_address', 'formatted_phone_number', 'website'],
-          sessionToken: googleTokenRef.current,
-        },
-        (place, status) => {
-          const places = window.google?.maps?.places;
-          googleTokenRef.current = new places.AutocompleteSessionToken();
-          resolve(status === places.PlacesServiceStatus.OK ? place : null);
-        }
-      );
-    });
-
-    if (!placeDetails) {
-      setClaimError('Could not load place details. Please try again.');
-      setClaiming(false);
-      return;
-    }
-
-    const parsed = parseAddressComponents(placeDetails.address_components);
-
-    const { data: existing } = await supabase
-      .from('providers')
-      .select('id, name, city, state, is_claimed')
-      .eq('google_place_id', prediction.place_id)
-      .maybeSingle();
-
-    if (existing?.is_claimed) {
-      setClaimError('This listing has already been claimed. Contact support if this is your practice.');
-      setClaiming(false);
-      return;
-    }
-
-    if (existing) {
-      await handleClaim(existing);
-      return;
-    }
-
-    const rawSlug = slugify(`${placeDetails.name || ''} ${parsed.city || ''}`);
-    const slug = rawSlug || `practice-${Date.now()}`;
-    const { data: inserted, error: insertError } = await supabase
-      .from('providers')
-      .insert({
-        name: placeDetails.name,
-        slug,
-        google_place_id: prediction.place_id,
-        city: parsed.city || null,
-        state: parsed.state || null,
-        zip_code: parsed.zipCode || null,
-        address: parsed.address || placeDetails.formatted_address || null,
-        phone: placeDetails.formatted_phone_number || null,
-        website: placeDetails.website || null,
-        lat: placeDetails.geometry?.location?.lat() ?? null,
-        lng: placeDetails.geometry?.location?.lng() ?? null,
-        owner_user_id: user.id,
-        is_claimed: true,
-        is_verified: true,
-        claimed_at: new Date().toISOString(),
-        onboarding_completed: false,
-        source: 'provider_claimed',
-        is_active: true,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      setClaimError(insertError.message);
-      setClaiming(false);
-      return;
-    }
-
-    await supabase.auth.updateUser({ data: { user_role: 'provider' } });
-    await supabase.from('profiles').update({ role: 'provider' }).eq('user_id', user.id);
-    setClaiming(false);
     setClaimedProvider(inserted);
     setStep(4);
   }
@@ -828,54 +683,10 @@ export default function Claim() {
                   </select>
                 </div>
 
-                {/* Google Places fallback within Step 2 */}
-                {!showGoogleSearch ? (
-                  <button
-                    type="button"
-                    onClick={handleGoogleFallback}
-                    disabled={googleLoading}
-                    className="text-sm text-rose-accent hover:text-rose-dark transition disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {googleLoading ? (
-                      <><Loader2 size={14} className="animate-spin" /> Loading Google Places…</>
-                    ) : (
-                      <>Or search Google Places to auto-fill &rarr;</>
-                    )}
-                  </button>
-                ) : (
-                  <div ref={googleDropdownRef} className="relative">
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                      Search Google Places
-                    </label>
-                    <input
-                      type="text"
-                      value={googleQuery}
-                      onChange={e => handleGoogleInput(e.target.value)}
-                      placeholder="Start typing your business name…"
-                      className={INPUT_CLASS}
-                    />
-                    {googleSuggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                        {googleSuggestions.map(pred => (
-                          <button
-                            key={pred.place_id}
-                            type="button"
-                            onMouseDown={e => { e.preventDefault(); handleGoogleSelect(pred); }}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-warm-gray transition-colors border-b last:border-b-0 border-gray-100"
-                          >
-                            <span className="font-medium text-text-primary block">{pred.structured_formatting?.main_text}</span>
-                            <span className="text-text-secondary text-xs">{pred.structured_formatting?.secondary_text}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {(newBizError || googleError) && (
+                {newBizError && (
                   <div className="flex items-center gap-2 text-red-500 text-sm">
                     <XCircle size={14} />
-                    {newBizError || googleError}
+                    {newBizError}
                   </div>
                 )}
 

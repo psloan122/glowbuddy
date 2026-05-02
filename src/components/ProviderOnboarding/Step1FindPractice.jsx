@@ -1,47 +1,25 @@
-import { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapPin, X, CheckCircle, Phone, ExternalLink, Search, AlertTriangle, Star } from 'lucide-react';
+import { MapPin, X, CheckCircle, Phone, ExternalLink, Search, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AuthContext } from '../../App';
-import { extractPlaceData } from '../../lib/places';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
-
-// Google Place types we consider "med spa / clinic / practitioner adjacent".
-// If the selected place has NONE of these in its types array, we show a
-// soft warning but still allow the user to proceed (there's a long tail
-// of legit practices Google classifies oddly).
-const MED_SPA_TYPES = [
-  'beauty_salon',
-  'health',
-  'spa',
-  'doctor',
-  'physiotherapist',
-  'hospital',
-  'point_of_interest',
-];
 
 export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
   const { user } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
   const wrapperRef = useRef(null);
-  const serviceRef = useRef(null);
-  const detailsServiceRef = useRef(null);
-  const sessionTokenRef = useRef(null);
   const debounceRef = useRef(null);
 
-  const [ready, setReady] = useState(false);
   const [value, setValue] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
+  const [results, setResults] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [existingProvider, setExistingProvider] = useState(null);
-  const [providerStatus, setProviderStatus] = useState(null); // 'new' | 'unclaimed' | 'claimed'
+  const [providerStatus, setProviderStatus] = useState(null);
   const [submissionCount, setSubmissionCount] = useState(0);
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualData, setManualData] = useState({ name: '', address: '', city: '', state: '', zip: '', phone: '', website: '' });
-  const [importPhotos, setImportPhotos] = useState(true);
   const [error, setError] = useState(null);
 
-  // Helper: convert a DB provider row into selectedPlace format
   function providerToPlace(provider) {
     return {
       name: provider.name,
@@ -65,7 +43,6 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     };
   }
 
-  // Read URL params and pre-fill/auto-select on mount
   const urlParamsDone = useRef(false);
   useEffect(() => {
     if (urlParamsDone.current) return;
@@ -77,7 +54,6 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
 
     if (!name && !providerId) return;
 
-    // If we have a provider_id, load it directly
     if (providerId) {
       supabase
         .from('providers')
@@ -100,12 +76,8 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
       return;
     }
 
-    // Pre-fill search input with name
-    if (name) {
-      setValue(name);
-    }
+    if (name) setValue(name);
 
-    // No provider_id but have name+city — search our DB first
     if (name && city) {
       supabase
         .from('providers')
@@ -120,57 +92,55 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
             setExistingProvider(data[0]);
             setValue(data[0].name);
           }
-          // If no DB results or multiple, let Google Places handle it via the input
         });
     }
-  }, []);
-
-  useEffect(() => {
-    function init() {
-      const places = window.google?.maps?.places;
-      if (!places?.AutocompleteService) return false;
-      serviceRef.current = new places.AutocompleteService();
-      sessionTokenRef.current = new places.AutocompleteSessionToken();
-      setReady(true);
-      return true;
-    }
-    if (init()) return;
-    loadGoogleMaps().catch(() => {});
-    const interval = setInterval(() => { if (init()) clearInterval(interval); }, 200);
-    return () => clearInterval(interval);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setSuggestions([]);
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setResults([]);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Pre-fill search from URL params forwarded by parent
   const prefillDone = useRef(false);
   useEffect(() => {
-    if (initialQuery && ready && !prefillDone.current) {
+    if (initialQuery && !prefillDone.current) {
       prefillDone.current = true;
       handleInputChange(initialQuery);
     }
-  }, [initialQuery, ready]);
+  }, [initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check Supabase for existing provider when place is selected
   useEffect(() => {
-    if (!selectedPlace?.placeId) {
+    if (!selectedPlace) {
       setExistingProvider(null);
       setProviderStatus(null);
       return;
     }
 
     async function check() {
-      const { data: provider } = await supabase
-        .from('providers')
-        .select('*')
-        .eq('google_place_id', selectedPlace.placeId)
-        .maybeSingle();
+      let provider = null;
+
+      if (selectedPlace.placeId) {
+        const { data } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('google_place_id', selectedPlace.placeId)
+          .maybeSingle();
+        provider = data;
+      }
+
+      if (!provider && selectedPlace.name) {
+        const { data } = await supabase
+          .from('providers')
+          .select('*')
+          .ilike('name', selectedPlace.name)
+          .ilike('city', selectedPlace.city || '')
+          .eq('is_active', true)
+          .limit(1);
+        provider = data?.[0] || null;
+      }
 
       if (!provider) {
         setProviderStatus('new');
@@ -191,67 +161,32 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
       }
     }
     check();
-  }, [selectedPlace?.placeId]);
+  }, [selectedPlace]);
 
   function handleInputChange(input) {
     setValue(input);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (input.length < 2 || !serviceRef.current) { setSuggestions([]); return; }
+    if (input.length < 2) { setResults([]); return; }
 
-    debounceRef.current = setTimeout(() => {
-      // NOTE: Google Places Autocomplete only accepts ONE primary type
-      // (`establishment` | `address` | `geocode`) or a single collection
-      // (`(cities)` | `(regions)`). Passing sub-types like `health`/`spa`
-      // here causes INVALID_REQUEST and silently returns no suggestions.
-      // We filter down to med-spa-ish places post-hoc via the warning below.
-      serviceRef.current.getPlacePredictions(
-        {
-          input,
-          types: ['establishment'],
-          componentRestrictions: { country: 'us' },
-          sessionToken: sessionTokenRef.current,
-        },
-        (predictions, status) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            setSuggestions(predictions);
-          } else {
-            setSuggestions([]);
-          }
-        }
-      );
+    debounceRef.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from('providers')
+        .select('id, name, city, state, address, lat, lng, phone, website, google_place_id')
+        .ilike('name', `%${input}%`)
+        .eq('is_active', true)
+        .limit(8);
+      setResults(data || []);
     }, 300);
   }
 
-  const handleSelect = useCallback((suggestion) => {
-    setValue(suggestion.description);
-    setSuggestions([]);
-
-    if (!detailsServiceRef.current) {
-      const el = document.createElement('div');
-      detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
-    }
-
-    detailsServiceRef.current.getDetails(
-      {
-        placeId: suggestion.place_id,
-        fields: [
-          'name', 'address_components', 'formatted_address', 'formatted_phone_number',
-          'website', 'place_id', 'geometry',
-          'opening_hours', 'photos', 'rating', 'user_ratings_total', 'price_level', 'types', 'url',
-        ],
-        sessionToken: sessionTokenRef.current,
-      },
-      (place, status) => {
-        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-          setSelectedPlace(extractPlaceData(place));
-        }
-      }
-    );
-  }, []);
+  function handleSelect(provider) {
+    setValue(provider.name);
+    setResults([]);
+    setSelectedPlace(providerToPlace(provider));
+  }
 
   function handleConfirm() {
-    onComplete(selectedPlace, existingProvider, importPhotos);
+    onComplete(selectedPlace, existingProvider, false);
   }
 
   function handleManualSubmit(e) {
@@ -279,20 +214,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
     onComplete(place, null, false);
   }
 
-  const mapsKey     = import.meta.env.VITE_GOOGLE_PLACES_KEY;
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
-  const photos = selectedPlace?.googlePhotos || [];
-  const hasPhotos = photos.length > 0;
-
-  // Soft flag if the selected place doesn't look like a med spa / clinic.
-  // We still let the user continue — some legitimate practices are
-  // classified oddly by Google (e.g., a dermatology office showing up
-  // only as `point_of_interest`), but we want to nudge them if they
-  // accidentally picked a restaurant or retail store.
-  const selectedTypes = selectedPlace?.googleTypes || [];
-  const looksLikeMedSpa =
-    selectedTypes.length === 0 ||
-    selectedTypes.some((t) => MED_SPA_TYPES.includes(t));
 
   return (
     <div>
@@ -319,32 +241,31 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                 type="text"
                 value={value}
                 onChange={(e) => handleInputChange(e.target.value)}
-                placeholder={ready ? 'Search your practice name...' : 'Loading...'}
+                placeholder="Search your practice name..."
                 className="w-full pl-10 pr-10 py-3.5 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition text-sm"
               />
               {value.length >= 2 && (
-                <button type="button" onClick={() => { setValue(''); setSuggestions([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-0.5">
+                <button type="button" onClick={() => { setValue(''); setResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-0.5">
                   <X size={14} />
                 </button>
               )}
             </div>
 
-            {suggestions.length > 0 && (
+            {results.length > 0 && (
               <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                {suggestions.map((s) => (
-                  <li key={s.place_id}>
-                    <button type="button" onClick={() => handleSelect(s)} className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3">
+                {results.map((p) => (
+                  <li key={p.id}>
+                    <button type="button" onClick={() => handleSelect(p)} className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3">
                       <MapPin size={14} className="text-text-secondary mt-0.5 flex-shrink-0" />
                       <div>
-                        <span className="text-sm text-text-primary font-medium block">{s.structured_formatting?.main_text}</span>
-                        <span className="text-xs text-text-secondary">{s.structured_formatting?.secondary_text}</span>
+                        <span className="text-sm text-text-primary font-medium block">{p.name}</span>
+                        <span className="text-xs text-text-secondary">{[p.city, p.state].filter(Boolean).join(', ')}</span>
                       </div>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-            <p className="text-[10px] text-text-secondary/50 mt-1.5">Powered by Google</p>
           </div>
 
           {!showManualForm ? (
@@ -392,9 +313,6 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
               </div>
             </div>
 
-            {/* Location thumbnail — Mapbox Static API.
-                Mapbox uses lng,lat order (reversed from Google).
-                pin-s+E8347A places a small pink marker at the practice. */}
             {selectedPlace.lat && selectedPlace.lng && mapboxToken && (
               <img
                 src={
@@ -409,67 +327,7 @@ export default function Step1FindPractice({ onComplete, initialQuery = '' }) {
                 loading="lazy"
               />
             )}
-
-            {/* Photo strip */}
-            {hasPhotos && (
-              <div className="mt-3">
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                  {photos.map((photo, i) => (
-                    <img
-                      key={i}
-                      src={photo.displayUrl}
-                      alt={`${selectedPlace.name} photo ${i + 1}`}
-                      className="w-[120px] h-[80px] rounded-lg object-cover flex-shrink-0"
-                      loading="lazy"
-                    />
-                  ))}
-                </div>
-                <p className="text-[10px] text-text-secondary/50 mt-1.5">Photos from Google &middot; Powered by Google</p>
-              </div>
-            )}
-
-            {/* Import photos checkbox */}
-            {hasPhotos && (
-              <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={importPhotos}
-                  onChange={(e) => setImportPhotos(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-rose-accent focus:ring-rose-accent/20"
-                />
-                <span className="text-sm text-text-primary">Import these photos to my Know Before You Glow profile</span>
-              </label>
-            )}
-
-            {/* Rating preview */}
-            {selectedPlace.googleRating && (
-              <div className="flex items-center gap-1.5 mt-3 text-sm text-text-secondary">
-                <Star size={14} className="text-amber-400 fill-amber-400" />
-                <span className="font-medium text-text-primary">{selectedPlace.googleRating}</span>
-                {selectedPlace.googleReviewCount && (
-                  <span>&middot; {selectedPlace.googleReviewCount.toLocaleString()} Google reviews</span>
-                )}
-              </div>
-            )}
           </div>
-
-          {/* Med-spa type warning (soft — allows proceeding) */}
-          {!looksLikeMedSpa && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-amber-800 font-medium">
-                    This doesn&apos;t look like a med spa or clinic.
-                  </p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Are you sure this is the right business? You can still
-                    continue if this is your practice.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Status banners */}
           {providerStatus === 'new' && (
