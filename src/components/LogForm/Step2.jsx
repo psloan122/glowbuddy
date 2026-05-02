@@ -1,31 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState } from 'react';
 import { PROVIDER_TYPES, US_STATES } from '../../lib/constants';
 import PlacesSearch from '../PlacesSearch';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 
 const INPUT_CLASSES =
   'w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
 export default function Step2({ formData, setFormData, prefilledProvider }) {
-  // Reactive check: detect Google Maps even if it loads after mount
-  const [hasPlaces, setHasPlaces] = useState(
-    () => !!window.google?.maps?.places
-  );
-
-  useEffect(() => {
-    if (hasPlaces) return;
-    loadGoogleMaps().catch(() => {});
-    const interval = setInterval(() => {
-      if (window.google?.maps?.places) {
-        setHasPlaces(true);
-        clearInterval(interval);
-      }
-    }, 200);
-    return () => clearInterval(interval);
-  }, [hasPlaces]);
   const [selectedPlace, setSelectedPlace] = useState(() => {
-    // Pre-filled from provider page — show confirmed card immediately
     if (prefilledProvider) {
       return {
         name: prefilledProvider.name || formData.providerName,
@@ -38,7 +19,6 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
         placeId: prefilledProvider.google_place_id || formData.googlePlaceId,
       };
     }
-    // Existing Google Place ID from URL params or receipt parse
     if (formData.googlePlaceId) {
       return {
         name: formData.providerName,
@@ -51,7 +31,6 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
         placeId: formData.googlePlaceId,
       };
     }
-    // Provider name from URL without place_id — also show as pre-selected
     if (formData.providerName && formData.city) {
       return {
         name: formData.providerName,
@@ -66,56 +45,6 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
     }
     return null;
   });
-
-  // Fallback state for when Places API is not available
-  const [providerSuggestions, setProviderSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const wrapperRef = useRef(null);
-
-  // Close dropdown on outside click (fallback mode)
-  useEffect(() => {
-    if (hasPlaces) return;
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Fallback autocomplete from Supabase
-  useEffect(() => {
-    if (hasPlaces) return;
-    async function fetchProviders() {
-      if (formData.providerName.length < 2) {
-        setProviderSuggestions([]);
-        return;
-      }
-
-      const { data } = await supabase
-        .from('providers')
-        .select('name, city, state')
-        .ilike('name', `%${formData.providerName}%`)
-        .limit(8);
-
-      setProviderSuggestions(data || []);
-      setShowSuggestions(true);
-    }
-
-    const timeout = setTimeout(fetchProviders, 300);
-    return () => clearTimeout(timeout);
-  }, [formData.providerName]);
-
-  function selectFallbackProvider(provider) {
-    setFormData((prev) => ({
-      ...prev,
-      providerName: provider.name,
-      city: provider.city || prev.city,
-      state: provider.state || prev.state,
-    }));
-    setShowSuggestions(false);
-  }
 
   function handlePlaceSelect(placeData) {
     setSelectedPlace(placeData);
@@ -163,59 +92,13 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
       </p>
 
       <div className="space-y-5">
-        {/* Provider search — Google Places or fallback */}
-        {hasPlaces ? (
-          <div className="relative">
-            <PlacesSearch
-              onSelect={handlePlaceSelect}
-              onClear={handlePlaceClear}
-              selectedPlace={selectedPlace}
-            />
-          </div>
-        ) : (
-          <div ref={wrapperRef} className="relative">
-            <label className="block text-sm font-medium text-text-primary mb-1.5">
-              Provider Name <span className="text-rose-accent">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Clinic or provider name"
-              value={formData.providerName}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  providerName: e.target.value,
-                }))
-              }
-              onFocus={() => {
-                if (providerSuggestions.length > 0) setShowSuggestions(true);
-              }}
-              className={INPUT_CLASSES}
-            />
-            {showSuggestions && providerSuggestions.length > 0 && (
-              <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                {providerSuggestions.map((provider, i) => (
-                  <li key={`${provider.name}-${i}`}>
-                    <button
-                      type="button"
-                      onClick={() => selectFallbackProvider(provider)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-rose-light/50 transition-colors"
-                    >
-                      <span className="text-sm text-text-primary font-medium">
-                        {provider.name}
-                      </span>
-                      {provider.city && provider.state && (
-                        <span className="text-xs text-text-secondary ml-2">
-                          {provider.city}, {provider.state}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        <div className="relative">
+          <PlacesSearch
+            onSelect={handlePlaceSelect}
+            onClear={handlePlaceClear}
+            selectedPlace={selectedPlace}
+          />
+        </div>
 
         {/* Provider type — always manual */}
         <div>
@@ -241,7 +124,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
           </select>
         </div>
 
-        {/* City — auto-filled by Places, editable */}
+        {/* City — auto-filled by search, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             City <span className="text-rose-accent">*</span>
@@ -257,7 +140,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
           />
         </div>
 
-        {/* State — auto-filled by Places, editable */}
+        {/* State — auto-filled by search, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             State <span className="text-rose-accent">*</span>
@@ -278,7 +161,7 @@ export default function Step2({ formData, setFormData, prefilledProvider }) {
           </select>
         </div>
 
-        {/* Zip code — auto-filled by Places, editable */}
+        {/* Zip code — auto-filled by search, editable */}
         <div>
           <label className="block text-sm font-medium text-text-primary mb-1.5">
             Zip Code

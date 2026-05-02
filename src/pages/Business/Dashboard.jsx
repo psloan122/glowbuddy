@@ -24,8 +24,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { formatPricingUnit } from '../../utils/formatPricingUnit';
 import { AuthContext } from '../../App';
-import { extractPlaceData } from '../../lib/places';
-import { loadGoogleMaps } from '../../lib/loadGoogleMaps';
 import {
   PROCEDURE_CATEGORIES,
   TREATMENT_AREAS,
@@ -138,8 +136,6 @@ export default function Dashboard() {
   const [dashReviews, setDashReviews] = useState([]);
 
   // Settings state
-  const [refreshing, setRefreshing] = useState(false);
-  const detailsServiceRef = useRef(null);
 
   useEffect(() => {
     document.title = 'Provider Dashboard | Know Before You Glow';
@@ -420,93 +416,6 @@ export default function Dashboard() {
       return;
     }
     fetchPricing();
-  }
-
-  // --- Settings: Refresh from Google ---
-
-  async function handleRefreshFromGoogle() {
-    if (!provider?.google_place_id) return;
-    setRefreshing(true);
-
-    try {
-      // Load Google Maps if not loaded
-      if (!window.google?.maps?.places) {
-        await loadGoogleMaps();
-        await new Promise((r) => {
-          const check = () => window.google?.maps?.places ? r() : setTimeout(check, 100);
-          check();
-        });
-      }
-      if (!detailsServiceRef.current) {
-        const el = document.createElement('div');
-        detailsServiceRef.current = new window.google.maps.places.PlacesService(el);
-      }
-
-      const place = await new Promise((resolve, reject) => {
-        detailsServiceRef.current.getDetails(
-          {
-            placeId: provider.google_place_id,
-            fields: [
-              'name', 'address_components', 'formatted_address', 'formatted_phone_number',
-              'website', 'place_id', 'geometry',
-              'opening_hours', 'photos', 'rating', 'user_ratings_total', 'price_level', 'types', 'url',
-            ],
-          },
-          (result, status) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK && result) {
-              resolve(result);
-            } else {
-              reject(new Error('Places lookup failed'));
-            }
-          }
-        );
-      });
-
-      const placeData = extractPlaceData(place);
-
-      // Update Google metadata only (don't overwrite custom fields)
-      const { data } = await supabase
-        .from('providers')
-        .update({
-          google_rating: placeData.googleRating,
-          google_review_count: placeData.googleReviewCount,
-          google_maps_url: placeData.googleMapsUrl,
-          google_price_level: placeData.googlePriceLevel,
-          hours_text: placeData.hoursText || null,
-          google_synced_at: new Date().toISOString(),
-        })
-        .eq('id', provider.id)
-        .select()
-        .single();
-
-      if (data) setProvider(data);
-
-      // Import Google photos directly if none exist yet
-      if (!provider.photos_imported && placeData.googlePhotos.length > 0) {
-        try {
-          const photoRows = placeData.googlePhotos.map((p) => ({
-            provider_id: provider.id,
-            url: p.displayUrl,
-            source: 'google',
-            sort_order: p.index,
-          }));
-          await supabase.from('provider_photos').upsert(photoRows, {
-            onConflict: 'provider_id,url',
-            ignoreDuplicates: true,
-          });
-          await supabase
-            .from('providers')
-            .update({ photos_imported: true })
-            .eq('id', provider.id);
-        } catch {
-          // Photo import is non-blocking during refresh
-        }
-      }
-    } catch {
-      // Refresh is non-blocking — state is already set
-    }
-
-    setRefreshing(false);
   }
 
   // --- Dispute Resolution Handler ---
@@ -1569,18 +1478,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleRefreshFromGoogle}
-                  disabled={refreshing}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-200 text-text-primary px-4 py-2 rounded-md text-[13px] font-medium hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                  {refreshing ? 'Refreshing...' : 'Refresh from Google'}
-                </button>
-
-                <p className="text-xs text-text-secondary">
-                  Updates your Google rating, review count, and hours. Does not overwrite your tagline, about, or Instagram.
-                </p>
               </div>
             </div>
           )}

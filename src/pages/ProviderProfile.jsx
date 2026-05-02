@@ -24,8 +24,6 @@ import { AuthContext } from '../App';
 import { VALID_STATE_CODES } from '../lib/constants';
 import { setPageMeta } from '../lib/seo';
 import { providerSlugFromParts, slugToDisplayName } from '../lib/slugify';
-import { extractPlaceData } from '../lib/places';
-import { loadGoogleMaps } from '../lib/loadGoogleMaps';
 import DisputeModal from '../components/DisputeModal';
 import ReviewModal from '../components/ReviewModal';
 import ProviderAvatar from '../components/ProviderAvatar';
@@ -320,138 +318,22 @@ export default function ProviderProfile() {
       .then(({ count }) => setPageViews(count || 0));
   }, [loading, isClaimed, slug]);
 
-  // 5. Auto-fetch Google Places for unclaimed providers
+  // 5. Populate googleData from DB-cached provider row
   useEffect(() => {
-    if (loading) return;
-    // Skip if provider is claimed and has fresh Google data
-    if (provider?.is_claimed) return;
-    if (
-      provider?.google_synced_at &&
-      Date.now() - new Date(provider.google_synced_at).getTime() < SEVEN_DAYS_MS
-    ) {
-      // Use cached Google data from provider row
-      setGoogleData({
-        name: provider.name,
-        city: provider.city,
-        state: provider.state,
-        phone: provider.phone,
-        website: provider.website,
-        googleRating: provider.google_rating,
-        googleReviewCount: provider.google_review_count,
-        googleMapsUrl: provider.google_maps_url,
-        hoursText: provider.hours_text,
-        googlePhotos: [],
-      });
-      return;
-    }
-
-    // Derive search query from slug or community data
-    const providerName =
-      provider?.name ||
-      (communityData.length > 0 ? communityData[0].provider_name : null);
-    const city =
-      provider?.city ||
-      (communityData.length > 0 ? communityData[0].city : null);
-    const state =
-      provider?.state ||
-      (communityData.length > 0 ? communityData[0].state : null);
-
-    if (!providerName) {
-      // Only have the slug — use display name
-      const parsed = parseSlug(slug);
-      if (parsed.displayName) {
-        fetchGooglePlaces(parsed.displayName, null, parsed.state);
-      }
-      return;
-    }
-
-    fetchGooglePlaces(providerName, city, state);
-  }, [loading, provider, communityData, slug]);
-
-  async function fetchGooglePlaces(name, city, state) {
-    // Load Google Maps if not already loaded
-    if (!window.google?.maps?.places) {
-      try {
-        await loadGoogleMaps();
-        // Wait a tick for places library to init
-        await new Promise((r) => setTimeout(r, 100));
-      } catch { return; }
-    }
-    if (!window.google?.maps?.places) return;
-
-    const query = [name, city, state].filter(Boolean).join(' ');
-    const mapDiv = document.createElement('div');
-    const service = new window.google.maps.places.PlacesService(mapDiv);
-
-    service.textSearch({ query, type: 'establishment' }, (results, status) => {
-      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results?.length) return;
-
-      const topResult = results[0];
-      service.getDetails(
-        {
-          placeId: topResult.place_id,
-          fields: [
-            'name',
-            'formatted_address',
-            'formatted_phone_number',
-            'website',
-            'rating',
-            'user_ratings_total',
-            'url',
-            'photos',
-            'opening_hours',
-            'address_components',
-            'geometry',
-            'place_id',
-          ],
-        },
-        (place, detailStatus) => {
-          if (detailStatus !== window.google.maps.places.PlacesServiceStatus.OK || !place) return;
-
-          const data = extractPlaceData(place);
-          setGoogleData(data);
-
-          // Cache to providers table (best effort)
-          cacheGoogleData(data);
-        }
-      );
+    if (loading || !provider) return;
+    setGoogleData({
+      name: provider.name,
+      city: provider.city,
+      state: provider.state,
+      phone: provider.phone,
+      website: provider.website,
+      googleRating: provider.google_rating,
+      googleReviewCount: provider.google_review_count,
+      googleMapsUrl: provider.google_maps_url,
+      hoursText: provider.hours_text,
+      googlePhotos: [],
     });
-  }
-
-  async function cacheGoogleData(data) {
-    try {
-      const row = {
-        slug,
-        name: data.name,
-        city: data.city || undefined,
-        state: data.state || undefined,
-        phone: data.phone || undefined,
-        website: data.website || undefined,
-        lat: data.lat,
-        lng: data.lng,
-        google_place_id: data.placeId || undefined,
-        google_rating: data.googleRating,
-        google_review_count: data.googleReviewCount,
-        google_maps_url: data.googleMapsUrl || undefined,
-        hours_text: data.hoursText || undefined,
-        google_synced_at: new Date().toISOString(),
-        is_claimed: false,
-      };
-
-      // Remove undefined keys
-      Object.keys(row).forEach((k) => row[k] === undefined && delete row[k]);
-
-      if (provider?.id) {
-        // Update existing
-        await supabase.from('providers').update(row).eq('id', provider.id);
-      } else {
-        // Insert new unclaimed row
-        await supabase.from('providers').insert(row);
-      }
-    } catch {
-      // Best effort — don't break the page
-    }
-  }
+  }, [loading, provider]);
 
   // Check ownership
   useEffect(() => {
