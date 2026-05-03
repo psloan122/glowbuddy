@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AddProviderModal from './AddProviderModal';
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
 const INPUT_CLASSES =
   'w-full px-4 py-3 pl-10 rounded-xl border border-gray-200 focus:border-rose-accent focus:ring-2 focus:ring-rose-accent/20 outline-none transition';
 
@@ -91,37 +93,93 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const { data } = await supabase
+        const { data: dbResults } = await supabase
           .from('providers')
-          .select('id, name, city, state, slug, google_place_id, address, phone, website, lat, lng')
+          .select('id, name, city, state, slug, google_place_id, address, phone, website, provider_type, lat, lng')
           .ilike('name', `%${input}%`)
-          .limit(8);
+          .or('is_active.eq.true,is_active.is.null')
+          .order('google_rating', { ascending: false, nullsFirst: false })
+          .limit(5);
 
-        setResults(data || []);
+        let mapboxResults = [];
+        if (MAPBOX_TOKEN) {
+          try {
+            const res = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(input)}.json` +
+              `?types=poi&country=US&limit=5&access_token=${MAPBOX_TOKEN}`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              mapboxResults = (data.features || []).map((f) => ({
+                id: null,
+                name: f.text || '',
+                address: f.properties?.address || f.place_name?.split(',')[0] || '',
+                city: f.context?.find((c) => c.id.startsWith('place'))?.text || '',
+                state: f.context?.find((c) => c.id.startsWith('region'))?.short_code?.replace('US-', '') || '',
+                zip: f.context?.find((c) => c.id.startsWith('postcode'))?.text || '',
+                lat: f.center?.[1] || null,
+                lng: f.center?.[0] || null,
+                phone: null,
+                website: null,
+                provider_type: null,
+                source: 'mapbox',
+                _mapboxId: f.id,
+              }));
+            }
+          } catch { /* Mapbox unavailable — DB results only */ }
+        }
+
+        const dbNames = new Set((dbResults || []).map((r) => r.name.toLowerCase().trim()));
+        const uniqueMapbox = mapboxResults.filter((r) => !dbNames.has(r.name.toLowerCase().trim()));
+
+        const merged = [
+          ...(dbResults || []).map((r) => ({ ...r, source: 'database' })),
+          ...uniqueMapbox,
+        ].slice(0, 8);
+
+        setResults(merged);
       } catch {
         setResults([]);
       }
     }, 200);
   }
 
-  function handleSelect(provider) {
-    setValue(provider.name);
+  function handleSelect(result) {
+    setValue(result.name);
     setResults([]);
 
-    onSelect({
-      name: provider.name,
-      formattedAddress: provider.address || [provider.city, provider.state].filter(Boolean).join(', '),
-      address: provider.address || '',
-      city: provider.city || '',
-      state: provider.state || '',
-      zipCode: provider.zip_code || '',
-      phone: provider.phone || '',
-      website: provider.website || '',
-      placeId: provider.google_place_id || '',
-      lat: provider.lat || null,
-      lng: provider.lng || null,
-      _providerSlug: provider.slug,
-    });
+    if (result.source === 'database') {
+      onSelect({
+        name: result.name,
+        formattedAddress: result.address || [result.city, result.state].filter(Boolean).join(', '),
+        address: result.address || '',
+        city: result.city || '',
+        state: result.state || '',
+        zipCode: result.zip_code || '',
+        phone: result.phone || '',
+        website: result.website || '',
+        placeId: result.google_place_id || '',
+        lat: result.lat || null,
+        lng: result.lng || null,
+        _providerSlug: result.slug,
+        _providerId: result.id,
+      });
+    } else {
+      onSelect({
+        name: result.name,
+        formattedAddress: [result.address, result.city, result.state].filter(Boolean).join(', '),
+        address: result.address || '',
+        city: result.city || '',
+        state: result.state || '',
+        zipCode: result.zip || '',
+        phone: '',
+        website: '',
+        placeId: '',
+        lat: result.lat || null,
+        lng: result.lng || null,
+        _source: 'mapbox',
+      });
+    }
   }
 
   function handleClear() {
@@ -211,7 +269,7 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
           type="text"
           value={value}
           onChange={(e) => handleInputChange(e.target.value)}
-          placeholder="Search clinic or spa name..."
+          placeholder="Search for your provider..."
           className={INPUT_CLASSES}
         />
         {value.length >= 2 && (
@@ -231,28 +289,40 @@ export default function PlacesSearch({ onSelect, onClear, selectedPlace }) {
 
       {results.length > 0 && (
         <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
-          {results.map((provider) => (
-            <li key={provider.id}>
-              <button
-                type="button"
-                onClick={() => handleSelect(provider)}
-                className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3"
-              >
-                <MapPin
-                  size={14}
-                  className="text-text-secondary mt-0.5 flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-text-primary font-medium block truncate">
-                    {provider.name}
-                  </span>
-                  <span className="text-xs text-text-secondary">
-                    {[provider.city, provider.state].filter(Boolean).join(', ')}
-                  </span>
-                </div>
-              </button>
-            </li>
-          ))}
+          {results.map((result, i) => {
+            const isDb = result.source === 'database';
+            return (
+              <li key={isDb ? result.id : `mapbox-${result._mapboxId || i}`}>
+                <button
+                  type="button"
+                  onClick={() => handleSelect(result)}
+                  className="w-full text-left px-4 py-3 hover:bg-rose-light/50 transition-colors flex items-start gap-3"
+                >
+                  <span
+                    className={`mt-1.5 flex-shrink-0 block w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${
+                      isDb ? 'bg-rose-accent' : 'bg-gray-400'
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-text-primary font-medium block truncate">
+                      {result.name}
+                    </span>
+                    <span className="text-xs text-text-secondary block truncate">
+                      {isDb
+                        ? [result.city, result.state].filter(Boolean).join(', ') +
+                          (result.provider_type ? ` · ${result.provider_type}` : '')
+                        : result.address || [result.city, result.state].filter(Boolean).join(', ')}
+                    </span>
+                    <span className={`text-[11px] font-medium mt-0.5 block ${
+                      isDb ? 'text-verified' : 'text-text-secondary'
+                    }`}>
+                      {isDb ? '✓ Already listed' : '+ Add to GlowBuddy'}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 

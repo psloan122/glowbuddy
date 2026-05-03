@@ -75,7 +75,8 @@ const INITIAL_FORM_DATA = {
   notes: '',
   anonymous: true,
   giveawayEmail: '',
-  // Google Places fields
+  // Provider lookup fields
+  providerId: null,
   googlePlaceId: '',
   providerAddress: '',
   providerPhone: '',
@@ -446,13 +447,35 @@ export default function Log() {
       // Calculate trust score
       const trustScore = await calculateTrustScore(user?.id || null);
 
-      // Auto-create or update provider if we have a google_place_id
-      if (formData.googlePlaceId) {
-        const { data: existingProvider } = await supabase
-          .from('providers')
-          .select('id, lat, lng')
-          .eq('google_place_id', formData.googlePlaceId)
-          .maybeSingle();
+      // Auto-create or update provider if we can identify one
+      const hasProviderData = formData.providerName && formData.city && formData.state;
+      if (formData.providerId || formData.googlePlaceId || hasProviderData) {
+        let existingProvider = null;
+
+        if (formData.providerId) {
+          const { data } = await supabase
+            .from('providers')
+            .select('id, lat, lng')
+            .eq('id', formData.providerId)
+            .maybeSingle();
+          existingProvider = data;
+        }
+        if (!existingProvider && formData.googlePlaceId) {
+          const { data } = await supabase
+            .from('providers')
+            .select('id, lat, lng')
+            .eq('google_place_id', formData.googlePlaceId)
+            .maybeSingle();
+          existingProvider = data;
+        }
+        if (!existingProvider && hasProviderData) {
+          const { data } = await supabase
+            .from('providers')
+            .select('id, lat, lng')
+            .eq('slug', slug)
+            .maybeSingle();
+          existingProvider = data;
+        }
 
         const providerRow = {
           name: formData.providerName,
@@ -463,11 +486,8 @@ export default function Log() {
           address: formData.providerAddress || null,
           phone: formData.providerPhone || null,
           website: formData.providerWebsite || null,
-          google_place_id: formData.googlePlaceId,
           is_active: true,
-          // Never overwrite existing coords with null — only include lat/lng when the
-          // form actually has them (Google Places returned geometry). If we let null
-          // through here it silently strips coords from providers that already had them.
+          ...(formData.googlePlaceId ? { google_place_id: formData.googlePlaceId } : {}),
           ...(formData.lat && formData.lng ? { lat: formData.lat, lng: formData.lng } : {}),
         };
 
@@ -480,8 +500,6 @@ export default function Log() {
           await supabase.from('providers').insert(providerRow);
         }
 
-        // Geocode if neither the form submission nor the existing DB record has
-        // coordinates — provider would be invisible on the map otherwise.
         const hasFormCoords = !!(formData.lat && formData.lng);
         const hasDbCoords = !!(existingProvider?.lat && existingProvider?.lng);
         if (!hasFormCoords && !hasDbCoords) {
@@ -495,7 +513,7 @@ export default function Log() {
               await supabase
                 .from('providers')
                 .update({ lat: coords.lat, lng: coords.lng })
-                .eq('google_place_id', formData.googlePlaceId);
+                .eq('slug', slug);
             }
           } catch {
             // Non-blocking — main submission already saved
@@ -505,12 +523,12 @@ export default function Log() {
 
       // Auto-create unclaimed injector profile if user typed a new name
       let resolvedInjectorId = formData.injectorId;
-      if (formData.injectorName && !formData.injectorId && formData.googlePlaceId) {
+      if (formData.injectorName && !formData.injectorId && slug) {
         try {
           const { data: provider } = await supabase
             .from('providers')
             .select('id')
-            .eq('google_place_id', formData.googlePlaceId)
+            .eq('slug', slug)
             .maybeSingle();
           if (provider) {
             const injectorSlug = formData.injectorName
