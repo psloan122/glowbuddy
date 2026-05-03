@@ -385,65 +385,127 @@ export default memo(function GlowMap({
   const activeIdStr = activeId != null ? String(activeId) : '';
   const selectedIdStr = selectedId != null ? String(selectedId) : '';
 
-  // ── HTML markers for priced pins (white pill with price) ────────────
+  // ── HTML markers — pills (zoom < 13) or mini cards (zoom ≥ 13) ─────
   useEffect(() => {
     if (!ready) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
 
     const pricedByKey = new Map();
+    const allByKey = new Map();
     for (const g of pinnedGroups) {
+      allByKey.set(g.key, g);
       if (g.bestPrice != null) pricedByKey.set(g.key, g);
     }
 
-    function syncMarkers() {
-      const visibleKeys = new Set();
-      try {
-        const features = map.queryRenderedFeatures(undefined, { layers: ['priced-pins-ref'] });
-        for (const f of features) {
-          if (f.properties?.key) visibleKeys.add(f.properties.key);
-        }
-      } catch { /* layer not ready yet */ }
+    function attachHandlers(el, g) {
+      el.addEventListener('click', (e) => { e.stopPropagation(); onPinClickRef.current?.(g); });
+      el.addEventListener('mouseenter', () => onPinHoverRef.current?.(g.provider_id, true));
+      el.addEventListener('mouseleave', () => onPinHoverRef.current?.(g.provider_id, false));
+    }
 
-      for (const [key, g] of pricedByKey) {
-        if (!visibleKeys.has(key)) {
-          if (markersRef.current[key]) {
+    function buildPill(g) {
+      const el = document.createElement('div');
+      el.className = 'map-pin-price';
+      el.textContent = fmtShortPrice(g.bestPrice);
+      attachHandlers(el, g);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, -6] })
+        .setLngLat([g.lng, g.lat]).addTo(map);
+      return { marker, el, mode: 'pill' };
+    }
+
+    function buildCard(g) {
+      const el = document.createElement('div');
+      el.className = 'map-mini-card';
+      const inner = document.createElement('div');
+      inner.className = 'map-mini-card-inner';
+      const avatar = document.createElement('div');
+      avatar.className = 'map-mini-card-avatar';
+      avatar.textContent = providerInitials(g.provider_name);
+      const body = document.createElement('div');
+      body.className = 'map-mini-card-body';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'map-mini-card-name';
+      nameEl.textContent = g.provider_name;
+      body.appendChild(nameEl);
+      const hasPrice = g.bestPrice != null;
+      const hasRating = g.google_rating != null;
+      if (hasPrice || hasRating) {
+        const meta = document.createElement('div');
+        meta.className = 'map-mini-card-meta';
+        if (hasPrice) {
+          const ps = document.createElement('span');
+          ps.className = 'map-mini-card-price';
+          ps.textContent = fmtShortPrice(g.bestPrice);
+          const unit = POPUP_LABEL_UNIT[g.bestPriceLabel] || '';
+          if (unit) {
+            const u = document.createElement('span');
+            u.className = 'map-mini-card-unit';
+            u.textContent = unit;
+            ps.appendChild(u);
+          }
+          meta.appendChild(ps);
+        }
+        if (hasRating) {
+          const rs = document.createElement('span');
+          rs.className = 'map-mini-card-rating';
+          rs.textContent = '★ ' + Number(g.google_rating).toFixed(1);
+          meta.appendChild(rs);
+        }
+        body.appendChild(meta);
+      }
+      inner.appendChild(avatar);
+      inner.appendChild(body);
+      el.appendChild(inner);
+      attachHandlers(el, g);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, -4] })
+        .setLngLat([g.lng, g.lat]).addTo(map);
+      return { marker, el, mode: 'card' };
+    }
+
+    function syncMarkers() {
+      const isCardMode = map.getZoom() >= 13;
+
+      if (isCardMode) {
+        const bounds = map.getBounds();
+        const visible = new Set();
+        for (const [key, g] of allByKey) {
+          if (bounds.contains([g.lng, g.lat])) visible.add(key);
+        }
+        for (const key of Object.keys(markersRef.current)) {
+          if (!visible.has(key) || markersRef.current[key].mode !== 'card') {
             markersRef.current[key].marker.remove();
             delete markersRef.current[key];
           }
-          continue;
         }
-
-        let entry = markersRef.current[key];
-        if (!entry) {
-          const el = document.createElement('div');
-          el.className = 'map-pin-price';
-          el.textContent = fmtShortPrice(g.bestPrice);
-          el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onPinClickRef.current?.(g);
-          });
-          el.addEventListener('mouseenter', () => onPinHoverRef.current?.(g.provider_id, true));
-          el.addEventListener('mouseleave', () => onPinHoverRef.current?.(g.provider_id, false));
-
-          const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, -6] })
-            .setLngLat([g.lng, g.lat])
-            .addTo(map);
-
-          entry = { marker, el };
-          markersRef.current[key] = entry;
+        for (const key of visible) {
+          if (!markersRef.current[key]) markersRef.current[key] = buildCard(allByKey.get(key));
+          const entry = markersRef.current[key];
+          const g = allByKey.get(key);
+          entry.el.classList.toggle('selected', g.provider_id === activeId);
+          entry.el.classList.toggle('map-pin-dimmed',
+            selectedId != null && g.provider_id !== selectedId && g.provider_id !== highlightedId);
         }
-
-        const isActive = g.provider_id === activeId;
-        entry.el.classList.toggle('selected', isActive);
-        entry.el.classList.toggle('map-pin-dimmed',
-          selectedId != null && g.provider_id !== selectedId && g.provider_id !== highlightedId);
-      }
-
-      for (const key of Object.keys(markersRef.current)) {
-        if (!pricedByKey.has(key)) {
-          markersRef.current[key].marker.remove();
-          delete markersRef.current[key];
+      } else {
+        const visibleKeys = new Set();
+        try {
+          const features = map.queryRenderedFeatures(undefined, { layers: ['priced-pins-ref'] });
+          for (const f of features) { if (f.properties?.key) visibleKeys.add(f.properties.key); }
+        } catch {}
+        for (const key of Object.keys(markersRef.current)) {
+          if (!visibleKeys.has(key) || !pricedByKey.has(key) || markersRef.current[key].mode !== 'pill') {
+            markersRef.current[key].marker.remove();
+            delete markersRef.current[key];
+          }
+        }
+        for (const key of visibleKeys) {
+          if (!pricedByKey.has(key)) continue;
+          if (!markersRef.current[key]) markersRef.current[key] = buildPill(pricedByKey.get(key));
+          const entry = markersRef.current[key];
+          const g = pricedByKey.get(key);
+          entry.el.classList.toggle('selected', g.provider_id === activeId);
+          entry.el.classList.toggle('map-pin-dimmed',
+            selectedId != null && g.provider_id !== selectedId && g.provider_id !== highlightedId);
         }
       }
     }

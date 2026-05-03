@@ -638,3 +638,86 @@ h1, h2, h3, h4 {
   opacity: 0.5;
   pointer-events: none;
 }
+
+/* ── Mini card styles (zoom ≥ 13) ──────────────────────────── */
+
+.map-mini-card {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  position: relative;
+}
+
+.map-mini-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 6px 10px 6px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.map-mini-card-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #E8347A;
+  color: white;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.map-mini-card-body { min-width: 0; }
+
+.map-mini-card-name {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A1A1A;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.map-mini-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.map-mini-card-price { color: #E8347A; font-weight: 700; }
+.map-mini-card-unit  { font-weight: 400; color: #999; margin-left: 1px; }
+.map-mini-card-rating { color: #666; font-weight: 500; }
+
+.map-mini-card:hover,
+.map-mini-card.selected { transform: scale(1.05); z-index: 10; }
+
+.map-mini-card:hover .map-mini-card-inner,
+.map-mini-card.selected .map-mini-card-inner { background: #111; }
+
+.map-mini-card:hover .map-mini-card-name,
+.map-mini-card.selected .map-mini-card-name { color: white; }
+
+.map-mini-card:hover .map-mini-card-price,
+.map-mini-card.selected .map-mini-card-price { color: #FF6BA8; }
+
+.map-mini-card:hover .map-mini-card-unit,
+.map-mini-card.selected .map-mini-card-unit { color: #888; }
+
+.map-mini-card:hover .map-mini-card-rating,
+.map-mini-card.selected .map-mini-card-rating { color: #aaa; }
+
+.map-mini-card.map-pin-dimmed { opacity: 0.5; pointer-events: none; }
