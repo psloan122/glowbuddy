@@ -1102,6 +1102,76 @@ function buildUserWeeklyDigest(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildAdminDailyDigest(data: {
+  totalCount: number
+  newProviderCount: number
+  newPriceCount: number
+  newReviewCount: number
+  providers: { title: string; body: string; slug?: string; source?: string }[]
+  prices: { title: string; body: string }[]
+  reviews: { title: string; body: string; rating?: number }[]
+}): { html: string; text: string } {
+  const sections: string[] = []
+
+  sections.push(`
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Admin Daily Digest
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      ${data.totalCount} unread notification${data.totalCount !== 1 ? 's' : ''} in the last 24 hours
+    </p>`)
+
+  function statRow(label: string, count: number, color: string): string {
+    return `<tr>
+      <td style="padding:8px 0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};">${label}</td>
+      <td style="padding:8px 0;font-size:20px;font-weight:700;color:${color};font-family:${FONT};text-align:right;">${count}</td>
+    </tr>`
+  }
+
+  sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;margin-bottom:20px;">
+      <tr><td style="padding:20px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          ${statRow('New providers', data.newProviderCount, '#2563EB')}
+          ${statRow('New prices', data.newPriceCount, '#059669')}
+          ${statRow('New reviews', data.newReviewCount, '#D97706')}
+        </table>
+      </td></tr>
+    </table>`)
+
+  function notifList(title: string, items: { title: string; body: string; slug?: string }[]): string {
+    if (items.length === 0) return ''
+    const rows = items.map((item) => {
+      const link = item.slug ? `${BASE_URL}/provider/${item.slug}` : ''
+      const nameHtml = link
+        ? `<a href="${link}" style="color:${ACCENT};text-decoration:none;font-weight:600;">${item.title}</a>`
+        : `<span style="font-weight:600;color:${TEXT_PRIMARY};">${item.title}</span>`
+      return `<tr>
+        <td style="padding:6px 0;border-bottom:1px solid #F3F4F6;">
+          <p style="margin:0;font-size:14px;font-family:${FONT};">${nameHtml}</p>
+          ${item.body ? `<p style="margin:2px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};">${item.body}</p>` : ''}
+        </td>
+      </tr>`
+    }).join('')
+
+    return `<p style="margin:0 0 8px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+      ${title}
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+      ${rows}
+    </table>`
+  }
+
+  sections.push(notifList('New Providers', data.providers))
+  sections.push(notifList('New Prices', data.prices))
+  sections.push(notifList('New Reviews', data.reviews))
+  sections.push(ctaButton('Open Admin Dashboard', `${BASE_URL}/admin`))
+
+  const previewText = `${data.totalCount} new notification${data.totalCount !== 1 ? 's' : ''}: ${data.newProviderCount} providers, ${data.newPriceCount} prices, ${data.newReviewCount} reviews`
+  const html = emailWrapper(sections.join(''), previewText)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -1200,6 +1270,14 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
         ? `${localN} new price${localN !== 1 ? 's' : ''} in ${digestData.city} this week`
         : 'Your weekly Glow digest'
       return { ...buildUserWeeklyDigest(digestData), subject }
+    }
+
+    case 'admin_daily_digest': {
+      const digestData = data as Parameters<typeof buildAdminDailyDigest>[0]
+      return {
+        ...buildAdminDailyDigest(digestData),
+        subject: `Admin digest: ${digestData.totalCount} new notification${digestData.totalCount !== 1 ? 's' : ''}`,
+      }
     }
 
     default:

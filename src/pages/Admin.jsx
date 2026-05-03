@@ -6,6 +6,7 @@ import {
   Check,
   X,
   AlertTriangle,
+  Bell,
   Eye,
   Zap,
   ShieldAlert,
@@ -31,6 +32,7 @@ import AdminIntegrationsTab from '../components/AdminIntegrationsTab';
 import AdminInjectorsTab from '../components/AdminInjectorsTab';
 import AdminOutreachTab from '../components/AdminOutreachTab';
 import AdminPendingProviders from '../components/AdminPendingProviders';
+import AdminNotifications from '../components/AdminNotifications';
 import { formatUnitSuffix } from '../utils/formatPricingUnit';
 
 const TABS = [
@@ -51,6 +53,7 @@ const TABS = [
   { key: 'injectors', label: 'Injectors', icon: Users },
   { key: 'outreach', label: 'Outreach', icon: Mail },
   { key: 'pendingProviders', label: 'Pending Providers', icon: Building2 },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
 ];
 
 export default function Admin() {
@@ -194,7 +197,7 @@ export default function Admin() {
   }
 
   async function fetchCounts() {
-    const [pending, disputes, communityDisputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials, pendingProviders] =
+    const [pending, disputes, communityDisputes, receipts, photos, velocity, lowTrust, flaggedReviews, verifications, specials, pendingProviders, unreadNotifications] =
       await Promise.all([
         supabase
           .from('procedures')
@@ -247,6 +250,10 @@ export default function Admin() {
           .select('*', { count: 'exact', head: true })
           .eq('is_active', false)
           .in('verification_method', ['self_submitted', 'user_submitted']),
+        supabase
+          .from('admin_notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_read', false),
       ]);
     setCounts({
       pending: pending.count || 0,
@@ -260,6 +267,7 @@ export default function Admin() {
       verifications: verifications.count || 0,
       specials: specials.count || 0,
       pendingProviders: pendingProviders.count || 0,
+      notifications: unreadNotifications.count || 0,
     });
   }
 
@@ -695,6 +703,9 @@ export default function Admin() {
     }
     if (activeTab === 'pendingProviders') {
       return <AdminPendingProviders />;
+    }
+    if (activeTab === 'notifications') {
+      return <AdminNotifications />;
     }
 
     if (loading) {
