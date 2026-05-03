@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import MapGL, { Source, Layer, NavigationControl, Popup } from 'react-map-gl/mapbox';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Search, X, LocateFixed, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -22,22 +23,8 @@ const DEFAULT_VIEW = { longitude: -98.35, latitude: 39.5, zoom: 4 };
 
 const MAX_UNPRICED_PINS = 50;
 
-const PRICE_COLORS = {
-  great:     '#1D9E75',
-  good:      '#E8347A',
-  high:      '#C8001A',
-  noPrice:   '#B8A89A',
-  highlight: '#111111',
-};
-
-function colorForGroup(group, cityAvg) {
-  if (group.bestPrice == null) return PRICE_COLORS.noPrice;
-  if (!cityAvg || cityAvg <= 0) return PRICE_COLORS.good;
-  const pct = (group.bestPrice - cityAvg) / cityAvg;
-  if (pct < -0.2) return PRICE_COLORS.great;
-  if (pct > 0.2)  return PRICE_COLORS.high;
-  return PRICE_COLORS.good;
-}
+const PIN_PINK = '#E8347A';
+const PIN_DARK = '#111111';
 
 function fmtShortPrice(n) {
   if (n == null || !Number.isFinite(n)) return '';
@@ -105,6 +92,7 @@ export default memo(function GlowMap({
   const initialCenteredRef = useRef(false);
   const lastCityKeyRef     = useRef(null);
   const hoveredPinRef      = useRef(null);
+  const markersRef         = useRef({});
 
   // ── Data refs — updated every render so memo/effects always have
   // fresh data without depending on array-reference equality.
@@ -386,17 +374,88 @@ export default memo(function GlowMap({
         bestPrice: g.bestPrice,
         bestPriceLabel: g.bestPriceLabel,
         rowCount: g.rows?.length || 0,
-        color: colorForGroup(g, cityAvg),
         isPriced: g.bestPrice != null,
         label: g.bestPrice != null ? fmtShortPrice(g.bestPrice) : '',
       },
     })),
-  }), [pinnedGroups, cityAvg]);
+  }), [pinnedGroups]);
 
   // ── Highlight / selection helpers ────────────────────────────────────
   const activeId = selectedId || highlightedId || null;
   const activeIdStr = activeId != null ? String(activeId) : '';
   const selectedIdStr = selectedId != null ? String(selectedId) : '';
+
+  // ── HTML markers for priced pins (white pill with price) ────────────
+  useEffect(() => {
+    if (!ready) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    const pricedByKey = new Map();
+    for (const g of pinnedGroups) {
+      if (g.bestPrice != null) pricedByKey.set(g.key, g);
+    }
+
+    function syncMarkers() {
+      const visibleKeys = new Set();
+      try {
+        const features = map.queryRenderedFeatures(undefined, { layers: ['priced-pins-ref'] });
+        for (const f of features) {
+          if (f.properties?.key) visibleKeys.add(f.properties.key);
+        }
+      } catch { /* layer not ready yet */ }
+
+      for (const [key, g] of pricedByKey) {
+        if (!visibleKeys.has(key)) {
+          if (markersRef.current[key]) {
+            markersRef.current[key].marker.remove();
+            delete markersRef.current[key];
+          }
+          continue;
+        }
+
+        let entry = markersRef.current[key];
+        if (!entry) {
+          const el = document.createElement('div');
+          el.className = 'map-pin-price';
+          el.textContent = fmtShortPrice(g.bestPrice);
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onPinClickRef.current?.(g);
+          });
+          el.addEventListener('mouseenter', () => onPinHoverRef.current?.(g.provider_id, true));
+          el.addEventListener('mouseleave', () => onPinHoverRef.current?.(g.provider_id, false));
+
+          const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, -6] })
+            .setLngLat([g.lng, g.lat])
+            .addTo(map);
+
+          entry = { marker, el };
+          markersRef.current[key] = entry;
+        }
+
+        const isActive = g.provider_id === activeId;
+        entry.el.classList.toggle('selected', isActive);
+        entry.el.classList.toggle('map-pin-dimmed',
+          selectedId != null && g.provider_id !== selectedId && g.provider_id !== highlightedId);
+      }
+
+      for (const key of Object.keys(markersRef.current)) {
+        if (!pricedByKey.has(key)) {
+          markersRef.current[key].marker.remove();
+          delete markersRef.current[key];
+        }
+      }
+    }
+
+    syncMarkers();
+    map.on('moveend', syncMarkers);
+    return () => {
+      map.off('moveend', syncMarkers);
+      for (const entry of Object.values(markersRef.current)) entry.marker.remove();
+      markersRef.current = {};
+    };
+  }, [ready, pinnedGroups, activeId, selectedId, highlightedId]);
 
   // ────────────────────────────────────────────────────────────────────
   return (
@@ -531,23 +590,33 @@ export default memo(function GlowMap({
               clusterMaxZoom={12}
               clusterRadius={60}
             >
+              {/* Cluster glow (soft shadow behind cluster circles) */}
+              <Layer
+                id="cluster-glow"
+                type="circle"
+                filter={['has', 'point_count']}
+                paint={{
+                  'circle-color': PIN_PINK,
+                  'circle-radius': [
+                    'step', ['get', 'point_count'],
+                    24, 10, 29, 50, 34,
+                  ],
+                  'circle-opacity': 0.15,
+                }}
+              />
+
               {/* Cluster circles */}
               <Layer
                 id="clusters"
                 type="circle"
                 filter={['has', 'point_count']}
                 paint={{
-                  'circle-color': '#E8347A',
+                  'circle-color': PIN_PINK,
                   'circle-radius': [
                     'step', ['get', 'point_count'],
                     20, 10, 25, 50, 30,
                   ],
-                  'circle-opacity': [
-                    'case',
-                    ['<', ['get', 'point_count'], 5], 0.7,
-                    0.85,
-                  ],
-                  'circle-stroke-width': 2,
+                  'circle-stroke-width': 2.5,
                   'circle-stroke-color': '#fff',
                 }}
               />
@@ -559,34 +628,37 @@ export default memo(function GlowMap({
                 filter={['has', 'point_count']}
                 layout={{
                   'text-field': '{point_count_abbreviated}',
-                  'text-size': 12,
-                  'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+                  'text-size': 13,
+                  'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
                 }}
                 paint={{ 'text-color': '#fff' }}
               />
 
-              {/* Individual provider pins */}
+              {/* Unpriced provider dots (pink with white border) */}
               <Layer
                 id="provider-pins"
                 type="circle"
-                filter={['!', ['has', 'point_count']]}
+                filter={['all',
+                  ['!', ['has', 'point_count']],
+                  ['==', ['get', 'isPriced'], false],
+                ]}
                 paint={{
                   'circle-color': activeIdStr
                     ? [
                         'case',
                         ['==', ['to-string', ['get', 'provider_id']], activeIdStr],
-                        PRICE_COLORS.highlight,
-                        ['get', 'color'],
+                        PIN_DARK,
+                        PIN_PINK,
                       ]
-                    : ['get', 'color'],
+                    : PIN_PINK,
                   'circle-radius': activeIdStr
                     ? [
                         'case',
                         ['==', ['to-string', ['get', 'provider_id']], activeIdStr],
-                        10, 8,
+                        7, 5,
                       ]
-                    : 8,
-                  'circle-stroke-width': 2,
+                    : 5,
+                  'circle-stroke-width': 2.5,
                   'circle-stroke-color': '#fff',
                   'circle-opacity': selectedIdStr
                     ? [
@@ -598,26 +670,19 @@ export default memo(function GlowMap({
                 }}
               />
 
-              {/* Price labels — visible at zoom 13+ when pins uncluster */}
+              {/* Invisible ref layer for priced pins — used to detect
+                  which priced features are unclustered/visible so we can
+                  create HTML markers for them */}
               <Layer
-                id="provider-prices"
-                type="symbol"
+                id="priced-pins-ref"
+                type="circle"
                 filter={['all',
                   ['!', ['has', 'point_count']],
                   ['==', ['get', 'isPriced'], true],
                 ]}
-                minzoom={13}
-                layout={{
-                  'text-field': ['get', 'label'],
-                  'text-size': 11,
-                  'text-offset': [0, -1.5],
-                  'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-                  'text-allow-overlap': false,
-                }}
                 paint={{
-                  'text-color': '#111',
-                  'text-halo-color': '#fff',
-                  'text-halo-width': 1.5,
+                  'circle-radius': 1,
+                  'circle-opacity': 0,
                 }}
               />
             </Source>
