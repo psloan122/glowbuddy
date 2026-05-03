@@ -992,6 +992,116 @@ function buildUserSubmittedProviderApproved(data: {
   return { html, text: htmlToText(html) }
 }
 
+function buildUserWeeklyDigest(data: {
+  userName?: string
+  city: string
+  state: string
+  localPriceCount: number
+  nationwidePriceCount: number
+  submissionViewCount: number
+}): { html: string; text: string } {
+  const greeting = data.userName ? `Hi ${data.userName},` : 'Hi there,'
+  const sections: string[] = []
+
+  sections.push(`
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};text-align:center;">
+      Your Weekly Glow Digest
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};text-align:center;">
+      ${data.city}, ${data.state}
+    </p>
+    <p style="margin:0 0 28px;font-size:15px;color:${TEXT_PRIMARY};font-family:${FONT};">
+      ${greeting} here&rsquo;s what happened in your area this week.
+    </p>`)
+
+  // Local activity
+  if (data.localPriceCount > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;margin-bottom:16px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 4px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Near you
+          </p>
+          <p style="margin:0 0 4px;font-size:32px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${data.localPriceCount}
+          </p>
+          <p style="margin:0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            new price${data.localPriceCount !== 1 ? 's' : ''} logged in ${data.city} this week
+          </p>
+        </td>
+      </tr>
+    </table>`)
+  } else {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;margin-bottom:16px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 4px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Near you
+          </p>
+          <p style="margin:0 0 4px;font-size:15px;font-weight:600;color:${TEXT_PRIMARY};font-family:${FONT};">
+            No new prices in ${data.city} this week
+          </p>
+          <p style="margin:0;font-size:13px;color:${ACCENT};font-family:${FONT};font-weight:500;">
+            Be the first to log one &rarr;
+          </p>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // Nationwide
+  sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9FAFB;border-radius:12px;margin-bottom:16px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 4px;font-size:13px;color:${TEXT_SECONDARY};font-family:${FONT};text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Nationwide
+          </p>
+          <p style="margin:0 0 4px;font-size:32px;font-weight:700;color:${TEXT_PRIMARY};font-family:${FONT};">
+            ${data.nationwidePriceCount.toLocaleString()}
+          </p>
+          <p style="margin:0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            new price${data.nationwidePriceCount !== 1 ? 's' : ''} shared across the country
+          </p>
+        </td>
+      </tr>
+    </table>`)
+
+  // Submission views
+  if (data.submissionViewCount > 0) {
+    sections.push(`
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ECFDF5;border-radius:12px;margin-bottom:16px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 4px;font-size:13px;color:#059669;font-family:${FONT};text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Your reach
+          </p>
+          <p style="margin:0 0 4px;font-size:32px;font-weight:700;color:#059669;font-family:${FONT};">
+            ${data.submissionViewCount.toLocaleString()}
+          </p>
+          <p style="margin:0;font-size:14px;color:${TEXT_SECONDARY};font-family:${FONT};">
+            time${data.submissionViewCount !== 1 ? 's' : ''} your submissions were viewed this week
+          </p>
+        </td>
+      </tr>
+    </table>`)
+  }
+
+  // CTA
+  const browseUrl = `${BASE_URL}/prices/${data.city.toLowerCase().replace(/\s+/g, '-')}-${data.state.toLowerCase()}`
+  sections.push(ctaButton('Browse Prices', browseUrl))
+
+  const content = sections.join('')
+  const previewText = data.localPriceCount > 0
+    ? `${data.localPriceCount} new price${data.localPriceCount !== 1 ? 's' : ''} in ${data.city} this week`
+    : `${data.nationwidePriceCount.toLocaleString()} new prices shared nationwide this week`
+
+  const html = emailWrapper(content, previewText)
+  return { html, text: htmlToText(html) }
+}
+
 // ─── Template router ───
 
 type TemplateData = Record<string, unknown>
@@ -1082,6 +1192,15 @@ function buildEmail(template: string, data: TemplateData): { html: string; text:
         ...buildUserSubmittedProviderApproved(data as Parameters<typeof buildUserSubmittedProviderApproved>[0]),
         subject: `${data.providerName} is now on Know Before You Glow!`,
       }
+
+    case 'user_weekly_digest': {
+      const digestData = data as Parameters<typeof buildUserWeeklyDigest>[0]
+      const localN = digestData.localPriceCount || 0
+      const subject = localN > 0
+        ? `${localN} new price${localN !== 1 ? 's' : ''} in ${digestData.city} this week`
+        : 'Your weekly Glow digest'
+      return { ...buildUserWeeklyDigest(digestData), subject }
+    }
 
     default:
       throw new Error(`Unknown email template: ${template}`)
