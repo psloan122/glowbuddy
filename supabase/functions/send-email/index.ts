@@ -1102,6 +1102,14 @@ function buildUserWeeklyDigest(data: {
   return { html, text: htmlToText(html) }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function buildAdminDailyDigest(data: {
   totalCount: number
   newProviderCount: number
@@ -1143,13 +1151,14 @@ function buildAdminDailyDigest(data: {
     if (items.length === 0) return ''
     const rows = items.map((item) => {
       const link = item.slug ? `${BASE_URL}/provider/${item.slug}` : ''
+      const safeTitle = escapeHtml(item.title)
       const nameHtml = link
-        ? `<a href="${link}" style="color:${ACCENT};text-decoration:none;font-weight:600;">${item.title}</a>`
-        : `<span style="font-weight:600;color:${TEXT_PRIMARY};">${item.title}</span>`
+        ? `<a href="${link}" style="color:${ACCENT};text-decoration:none;font-weight:600;">${safeTitle}</a>`
+        : `<span style="font-weight:600;color:${TEXT_PRIMARY};">${safeTitle}</span>`
       return `<tr>
         <td style="padding:6px 0;border-bottom:1px solid #F3F4F6;">
           <p style="margin:0;font-size:14px;font-family:${FONT};">${nameHtml}</p>
-          ${item.body ? `<p style="margin:2px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};">${item.body}</p>` : ''}
+          ${item.body ? `<p style="margin:2px 0 0;font-size:12px;color:${TEXT_SECONDARY};font-family:${FONT};">${escapeHtml(item.body)}</p>` : ''}
         </td>
       </tr>`
     }).join('')

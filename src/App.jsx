@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useMemo, createContext, useCallback, lazy, Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './lib/supabase';
 import { isOnboarded, syncProcedureTagsToSupabase } from './lib/gating';
 import { syncLocalPrefsToProfile, syncProfileToLocal, claimPendingSubmission, claimAnonymousSubmission } from './lib/auth';
@@ -284,6 +285,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={authValue}>
+      <Analytics />
       <div className="min-h-screen bg-warm-white">
         <ScrollToTop />
         <Navbar />
